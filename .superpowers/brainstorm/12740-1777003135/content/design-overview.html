@@ -1,0 +1,169 @@
+<h2>Desain: AI Studio Hub + Brief Generator</h2>
+<p class="subtitle">Overview sistem — dua komponen utama yang saling terhubung</p>
+
+<div class="section">
+  <div class="label">Komponen 1 — AI Studio Hub (Kanban)</div>
+
+  <div class="mockup">
+    <div class="mockup-header">/ ai/hub — AI Studio Command Center</div>
+    <div class="mockup-body" style="background:#0d0d14;padding:16px;font-family:monospace">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#fff">AI Studio</div>
+          <div style="font-size:10px;color:#555">3 konten aktif · 1 selesai hari ini</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="background:#6c63ff22;border:1px solid #6c63ff;border-radius:6px;padding:5px 12px;font-size:10px;color:#6c63ff;cursor:pointer">+ Konten Baru</div>
+        </div>
+      </div>
+
+      <!-- Kanban -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+
+        <!-- IDE -->
+        <div style="background:#1a1a2e;border-radius:8px;padding:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:9px;font-weight:700;color:#6c63ff;text-transform:uppercase;letter-spacing:1px">Ide</div>
+            <div style="background:#6c63ff33;border-radius:10px;padding:1px 6px;font-size:8px;color:#6c63ff">2</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="background:#0d0d14;border:1px solid #ffffff11;border-radius:6px;padding:8px">
+              <div style="font-size:8px;color:#ccc;margin-bottom:4px;font-weight:600">Wisata Bali offbeat</div>
+              <div style="font-size:7px;color:#555;margin-bottom:6px">BPI · Instagram</div>
+              <div style="background:#6c63ff;border-radius:4px;padding:3px 6px;font-size:7px;color:#fff;display:inline-block;cursor:pointer">⚡ Generate Brief</div>
+            </div>
+            <div style="background:#0d0d14;border:1px solid #ffffff11;border-radius:6px;padding:8px">
+              <div style="font-size:8px;color:#ccc;margin-bottom:4px;font-weight:600">KOL Campaign</div>
+              <div style="font-size:7px;color:#555;margin-bottom:6px">BSI · TikTok</div>
+              <div style="background:#6c63ff;border-radius:4px;padding:3px 6px;font-size:7px;color:#fff;display:inline-block;cursor:pointer">⚡ Generate Brief</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BRIEF -->
+        <div style="background:#1a1a2e;border-radius:8px;padding:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:9px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:1px">Brief</div>
+            <div style="background:#f59e0b33;border-radius:10px;padding:1px 6px;font-size:8px;color:#f59e0b">1</div>
+          </div>
+          <div style="background:#0d0d14;border:1px solid #f59e0b33;border-radius:6px;padding:8px">
+            <div style="font-size:8px;color:#ccc;margin-bottom:4px;font-weight:600">Tren fashion summer</div>
+            <div style="font-size:7px;color:#555;margin-bottom:4px">BPI · IG + TikTok</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+              <div style="background:#43d9a222;border:1px solid #43d9a244;border-radius:3px;padding:1px 5px;font-size:7px;color:#43d9a2">📐 Design → Reinaldi</div>
+              <div style="background:#f59e0b22;border:1px solid #f59e0b44;border-radius:3px;padding:1px 5px;font-size:7px;color:#f59e0b">🎬 Video → Faizal</div>
+            </div>
+            <div style="background:#ffffff11;border-radius:4px;padding:3px 6px;font-size:7px;color:#888;display:inline-block">✎ Buat Caption</div>
+          </div>
+        </div>
+
+        <!-- CAPTION -->
+        <div style="background:#1a1a2e;border-radius:8px;padding:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:9px;font-weight:700;color:#43d9a2;text-transform:uppercase;letter-spacing:1px">Caption</div>
+            <div style="background:#43d9a233;border-radius:10px;padding:1px 6px;font-size:8px;color:#43d9a2">1</div>
+          </div>
+          <div style="background:#0d0d14;border:1px solid #43d9a233;border-radius:6px;padding:8px">
+            <div style="font-size:8px;color:#ccc;margin-bottom:4px;font-weight:600">Ekonomi digital 2025</div>
+            <div style="font-size:7px;color:#555;margin-bottom:6px">BPI · Instagram</div>
+            <div style="background:#43d9a2;border-radius:4px;padding:3px 6px;font-size:7px;color:#000;font-weight:700;display:inline-block;cursor:pointer">→ Publish</div>
+          </div>
+        </div>
+
+        <!-- SELESAI -->
+        <div style="background:#1a1a2e;border-radius:8px;padding:10px;opacity:0.6">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:1px">Selesai</div>
+            <div style="background:#ffffff11;border-radius:10px;padding:1px 6px;font-size:8px;color:#555">1</div>
+          </div>
+          <div style="background:#0d0d14;border:1px solid #ffffff08;border-radius:6px;padding:8px">
+            <div style="font-size:8px;color:#555;margin-bottom:2px;font-weight:600">Street food Jakarta</div>
+            <div style="font-size:7px;color:#444">BSI · selesai kemarin</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">Komponen 2 — Brief yang diterima tim produksi</div>
+
+  <div class="split">
+    <div class="mockup">
+      <div class="mockup-header">/ bpi-faizal — Inbox Brief Video Faizal</div>
+      <div class="mockup-body" style="background:#0d0d14;padding:12px;font-family:monospace">
+        <div style="display:flex;gap:4px;margin-bottom:10px">
+          <div style="background:#6c63ff22;border:1px solid #6c63ff;border-radius:4px;padding:3px 8px;font-size:8px;color:#6c63ff">Semua (2)</div>
+          <div style="background:transparent;border:1px solid #ffffff22;border-radius:4px;padding:3px 8px;font-size:8px;color:#555">Pending (1)</div>
+          <div style="background:transparent;border:1px solid #ffffff22;border-radius:4px;padding:3px 8px;font-size:8px;color:#555">Done (1)</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="background:#1a1a2e;border:1px solid #f59e0b44;border-radius:6px;padding:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <div style="font-size:9px;font-weight:700;color:#fff">Brief Video: Tren fashion summer</div>
+              <div style="background:#f59e0b22;color:#f59e0b;border-radius:3px;padding:1px 5px;font-size:7px">Pending</div>
+            </div>
+            <div style="font-size:8px;color:#888;line-height:1.5;margin-bottom:6px">
+              Durasi: 30-60 detik · Format: TikTok 9:16<br/>
+              Tone: Fun, energetic, Gen-Z friendly<br/>
+              Hook: "3 tren fashion yang bikin kamu keliatan beda..."
+            </div>
+            <div style="display:flex;gap:4px">
+              <div style="background:#43d9a2;border-radius:3px;padding:2px 8px;font-size:7px;color:#000;font-weight:700">Tandai Selesai</div>
+              <div style="background:#ffffff11;border-radius:3px;padding:2px 8px;font-size:7px;color:#888">Lihat Detail</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mockup">
+      <div class="mockup-header">/ bpi-reinaldi — Inbox Brief Design Reinaldi</div>
+      <div class="mockup-body" style="background:#0d0d14;padding:12px;font-family:monospace">
+        <div style="display:flex;gap:4px;margin-bottom:10px">
+          <div style="background:#6c63ff22;border:1px solid #6c63ff;border-radius:4px;padding:3px 8px;font-size:8px;color:#6c63ff">Semua (1)</div>
+          <div style="background:transparent;border:1px solid #ffffff22;border-radius:4px;padding:3px 8px;font-size:8px;color:#555">Pending (1)</div>
+          <div style="background:transparent;border:1px solid #ffffff22;border-radius:4px;padding:3px 8px;font-size:8px;color:#555">Done (0)</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="background:#1a1a2e;border:1px solid #43d9a244;border-radius:6px;padding:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <div style="font-size:9px;font-weight:700;color:#fff">Brief Design: Tren fashion summer</div>
+              <div style="background:#f59e0b22;color:#f59e0b;border-radius:3px;padding:1px 5px;font-size:7px">Pending</div>
+            </div>
+            <div style="font-size:8px;color:#888;line-height:1.5;margin-bottom:6px">
+              Format: Feed IG 1080×1350<br/>
+              Tone: Minimalis, fashion-forward, warm palette<br/>
+              Elemen: Foto produk, tipografi bold, CTA "Swipe →"
+            </div>
+            <div style="display:flex;gap:4px">
+              <div style="background:#43d9a2;border-radius:3px;padding:2px 8px;font-size:7px;color:#000;font-weight:700">Tandai Selesai</div>
+              <div style="background:#ffffff11;border-radius:3px;padding:2px 8px;font-size:7px;color:#888">Lihat Detail</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">Alur kerja lengkap</div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:#888">
+    <div style="background:#6c63ff22;border:1px solid #6c63ff55;border-radius:6px;padding:6px 12px;color:#6c63ff">1. Buat ide di Hub</div>
+    <div>→</div>
+    <div style="background:#6c63ff22;border:1px solid #6c63ff55;border-radius:6px;padding:6px 12px;color:#6c63ff">2. Klik "Generate Brief"</div>
+    <div>→</div>
+    <div style="background:#f59e0b22;border:1px solid #f59e0b55;border-radius:6px;padding:6px 12px;color:#f59e0b">3. AI buat brief Design + Video</div>
+    <div>→</div>
+    <div style="background:#43d9a222;border:1px solid #43d9a255;border-radius:6px;padding:6px 12px;color:#43d9a2">4. Brief masuk ke halaman Faizal & Reinaldi</div>
+    <div>→</div>
+    <div style="background:#43d9a222;border:1px solid #43d9a255;border-radius:6px;padding:6px 12px;color:#43d9a2">5. Tim tandai selesai → card naik ke Caption</div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:20px">Apakah desain ini sudah sesuai? Atau ada yang perlu diubah?</p>

@@ -1,0 +1,197 @@
+<h2>Account Button — Bottom Sidebar</h2>
+<p class="subtitle">Pilih gaya tampilan account button di bagian bawah sidebar. Klik untuk pilih.</p>
+
+<style>
+  /* Sidebar dark theme variables */
+  .sb { background: #13151c; border: 1px solid #252836; border-radius: 10px; overflow: hidden; width: 200px; height: 340px; display: flex; flex-direction: column; font-family: -apple-system,BlinkMacSystemFont,'Inter',sans-serif; }
+  .sb-logo { height: 57px; border-bottom: 1px solid #252836; display: flex; align-items: center; padding: 0 18px; gap: 10px; flex-shrink: 0; }
+  .sb-logo-icon { width: 18px; height: 18px; background: none; }
+  .sb-logo-text { font-size: 15px; font-weight: 700; color: #fff; }
+  .sb-logo-sub { font-size: 10px; color: #6b7280; }
+  .sb-nav { flex: 1; overflow: hidden; padding: 8px 0; }
+  .sb-section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; padding: 6px 14px 4px; }
+  .sb-item { display: flex; align-items: center; gap: 10px; padding: 9px 14px 9px 38px; font-size: 13px; color: #9ca3af; }
+  .sb-item.active { color: #6c63ff; background: #1e2130; }
+  .sb-dot { width: 14px; height: 14px; background: #6b7280; border-radius: 2px; flex-shrink: 0; }
+  .sb-dot.accent { background: #6c63ff; }
+  .sb-divider { border-top: 1px solid #252836; margin: 4px 0; }
+  /* Avatar */
+  .av { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg,#6c63ff,#a855f7); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .av-sm { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg,#6c63ff,#a855f7); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+
+  /* Options layout */
+  .options-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 12px; }
+  .option { background: #181b25; border: 2px solid #252836; border-radius: 12px; padding: 16px; cursor: pointer; transition: all 0.18s; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .option:hover { border-color: #6c63ff44; }
+  .option.selected { border-color: #6c63ff; background: #1a1d2e; }
+  .option .letter { width: 26px; height: 26px; border-radius: 50%; background: #252836; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #9ca3af; flex-shrink: 0; }
+  .option.selected .letter { background: #6c63ff; color: #fff; }
+  .option-label { font-size: 13px; font-weight: 600; color: #fff; text-align: center; }
+  .option-desc { font-size: 11px; color: #6b7280; text-align: center; line-height: 1.5; }
+
+  /* Popup preview */
+  .popup { position: absolute; bottom: 52px; left: 8px; right: 8px; background: #1e2130; border: 1px solid #252836; border-radius: 8px; box-shadow: 0 -8px 24px rgba(0,0,0,0.6); padding: 6px; z-index: 10; }
+  .popup-header { padding: 8px 10px 6px; border-bottom: 1px solid #252836; margin-bottom: 4px; }
+  .popup-name { font-size: 12px; font-weight: 600; color: #fff; }
+  .popup-email { font-size: 10px; color: #6b7280; margin-top: 1px; }
+  .popup-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; font-size: 12px; color: #9ca3af; cursor: pointer; }
+  .popup-item:hover { background: #252836; color: #fff; }
+  .popup-item.danger { color: #f87171; }
+  .popup-item.danger:hover { background: rgba(239,68,68,0.12); }
+  .pi-icon { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; opacity: 0.7; }
+
+  /* Variant A — compact row */
+  .acct-a { border-top: 1px solid #252836; padding: 10px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; position: relative; }
+  .acct-a-info { flex: 1; overflow: hidden; }
+  .acct-a-name { font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acct-a-role { font-size: 10px; color: #6b7280; white-space: nowrap; }
+  .acct-a-btn { width: 22px; height: 22px; border-radius: 6px; background: #252836; display: flex; align-items: center; justify-content: center; }
+
+  /* Variant B — icon only */
+  .acct-b { border-top: 1px solid #252836; display: flex; justify-content: center; padding: 10px 0; cursor: pointer; position: relative; }
+
+  /* Variant C — pill button */
+  .acct-c { border-top: 1px solid #252836; padding: 8px; cursor: pointer; position: relative; }
+  .acct-c-btn { background: #1e2130; border: 1px solid #252836; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
+  .acct-c-info { flex: 1; overflow: hidden; }
+  .acct-c-name { font-size: 12px; font-weight: 600; color: #fff; }
+  .acct-c-email { font-size: 10px; color: #6b7280; }
+  .chevron { width: 12px; height: 12px; opacity: 0.5; }
+</style>
+
+<div class="options-grid">
+
+  <!-- Option A: Compact Row -->
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div style="position:relative;width:100%">
+      <div class="sb">
+        <div class="sb-logo">
+          <svg class="sb-logo-icon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/></svg>
+          <div><div class="sb-logo-text">Bentala</div><div class="sb-logo-sub">Internal v2.0</div></div>
+        </div>
+        <div class="sb-nav">
+          <div class="sb-section-label">Overview</div>
+          <div class="sb-item active"><span class="sb-dot accent"></span>Dashboard</div>
+          <div class="sb-section-label" style="margin-top:6px">bpi · bentala project</div>
+          <div class="sb-item"><span class="sb-dot"></span>Project</div>
+          <div class="sb-item"><span class="sb-dot"></span>Analytics</div>
+        </div>
+        <!-- Popup shown above -->
+        <div class="popup" style="font-family:inherit">
+          <div class="popup-header"><div class="popup-name">Dandi Rivaldi</div><div class="popup-email">dandirivaldi@masterbagasi.com</div></div>
+          <div class="popup-item">
+            <span class="pi-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>Edit Profil
+          </div>
+          <div class="popup-item">
+            <span class="pi-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.1 4.9C15.2 1 9 1 5.1 4.9c-3.9 3.9-3.9 10.2 0 14.1"/></svg></span>Pengaturan
+          </div>
+          <div style="height:1px;background:#252836;margin:4px 0"></div>
+          <div class="popup-item danger">
+            <span class="pi-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>Keluar
+          </div>
+        </div>
+        <!-- Account button at bottom -->
+        <div class="acct-a" style="background:#161820">
+          <div class="av">DR</div>
+          <div class="acct-a-info">
+            <div class="acct-a-name">Dandi Rivaldi</div>
+            <div class="acct-a-role">Admin</div>
+          </div>
+          <div class="acct-a-btn">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="option-label">A — Full Row</div>
+    <div class="option-desc">Avatar + Nama + Role. Popup muncul saat diklik. Mirip Notion/Linear.</div>
+  </div>
+
+  <!-- Option B: Icon only (collapsed style) -->
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div style="position:relative;width:100%">
+      <div class="sb" style="width:56px;margin:0 auto">
+        <div class="sb-logo" style="padding:0;justify-content:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/></svg>
+        </div>
+        <div class="sb-nav">
+          <div class="sb-item" style="padding:9px 0;justify-content:center"><span class="sb-dot accent"></span></div>
+          <div class="sb-item" style="padding:9px 0;justify-content:center"><span class="sb-dot"></span></div>
+          <div class="sb-item" style="padding:9px 0;justify-content:center"><span class="sb-dot"></span></div>
+          <div class="sb-item" style="padding:9px 0;justify-content:center"><span class="sb-dot"></span></div>
+          <div class="sb-item" style="padding:9px 0;justify-content:center"><span class="sb-dot"></span></div>
+        </div>
+        <div class="acct-b" style="background:#161820">
+          <div class="av">DR</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#6b7280;text-align:center;margin-top:6px">collapsed sidebar</div>
+      <div style="font-size:10px;color:#6b7280;text-align:center">hover → expanded below</div>
+      <!-- Expanded state below -->
+      <div class="sb" style="margin-top:8px">
+        <div class="sb-logo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/></svg>
+          <div><div class="sb-logo-text">Bentala</div></div>
+        </div>
+        <div class="sb-nav" style="flex:1">
+          <div class="sb-item active"><span class="sb-dot accent"></span>Dashboard</div>
+          <div class="sb-item"><span class="sb-dot"></span>Project</div>
+          <div class="sb-item"><span class="sb-dot"></span>Analytics</div>
+        </div>
+        <div class="acct-a" style="background:#161820">
+          <div class="av">DR</div>
+          <div class="acct-a-info">
+            <div class="acct-a-name">Dandi Rivaldi</div>
+            <div class="acct-a-role">Admin</div>
+          </div>
+          <div class="acct-a-btn">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#6b7280;text-align:center;margin-top:4px">expanded sidebar</div>
+    </div>
+    <div class="option-label">B — Adaptive</div>
+    <div class="option-desc">Avatar kecil saat collapsed, row penuh saat hover/expanded.</div>
+  </div>
+
+  <!-- Option C: Card-style -->
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div style="position:relative;width:100%">
+      <div class="sb">
+        <div class="sb-logo">
+          <svg class="sb-logo-icon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/></svg>
+          <div><div class="sb-logo-text">Bentala</div><div class="sb-logo-sub">Internal v2.0</div></div>
+        </div>
+        <div class="sb-nav">
+          <div class="sb-item active"><span class="sb-dot accent"></span>Dashboard</div>
+          <div class="sb-item"><span class="sb-dot"></span>Project</div>
+          <div class="sb-item"><span class="sb-dot"></span>Analytics</div>
+          <div class="sb-item"><span class="sb-dot"></span>CRM Pipeline</div>
+        </div>
+        <!-- Card style -->
+        <div class="acct-c" style="background:#161820">
+          <div class="acct-c-btn">
+            <div class="av">DR</div>
+            <div class="acct-c-info">
+              <div class="acct-c-name">Dandi Rivaldi</div>
+              <div class="acct-c-email">dandirivaldi@...</div>
+            </div>
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="option-label">C — Card Button</div>
+    <div class="option-desc">Tombol card dengan border, nama + email terlihat langsung.</div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px;padding:12px 16px;background:#13151c;border:1px solid #252836;border-radius:8px;font-size:12px;color:#6b7280">
+  <strong style="color:#9ca3af">Catatan:</strong> Semua opsi memiliki popup yang sama (Edit Profil, Pengaturan, Keluar) + fitur ganti foto. Perbedaannya hanya pada tampilan tombol di sidebar.
+  Tombol <strong style="color:#f87171">Keluar</strong> di topbar kanan akan dihapus dari semua opsi.
+</div>

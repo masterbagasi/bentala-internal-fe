@@ -1,0 +1,95 @@
+<h2>Desain Final — AI Studio Hub + Brief Generator</h2>
+<p class="subtitle">Sub-project 1 dari 4. Approve untuk lanjut ke implementation plan.</p>
+
+<div class="section">
+  <div class="label">1 — AI Studio Hub (Kanban)</div>
+  <div style="background:#1a1a2e;border-radius:8px;padding:14px;font-size:12px;color:#ccc;line-height:1.8">
+    <div>📍 Route: <span style="color:#6c63ff">/ai</span> — menggantikan halaman AI Studio saat ini</div>
+    <div>📋 Kolom Kanban: <span style="color:#fff">Ide → Brief → Caption → Selesai</span></div>
+    <div>🃏 Tiap card: judul, entity (BPI/BSI), platform, tombol aksi sesuai stage</div>
+    <div>➕ Tombol "Konten Baru" — buat card dari awal atau dari Pencari Ide</div>
+    <div>🔗 Card di kolom Caption → tombol langsung buka Content Builder</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">2 — Brief Generator (klik "Generate Brief" di card)</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="background:#1a1a2e;border-radius:8px;padding:14px">
+      <div style="font-size:11px;font-weight:700;color:#43d9a2;margin-bottom:8px">📐 Output Design Brief</div>
+      <div style="font-size:11px;color:#ccc;line-height:1.8">
+        ✓ Gambar AI langsung (DALL-E 3)<br/>
+        ✓ Midjourney prompt — tombol copy<br/>
+        ✓ Tipografi detail (font, size, hierarchy)<br/>
+        ✓ Color palette + hex codes<br/>
+        ✓ Layout & komposisi guide<br/>
+        ✓ Format & dimensi (Feed, Story, dll)
+      </div>
+    </div>
+    <div style="background:#1a1a2e;border-radius:8px;padding:14px">
+      <div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:8px">🎬 Output Video Brief</div>
+      <div style="font-size:11px;color:#ccc;line-height:1.8">
+        ✓ Script shot-by-shot + timecode<br/>
+        ✓ Storyboard visual per scene (DALL-E 3)<br/>
+        ✓ Talking points per scene<br/>
+        ✓ Editing style guide (CapCut/Premiere)<br/>
+        ✓ Durasi & format rekaman
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#1a1a2e;border-radius:8px;padding:14px;margin-top:10px">
+    <div style="font-size:11px;font-weight:700;color:#6c63ff;margin-bottom:8px">🚀 Setelah brief di-generate</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:#ccc">
+      <div>• Brief Design otomatis push ke halaman <span style="color:#43d9a2">Reinaldi</span></div>
+      <div>• Brief Video otomatis push ke halaman <span style="color:#f59e0b">Faizal</span></div>
+      <div>• Card pindah ke kolom "Brief" di Kanban</div>
+      <div>• Notifikasi muncul di halaman tim yang bersangkutan</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">3 — Update halaman Tim Produksi</div>
+  <div style="background:#1a1a2e;border-radius:8px;padding:14px;font-size:11px;color:#ccc;line-height:1.8">
+    <div><span style="color:#43d9a2">/bpi-reinaldi</span> — tambah tab <strong>Brief Inbox</strong>: list brief masuk, preview gambar AI, status (Pending / In Progress / Done), tombol "Tandai Selesai"</div>
+    <div style="margin-top:6px"><span style="color:#f59e0b">/bpi-faizal</span> — tambah tab <strong>Brief Inbox</strong>: list brief masuk, script + storyboard per scene, status tracking, tombol "Tandai Selesai"</div>
+    <div style="margin-top:6px">Saat tim tandai selesai → card di Kanban otomatis naik ke kolom <strong>Caption</strong></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">4 — Database (Tabel baru di Supabase)</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div style="background:#0a0a0f;border:1px solid #ffffff11;border-radius:6px;padding:12px;font-family:monospace;font-size:10px;color:#888">
+      <div style="color:#6c63ff;margin-bottom:6px">content_pipeline</div>
+      <div>id · title · entity</div>
+      <div>platform · stage</div>
+      <div>idea_text · created_at</div>
+    </div>
+    <div style="background:#0a0a0f;border:1px solid #ffffff11;border-radius:6px;padding:12px;font-family:monospace;font-size:10px;color:#888">
+      <div style="color:#6c63ff;margin-bottom:6px">production_briefs</div>
+      <div>id · pipeline_id · type</div>
+      <div>content (json) · images (json)</div>
+      <div>assigned_to · status</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="label">5 — API Routes baru</div>
+  <div style="background:#0a0a0f;border:1px solid #ffffff11;border-radius:6px;padding:12px;font-family:monospace;font-size:10px;color:#888;line-height:1.8">
+    <div><span style="color:#43d9a2">POST</span> /api/ai/brief — generate design + video brief via Claude</div>
+    <div><span style="color:#43d9a2">POST</span> /api/ai/generate-image — generate gambar via DALL-E 3 (design preview + storyboard)</div>
+    <div><span style="color:#43d9a2">POST</span> /api/pipeline — CRUD content_pipeline (create, update stage)</div>
+    <div><span style="color:#43d9a2">GET</span>  /api/pipeline/briefs — ambil briefs by assigned_to (untuk halaman tim)</div>
+  </div>
+</div>
+
+<div style="background:#6c63ff11;border:1px solid #6c63ff44;border-radius:10px;padding:16px;margin-top:8px">
+  <div style="font-size:13px;font-weight:700;color:#6c63ff;margin-bottom:6px">✅ Yang tidak termasuk sub-project ini</div>
+  <div style="font-size:11px;color:#888">Auto-publish ke IG/TikTok · Analytics konten · AI video generation (Runway/Kling) — ini sub-project 2, 3, 4 berikutnya</div>
+</div>
+
+<p class="subtitle" style="margin-top:20px;font-size:13px">Apakah desain ini sudah sesuai semua? Kalau approve, saya tulis spec dan buat implementation plan-nya.</p>

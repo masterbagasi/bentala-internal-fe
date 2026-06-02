@@ -1,0 +1,319 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Self-hosted Open Sauce fonts from the official repo
+   (marcologous/Open-Sauce-Fonts on GitHub). Stored in /public/fonts/.
+   Each weight = its own TTF; per-weight @font-face rules so the browser
+   picks the correct file by font-weight. local() fallbacks let the user's
+   Font-Book install take precedence when present (parity with Canva). */
+
+/* Open Sauce One — primary (Canva's "Open Sauce") */
+@font-face {
+  font-family: 'Open Sauce One';
+  src: local('Open Sauce One'), local('OpenSauceOne-Regular'),
+       url('/fonts/OpenSauceOne-Regular.ttf') format('truetype');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sauce One';
+  src: local('Open Sauce One Medium'), local('OpenSauceOne-Medium'),
+       url('/fonts/OpenSauceOne-Medium.ttf') format('truetype');
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sauce One';
+  src: local('Open Sauce One SemiBold'), local('OpenSauceOne-SemiBold'),
+       url('/fonts/OpenSauceOne-SemiBold.ttf') format('truetype');
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sauce One';
+  src: local('Open Sauce One Bold'), local('OpenSauceOne-Bold'),
+       url('/fonts/OpenSauceOne-Bold.ttf') format('truetype');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sauce One';
+  src: local('Open Sauce One ExtraBold'), local('OpenSauceOne-ExtraBold'),
+       url('/fonts/OpenSauceOne-ExtraBold.ttf') format('truetype');
+  font-weight: 800; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sauce One';
+  src: local('Open Sauce One Black'), local('OpenSauceOne-Black'),
+       url('/fonts/OpenSauceOne-Black.ttf') format('truetype');
+  font-weight: 900; font-style: normal; font-display: swap;
+}
+
+/* Open Sauce Sans — sibling fallback */
+@font-face {
+  font-family: 'Open Sauce Sans';
+  src: local('Open Sauce Sans'), local('OpenSauceSans-Regular'),
+       url('/fonts/OpenSauceSans-Regular.ttf') format('truetype');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sauce Sans';
+  src: local('Open Sauce Sans Bold'), local('OpenSauceSans-Bold'),
+       url('/fonts/OpenSauceSans-Bold.ttf') format('truetype');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Open Sauce Sans';
+  src: local('Open Sauce Sans ExtraBold'), local('OpenSauceSans-ExtraBold'),
+       url('/fonts/OpenSauceSans-ExtraBold.ttf') format('truetype');
+  font-weight: 800; font-style: normal; font-display: swap;
+}
+
+:root {
+  /* Strict 3-color palette: white (#FFFFFF), black (#000000),
+     blue (#0B3DE7). Surface variants (--bg2/--bg3) are pure white
+     drawn at low alpha over black so we stay inside the palette
+     while keeping enough separation for hover/elevated states.
+     Exceptions: --accent2 stays red for destructive actions, and
+     icon-box colors in the sidebar stay free per design brief.
+
+     Tuning rationale: earlier values (bg2 #0d0d0d, border 8%) were
+     too close to the pure-black canvas — section cards visually
+     dissolved into the page. Bumped to give clear surface tiers
+     while still reading as deep dark mode. */
+  --bg: #0B0C11;           /* page canvas — same hue family as bg2, one step darker */
+  --bg2: #15161C;          /* section cards, sidebar */
+  --bg3: #22232B;          /* inputs, elevated rows */
+  --bg-hover: #2A2C36;     /* row hover + button-secondary hover surface */
+  --border: rgba(255, 255, 255, 0.12);          /* card edges, dividers */
+  --border-strong: rgba(255, 255, 255, 0.20);   /* focused / active states */
+  --shadow-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 8px 24px rgba(0, 0, 0, 0.55);
+
+  /* Section tone palette — subtle hue-tinted card surfaces. Each
+     tone reads as a faint colour wash over the base bg2 in dark
+     mode, or as a pastel pearl in light mode. Used by <Section>'s
+     `tone` prop so editors can give each card group its own
+     visual identity at a glance. */
+  --tone-blue:     rgba(11, 61, 231, 0.10);
+  --tone-blue-fg:  rgba(99, 142, 255, 0.85);
+  --tone-mint:     rgba(67, 217, 162, 0.10);
+  --tone-mint-fg:  rgba(94, 224, 178, 0.85);
+  --tone-lavender: rgba(140, 110, 235, 0.10);
+  --tone-lavender-fg: rgba(170, 145, 245, 0.85);
+  --tone-peach:    rgba(255, 165, 100, 0.10);
+  --tone-peach-fg: rgba(255, 190, 145, 0.85);
+  --tone-rose:     rgba(255, 110, 145, 0.10);
+  --tone-rose-fg:  rgba(255, 145, 175, 0.85);
+  --tone-amber:    rgba(255, 197, 66, 0.10);
+  --tone-amber-fg: rgba(255, 213, 110, 0.85);
+  --accent: #0B3DE7;        /* primary action — blue */
+  --accent2: #ff453a;       /* destructive only — kept red per brief */
+  --accent3: #43d9a2;       /* status-positive — green (Active, Published, Paid…) */
+  --accent4: #0B3DE7;       /* status-warn folded into blue */
+  --text: #FFFFFF;
+  --text2: rgba(255, 255, 255, 0.65);   /* labels, secondary copy */
+  --text3: rgba(255, 255, 255, 0.45);   /* tertiary / hints */
+  --sidebar-w: 260px;
+  --sidebar-collapsed: 68px;
+  --font-sans: 'Open Sauce One', 'Open Sauce Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  /* Default body size raised one step from 14 → 15 so list rows,
+     inputs, and labels read comfortably without zooming. Component
+     overrides scale relative to this anchor. */
+  font-size: 15px;
+  font-feature-settings: "kern" 1, "liga" 1, "cv11" 1;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+/* Active-tab text — solid blue (var(--accent)) in every theme.
+   Underline below stays the same blue so the active state reads
+   as a coherent blue accent across both light and dark contexts.
+   Earlier attempts using `@media (prefers-color-scheme: ...)`
+   were unreliable across browsers/devtools simulators, so the
+   color is now a single consistent value. */
+.tab-active-text {
+  color: var(--accent) !important;
+}
+
+/* Form inputs */
+input, select, textarea {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(11, 61, 231, 0.18);
+}
+
+textarea { resize: vertical; min-height: 70px; }
+
+/* Kanban drag */
+.kanban-card[draggable="true"] { cursor: grab; }
+.kanban-card[draggable="true"]:active { cursor: grabbing; }
+.kanban-card.dragging {
+  opacity: 0.28;
+  transform: scale(0.97);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.kanban-col.drag-over {
+  background: rgba(11,61,231,0.06);
+  border-color: var(--accent);
+}
+
+/* Animations */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes progressBar {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+@keyframes doneIn {
+  from { opacity: 0; transform: translateY(5px) scale(0.88); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes doneOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-5px) scale(0.88); }
+}
+
+.animate-slide-up { animation: slideUp 0.18s ease; }
+.animate-fade-in  { animation: fadeIn 0.15s ease; }
+
+/* Calendar */
+.cal-day:hover .cal-day-add { opacity: 1; }
+
+/* WS Dropzone */
+.ws-dropzone:hover,
+.ws-dropzone.drag-active {
+  border-color: var(--accent);
+  background: rgba(11,61,231,0.04);
+}
+
+/* Status badges */
+.s-lead     { background: #2e3147; color: #8b8fa8; }
+.s-pitch    { background: #1a2540; color: #5b9bd5; }
+.s-close    { background: #1a3330; color: #43d9a2; }
+.s-invoice  { background: #2a1f10; color: #ffc542; }
+.s-paid     { background: #1a3330; color: #43d9a2; }
+.s-todo     { background: #2e3147; color: #8b8fa8; }
+.s-progress { background: #1a2540; color: #5b9bd5; }
+.s-review   { background: #2a1f10; color: #ffc542; }
+.s-done     { background: #1a3330; color: #43d9a2; }
+.s-bpi      { background: #1e1a40; color: #6c63ff; }
+.s-bsi      { background: #1a3330; color: #43d9a2; }
+.s-ig       { background: #2a1028; color: #e1306c; }
+.s-tt       { background: #0a1a1a; color: #69c9d0; }
+
+/* Calendar post chips */
+.cp-bpi-ig { background: #2a0a1f; color: #e1306c; }
+.cp-bpi-tt { background: #0a1a1a; color: #69c9d0; }
+.cp-bsi-ig { background: #1e1a40; color: #6c63ff; }
+
+/* Table styles */
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  padding: 14px 16px;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
+
+/* Drop hint */
+.drop-hint {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: 2px dashed rgba(108,99,255,0.33);
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.kanban-col.drag-over .drop-hint { display: flex; }
+
+[data-theme="light"] {
+  --bg: #f4f5fa;
+  --bg2: #ffffff;
+  --bg3: #eef0f7;
+  --bg-hover: #e6e9f3;
+  --border: #d5d8ea;
+  --border-strong: #b8bcd4;
+  --shadow-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 8px rgba(20, 25, 60, 0.06),
+    0 12px 24px rgba(20, 25, 60, 0.05);
+  --text: #1a1d2e;
+  --text2: #4b5168;
+  --text3: #6b7280;
+
+  /* Pastel tones for light mode — saturated enough to give each
+     card a distinct identity but light enough to keep the page
+     calm and readable. */
+  --tone-blue:     #e8eefe;
+  --tone-blue-fg:  #2050d6;
+  --tone-mint:     #e6f8f1;
+  --tone-mint-fg:  #1c8a64;
+  --tone-lavender: #efeafa;
+  --tone-lavender-fg: #6841c2;
+  --tone-peach:    #fdf0e6;
+  --tone-peach-fg: #c66a26;
+  --tone-rose:     #fde8ee;
+  --tone-rose-fg:  #c43a5e;
+  --tone-amber:    #fdf3df;
+  --tone-amber-fg: #a87708;
+}
+
+[data-theme="light"] #sidebar {
+  background: #e2e5f5 !important;
+  border-right: 1px solid #c0c4d8 !important;
+  box-shadow: 3px 0 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Sidebar logo — white bg logo adapted for dark/light mode */
+/* Dark: invert (black→white text) + screen blend (removes black bg) */
+.sidebar-logo { filter: invert(1); mix-blend-mode: screen; }
+/* Light: multiply blend makes white bg transparent, black text stays */
+[data-theme="light"] .sidebar-logo { filter: none; mix-blend-mode: multiply; }

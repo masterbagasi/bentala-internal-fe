@@ -1,0 +1,418 @@
+'use client'
+
+import { useState, forwardRef, useImperativeHandle } from 'react'
+import { useStore } from '@/hooks/useStore'
+import { getSupabase } from '@/lib/supabase'
+import { BPI_STATUS_COLS } from '@/lib/constants'
+import { formatDate } from '@/lib/utils'
+import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
+import { PostModal } from './PostModal'
+import { PostPreviewModal } from './PostPreviewModal'
+import { ContentCalendar } from '@/components/BSI/Calendar'
+import dynamic from 'next/dynamic'
+const BPIAnalytics = dynamic(() => import('./Analytics').then(m => ({ default: m.BPIAnalytics })), { ssr: false })
+import type { Post } from '@/lib/types'
+import { useLogActivity } from '@/hooks/useData'
+
+export type BPITabType = 'list' | 'board' | 'calendar' | 'files' | 'analytics'
+
+export interface BPIPageHandle {
+  openEdit: (id?: string) => void
+}
+
+interface BPIPageProps {
+  entity: 'bpi' | 'bsi'
+  currentUser?: string
+  activeTab: BPITabType
+}
+
+export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
+  function BPIPage({ entity, currentUser = 'Naufal', activeTab }, ref) {
+    const { posts, bpiFilter, setBpiFilter } = useStore()
+    const [showPostModal, setShowPostModal] = useState(false)
+    const [editPostId, setEditPostId] = useState<string | null>(null)
+    const [previewPostId, setPreviewPostId] = useState<string | null>(null)
+    const logActivity = useLogActivity()
+
+    const filtered = posts.filter(p => {
+      if (p.entity !== entity) return false
+      if (bpiFilter === 'all') return true
+      return (p.platforms || []).includes(bpiFilter as 'ig' | 'tiktok')
+    })
+
+    function openEdit(id?: string) {
+      setEditPostId(id || null)
+      setShowPostModal(true)
+    }
+
+    useImperativeHandle(ref, () => ({ openEdit }))
+
+    async function handleDelete(id: string) {
+      if (!confirm('Hapus post ini?')) return
+      const supabase = getSupabase()
+      await supabase.from('posts').delete().eq('id', id)
+      logActivity('Post dihapus')
+    }
+
+    return (
+      <div>
+        {/* Filter Bar */}
+        {(activeTab === 'list' || activeTab === 'board' || activeTab === 'calendar') && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '9px 24px', borderBottom: '1px solid var(--border)',
+            background: 'var(--bg2)',
+          }}>
+            {[
+              { key: 'all',    label: 'Semua' },
+              { key: 'ig',     label: 'Instagram', dot: '#e1306c' },
+              { key: 'tiktok', label: 'TikTok',    dot: '#69c9d0' },
+            ].map(f => (
+              <button key={f.key}
+                onClick={() => setBpiFilter(f.key)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '4px 12px', borderRadius: 20,
+                  border: '1px solid',
+                  borderColor: bpiFilter === f.key ? 'var(--accent)' : 'var(--border)',
+                  background: bpiFilter === f.key ? 'var(--accent)' : 'transparent',
+                  color: bpiFilter === f.key ? '#fff' : 'var(--text2)',
+                  cursor: 'pointer', fontSize: 12, fontWeight: 500,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {f.dot && <span style={{ width: 7, height: 7, borderRadius: '50%', background: f.dot, flexShrink: 0 }} />}
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Tab content */}
+        <div style={{ padding: activeTab === 'board' ? '0 24px 24px' : 24 }}>
+          {activeTab === 'list' && (
+            <ListView posts={filtered} onEdit={openEdit} onDelete={handleDelete} onPreview={id => setPreviewPostId(id)} />
+          )}
+          {activeTab === 'board' && (
+            <KanbanBoard
+              posts={filtered}
+              currentUser={currentUser}
+              onEdit={openEdit}
+              onCardClick={id => setPreviewPostId(id)}
+            />
+          )}
+          {activeTab === 'calendar' && <ContentCalendar entity={entity} onPostClick={id => setPreviewPostId(id)} />}
+          {activeTab === 'files' && <FilesTab posts={filtered} />}
+          {activeTab === 'analytics' && <BPIAnalytics entity={entity} />}
+        </div>
+
+        {/* Modals */}
+        {showPostModal && (
+          <PostModal
+            open={showPostModal}
+            onClose={() => { setShowPostModal(false); setEditPostId(null) }}
+            editId={editPostId}
+            entity={entity}
+          />
+        )}
+        {previewPostId && (
+          <PostPreviewModal
+            open={!!previewPostId}
+            postId={previewPostId}
+            onClose={() => setPreviewPostId(null)}
+            onEdit={id => { setPreviewPostId(null); openEdit(id) }}
+          />
+        )}
+      </div>
+    )
+  }
+)
+
+// ── List View ──
+function ListView({
+  posts, onEdit, onDelete, onPreview,
+}: {
+  posts: Post[]
+  onEdit: (id: string) => void
+  onDelete: (id: string) => void
+  onPreview: (id: string) => void
+}) {
+  return (
+    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+      <table>
+        <thead>
+          <tr>
+            <th style={{ width: 28 }}></th>
+            <th>Judul</th>
+            <th>Platform</th>
+            <th>Tanggal</th>
+            <th>Status</th>
+            <th>PIC</th>
+            <th>Caption</th>
+            <th style={{ width: 80 }}>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {posts.length === 0 ? (
+            <tr>
+              <td colSpan={8}>
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+                  Belum ada post. Klik "+ Tambah Post" untuk mulai.
+                </div>
+              </td>
+            </tr>
+          ) : posts.map(p => (
+            <tr key={p.id} onClick={() => onPreview(p.id)} style={{ cursor: 'pointer' }}>
+              <td style={{ paddingLeft: 14 }}>
+                <CheckCircle
+                  done={p.status === 'published' || p.status === 'done'}
+                  onChange={async (done) => {
+                    const supabase = getSupabase()
+                    await supabase.from('posts').update({ status: done ? 'published' : 'ready' }).eq('id', p.id)
+                  }}
+                />
+              </td>
+              <td><span style={{ fontWeight: 500, fontSize: 13 }}>{p.title}</span></td>
+              <td>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {(p.platforms || []).map(pl => <PlatformBadge key={pl} platform={pl} />)}
+                </div>
+              </td>
+              <td style={{ color: 'var(--text2)', fontSize: 12 }}>{formatDate(p.date)}</td>
+              <td><StatusBadge status={p.status} type="post" /></td>
+              <td>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  {(p.pics || []).map(m => <TeamAvatar key={m} name={m} size={22} />)}
+                </div>
+              </td>
+              <td style={{ color: 'var(--text2)', fontSize: 12, maxWidth: 180 }}>
+                <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {p.caption?.slice(0, 50) || '—'}
+                </span>
+              </td>
+              <td onClick={e => e.stopPropagation()}>
+                <button
+                  onClick={() => onEdit(p.id)}
+                  style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: 'var(--text)', marginRight: 4 }}
+                >Edit</button>
+                <button
+                  onClick={() => onDelete(p.id)}
+                  style={{ background: 'var(--accent2)', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: '#fff' }}
+                >✕</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ── Kanban Board ──
+function KanbanBoard({
+  posts, currentUser, onEdit, onCardClick,
+}: {
+  posts: Post[]
+  currentUser: string
+  onEdit: (id: string) => void
+  onCardClick: (id: string) => void
+}) {
+  const [dragPostId, setDragPostId] = useState<string | null>(null)
+  const logActivity = useLogActivity()
+
+  async function handleDrop(newStatus: string) {
+    if (!dragPostId) return
+    if (currentUser === 'Naufal' && newStatus === 'review') {
+      setDragPostId(null); return
+    }
+    const supabase = getSupabase()
+    await supabase.from('posts').update({ status: newStatus }).eq('id', dragPostId)
+    logActivity(`Post dipindahkan ke ${newStatus}`)
+    setDragPostId(null)
+  }
+
+  return (
+    <div style={{
+      display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8,
+      alignItems: 'flex-start', marginTop: 20,
+    }}>
+      {BPI_STATUS_COLS.map(col => {
+        const colPosts = posts.filter(p => p.status === col.key)
+        const isLocked = col.locked && currentUser === 'Naufal'
+        return (
+          <div
+            key={col.key}
+            className="kanban-col"
+            style={{
+              minWidth: 265, maxWidth: 265,
+              background: 'var(--bg2)',
+              border: '1px solid var(--border)',
+              borderRadius: 12, padding: '14px 12px 10px',
+              flexShrink: 0, display: 'flex', flexDirection: 'column',
+              maxHeight: 'calc(100vh - 200px)',
+            }}
+            onDragOver={(e) => {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = isLocked ? 'none' : 'move'
+            }}
+            onDrop={() => !isLocked && handleDrop(col.key)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexShrink: 0 }}>
+              <span style={{ fontWeight: 600, color: col.color, fontSize: 14 }}>{col.label}</span>
+              <span style={{
+                fontSize: 12, color: col.color, background: col.color + '22',
+                borderRadius: 20, padding: '1px 7px', fontWeight: 500,
+              }}>
+                {colPosts.length}
+              </span>
+              {isLocked && <span title="Kamu tidak bisa drag ke kolom ini" style={{ fontSize: 13, opacity: 0.5 }}>🔒</span>}
+            </div>
+
+            <div className="drop-hint">Drop di sini</div>
+
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {colPosts.map(p => (
+                <KanbanCard
+                  key={p.id}
+                  post={p}
+                  onDragStart={() => setDragPostId(p.id)}
+                  onClick={() => onCardClick(p.id)}
+                  onEdit={() => onEdit(p.id)}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={() => onEdit('')}
+              style={{
+                width: '100%', background: 'none', border: 'none', color: 'var(--text2)',
+                fontSize: 13, padding: '7px 4px', cursor: 'pointer', textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 7, borderRadius: 6,
+                marginTop: 4, flexShrink: 0,
+              }}
+              onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(108,99,255,0.08)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)' }}
+              onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
+            >
+              <span style={{ fontSize: 15, color: 'var(--accent)', lineHeight: 1 }}>+</span>
+              Tambah post
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Kanban Card ──
+function KanbanCard({
+  post, onDragStart, onClick, onEdit,
+}: {
+  post: Post
+  onDragStart: () => void
+  onClick: () => void
+  onEdit: () => void
+}) {
+  return (
+    <div
+      className="kanban-card"
+      draggable
+      onDragStart={onDragStart}
+      onClick={onClick}
+      style={{
+        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
+        padding: '10px 12px', marginBottom: 8, cursor: 'pointer',
+        transition: 'border-color 0.15s, box-shadow 0.15s',
+      }}
+      onMouseOver={e => {
+        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(108,99,255,0.4)'
+        ;(e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)'
+      }}
+      onMouseOut={e => {
+        (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
+        ;(e.currentTarget as HTMLElement).style.boxShadow = ''
+      }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.4, color: 'var(--text)', marginBottom: 6 }}>
+        {post.title}
+      </div>
+      {post.date && (
+        <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>{formatDate(post.date)}</div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {(post.platforms || []).map(pl => (
+            <span key={pl} style={{
+              fontSize: 10, padding: '1px 6px', borderRadius: 20,
+              background: pl === 'ig' ? '#2a1028' : '#0a1a1a',
+              color: pl === 'ig' ? '#e1306c' : '#69c9d0',
+            }}>
+              {pl === 'ig' ? 'IG' : 'TT'}
+            </span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+          {(post.pics || []).map(m => <TeamAvatar key={m} name={m} size={20} />)}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Files Tab ──
+function FilesTab({ posts }: { posts: Post[] }) {
+  const withFiles = posts.filter(p => p.video_link || p.design_link || p.video_file_url || p.design_file_url)
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
+        {withFiles.length} post dengan lampiran file
+      </div>
+      {withFiles.map(p => (
+        <div key={p.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', marginBottom: 8 }}>
+          <div style={{ fontWeight: 500, marginBottom: 6 }}>{p.title}</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {p.video_link && (
+              <a href={p.video_link} target="_blank" rel="noopener" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
+                🎬 Video Link
+              </a>
+            )}
+            {p.design_link && (
+              <a href={p.design_link} target="_blank" rel="noopener" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
+                🎨 Design Link
+              </a>
+            )}
+          </div>
+        </div>
+      ))}
+      {withFiles.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
+          Belum ada post dengan file terlampir.
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Check Circle ──
+function CheckCircle({ done, onChange }: { done: boolean; onChange: (done: boolean) => void }) {
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onChange(!done) }}
+      style={{
+        width: 18, height: 18, borderRadius: '50%',
+        border: done ? '1.5px solid var(--accent3)' : '1.5px solid var(--border)',
+        background: done ? 'rgba(67,217,162,0.15)' : 'transparent',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 0, color: done ? 'var(--accent3)' : 'transparent',
+        transition: 'all 0.15s', flexShrink: 0,
+      }}
+    >
+      {done && (
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      )}
+    </button>
+  )
+}

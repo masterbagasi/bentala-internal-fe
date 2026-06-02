@@ -1,0 +1,56 @@
+<h2>Bagaimana pipeline AI ini diorganisir?</h2>
+<p class="subtitle">Kamu describe 5 tahap: Ide → Design/Video → Script/Caption → Publish → Analisis. Pertanyaannya: semua dalam satu flow, atau tab terpisah?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Pipeline Linear — 1 flow, 5 langkah</h3>
+      <p>User bergerak dari kiri ke kanan: Ide → Produksi → Caption → Publish → Analisis. Satu halaman besar dengan stepper. Cocok kalau setiap konten dibuat dari awal sampai akhir dalam satu sesi.</p>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:6px;font-size:12px;opacity:0.7">
+        <span style="background:#6c63ff22;border:1px solid #6c63ff;border-radius:4px;padding:2px 8px;color:#6c63ff">Ide</span>
+        <span>→</span>
+        <span style="background:#6c63ff22;border:1px solid #6c63ff;border-radius:4px;padding:2px 8px;color:#6c63ff">Produksi</span>
+        <span>→</span>
+        <span style="background:#6c63ff22;border:1px solid #6c63ff;border-radius:4px;padding:2px 8px;color:#6c63ff">Caption</span>
+        <span>→</span>
+        <span style="background:#6c63ff22;border:1px solid #6c63ff;border-radius:4px;padding:2px 8px;color:#6c63ff">Publish</span>
+        <span>→</span>
+        <span style="background:#6c63ff22;border:1px solid #6c63ff;border-radius:4px;padding:2px 8px;color:#6c63ff">Analisis</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Tab Modular — tiap tahap tab sendiri</h3>
+      <p>Setiap tahap berdiri sendiri di sidebar AI Studio. User bisa masuk ke tab mana saja kapan saja, tidak harus urut. Lebih fleksibel — bisa langsung buka Caption Builder tanpa harus mulai dari Ide.</p>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;font-size:12px;opacity:0.7">
+        <div>✦ Pencari Ide</div>
+        <div>✦ Produksi (Design / Video)</div>
+        <div>✦ Content Builder (Script + Caption)</div>
+        <div>✦ Publish Manager</div>
+        <div>✦ Analisis Konten</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hub + Spoke — Dashboard AI sebagai pusat</h3>
+      <p>Ada satu halaman "AI Studio Dashboard" yang jadi pusat. Dari sini user bisa mulai pipeline baru, lihat status semua konten in-progress, atau langsung masuk ke tool tertentu. Paling powerful tapi paling kompleks.</p>
+      <div style="margin-top:10px;font-size:12px;opacity:0.7">
+        <div style="text-align:center;margin-bottom:6px">[ AI Studio Hub ]</div>
+        <div style="display:flex;justify-content:center;gap:8px">
+          <span style="background:#43d9a222;border:1px solid #43d9a2;border-radius:4px;padding:2px 6px;color:#43d9a2">Ide</span>
+          <span style="background:#43d9a222;border:1px solid #43d9a2;border-radius:4px;padding:2px 6px;color:#43d9a2">Produksi</span>
+          <span style="background:#43d9a222;border:1px solid #43d9a2;border-radius:4px;padding:2px 6px;color:#43d9a2">Caption</span>
+          <span style="background:#43d9a222;border:1px solid #43d9a2;border-radius:4px;padding:2px 6px;color:#43d9a2">Publish</span>
+          <span style="background:#43d9a222;border:1px solid #43d9a2;border-radius:4px;padding:2px 6px;color:#43d9a2">Analisis</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
