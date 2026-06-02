@@ -1,6 +1,7 @@
 'use client'
 
 import { useStore } from '@/hooks/useStore'
+import type { Project, Task } from '@/lib/types'
 import { formatRupiah, formatDate, timeAgo } from '@/lib/utils'
 import { TEAM, CRM_STAGES, PROJ_TYPE } from '@/lib/constants'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
@@ -149,8 +150,8 @@ export function DashboardContent() {
 }
 
 function UpcomingDeadlines({ projects, tasks }: {
-  projects: ReturnType<typeof useStore>['projects']
-  tasks: ReturnType<typeof useStore>['tasks']
+  projects: Project[]
+  tasks: Task[]
 }) {
   const now = new Date()
   const in14 = new Date(now.getTime() + 14 * 86400000)

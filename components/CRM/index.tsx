@@ -7,7 +7,7 @@ import { getSupabase } from '@/lib/supabase'
 import { CRM_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
 import { formatRupiah } from '@/lib/utils'
 import { useLogActivity } from '@/hooks/useData'
-import type { Client } from '@/lib/types'
+import type { Client, ClientStage } from '@/lib/types'
 
 export function CRMPage() {
   const { clients, crmFilter, setCrmFilter } = useStore()
@@ -203,7 +203,7 @@ function ClientModal({ open, client, onClose }: { open: boolean; client: Client 
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FG label="Stage">
-            <select value={form.stage} onChange={e => setForm(f=>({...f,stage:e.target.value}))}>
+            <select value={form.stage} onChange={e => setForm(f=>({...f,stage:e.target.value as ClientStage}))}>
               <option value="lead">Lead / Prospek</option>
               <option value="pitch">Pitching / Proposal</option>
               <option value="close">Closed / Deal</option>

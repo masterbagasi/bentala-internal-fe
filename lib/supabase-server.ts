@@ -1,9 +1,12 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import type { Database } from './database.types'
 
-export function createServerSupabase() {
+export function createServerSupabase(): SupabaseClient<Database> {
   const cookieStore = cookies()
+  // See lib/supabase.ts — @supabase/ssr@0.6.1 + supabase-js@2.103 mis-thread
+  // the Database generic, so cast to a correctly-typed client.
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -12,17 +15,17 @@ export function createServerSupabase() {
         get(name: string) {
           return cookieStore.get(name)?.value
         },
-        set(name: string, value: string, options) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value, ...options })
           } catch { /* ignored in Server Components */ }
         },
-        remove(name: string, options) {
+        remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: '', ...options })
           } catch { /* ignored in Server Components */ }
         },
       },
     }
-  )
+  ) as unknown as SupabaseClient<Database>
 }

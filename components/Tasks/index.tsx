@@ -8,7 +8,7 @@ import { TASK_STATUS_LABELS, PRIORITY_COLORS, TEAM } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { useLogActivity } from '@/hooks/useData'
-import type { Task } from '@/lib/types'
+import type { Task, TaskPriority, TaskStatus, Project } from '@/lib/types'
 
 const TASK_COLS = [
   { key: 'todo',     label: 'To Do',       color: '#8b8fa8' },
@@ -205,7 +205,7 @@ function TaskCard({ task, project, onDragStart, onEdit, onDelete }: {
 function TaskModal({ open, task, projects, onClose }: {
   open: boolean
   task: Task | null
-  projects: ReturnType<typeof useStore>['projects']
+  projects: Project[]
   onClose: () => void
 }) {
   const logActivity = useLogActivity()
@@ -270,7 +270,7 @@ function TaskModal({ open, task, projects, onClose }: {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <FG label="Prioritas">
-            <select value={form.priority} onChange={e => setForm(f=>({...f,priority:e.target.value}))}>
+            <select value={form.priority} onChange={e => setForm(f=>({...f,priority:e.target.value as TaskPriority}))}>
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
@@ -278,7 +278,7 @@ function TaskModal({ open, task, projects, onClose }: {
             </select>
           </FG>
           <FG label="Status">
-            <select value={form.status} onChange={e => setForm(f=>({...f,status:e.target.value}))}>
+            <select value={form.status} onChange={e => setForm(f=>({...f,status:e.target.value as TaskStatus}))}>
               {Object.entries(TASK_STATUS_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </FG>

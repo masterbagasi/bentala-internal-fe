@@ -380,7 +380,7 @@ export default function PortfolioAdminPage() {
   const counts: Record<CategoryFilter, number> = {
     all: items.length,
     video: 0,
-    social: 0,
+    photo: 0,
     design: 0,
     intl: 0,
   }

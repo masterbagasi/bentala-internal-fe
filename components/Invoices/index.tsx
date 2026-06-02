@@ -8,7 +8,7 @@ import { INV_STATUS_LABELS } from '@/lib/constants'
 import { formatRupiah, formatDate, generateInvoiceNum } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useLogActivity } from '@/hooks/useData'
-import type { Invoice } from '@/lib/types'
+import type { Invoice, InvoiceStatus, Client } from '@/lib/types'
 
 export function InvoicesPage() {
   const { invoices, clients } = useStore()
@@ -140,7 +140,7 @@ export function InvoicesPage() {
 function InvoiceModal({ open, invoice, clients, invoiceCount, onClose }: {
   open: boolean
   invoice: Invoice | null
-  clients: ReturnType<typeof useStore>['clients']
+  clients: Client[]
   invoiceCount: number
   onClose: () => void
 }) {
@@ -206,7 +206,7 @@ function InvoiceModal({ open, invoice, clients, invoiceCount, onClose }: {
           </FG>
         </div>
         <FG label="Status">
-          <select value={form.status} onChange={e => setForm(f=>({...f,status:e.target.value}))}>
+          <select value={form.status} onChange={e => setForm(f=>({...f,status:e.target.value as InvoiceStatus}))}>
             {Object.entries(INV_STATUS_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </FG>

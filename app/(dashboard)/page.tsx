@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PageShell } from '@/components/shared/PageShell'
@@ -29,6 +29,16 @@ const TABS: { key: TabKey; label: string }[] = [
  * entries in the sidebar.
  */
 export default function DashboardPage() {
+  // useSearchParams() requires a Suspense boundary during prerender, otherwise
+  // the whole route bails out of static generation and the build errors.
+  return (
+    <Suspense fallback={null}>
+      <DashboardContent />
+    </Suspense>
+  )
+}
+
+function DashboardContent() {
   const router = useRouter()
   const params = useSearchParams()
   const initialTab = (params.get('tab') as TabKey) || 'website'

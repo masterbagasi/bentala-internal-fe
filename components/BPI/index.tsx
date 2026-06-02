@@ -239,7 +239,7 @@ function KanbanBoard({
     }}>
       {BPI_STATUS_COLS.map(col => {
         const colPosts = posts.filter(p => p.status === col.key)
-        const isLocked = col.locked && currentUser === 'Naufal'
+        const isLocked = 'locked' in col && col.locked && currentUser === 'Naufal'
         return (
           <div
             key={col.key}

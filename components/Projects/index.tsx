@@ -8,7 +8,7 @@ import { PROJ_TYPE, PROJ_STATUS_CLASS, TEAM } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { useLogActivity } from '@/hooks/useData'
-import type { Project } from '@/lib/types'
+import type { Project, ProjectType, ProjectStatus, Client } from '@/lib/types'
 
 export function ProjectsPage() {
   const { projects, tasks, clients, projFilter, setProjFilter } = useStore()
@@ -138,7 +138,7 @@ export function ProjectsPage() {
 function ProjectModal({ open, project, clients, onClose }: {
   open: boolean
   project: Project | null
-  clients: ReturnType<typeof useStore>['clients']
+  clients: Client[]
   onClose: () => void
 }) {
   const logActivity = useLogActivity()
@@ -203,7 +203,7 @@ function ProjectModal({ open, project, clients, onClose }: {
             </select>
           </FG>
           <FG label="Tipe">
-            <select value={form.type} onChange={e => setForm(f=>({...f,type:e.target.value}))}>
+            <select value={form.type} onChange={e => setForm(f=>({...f,type:e.target.value as ProjectType}))}>
               {Object.entries(PROJ_TYPE).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </FG>
@@ -213,7 +213,7 @@ function ProjectModal({ open, project, clients, onClose }: {
             <input type="date" value={form.deadline} onChange={e => setForm(f=>({...f,deadline:e.target.value}))} />
           </FG>
           <FG label="Status">
-            <select value={form.status} onChange={e => setForm(f=>({...f,status:e.target.value}))}>
+            <select value={form.status} onChange={e => setForm(f=>({...f,status:e.target.value as ProjectStatus}))}>
               <option value="active">Active</option>
               <option value="hold">On Hold</option>
               <option value="done">Done</option>

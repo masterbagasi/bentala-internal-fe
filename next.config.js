@@ -8,6 +8,14 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Remotion's bundler/renderer are Node-only (native binaries, esbuild, rspack).
+  // Keep them out of the webpack bundle so they're required at runtime instead.
+  experimental: {
+    serverComponentsExternalPackages: [
+      '@remotion/bundler',
+      '@remotion/renderer',
+    ],
+  },
   async headers() {
     return [
       {

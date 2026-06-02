@@ -20,7 +20,7 @@ export function usePipelineData(member: string) {
         if (error) {
           console.error('[usePipelineData] fetch error:', error)
         } else if (data) {
-          setPipelineItems(data as PipelineItem[])
+          setPipelineItems(data as unknown as PipelineItem[])
         }
       })
 

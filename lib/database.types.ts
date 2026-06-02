@@ -9,6 +9,18 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+// Fallback shape for tables not yet explicitly declared below (e.g. the
+// website `bsi_*` tables). Keeps their queries loosely typed instead of
+// resolving to `never`. Explicitly declared tables below keep strict typing.
+type GenericTable = {
+  // `any` (not Record<string, any>) so query results are also assignable to
+  // the concrete app interfaces these pages keep their state in.
+  Row: any
+  Insert: any
+  Update: any
+  Relationships: []
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -32,12 +44,12 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: Omit<Database['public']['Tables']['posts']['Row'], 'id' | 'created_at' | 'updated_at'> & {
-          id?: string
-          created_at?: string
-          updated_at?: string
-        }
+        // Only entity + title are required at insert; every other column has a
+        // DB default (see schema.sql), so they're optional here.
+        Insert: Pick<Database['public']['Tables']['posts']['Row'], 'entity' | 'title'>
+          & Partial<Omit<Database['public']['Tables']['posts']['Row'], 'entity' | 'title'>>
         Update: Partial<Database['public']['Tables']['posts']['Insert']>
+        Relationships: []
       }
       clients: {
         Row: {
@@ -59,6 +71,7 @@ export interface Database {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['clients']['Insert']>
+        Relationships: []
       }
       invoices: {
         Row: {
@@ -79,6 +92,7 @@ export interface Database {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['invoices']['Insert']>
+        Relationships: []
       }
       projects: {
         Row: {
@@ -100,6 +114,7 @@ export interface Database {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['projects']['Insert']>
+        Relationships: []
       }
       tasks: {
         Row: {
@@ -120,6 +135,7 @@ export interface Database {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['tasks']['Insert']>
+        Relationships: []
       }
       activity_log: {
         Row: {
@@ -133,6 +149,7 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['activity_log']['Insert']>
+        Relationships: []
       }
       file_attachments: {
         Row: {
@@ -150,6 +167,7 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['file_attachments']['Insert']>
+        Relationships: []
       }
       pipeline_items: {
         Row: {
@@ -168,6 +186,7 @@ export interface Database {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['pipeline_items']['Insert']>
+        Relationships: []
       }
       ai_generations: {
         Row: {
@@ -189,6 +208,7 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['ai_generations']['Insert']>
+        Relationships: []
       }
       news_cache: {
         Row: {
@@ -207,7 +227,34 @@ export interface Database {
           fetched_at?: string
         }
         Update: Partial<Database['public']['Tables']['news_cache']['Insert']>
+        Relationships: []
       }
+      // Website (`bsi_*`) and other tables that aren't yet strictly typed.
+      // They use the permissive GenericTable shape so queries resolve to a
+      // loose Row instead of `never`. Replace with concrete types as needed.
+      bsi_about: GenericTable
+      bsi_abroad_production: GenericTable
+      bsi_abroad_services: GenericTable
+      bsi_abroad_settings: GenericTable
+      bsi_collaborations: GenericTable
+      bsi_events: GenericTable
+      bsi_hero: GenericTable
+      bsi_leads: GenericTable
+      bsi_news_feed: GenericTable
+      bsi_pageviews: GenericTable
+      bsi_portfolio: GenericTable
+      bsi_seo: GenericTable
+      bsi_services: GenericTable
+      bsi_sessions: GenericTable
+      bsi_social_links: GenericTable
+      bsi_team: GenericTable
+      bsi_team_gallery: GenericTable
+      bsi_visitors: GenericTable
+      ai_settings: GenericTable
+      avatars: GenericTable
+      content_pipeline: GenericTable
+      feature_settings: GenericTable
+      production_briefs: GenericTable
     }
     Views: Record<string, never>
     Functions: Record<string, never>
