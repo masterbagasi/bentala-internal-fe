@@ -7,7 +7,7 @@ export type PostStatus =
   | 'review' | 'ready' | 'published' | 'done'
 
 export type PostEntity = 'bpi' | 'bsi' | 'ws'
-export type PostPlatform = 'ig' | 'tiktok'
+export type PostPlatform = 'ig' | 'tiktok' | 'youtube' | 'x' | 'linkedin'
 
 export interface Post {
   id: string
@@ -18,6 +18,7 @@ export interface Post {
   status: PostStatus
   pics: string[]          // ['Video Production', 'Design Studio']
   caption: string
+  brief: string           // content brief / instructions
   hashtags: string
   content_types: string[] // ['video', 'design']
   video_link: string
@@ -25,6 +26,10 @@ export interface Post {
   video_file_url: string
   design_file_url: string
   notes: string
+  tagged: string[]        // tagged team members (by name), notified on save
+  created_by: string      // name of the user who created the post
+  ratio: string           // content aspect ratio, e.g. '1:1', '9:16'
+  files: string[]         // uploaded attachment URLs (any file type)
   created_at: string
   updated_at: string
 }
@@ -120,6 +125,7 @@ export interface TeamMember {
   fullName?: string
   sub?: string
   initials: string
+  email?: string
 }
 
 // Zustand store types

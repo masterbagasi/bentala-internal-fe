@@ -5,7 +5,7 @@ import { uploadFileResumable, uploadFileWithProgress } from '@/lib/storage'
 import { UploadProgressList, type UploadEntry } from './UploadProgressList'
 import { ConfirmDialog, type ConfirmRequest } from './ConfirmDialog'
 
-type AcceptKind = 'image' | 'video' | 'image+video'
+type AcceptKind = 'image' | 'video' | 'image+video' | 'all'
 
 interface Props {
   /** Current file URL — null/empty when no file uploaded yet. */
@@ -47,12 +47,14 @@ const ACCEPT_MAP: Record<AcceptKind, string> = {
   image: 'image/jpeg,image/png,image/webp,image/gif',
   video: 'video/mp4,video/webm,video/quicktime',
   'image+video': 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime',
+  all: '*/*',
 }
 
 const ACCEPT_LABEL: Record<AcceptKind, string> = {
   image: 'JPG, PNG, WebP, GIF — max 200 MB · 16:9 ratio',
   video: 'MP4, WebM, MOV — max 200 MB · 16:9 ratio',
   'image+video': 'Image or video — max 200 MB · 16:9 ratio',
+  all: 'Semua jenis file (video, gambar, PDF, dll.) — max 200 MB',
 }
 
 export function FileUploader({

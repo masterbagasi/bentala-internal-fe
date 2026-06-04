@@ -5,11 +5,31 @@ import type { TeamMember } from './types'
 // ============================================================
 
 export const TEAM: TeamMember[] = [
-  { name: 'Dandi',            role: 'CEO',           color: '#6c63ff', initials: 'Da' },
-  { name: 'Naufal',           role: 'CCO',           color: '#43d9a2', initials: 'Na' },
-  { name: 'Design Studio',    role: 'Graphic Design', color: '#ffc542', initials: 'DS' },
-  { name: 'Video Production', role: 'Video',          color: '#ff6b6b', initials: 'VP' },
+  { name: 'Dandi',            role: 'CEO',            color: '#6c63ff', initials: 'Da', email: 'dandi@masterbagasi.com' },
+  { name: 'Naufal',           role: 'CCO',            color: '#43d9a2', initials: 'Na', email: 'naufal@masterbagasi.com' },
+  { name: 'Design Studio',    role: 'Graphic Design', color: '#ffc542', initials: 'DS', email: 'design@masterbagasi.com' },
+  { name: 'Video Production', role: 'Video',          color: '#ff6b6b', initials: 'VP', email: 'video@masterbagasi.com' },
 ]
+
+// Social platforms a post can target. `bg` is the chip background tint.
+export const POST_PLATFORMS = [
+  { key: 'ig',       label: 'Instagram', short: 'IG', color: '#e1306c', bg: '#2a1028' },
+  { key: 'tiktok',   label: 'TikTok',    short: 'TT', color: '#69c9d0', bg: '#0a1a1a' },
+  { key: 'youtube',  label: 'YouTube',   short: 'YT', color: '#ff4d4f', bg: '#2a0e0e' },
+  { key: 'x',        label: 'X',         short: 'X',  color: '#d6d9dc', bg: '#1a1a1a' },
+  { key: 'linkedin', label: 'LinkedIn',  short: 'IN', color: '#3b9ad9', bg: '#0d1a24' },
+] as const
+
+// Content aspect ratios (complete set for social formats).
+export const POST_RATIOS = [
+  { key: '1:1',    label: '1:1',    hint: 'Square' },
+  { key: '4:5',    label: '4:5',    hint: 'Portrait' },
+  { key: '3:4',    label: '3:4',    hint: 'Portrait' },
+  { key: '2:3',    label: '2:3',    hint: 'Portrait' },
+  { key: '9:16',   label: '9:16',   hint: 'Story / Reel / Short' },
+  { key: '16:9',   label: '16:9',   hint: 'Landscape / YouTube' },
+  { key: '1.91:1', label: '1.91:1', hint: 'Link / Landscape' },
+] as const
 
 export const POST_STATUS_LABELS: Record<string, string> = {
   todo:      'Idea',

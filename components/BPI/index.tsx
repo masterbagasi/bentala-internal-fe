@@ -3,9 +3,10 @@
 import { useState, forwardRef, useImperativeHandle } from 'react'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
-import { BPI_STATUS_COLS } from '@/lib/constants'
+import { BPI_STATUS_COLS, POST_PLATFORMS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
+import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { PostModal } from './PostModal'
 import { PostPreviewModal } from './PostPreviewModal'
 import { ContentCalendar } from '@/components/BSI/Calendar'
@@ -64,15 +65,14 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             background: 'var(--bg2)',
           }}>
             {[
-              { key: 'all',    label: 'Semua' },
-              { key: 'ig',     label: 'Instagram', dot: '#e1306c' },
-              { key: 'tiktok', label: 'TikTok',    dot: '#69c9d0' },
+              { key: 'all', label: 'Semua' },
+              ...POST_PLATFORMS.map(p => ({ key: p.key as string, label: p.label })),
             ].map(f => (
               <button key={f.key}
                 onClick={() => setBpiFilter(f.key)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '4px 12px', borderRadius: 20,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: f.key === 'all' ? '4px 12px' : '4px 12px 4px 5px', borderRadius: 20,
                   border: '1px solid',
                   borderColor: bpiFilter === f.key ? 'var(--accent)' : 'var(--border)',
                   background: bpiFilter === f.key ? 'var(--accent)' : 'transparent',
@@ -81,7 +81,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
                   transition: 'all 0.15s',
                 }}
               >
-                {f.dot && <span style={{ width: 7, height: 7, borderRadius: '50%', background: f.dot, flexShrink: 0 }} />}
+                {f.key !== 'all' && <PlatformIcon platform={f.key} size={16} />}
                 {f.label}
               </button>
             ))}
@@ -220,16 +220,27 @@ function KanbanBoard({
 }) {
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const logActivity = useLogActivity()
+  const upsertPost = useStore(s => s.upsertPost)
 
   async function handleDrop(newStatus: string) {
     if (!dragPostId) return
     if (currentUser === 'Naufal' && newStatus === 'review') {
       setDragPostId(null); return
     }
-    const supabase = getSupabase()
-    await supabase.from('posts').update({ status: newStatus }).eq('id', dragPostId)
-    logActivity(`Post dipindahkan ke ${newStatus}`)
+    const dragged = posts.find(p => p.id === dragPostId)
     setDragPostId(null)
+    if (!dragged || dragged.status === newStatus) return
+
+    // Optimistic: move the card immediately, don't wait for realtime
+    upsertPost({ ...dragged, status: newStatus as Post['status'] })
+
+    const supabase = getSupabase()
+    const { error } = await supabase.from('posts').update({ status: newStatus }).eq('id', dragged.id)
+    if (error) {
+      upsertPost(dragged) // rollback on failure
+    } else {
+      logActivity(`Post "${dragged.title}" dipindahkan ke ${newStatus}`)
+    }
   }
 
   return (
@@ -342,13 +353,7 @@ function KanbanCard({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
         <div style={{ display: 'flex', gap: 4 }}>
           {(post.platforms || []).map(pl => (
-            <span key={pl} style={{
-              fontSize: 10, padding: '1px 6px', borderRadius: 20,
-              background: pl === 'ig' ? '#2a1028' : '#0a1a1a',
-              color: pl === 'ig' ? '#e1306c' : '#69c9d0',
-            }}>
-              {pl === 'ig' ? 'IG' : 'TT'}
-            </span>
+            <PlatformIcon key={pl} platform={pl} size={18} />
           ))}
         </div>
         <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>

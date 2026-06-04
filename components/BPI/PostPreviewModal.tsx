@@ -3,7 +3,8 @@
 import { Modal, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { formatDate } from '@/lib/utils'
-import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
+import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
+import { PlatformIcon } from '@/components/shared/PlatformIcon'
 
 interface PostPreviewModalProps {
   open: boolean
@@ -35,10 +36,9 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         </>
       }
     >
-      {/* Header badges */}
+      {/* Header — status only (platforms live in the meta grid below) */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
         <StatusBadge status={post.status} type="post" />
-        {(post.platforms || []).map(pl => <PlatformBadge key={pl} platform={pl} />)}
       </div>
 
       <h2 style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: 'var(--text)', marginBottom: 18 }}>
@@ -48,14 +48,24 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
       {/* Meta grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
         <MetaItem label="Tanggal Post" value={formatDate(post.date)} />
-        <MetaItem label="Entity" value={post.entity?.toUpperCase() || '—'} />
-        <MetaItem label="PIC" value={
-          <div style={{ display: 'flex', gap: 4 }}>
-            {(post.pics || []).map(m => <TeamAvatar key={m} name={m} size={22} />)}
-            {!post.pics?.length && '—'}
-          </div>
+        <MetaItem label="Platform" value={
+          (post.platforms || []).length ? (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              {(post.platforms || []).map(pl => <PlatformIcon key={pl} platform={pl} size={20} />)}
+            </div>
+          ) : '—'
         } />
+        <MetaItem label="Entity" value={post.entity?.toUpperCase() || '—'} />
+        <MetaItem label="Dibuat oleh" value={post.created_by || '—'} />
         <MetaItem label="Jenis Konten" value={(post.content_types || []).join(', ') || '—'} />
+        <MetaItem label="Ratio" value={post.ratio || '—'} />
+        <MetaItem label="Tag" value={
+          (post.tagged || []).length ? (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              {(post.tagged || []).map(m => <TeamAvatar key={m} name={m} size={22} />)}
+            </div>
+          ) : '—'
+        } />
       </div>
 
       {/* Caption */}
@@ -74,13 +84,32 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         </div>
       )}
 
+      {/* Brief */}
+      {post.brief && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
+            Brief
+          </div>
+          <pre style={{
+            fontSize: 13, lineHeight: 1.7, color: 'var(--text)',
+            background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
+            whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0,
+          }}>
+            {post.brief}
+          </pre>
+        </div>
+      )}
+
       {/* Hashtags */}
       {post.hashtags && (
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
             Hashtags
           </div>
-          <div style={{ fontSize: 13, color: 'var(--accent)', lineHeight: 1.7 }}>{post.hashtags}</div>
+          <div style={{
+            fontSize: 13, lineHeight: 1.7, color: '#6b9bff',
+            background: 'var(--bg3)', borderRadius: 8, padding: '10px 14px',
+          }}>{post.hashtags}</div>
         </div>
       )}
 

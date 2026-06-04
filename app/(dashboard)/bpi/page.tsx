@@ -1,12 +1,25 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
 import { BPIPage, type BPIPageHandle, type BPITabType } from '@/components/BPI'
+import { getSupabase } from '@/lib/supabase'
 
 export default function BpiPage() {
   const [tab, setTab] = useState<TabKey>('list')
   const bpiRef = useRef<BPIPageHandle>(null)
+
+  // Real logged-in user — column locks apply only to the actual person,
+  // not to everyone (previously hardcoded to "Naufal", which blocked all drags).
+  const [currentUser, setCurrentUser] = useState('')
+  useEffect(() => {
+    getSupabase().auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const meta = data.user.user_metadata ?? {}
+        setCurrentUser(meta.full_name ?? meta.name ?? data.user.email?.split('@')[0] ?? '')
+      }
+    })
+  }, [])
 
   return (
     <>
@@ -36,7 +49,7 @@ export default function BpiPage() {
         }
       />
       <div className="flex-1 overflow-y-auto min-h-0">
-        <BPIPage ref={bpiRef} entity="bpi" currentUser="Naufal" activeTab={tab as BPITabType} />
+        <BPIPage ref={bpiRef} entity="bpi" currentUser={currentUser} activeTab={tab as BPITabType} />
       </div>
     </>
   )

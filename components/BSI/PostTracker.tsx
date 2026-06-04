@@ -5,6 +5,7 @@ import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
+import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { PostModal } from '@/components/BPI/PostModal'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { useLogActivity } from '@/hooks/useData'
@@ -41,18 +42,20 @@ export function PostTracker({ entity }: PostTrackerProps) {
         <div style={{ display: 'flex', gap: 8 }}>
           {[
             { key: 'all', label: 'Semua' },
-            { key: 'ig', label: '● Instagram', color: '#e1306c' },
-            { key: 'tiktok', label: '● TikTok', color: '#69c9d0' },
+            { key: 'ig', label: 'Instagram' },
+            { key: 'tiktok', label: 'TikTok' },
           ].map(f => (
             <button key={f.key}
               onClick={() => setFilter(f.key)}
               style={{
-                padding: '5px 14px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 12, fontWeight: 500,
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: f.key === 'all' ? '5px 14px' : '5px 14px 5px 6px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 12, fontWeight: 500,
                 background: filter === f.key ? 'var(--accent)' : 'var(--bg2)',
-                color: filter === f.key ? '#fff' : (f as any).color || 'var(--text2)',
+                color: filter === f.key ? '#fff' : 'var(--text2)',
                 borderColor: filter === f.key ? 'var(--accent)' : 'var(--border)',
               }}
             >
+              {f.key !== 'all' && <PlatformIcon platform={f.key} size={16} />}
               {f.label}
             </button>
           ))}

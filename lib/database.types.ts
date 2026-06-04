@@ -34,6 +34,7 @@ export interface Database {
           status: string
           pics: string[]
           caption: string
+          brief: string
           hashtags: string
           content_types: string[]
           video_link: string
@@ -41,6 +42,10 @@ export interface Database {
           video_file_url: string
           design_file_url: string
           notes: string
+          tagged: string[]
+          created_by: string
+          ratio: string
+          files: string[]
           created_at: string
           updated_at: string
         }

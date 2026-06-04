@@ -1,4 +1,5 @@
-import { POST_STATUS_LABELS, POST_STATUS_COLORS } from '@/lib/constants'
+import { POST_STATUS_LABELS, POST_STATUS_COLORS, POST_PLATFORMS } from '@/lib/constants'
+import { PlatformIcon } from './PlatformIcon'
 
 interface StatusBadgeProps {
   status: string
@@ -94,23 +95,14 @@ export function StatusBadge({ status, type = 'post', label: labelProp, className
 }
 
 export function PlatformBadge({ platform }: { platform: string }) {
-  if (platform === 'ig') {
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, fontSize: 11, background: '#2a1028', color: '#e1306c' }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#e1306c', flexShrink: 0, display: 'inline-block' }} />
-        Instagram
-      </span>
-    )
-  }
-  if (platform === 'tiktok') {
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, fontSize: 11, background: '#0a1a1a', color: '#69c9d0' }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#69c9d0', flexShrink: 0, display: 'inline-block' }} />
-        TikTok
-      </span>
-    )
-  }
-  return <span className="s-bsi">{platform}</span>
+  const p = POST_PLATFORMS.find(x => x.key === platform)
+  if (!p) return <span className="s-bsi">{platform}</span>
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 9px 2px 3px', borderRadius: 20, fontSize: 11, background: p.bg, color: p.color }}>
+      <PlatformIcon platform={platform} size={15} />
+      {p.label}
+    </span>
+  )
 }
 
 export function TeamAvatar({ name, size = 26 }: { name: string; size?: number }) {

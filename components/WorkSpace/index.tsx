@@ -6,6 +6,7 @@ import { getSupabase } from '@/lib/supabase'
 import { WS_STATUS_COLS, TEAM } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
+import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { WSEditModal } from './WSEditModal'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { ContentCalendar } from '@/components/BSI/Calendar'
@@ -84,14 +85,14 @@ export const WorkspacePage = forwardRef<WorkspacePageHandle, WorkspacePageProps>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 24px', borderBottom: '2px solid var(--border)' }}>
             {[
               { key: 'all', label: 'Semua' },
-              { key: 'ig', label: 'Instagram', dot: '#e1306c' },
-              { key: 'tiktok', label: 'TikTok', dot: '#69c9d0' },
+              { key: 'ig', label: 'Instagram' },
+              { key: 'tiktok', label: 'TikTok' },
             ].map(f => (
               <button key={f.key}
                 onClick={() => setPlatformFilter(f.key)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '5px 12px', borderRadius: 20,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: f.key === 'all' ? '5px 12px' : '5px 12px 5px 5px', borderRadius: 20,
                   border: '1px solid var(--border)',
                   background: platformFilter === f.key ? 'var(--accent)' : 'transparent',
                   borderColor: platformFilter === f.key ? 'var(--accent)' : 'var(--border)',
@@ -99,7 +100,7 @@ export const WorkspacePage = forwardRef<WorkspacePageHandle, WorkspacePageProps>
                   cursor: 'pointer', fontSize: 12, fontWeight: 500,
                 }}
               >
-                {(f as any).dot && <span style={{ width: 7, height: 7, borderRadius: '50%', background: (f as any).dot, flexShrink: 0 }} />}
+                {f.key !== 'all' && <PlatformIcon platform={f.key} size={16} />}
                 {f.label}
               </button>
             ))}
@@ -221,15 +222,9 @@ function WSListView({ posts, member, onRowClick }: {
                   </span>
                 </td>
                 <td>
-                  <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {(p.platforms || []).map(pl => (
-                      <span key={pl} style={{
-                        fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                        background: pl === 'ig' ? '#2a1028' : '#0a1a1a',
-                        color: pl === 'ig' ? '#e1306c' : '#69c9d0',
-                      }}>
-                        {pl === 'ig' ? 'Instagram' : 'TikTok'}
-                      </span>
+                      <PlatformBadge key={pl} platform={pl} />
                     ))}
                     {(p.platforms || []).length === 0 && <span style={{ color: 'var(--text2)', fontSize: 12 }}>—</span>}
                   </div>
@@ -439,16 +434,9 @@ function WSCard({ post, onDragStart, onClick }: {
         ) : (
           <span style={{ flex: 1 }} />
         )}
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {(post.platforms || []).map(pl => (
-            <span key={pl} style={{
-              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-              background: pl === 'ig' ? '#2a1028' : '#0a1a1a',
-              color: pl === 'ig' ? '#e1306c' : '#69c9d0',
-              letterSpacing: '0.3px',
-            }}>
-              {pl === 'ig' ? 'Instagram' : 'TikTok'}
-            </span>
+            <PlatformBadge key={pl} platform={pl} />
           ))}
         </div>
       </div>

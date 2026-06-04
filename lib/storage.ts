@@ -169,18 +169,6 @@ export interface UploadProgress {
 /** Hard server-side bucket limit (`file_size_limit` on bsi-website). */
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 
-/** Whitelist of MIME types the bucket accepts. Updating this requires a
- *  matching change to the bucket's `allowed_mime_types` column in Supabase. */
-const ALLOWED_UPLOAD_MIMES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'video/mp4',
-  'video/webm',
-  'video/quicktime',
-])
-
 export function uploadFileWithProgress(
   file: File,
   prefix: string,
@@ -210,14 +198,8 @@ export function uploadFileWithProgress(
       )
       return
     }
-    if (file.type && !ALLOWED_UPLOAD_MIMES.has(file.type)) {
-      reject(
-        new Error(
-          `Tipe file ${file.type} tidak diizinkan. Gunakan JPG / PNG / WebP / GIF untuk gambar atau MP4 / WebM / MOV untuk video.`,
-        ),
-      )
-      return
-    }
+    // MIME types are governed by the bucket's `allowed_mime_types` (now open
+    // to all types), so no client-side type whitelist is enforced here.
     if (!supabaseUrl || !anonKey) {
       reject(new Error('Konfigurasi Supabase tidak ditemukan. Periksa .env.local.'))
       return
