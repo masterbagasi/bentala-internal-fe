@@ -150,31 +150,43 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
     const n = form
     const arr = (a: string[]) => JSON.stringify(a ?? [])
 
+    // ── Label helpers ──
     const statusLabel = (s: string) => {
       const cols = entity === 'bpi'
         ? BPI_STATUS_COLS
         : [{ key: 'todo', label: 'Idea' }, { key: 'produksi', label: 'Production' }, { key: 'published', label: 'Published' }]
       return cols.find(c => c.key === s)?.label ?? s
     }
+    const platformLabel = (keys: string[]) =>
+      keys.map(k => POST_PLATFORMS.find(p => p.key === k)?.label ?? k).join(', ')
+    const contentLabel = (keys: string[]) =>
+      keys.map(k => (k === 'video' ? 'Video' : k === 'design' ? 'Design' : k)).join(', ')
+    const taggedLabel = (emails: string[]) =>
+      emails.map(e => accounts.find(a => a.email === e)?.name ?? e).join(', ')
+    const dateLabel = (d: string) => {
+      if (!d) return ''
+      const dt = new Date(d)
+      return Number.isNaN(dt.getTime()) ? d : dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+    }
+    const dash = (s: string) => (s && s.trim() ? s : '—')
+    const titleShort = (t: string) => (t.length > 80 ? t.slice(0, 80) + '…' : t)
 
+    // ── One activity entry per changed field ──
     const changes: string[] = []
+    if (o.title !== n.title) changes.push(`mengubah judul menjadi "${titleShort(n.title)}"`)
     if (o.status !== n.status) changes.push(`mengubah status ke ${statusLabel(n.status)}`)
-
-    const fieldChecks: [boolean, string][] = [
-      [o.title !== n.title, 'judul'],
-      [o.date !== n.date, 'jadwal'],
-      [arr(o.platforms) !== arr(n.platforms), 'platform'],
-      [arr(o.content_types) !== arr(n.content_types), 'jenis konten'],
-      [o.caption !== n.caption, 'caption'],
-      [o.brief !== n.brief, 'brief'],
-      [o.hashtags !== n.hashtags, 'hashtags'],
-      [arr(o.tagged) !== arr(n.tagged), 'tag akun'],
-      [o.ratio !== n.ratio, 'ratio'],
-      [o.notes !== n.notes, 'catatan'],
-      [o.video_link !== n.video_link || o.design_link !== n.design_link || arr(o.files) !== arr(n.files), 'lampiran'],
-    ]
-    const changedFields = fieldChecks.filter(([c]) => c).map(([, l]) => l)
-    if (changedFields.length) changes.push(`memperbarui ${changedFields.join(', ')}`)
+    if (o.date !== n.date) changes.push(n.date ? `mengubah jadwal posting ke ${dateLabel(n.date)}` : 'menghapus jadwal posting')
+    if (arr(o.platforms) !== arr(n.platforms)) changes.push(`mengubah platform menjadi ${dash(platformLabel(n.platforms))}`)
+    if (arr(o.content_types) !== arr(n.content_types)) changes.push(`mengubah jenis konten menjadi ${dash(contentLabel(n.content_types))}`)
+    if (o.ratio !== n.ratio) changes.push(`mengubah ratio menjadi ${dash(n.ratio)}`)
+    if (arr(o.tagged) !== arr(n.tagged)) changes.push(`mengubah tag akun menjadi ${dash(taggedLabel(n.tagged))}`)
+    if (o.caption !== n.caption) changes.push('memperbarui caption')
+    if (o.brief !== n.brief) changes.push('memperbarui brief')
+    if (o.hashtags !== n.hashtags) changes.push(`memperbarui hashtags menjadi ${dash(n.hashtags)}`)
+    if (o.notes !== n.notes) changes.push('memperbarui catatan')
+    if (o.video_link !== n.video_link || o.design_link !== n.design_link || arr(o.files) !== arr(n.files)) {
+      changes.push('memperbarui lampiran')
+    }
     if (!changes.length) return
 
     const supabase = getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
