@@ -42,7 +42,7 @@ const DEFAULT_FORM = {
 }
 
 export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
-  const { posts } = useStore()
+  const { posts, upsertPost } = useStore()
   const logActivity = useLogActivity()
   const [form, setForm] = useState(DEFAULT_FORM)
   const [loading, setLoading] = useState(false)
@@ -168,24 +168,27 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
       const dt = new Date(d)
       return Number.isNaN(dt.getTime()) ? d : dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
     }
-    const dash = (s: string) => (s && s.trim() ? s : '—')
-    const titleShort = (t: string) => (t.length > 80 ? t.slice(0, 80) + '…' : t)
+    const short = (t: string) => (t.length > 60 ? t.slice(0, 60) + '…' : t)
+    const quo = (s: string) => (s && s.trim() ? `"${short(s)}"` : 'kosong')
+    const lbl = (s: string) => (s && s.trim() ? s : 'kosong')
 
-    // ── One activity entry per changed field ──
+    // ── One activity entry per changed field, phrased "<field> dari <old>
+    //    menjadi <new>". Combined with the actor name at render time it reads
+    //    e.g. "trinaufalabd telah memperbarui judul dari "..." menjadi "...".
     const changes: string[] = []
-    if (o.title !== n.title) changes.push(`mengubah judul menjadi "${titleShort(n.title)}"`)
-    if (o.status !== n.status) changes.push(`mengubah status ke ${statusLabel(n.status)}`)
-    if (o.date !== n.date) changes.push(n.date ? `mengubah jadwal posting ke ${dateLabel(n.date)}` : 'menghapus jadwal posting')
-    if (arr(o.platforms) !== arr(n.platforms)) changes.push(`mengubah platform menjadi ${dash(platformLabel(n.platforms))}`)
-    if (arr(o.content_types) !== arr(n.content_types)) changes.push(`mengubah jenis konten menjadi ${dash(contentLabel(n.content_types))}`)
-    if (o.ratio !== n.ratio) changes.push(`mengubah ratio menjadi ${dash(n.ratio)}`)
-    if (arr(o.tagged) !== arr(n.tagged)) changes.push(`mengubah tag akun menjadi ${dash(taggedLabel(n.tagged))}`)
-    if (o.caption !== n.caption) changes.push('memperbarui caption')
-    if (o.brief !== n.brief) changes.push('memperbarui brief')
-    if (o.hashtags !== n.hashtags) changes.push(`memperbarui hashtags menjadi ${dash(n.hashtags)}`)
-    if (o.notes !== n.notes) changes.push('memperbarui catatan')
+    if (o.title !== n.title) changes.push(`telah memperbarui judul dari ${quo(o.title)} menjadi ${quo(n.title)}`)
+    if (o.status !== n.status) changes.push(`telah mengubah status dari ${lbl(statusLabel(o.status))} menjadi ${lbl(statusLabel(n.status))}`)
+    if (o.date !== n.date) changes.push(`telah mengubah jadwal posting dari ${lbl(dateLabel(o.date))} menjadi ${lbl(dateLabel(n.date))}`)
+    if (arr(o.platforms) !== arr(n.platforms)) changes.push(`telah mengubah platform dari ${lbl(platformLabel(o.platforms))} menjadi ${lbl(platformLabel(n.platforms))}`)
+    if (arr(o.content_types) !== arr(n.content_types)) changes.push(`telah mengubah jenis konten dari ${lbl(contentLabel(o.content_types))} menjadi ${lbl(contentLabel(n.content_types))}`)
+    if (o.ratio !== n.ratio) changes.push(`telah mengubah ratio dari ${lbl(o.ratio)} menjadi ${lbl(n.ratio)}`)
+    if (arr(o.tagged) !== arr(n.tagged)) changes.push(`telah mengubah tag akun dari ${lbl(taggedLabel(o.tagged))} menjadi ${lbl(taggedLabel(n.tagged))}`)
+    if (o.hashtags !== n.hashtags) changes.push(`telah memperbarui hashtags dari ${quo(o.hashtags)} menjadi ${quo(n.hashtags)}`)
+    if (o.caption !== n.caption) changes.push('telah memperbarui caption')
+    if (o.brief !== n.brief) changes.push('telah memperbarui brief')
+    if (o.notes !== n.notes) changes.push('telah memperbarui catatan')
     if (o.video_link !== n.video_link || o.design_link !== n.design_link || arr(o.files) !== arr(n.files)) {
-      changes.push('memperbarui lampiran')
+      changes.push('telah memperbarui lampiran')
     }
     if (!changes.length) return
 
@@ -236,6 +239,10 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
 
     if (editId) {
       await supabase.from('posts').update(data).eq('id', editId)
+      // Optimistically update the store so the change shows immediately,
+      // without waiting for the realtime echo or a page reload.
+      const existing = posts.find(p => p.id === editId)
+      if (existing) upsertPost({ ...existing, ...data, id: editId } as Post)
       logActivity(`Post diupdate: "${form.title}"`)
       await logPostChanges(editId)
     } else {

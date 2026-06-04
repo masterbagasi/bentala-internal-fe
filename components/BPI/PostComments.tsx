@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSupabase } from '@/lib/supabase'
 import type { Post } from '@/lib/types'
@@ -101,7 +101,6 @@ export function PostComments({ post }: { post: Post }) {
   const [input, setInput] = useState('')
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState('')
-  const listEndRef = useRef<HTMLDivElement>(null)
 
   // Load current user + the comment thread.
   useEffect(() => {
@@ -211,7 +210,8 @@ export function PostComments({ post }: { post: Post }) {
       tab === 'comments'
         ? commentEntries
         : [...activity, ...loggedActivity, ...commentEntries]
-    return items.slice().sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
+    // Newest first (top).
+    return items.slice().sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
   }, [tab, activity, loggedActivity, commentEntries])
 
   async function submit() {
@@ -234,7 +234,6 @@ export function PostComments({ post }: { post: Post }) {
       setRows(prev => (prev.some(r => r.id === row.id) ? prev : [...prev, row]))
       setInput('')
       setTab('comments')
-      setTimeout(() => listEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     } catch {
       setError('Gagal mengirim komentar. Coba lagi.')
     } finally {
@@ -252,24 +251,9 @@ export function PostComments({ post }: { post: Post }) {
         <Tab label="Semua Aktivitas" active={tab === 'activity'} onClick={() => setTab('activity')} />
       </div>
 
-      {/* Feed */}
-      {loading ? (
-        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>Memuat…</div>
-      ) : feed.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>
-          {tab === 'comments' ? 'Belum ada komentar. Jadilah yang pertama!' : 'Belum ada aktivitas.'}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {feed.map(e => (
-            <FeedItem key={`${e.kind}-${e.id}`} entry={e} />
-          ))}
-          <div ref={listEndRef} />
-        </div>
-      )}
-
-      {/* Composer */}
-      <div style={{ display: 'flex', gap: 10, marginTop: 16, alignItems: 'flex-start' }}>
+      {/* Composer — kept at the top so a new comment appears right below it
+          (newest-first ordering). */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, alignItems: 'flex-start' }}>
         <Avatar name={me.name || me.email || 'You'} size={30} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <textarea
@@ -304,6 +288,21 @@ export function PostComments({ post }: { post: Post }) {
           </div>
         </div>
       </div>
+
+      {/* Feed — newest first */}
+      {loading ? (
+        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>Memuat…</div>
+      ) : feed.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>
+          {tab === 'comments' ? 'Belum ada komentar. Jadilah yang pertama!' : 'Belum ada aktivitas.'}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {feed.map(e => (
+            <FeedItem key={`${e.kind}-${e.id}`} entry={e} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
