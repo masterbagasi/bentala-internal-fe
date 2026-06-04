@@ -105,11 +105,23 @@ export function PlatformBadge({ platform }: { platform: string }) {
   )
 }
 
+// Stable accent palette for accounts not in the legacy named map (e.g. when the
+// value is an email). Same approach as PostModal's AccountAvatar.
+const TEAM_AVATAR_COLORS = ['#6c63ff', '#43d9a2', '#ffc542', '#ff6b6b', '#3b9dff', '#c084fc', '#f97316', '#14b8a6']
+function teamAvatarColor(seed: string): string {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
+  return TEAM_AVATAR_COLORS[h % TEAM_AVATAR_COLORS.length]
+}
+
 export function TeamAvatar({ name, size = 26 }: { name: string; size?: number }) {
-  const colors: Record<string, string> = {
+  // `name` may be a legacy team name ("Dandi") or an account email
+  // ("naufal@masterbagasi.com"). Derive a readable label + initials for both.
+  const named: Record<string, string> = {
     Dandi: '#6c63ff', Naufal: '#43d9a2', 'Design Studio': '#ffc542', 'Video Production': '#ff6b6b',
   }
-  const bg = colors[name] || '#8b8fa8'
+  const label = name.includes('@') ? name.split('@')[0] : name
+  const bg = named[name] || teamAvatarColor(name)
   return (
     <span
       title={name}
@@ -120,7 +132,7 @@ export function TeamAvatar({ name, size = 26 }: { name: string; size?: number })
         background: bg, flexShrink: 0,
       }}
     >
-      {name.slice(0, 2)}
+      {label.slice(0, 2).toUpperCase()}
     </span>
   )
 }

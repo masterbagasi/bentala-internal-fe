@@ -5,7 +5,7 @@ import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { getSupabase } from '@/lib/supabase'
 import { useStore } from '@/hooks/useStore'
 import { useLogActivity } from '@/hooks/useData'
-import { BPI_STATUS_COLS, TEAM, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
+import { BPI_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
 import { MultiFileUploader } from '@/components/website/FileUploader'
 import { SingleDatePicker } from '@/components/Social/DateRangePicker'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
@@ -49,16 +49,36 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
   const [originalTagged, setOriginalTagged] = useState<string[]>([])
   const [linkInput, setLinkInput] = useState('')
   const [currentUserName, setCurrentUserName] = useState('')
+  const [currentUserEmail, setCurrentUserEmail] = useState('')
+  // Real login accounts (for the Tag Akun picker) — replaces the old dummy
+  // TEAM list so only actually-registered accounts can be tagged.
+  const [accounts, setAccounts] = useState<{ email: string; name: string; avatarUrl: string | null }[]>([])
 
-  // Resolve the logged-in user's name so their own account shows as "You".
+  // Resolve the logged-in user so their own account shows as "You".
   useEffect(() => {
     getSupabase().auth.getUser().then(({ data }) => {
       if (data.user) {
         const meta = data.user.user_metadata ?? {}
         setCurrentUserName(meta.full_name ?? meta.name ?? data.user.email?.split('@')[0] ?? '')
+        setCurrentUserEmail(data.user.email ?? '')
       }
     })
   }, [])
+
+  // Load the real account list whenever the modal opens.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    fetch('/api/accounts')
+      .then(r => (r.ok ? r.json() : { accounts: [] }))
+      .then((d: { accounts?: { email: string; name: string; avatarUrl: string | null }[] }) => {
+        if (!cancelled) setAccounts(d.accounts ?? [])
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   function addLink() {
     const v = linkInput.trim()
@@ -161,16 +181,18 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
       logActivity(`Post baru ditambahkan: "${form.title}"`, creator)
     }
 
-    // Notify newly-tagged members: web-internal (activity log) + email.
-    const newlyTagged = form.tagged.filter(name => !originalTagged.includes(name))
-    for (const name of newlyTagged) {
-      await logActivity(`🔔 ${name} di-tag pada post "${form.title}"`, name)
-      // Fire-and-forget; the route resolves the recipient from the TEAM allowlist
-      // server-side and no-ops gracefully if email isn't configured.
+    // Notify newly-tagged accounts: web-internal (activity log) + email.
+    // `tagged` now holds account emails; resolve a friendly name for the log.
+    const newlyTagged = form.tagged.filter(email => !originalTagged.includes(email))
+    for (const email of newlyTagged) {
+      const displayName = accounts.find(a => a.email === email)?.name ?? email
+      await logActivity(`🔔 ${displayName} di-tag pada post "${form.title}"`, displayName)
+      // Fire-and-forget; the route validates the email belongs to a registered
+      // account server-side and no-ops gracefully if email isn't configured.
       fetch('/api/notify-tag', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, postTitle: form.title, taggedBy: currentUserName }),
+        body: JSON.stringify({ email, postTitle: form.title, taggedBy: currentUserName }),
       }).catch(() => {})
     }
 
@@ -260,12 +282,12 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
           </FormGroup>
           <FormGroup label="Tag Akun">
             <MultiDropdown
-              placeholder="Pilih akun..."
-              options={TEAM.map(m => ({
-                value: m.name,
-                label: m.name === currentUserName ? `${m.name} (You)` : m.name,
-                hint: m.email,
-                avatar: <Avatar color={m.color} initials={m.initials} />,
+              placeholder={accounts.length ? 'Pilih akun...' : 'Memuat akun...'}
+              options={accounts.map(a => ({
+                value: a.email,
+                label: a.email === currentUserEmail ? `${a.name} (You)` : a.name,
+                hint: a.email,
+                avatar: <AccountAvatar name={a.name} email={a.email} url={a.avatarUrl} />,
               }))}
               selected={form.tagged}
               onChange={next => setForm(f => ({ ...f, tagged: next }))}
@@ -444,6 +466,31 @@ function Avatar({ color, initials }: { color: string; initials: string }) {
       {initials}
     </span>
   )
+}
+
+// Deterministic accent color from a string (email), so each account gets a
+// stable avatar tint without a hardcoded palette.
+const AVATAR_COLORS = ['#6c63ff', '#43d9a2', '#ffc542', '#ff6b6b', '#3b9dff', '#c084fc', '#f97316', '#14b8a6']
+function colorFor(seed: string): string {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]
+}
+function initialsFor(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
+}
+
+// Avatar for a real account — photo if available, else colored initials.
+function AccountAvatar({ name, email, url }: { name: string; email: string; url: string | null }) {
+  if (url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={url} alt={name} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+    )
+  }
+  return <Avatar color={colorFor(email)} initials={initialsFor(name)} />
 }
 
 function SingleDropdown({ options, value, onChange, placeholder = 'Pilih...' }: {

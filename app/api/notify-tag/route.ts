@@ -1,22 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TEAM } from '@/lib/constants'
+import { createSupabaseAdmin } from '@/lib/supabase-admin'
 
-// Sends an email to a team member when they're tagged on a post.
+// Sends an email to an account when they're tagged on a post.
 // Requires RESEND_API_KEY (and optionally RESEND_FROM) in the environment.
 // If the key isn't set, it no-ops gracefully so saving a post never breaks.
 //
 // Security:
 //  - The route sits behind the auth middleware (unauthenticated requests are
 //    redirected to /login and never reach this handler).
-//  - The recipient is resolved server-side from the trusted TEAM allowlist by
-//    name — a `to` address is never accepted from the request body, so this
-//    can't be used as an open email relay.
+//  - The recipient is resolved server-side: an `email` is only accepted if it
+//    belongs to a registered Supabase account, and a legacy `name` is resolved
+//    from the trusted TEAM allowlist. A raw `to` address is never accepted, so
+//    this can't be used as an open email relay.
 //  - All interpolated values are HTML-escaped; the subject is CRLF-stripped.
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string),
   )
+}
+
+// Look up a registered account by email (paged, case-insensitive). Returns the
+// canonical email + display name, or null when no such account exists.
+async function findAccountByEmail(email: string): Promise<{ email: string; name: string } | null> {
+  const target = email.toLowerCase()
+  const admin = createSupabaseAdmin()
+  let page = 1
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 })
+    if (error) throw error
+    const u = data.users.find(x => (x.email ?? '').toLowerCase() === target)
+    if (u && u.email) {
+      const meta = (u.user_metadata ?? {}) as Record<string, unknown>
+      return {
+        email: u.email,
+        name: (meta.full_name as string) || (meta.name as string) || u.email.split('@')[0],
+      }
+    }
+    if (data.users.length < 200) return null
+    page += 1
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -30,25 +55,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, skipped: 'RESEND_API_KEY not set' })
   }
 
-  let body: { name?: string; postTitle?: string; taggedBy?: string }
+  let body: { email?: string; name?: string; postTitle?: string; taggedBy?: string }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid body' }, { status: 400 })
   }
 
-  const name = String(body.name ?? '')
+  const emailInput = String(body.email ?? '').trim().toLowerCase()
+  const nameInput = String(body.name ?? '')
   const postTitle = String(body.postTitle ?? '')
   const taggedBy = String(body.taggedBy ?? '')
 
-  // Recipient is resolved from the trusted allowlist, never from the client.
-  const member = TEAM.find(m => m.name === name)
-  if (!member?.email) {
-    return NextResponse.json({ ok: false, error: 'unknown recipient' }, { status: 400 })
+  // Resolve the recipient + display name server-side. An email is only honored
+  // if it belongs to a registered account; otherwise fall back to the legacy
+  // name→TEAM lookup. A raw "to" is never accepted.
+  let to = ''
+  let displayName = ''
+  if (emailInput) {
+    try {
+      const account = await findAccountByEmail(emailInput)
+      if (!account) {
+        return NextResponse.json({ ok: false, error: 'unknown recipient' }, { status: 400 })
+      }
+      to = account.email
+      displayName = account.name
+    } catch {
+      return NextResponse.json({ ok: false, error: 'lookup failed' }, { status: 500 })
+    }
+  } else {
+    const member = TEAM.find(m => m.name === nameInput)
+    if (!member?.email) {
+      return NextResponse.json({ ok: false, error: 'unknown recipient' }, { status: 400 })
+    }
+    to = member.email
+    displayName = member.name
   }
-  const to = member.email
 
-  const eName = escapeHtml(name || 'tim')
+  const eName = escapeHtml(displayName || 'tim')
   const eBy = escapeHtml(taggedBy)
   const eTitle = escapeHtml(postTitle || '(tanpa judul)')
   // Subject is a mail header — strip CR/LF to prevent header injection.
