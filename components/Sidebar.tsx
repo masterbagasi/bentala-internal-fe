@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { useState, useEffect, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { AccountButton } from '@/components/shared/AccountButton'
+import { isSuperAdmin, normaliseSections, ALL_SECTION_IDS } from '@/lib/access'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -140,6 +141,24 @@ const GlobeIcon = () => (
     <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
   </svg>
 )
+const ChartIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
+    <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="14" /><line x1="3" y1="20" x2="21" y2="20" />
+  </svg>
+)
+const ShareIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
+    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+)
+const ReportIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+  </svg>
+)
 const AudioIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
@@ -153,6 +172,12 @@ const PlugIcon = () => (
     <path d="M9 2v6" /><path d="M15 2v6" />
     <rect x="6" y="8" width="12" height="6" rx="1" />
     <path d="M12 14v3a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3v-1" />
+  </svg>
+)
+const LockIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
+    <rect x="3" y="11" width="18" height="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
   </svg>
 )
 const ChevronIcon = ({ collapsed }: { collapsed: boolean }) => (
@@ -252,6 +277,43 @@ export function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(true)
   const [query, setQuery] = useState('')
 
+  // ── Per-account menu access ──
+  // Determines which sections this account may see. Super admin sees all.
+  // `loading` keeps the nav blank until we know, so we never flash menus the
+  // account can't open. Mirrors the DENY-by-default gate in middleware.ts.
+  const [access, setAccess] = useState<{
+    loading: boolean
+    isSuper: boolean
+    allowed: Set<string>
+  }>({ loading: true, isSuper: false, allowed: new Set() })
+
+  useEffect(() => {
+    let cancelled = false
+    const supabase = getSupabase()
+    supabase.auth.getUser().then(async ({ data }) => {
+      const email = data.user?.email
+      if (isSuperAdmin(email)) {
+        if (!cancelled) setAccess({ loading: false, isSuper: true, allowed: new Set(ALL_SECTION_IDS) })
+        return
+      }
+      let allowed: string[] = []
+      try {
+        const { data: row } = await supabase
+          .from('menu_access')
+          .select('sections')
+          .limit(1)
+          .maybeSingle()
+        allowed = normaliseSections((row as { sections?: unknown } | null)?.sections)
+      } catch {
+        allowed = []
+      }
+      if (!cancelled) setAccess({ loading: false, isSuper: false, allowed: new Set(allowed) })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   function toggleSection(id: string) {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }))
   }
@@ -291,6 +353,17 @@ export function Sidebar() {
       items: [
         { href: '/bsi',              label: 'Content',  icon: <ListIcon />, color: COLOR.purple },
         { href: '/bsi?tab=calendar', label: 'Calendar', icon: <CalIcon />,  color: COLOR.red },
+      ],
+    },
+    {
+      id: 'social',
+      badge: <BrandBadge text="sm." />,
+      fullLabel: 'Social Media',
+      items: [
+        { href: '/social/accounts',  label: 'Accounts',  icon: <PeopleIcon />, color: COLOR.blue },
+        { href: '/social/analytics', label: 'Analytics', icon: <ChartIcon />,  color: COLOR.teal },
+        { href: '/social/reports',   label: 'Reports',   icon: <ReportIcon />, color: COLOR.orange },
+        { href: '/social/plan',      label: 'Plan',      icon: <CalIcon />,    color: COLOR.purple },
       ],
     },
     {
@@ -345,9 +418,14 @@ export function Sidebar() {
       fullLabel: 'Settings',
       items: [
         { href: '/settings/ai', label: 'AI Integrations', icon: <PlugIcon />, color: COLOR.gray },
+        // Access management — only the super admin can open it, so only show it
+        // to them (the route is super-admin-gated in middleware regardless).
+        ...(access.isSuper
+          ? [{ href: '/settings/access', label: 'Hak Akses', icon: <LockIcon />, color: COLOR.gray }]
+          : []),
       ],
     },
-  ], [])
+  ], [access.isSuper])
 
   // Search filter — case-insensitive match. Two paths:
   //  1) Section title (label / fullLabel / badge text — e.g. "bentala
@@ -355,10 +433,19 @@ export function Sidebar() {
   //     section so the user lands on the whole group at once.
   //  2) Otherwise, filter items inside the section by label.
   // Sections with zero matches drop out entirely.
+  // Restrict to sections this account may access before any search filtering.
+  // Super admin sees all. While access is still loading, show nothing so we
+  // never flash a menu the account can't open.
+  const accessibleSections = useMemo(() => {
+    if (access.loading) return []
+    if (access.isSuper) return sections
+    return sections.filter(sec => access.allowed.has(sec.id))
+  }, [sections, access])
+
   const filteredSections = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return sections
-    return sections
+    if (!q) return accessibleSections
+    return accessibleSections
       .map(sec => {
         const sectionTitle = `${sec.fullLabel ?? ''} ${sec.label ?? ''} ${sec.id}`.toLowerCase()
         if (sectionTitle.includes(q)) return sec
@@ -374,7 +461,7 @@ export function Sidebar() {
         return { ...sec, items: filteredItems }
       })
       .filter(sec => sec.items.length > 0)
-  }, [sections, query])
+  }, [accessibleSections, query])
 
   // Compute the single active href for the current pathname. We
   // pick the LONGEST registered href that the path starts with so

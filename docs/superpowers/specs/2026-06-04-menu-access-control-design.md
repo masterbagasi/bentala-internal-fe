@@ -40,7 +40,7 @@ longest-prefix wins; `/` matches only the exact root path.
 | bsi       | `/bsi`                                                                                    | `/bsi`           |
 | social    | `/social`                                                                                 | `/social/accounts` |
 | client    | `/website/leads`, `/clients`, `/invoices`                                                 | `/clients`       |
-| projects  | `/projects`, `/tasks`, `/bpi-faizal`, `/bpi-reinaldi`, `/pipeline`                        | `/projects`      |
+| projects  | `/projects`, `/tasks`, `/bpi-faizal`, `/bpi-reinaldi`, `/pipeline/vp`, `/pipeline/ds`     | `/projects`      |
 | ai        | `/ai`                                                                                     | `/ai/chat`       |
 | team      | `/team`                                                                                   | `/team`          |
 | settings  | `/settings`                                                                               | `/settings/ai`   |
@@ -55,7 +55,11 @@ special case: **super admin only**, regardless of `settings` access.
 - `SUPER_ADMIN_EMAILS = ['dandirivaldi@masterbagasi.com']`.
 - `ACCESS_SECTIONS: { id, label, routes: string[], landing: string }[]` — the
   table above.
-- `sectionForPath(pathname): string | null` — longest-prefix match, `/` exact.
+- `sectionForPath(pathname): string | null` — **segment-aware** longest-prefix
+  match: a route matches when `pathname === route` or
+  `pathname.startsWith(route + '/')` (so `/bpi-faizal` does **not** match the
+  `bpi` section's `/bpi` route); `/` matches only the exact root. This mirrors
+  the existing `activeHref` logic in `Sidebar.tsx`. Query strings are ignored.
 - `isSuperAdmin(email): boolean`.
 - `firstAllowedLanding(sections: string[]): string | null`.
 

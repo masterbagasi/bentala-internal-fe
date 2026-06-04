@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { isSuperAdmin } from '@/lib/access'
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -116,6 +117,7 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
   }>({ name: '', email: '', avatarUrl: null })
   const [theme, setThemeState] = useState<'dark' | 'light'>('dark')
   const [lang, setLangState] = useState<'id' | 'en'>('id')
+  const [isSuper, setIsSuper] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const [popupPos, setPopupPos] = useState({ bottom: 0, left: 8, width: 220 })
@@ -138,6 +140,7 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
             email: data.user.email ?? '',
             avatarUrl: meta.avatar_url ?? null,
           })
+          setIsSuper(isSuperAdmin(data.user.email))
         }
       })
 
@@ -479,6 +482,22 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
               }
               onClick={toggleTheme}
             />
+
+            {isSuper && (
+              <PopupItem
+                icon={
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                }
+                label="Setting Access"
+                onClick={() => {
+                  setOpen(false)
+                  router.push('/settings/access')
+                }}
+              />
+            )}
 
             <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
 
