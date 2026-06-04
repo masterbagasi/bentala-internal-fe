@@ -13,6 +13,7 @@ import type { Post } from '@/lib/types'
 interface CommentRow {
   id: string
   post_id: string
+  type?: string | null // 'comment' (default) | 'activity'
   author_email: string | null
   author_name: string | null
   body: string
@@ -92,7 +93,9 @@ function Avatar({ name, size = 30 }: { name: string; size?: number }) {
 
 export function PostComments({ post }: { post: Post }) {
   const [tab, setTab] = useState<'comments' | 'activity'>('comments')
-  const [comments, setComments] = useState<CommentRow[]>([])
+  // All rows for this post (comments + logged activity), kept in one list so a
+  // single realtime subscription covers both.
+  const [rows, setRows] = useState<CommentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [me, setMe] = useState<{ name: string; email: string }>({ name: '', email: '' })
   const [input, setInput] = useState('')
@@ -117,18 +120,41 @@ export function PostComments({ post }: { post: Post }) {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    sb()
+    const supabase = sb()
+
+    supabase
       .from('post_comments')
       .select('*')
       .eq('post_id', post.id)
       .order('created_at', { ascending: true })
       .then(({ data }) => {
         if (cancelled) return
-        setComments((data as CommentRow[] | null) ?? [])
+        setRows((data as CommentRow[] | null) ?? [])
         setLoading(false)
       })
-    return () => { cancelled = true }
+
+    // Realtime: append new rows (comments + activity) as they're inserted,
+    // from this or any other user's session — no manual reload needed.
+    const channel = supabase
+      .channel(`post_comments:${post.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'post_comments', filter: `post_id=eq.${post.id}` },
+        payload => {
+          if (cancelled) return
+          const row = payload.new as CommentRow
+          setRows(prev => (prev.some(r => r.id === row.id) ? prev : [...prev, row]))
+        },
+      )
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      supabase.removeChannel(channel)
+    }
   }, [post.id])
+
+  const comments = useMemo(() => rows.filter(r => (r.type ?? 'comment') !== 'activity'), [rows])
 
   // Activity events derived from the post itself.
   const activity = useMemo<FeedEntry[]>(() => {
@@ -165,10 +191,28 @@ export function PostComments({ post }: { post: Post }) {
     [comments],
   )
 
+  // Logged activity rows (post edits: status/field changes).
+  const loggedActivity = useMemo<FeedEntry[]>(
+    () =>
+      rows
+        .filter(r => (r.type ?? 'comment') === 'activity')
+        .map(r => ({
+          id: r.id,
+          kind: 'activity' as const,
+          authorName: r.author_name || r.author_email || 'Seseorang',
+          at: r.created_at,
+          text: r.body,
+        })),
+    [rows],
+  )
+
   const feed = useMemo<FeedEntry[]>(() => {
-    const items = tab === 'comments' ? commentEntries : [...activity, ...commentEntries]
+    const items =
+      tab === 'comments'
+        ? commentEntries
+        : [...activity, ...loggedActivity, ...commentEntries]
     return items.slice().sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
-  }, [tab, activity, commentEntries])
+  }, [tab, activity, loggedActivity, commentEntries])
 
   async function submit() {
     const body = input.trim()
@@ -186,7 +230,8 @@ export function PostComments({ post }: { post: Post }) {
         .select('*')
         .single()
       if (insErr) throw insErr
-      setComments(prev => [...prev, data as CommentRow])
+      const row = data as CommentRow
+      setRows(prev => (prev.some(r => r.id === row.id) ? prev : [...prev, row]))
       setInput('')
       setTab('comments')
       setTimeout(() => listEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)

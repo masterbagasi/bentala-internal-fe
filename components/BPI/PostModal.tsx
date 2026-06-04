@@ -47,6 +47,8 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
   const [form, setForm] = useState(DEFAULT_FORM)
   const [loading, setLoading] = useState(false)
   const [originalTagged, setOriginalTagged] = useState<string[]>([])
+  // Snapshot of the post's fields at edit-time, used to log what changed.
+  const [originalForm, setOriginalForm] = useState<typeof DEFAULT_FORM | null>(null)
   const [linkInput, setLinkInput] = useState('')
   const [currentUserName, setCurrentUserName] = useState('')
   const [currentUserEmail, setCurrentUserEmail] = useState('')
@@ -110,7 +112,7 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
     if (editId) {
       const p = posts.find(x => x.id === editId)
       if (p) {
-        setForm({
+        const loaded = {
           title:         p.title,
           platforms:     (p.platforms || []) as Platform[],
           date:          p.date || '',
@@ -128,14 +130,65 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
           tagged:        p.tagged || [],
           ratio:         p.ratio || '',
           files:         p.files || [],
-        })
+        }
+        setForm(loaded)
         setOriginalTagged(p.tagged || [])
+        setOriginalForm(loaded)
       }
     } else {
       setForm(DEFAULT_FORM)
       setOriginalTagged([])
+      setOriginalForm(null)
     }
   }, [open, editId, posts])
+
+  // Record what changed on an edit as activity rows in post_comments, so the
+  // post's activity feed reflects edits (status, fields, etc.).
+  async function logPostChanges(postId: string) {
+    const o = originalForm
+    if (!o) return
+    const n = form
+    const arr = (a: string[]) => JSON.stringify(a ?? [])
+
+    const statusLabel = (s: string) => {
+      const cols = entity === 'bpi'
+        ? BPI_STATUS_COLS
+        : [{ key: 'todo', label: 'Idea' }, { key: 'produksi', label: 'Production' }, { key: 'published', label: 'Published' }]
+      return cols.find(c => c.key === s)?.label ?? s
+    }
+
+    const changes: string[] = []
+    if (o.status !== n.status) changes.push(`mengubah status ke ${statusLabel(n.status)}`)
+
+    const fieldChecks: [boolean, string][] = [
+      [o.title !== n.title, 'judul'],
+      [o.date !== n.date, 'jadwal'],
+      [arr(o.platforms) !== arr(n.platforms), 'platform'],
+      [arr(o.content_types) !== arr(n.content_types), 'jenis konten'],
+      [o.caption !== n.caption, 'caption'],
+      [o.brief !== n.brief, 'brief'],
+      [o.hashtags !== n.hashtags, 'hashtags'],
+      [arr(o.tagged) !== arr(n.tagged), 'tag akun'],
+      [o.ratio !== n.ratio, 'ratio'],
+      [o.notes !== n.notes, 'catatan'],
+      [o.video_link !== n.video_link || o.design_link !== n.design_link || arr(o.files) !== arr(n.files), 'lampiran'],
+    ]
+    const changedFields = fieldChecks.filter(([c]) => c).map(([, l]) => l)
+    if (changedFields.length) changes.push(`memperbarui ${changedFields.join(', ')}`)
+    if (!changes.length) return
+
+    const supabase = getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
+    const rows = changes.map(text => ({
+      post_id: postId,
+      type: 'activity',
+      author_email: currentUserEmail || null,
+      author_name: currentUserName || null,
+      body: text,
+    }))
+    try {
+      await supabase.from('post_comments').insert(rows)
+    } catch { /* non-blocking — activity logging shouldn't fail the save */ }
+  }
 
   async function handleSave() {
     if (!form.title.trim()) { alert('Judul post wajib diisi!'); return }
@@ -172,6 +225,7 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
     if (editId) {
       await supabase.from('posts').update(data).eq('id', editId)
       logActivity(`Post diupdate: "${form.title}"`)
+      await logPostChanges(editId)
     } else {
       // Stamp the creator from the logged-in user
       const { data: u } = await supabase.auth.getUser()

@@ -5,6 +5,8 @@
 CREATE TABLE IF NOT EXISTS public.post_comments (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id      uuid NOT NULL REFERENCES public.posts(id) ON DELETE CASCADE,
+  -- 'comment' = a user comment; 'activity' = a logged post change (status/field edits)
+  type         text NOT NULL DEFAULT 'comment',
   author_email text,
   author_name  text,
   body         text NOT NULL,
@@ -13,6 +15,11 @@ CREATE TABLE IF NOT EXISTS public.post_comments (
 
 CREATE INDEX IF NOT EXISTS post_comments_post_id_idx
   ON public.post_comments (post_id, created_at);
+
+-- Realtime: stream inserts so comments/activity appear without a reload.
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.post_comments;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 ALTER TABLE public.post_comments ENABLE ROW LEVEL SECURITY;
 
