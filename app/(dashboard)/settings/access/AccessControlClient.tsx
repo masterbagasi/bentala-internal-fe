@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 
 // ── Types (mirror /api/access GET response) ──
 interface SectionMeta {
@@ -48,10 +49,29 @@ export default function AccessControlClient() {
   const [addBusy, setAddBusy] = useState(false)
   const [addError, setAddError] = useState('')
 
-  // Per-row password change.
-  const [pwOpen, setPwOpen] = useState<Record<string, boolean>>({})
-  const [pwValue, setPwValue] = useState<Record<string, string>>({})
-  const [pwStatus, setPwStatus] = useState<Record<string, RowState>>({})
+  // Password-change modal (one account at a time).
+  const [pwEmail, setPwEmail] = useState<string | null>(null)
+  const [pw1, setPw1] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [show1, setShow1] = useState(false)
+  const [show2, setShow2] = useState(false)
+  const [pwBusy, setPwBusy] = useState(false)
+  const [pwError, setPwError] = useState('')
+  const [pwDone, setPwDone] = useState(false)
+
+  function openPwModal(email: string) {
+    setPwEmail(email)
+    setPw1('')
+    setPw2('')
+    setShow1(false)
+    setShow2(false)
+    setPwError('')
+    setPwDone(false)
+    setPwBusy(false)
+  }
+  function closePwModal() {
+    setPwEmail(null)
+  }
 
   // Load (or reload) the account list. Preserves any unsaved section toggles
   // for accounts that already exist so a refresh after adding an account
@@ -119,28 +139,32 @@ export default function AccessControlClient() {
     }
   }
 
-  async function changePassword(email: string) {
-    const pw = pwValue[email] ?? ''
-    if (pw.length < 6) {
-      setPwStatus(prev => ({ ...prev, [email]: 'error' }))
+  async function submitPassword() {
+    if (!pwEmail) return
+    setPwError('')
+    if (pw1.length < 6) {
+      setPwError('Password minimal 6 karakter')
       return
     }
-    setPwStatus(prev => ({ ...prev, [email]: 'saving' }))
+    if (pw1 !== pw2) {
+      setPwError('Password tidak sama dengan pengulangannya')
+      return
+    }
+    setPwBusy(true)
     try {
       const r = await fetch('/api/access/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pw }),
+        body: JSON.stringify({ email: pwEmail, password: pw1 }),
       })
-      if (!r.ok) throw new Error(String(r.status))
-      setPwStatus(prev => ({ ...prev, [email]: 'saved' }))
-      setPwValue(prev => ({ ...prev, [email]: '' }))
-      setTimeout(() => {
-        setPwOpen(prev => ({ ...prev, [email]: false }))
-        setPwStatus(prev => (prev[email] === 'saved' ? { ...prev, [email]: 'idle' } : prev))
-      }, 1400)
-    } catch {
-      setPwStatus(prev => ({ ...prev, [email]: 'error' }))
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data.error || 'Gagal mengganti password')
+      setPwDone(true)
+      setTimeout(() => closePwModal(), 1200)
+    } catch (e) {
+      setPwError(e instanceof Error ? e.message : 'Gagal mengganti password')
+    } finally {
+      setPwBusy(false)
     }
   }
 
@@ -387,13 +411,7 @@ export default function AccessControlClient() {
                     >
                       Kosongkan
                     </button>
-                    <button
-                      onClick={() => {
-                        setPwOpen(prev => ({ ...prev, [u.email]: !prev[u.email] }))
-                        setPwStatus(prev => ({ ...prev, [u.email]: 'idle' }))
-                      }}
-                      style={quickBtnStyle}
-                    >
+                    <button onClick={() => openPwModal(u.email)} style={quickBtnStyle}>
                       Ubah Password
                     </button>
                   </div>
@@ -442,55 +460,6 @@ export default function AccessControlClient() {
                 })}
               </div>
 
-              {/* Inline password change */}
-              {!u.isSuperAdmin && pwOpen[u.email] && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    flexWrap: 'wrap',
-                    marginTop: 12,
-                    paddingTop: 12,
-                    borderTop: '1px solid var(--border)',
-                  }}
-                >
-                  <input
-                    type="password"
-                    value={pwValue[u.email] ?? ''}
-                    onChange={e => setPwValue(prev => ({ ...prev, [u.email]: e.target.value }))}
-                    placeholder="Password baru (min 6 karakter)"
-                    autoComplete="new-password"
-                    style={{ ...addInputStyle, minWidth: 240 }}
-                  />
-                  <button
-                    onClick={() => changePassword(u.email)}
-                    disabled={pwStatus[u.email] === 'saving'}
-                    style={{
-                      padding: '9px 16px',
-                      borderRadius: 8,
-                      border: 'none',
-                      background: 'var(--accent)',
-                      color: '#fff',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: pwStatus[u.email] === 'saving' ? 'not-allowed' : 'pointer',
-                      opacity: pwStatus[u.email] === 'saving' ? 0.7 : 1,
-                    }}
-                  >
-                    {pwStatus[u.email] === 'saving' ? 'Menyimpan…' : 'Simpan Password'}
-                  </button>
-                  {pwStatus[u.email] === 'saved' && (
-                    <span style={{ fontSize: 12, color: '#34d399' }}>Password diganti ✓</span>
-                  )}
-                  {pwStatus[u.email] === 'error' && (
-                    <span style={{ fontSize: 12, color: '#f87171' }}>
-                      Gagal — pastikan min 6 karakter
-                    </span>
-                  )}
-                </div>
-              )}
-
               {/* Save row */}
               {!u.isSuperAdmin && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
@@ -524,6 +493,132 @@ export default function AccessControlClient() {
             Tidak ada akun yang cocok.
           </div>
         )}
+      </div>
+
+      {/* Password-change modal */}
+      <Modal
+        open={pwEmail !== null}
+        onClose={closePwModal}
+        title="Ubah Password"
+        footer={
+          <>
+            <BtnSecondary onClick={closePwModal} disabled={pwBusy}>
+              Batal
+            </BtnSecondary>
+            <BtnPrimary onClick={submitPassword} loading={pwBusy} disabled={pwDone}>
+              {pwDone ? 'Tersimpan ✓' : 'Simpan Password'}
+            </BtnPrimary>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ fontSize: 12, color: 'var(--text2)' }}>
+            Akun: <span style={{ color: 'var(--text)', fontWeight: 600 }}>{pwEmail}</span>
+          </div>
+
+          <PasswordField
+            label="Password baru"
+            value={pw1}
+            onChange={setPw1}
+            show={show1}
+            onToggleShow={() => setShow1(s => !s)}
+            placeholder="Minimal 6 karakter"
+            onEnter={submitPassword}
+          />
+          <PasswordField
+            label="Ulangi password"
+            value={pw2}
+            onChange={setPw2}
+            show={show2}
+            onToggleShow={() => setShow2(s => !s)}
+            placeholder="Ketik ulang password baru"
+            onEnter={submitPassword}
+          />
+
+          {pwError && <div style={{ fontSize: 12, color: '#f87171' }}>{pwError}</div>}
+          {pwDone && <div style={{ fontSize: 12, color: '#34d399' }}>Password berhasil diganti ✓</div>}
+        </div>
+      </Modal>
+    </div>
+  )
+}
+
+// ── Password input with show/hide toggle ──
+function PasswordField({
+  label,
+  value,
+  onChange,
+  show,
+  onToggleShow,
+  placeholder,
+  onEnter,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  show: boolean
+  onToggleShow: () => void
+  placeholder?: string
+  onEnter?: () => void
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{label}</label>
+      <div style={{ position: 'relative' }}>
+        <input
+          type={show ? 'text' : 'password'}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && onEnter) onEnter()
+          }}
+          placeholder={placeholder}
+          autoComplete="new-password"
+          style={{
+            width: '100%',
+            background: 'var(--bg3)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: '10px 42px 10px 12px',
+            color: 'var(--text)',
+            fontSize: 13,
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+        <button
+          type="button"
+          onClick={onToggleShow}
+          aria-label={show ? 'Sembunyikan password' : 'Lihat password'}
+          title={show ? 'Sembunyikan' : 'Lihat'}
+          style={{
+            position: 'absolute',
+            right: 6,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: 30,
+            height: 30,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text2)',
+            cursor: 'pointer',
+          }}
+        >
+          {show ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+              <line x1="1" y1="1" x2="23" y2="23" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          )}
+        </button>
       </div>
     </div>
   )
