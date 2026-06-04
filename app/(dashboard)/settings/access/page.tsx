@@ -9,7 +9,7 @@ export default function AccessControlPage() {
     <>
       <PageHeader title="Hak Akses" />
       <div className="flex-1 overflow-y-auto" style={{ padding: 24 }}>
-        <Section title="Akses Menu per Akun">
+        <Section title="Akses Menu per Akun" scrollable>
           <AccessControlClient />
         </Section>
       </div>
