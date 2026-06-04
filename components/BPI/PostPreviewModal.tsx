@@ -5,6 +5,7 @@ import { useStore } from '@/hooks/useStore'
 import { formatDate } from '@/lib/utils'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
+import { PostComments } from '@/components/BPI/PostComments'
 
 interface PostPreviewModalProps {
   open: boolean
@@ -139,6 +140,9 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
           </div>
         </div>
       )}
+
+      {/* Comment room + activity feed */}
+      <PostComments post={post} />
     </Modal>
   )
 }
