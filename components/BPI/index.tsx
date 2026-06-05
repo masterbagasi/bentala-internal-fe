@@ -219,10 +219,12 @@ function KanbanBoard({
   onCardClick: (id: string) => void
 }) {
   const [dragPostId, setDragPostId] = useState<string | null>(null)
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const logActivity = useLogActivity()
   const upsertPost = useStore(s => s.upsertPost)
 
   async function handleDrop(newStatus: string) {
+    setDragOverCol(null)
     if (!dragPostId) return
     if (currentUser === 'Naufal' && newStatus === 'review') {
       setDragPostId(null); return
@@ -251,23 +253,36 @@ function KanbanBoard({
       {BPI_STATUS_COLS.map(col => {
         const colPosts = posts.filter(p => p.status === col.key)
         const isLocked = 'locked' in col && col.locked && currentUser === 'Naufal'
+        const isOver = dragOverCol === col.key
+        const dragging = dragPostId !== null
+        const active = isOver && !isLocked
+        const blocked = isOver && isLocked
         return (
           <div
             key={col.key}
             className="kanban-col"
             style={{
               minWidth: 265, maxWidth: 265,
-              background: 'var(--bg2)',
-              border: '1px solid var(--border)',
+              background: active ? `${col.color}14` : blocked ? '#ff6b6b12' : 'var(--bg2)',
+              border: `${active || blocked ? 2 : 1}px solid ${active ? col.color : blocked ? '#ff6b6b' : 'var(--border)'}`,
               borderRadius: 12, padding: '14px 12px 10px',
               flexShrink: 0, display: 'flex', flexDirection: 'column',
               maxHeight: 'calc(100vh - 200px)',
+              transform: active ? 'scale(1.03)' : 'scale(1)',
+              boxShadow: active ? `0 8px 24px ${col.color}44` : 'none',
+              transition: 'transform 0.12s ease, border-color 0.12s, background 0.12s, box-shadow 0.12s',
             }}
             onDragOver={(e) => {
               e.preventDefault()
               e.dataTransfer.dropEffect = isLocked ? 'none' : 'move'
+              if (dragOverCol !== col.key) setDragOverCol(col.key)
             }}
-            onDrop={() => !isLocked && handleDrop(col.key)}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                setDragOverCol(c => (c === col.key ? null : c))
+              }
+            }}
+            onDrop={() => { setDragOverCol(null); if (!isLocked) handleDrop(col.key) }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexShrink: 0 }}>
               <span style={{ fontWeight: 600, color: col.color, fontSize: 14 }}>{col.label}</span>
@@ -280,14 +295,30 @@ function KanbanBoard({
               {isLocked && <span title="Kamu tidak bisa drag ke kolom ini" style={{ fontSize: 13, opacity: 0.5 }}>🔒</span>}
             </div>
 
-            <div className="drop-hint">Drop di sini</div>
+            {/* Drop hint — appears while dragging over this column */}
+            {dragging && (active || blocked) && (
+              <div style={{
+                border: `2px dashed ${active ? col.color : '#ff6b6b'}`,
+                borderRadius: 10, padding: '14px 8px', marginBottom: 10,
+                textAlign: 'center', fontSize: 12, fontWeight: 600,
+                color: active ? col.color : '#ff6b6b',
+                background: active ? `${col.color}10` : '#ff6b6b10',
+              }}>
+                {active ? `Lepas di ${col.label}` : '🔒 Tidak bisa ke sini'}
+              </div>
+            )}
 
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {colPosts.map(p => (
                 <KanbanCard
                   key={p.id}
                   post={p}
-                  onDragStart={() => setDragPostId(p.id)}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', p.id)
+                    e.dataTransfer.effectAllowed = 'move'
+                    setDragPostId(p.id)
+                  }}
+                  onDragEnd={() => { setDragPostId(null); setDragOverCol(null) }}
                   onClick={() => onCardClick(p.id)}
                   onEdit={() => onEdit(p.id)}
                 />
@@ -317,10 +348,11 @@ function KanbanBoard({
 
 // ── Kanban Card ──
 function KanbanCard({
-  post, onDragStart, onClick, onEdit,
+  post, onDragStart, onDragEnd, onClick, onEdit,
 }: {
   post: Post
-  onDragStart: () => void
+  onDragStart: (e: React.DragEvent) => void
+  onDragEnd: () => void
   onClick: () => void
   onEdit: () => void
 }) {
@@ -329,6 +361,7 @@ function KanbanCard({
       className="kanban-card"
       draggable
       onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       style={{
         background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
