@@ -40,7 +40,20 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
     return () => { cancelled = true }
   }, [open, postId])
 
+  // In-app file preview popup.
+  const [preview, setPreview] = useState<{ url: string; label: string } | null>(null)
+
   if (!post) return null
+
+  // Open an attachment: preview image/video/pdf in a popup; open other links
+  // (Drive/Figma/etc.) in a new tab.
+  const openAttachment = (url: string, label: string) => {
+    if (previewKind(url) === 'other') {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } else {
+      setPreview({ url, label })
+    }
+  }
 
   // All attachments: legacy video/design links + uploaded file URLs + the
   // links/files list — deduped, so the preview mirrors the edit form.
@@ -59,6 +72,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
   for (const f of extraFiles) addAttach(f.url, undefined, f.name)
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -154,23 +168,9 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         </div>
       )}
 
-      {/* Attachments — links + uploaded files */}
-      {attachments.length > 0 && (
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
-            Lampiran File
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-            {attachments.map(a => (
-              <AttachCard key={a.url} icon={a.icon} label={a.label} url={a.url} />
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Notes */}
       {post.notes && (
-        <div>
+        <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
             Catatan
           </div>
@@ -180,9 +180,49 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         </div>
       )}
 
+      {/* Attachments — links + uploaded files. Positioned right above the
+          comments/activity section. */}
+      {attachments.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
+            Lampiran File
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {attachments.map(a => (
+              <AttachCard key={a.url} icon={a.icon} label={a.label} url={a.url} onOpen={() => openAttachment(a.url, a.label)} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Comment room + activity feed (composer lives in the fixed footer) */}
       <PostCommentsBody s={comments} />
     </Modal>
+
+    {/* In-app file preview popup */}
+    {preview && (
+      <Modal
+        open={!!preview}
+        onClose={() => setPreview(null)}
+        title={preview.label}
+        maxWidth={760}
+        headerRight={
+          <a
+            href={preview.url}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Download"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
+          >
+            ⬇ Download
+          </a>
+        }
+      >
+        <AttachPreviewBody url={preview.url} label={preview.label} />
+      </Modal>
+    )}
+    </>
   )
 }
 
@@ -209,6 +249,34 @@ function isImageUrl(url: string): boolean {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)
 }
 
+function previewKind(url: string): 'image' | 'video' | 'pdf' | 'other' {
+  const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || ''
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return 'image'
+  if (['mp4', 'mov', 'webm', 'm4v', 'avi', 'mkv'].includes(ext)) return 'video'
+  if (ext === 'pdf') return 'pdf'
+  return 'other'
+}
+
+function AttachPreviewBody({ url, label }: { url: string; label: string }) {
+  const kind = previewKind(url)
+  if (kind === 'image') {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={url} alt={label} style={{ maxWidth: '100%', maxHeight: '70vh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
+  }
+  if (kind === 'video') {
+    return <video src={url} controls autoPlay style={{ width: '100%', maxHeight: '70vh', borderRadius: 8, background: '#000' }} />
+  }
+  if (kind === 'pdf') {
+    return <iframe src={url} title={label} style={{ width: '100%', height: '70vh', border: 'none', borderRadius: 8, background: '#fff' }} />
+  }
+  return (
+    <div style={{ textAlign: 'center', padding: 24, fontSize: 13, color: 'var(--text2)' }}>
+      Preview tidak tersedia.{' '}
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>Buka di tab baru</a>
+    </div>
+  )
+}
+
 function MetaItem({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -218,19 +286,19 @@ function MetaItem({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-// Compact grid card: thumbnail (image) or big icon, filename below, opens URL.
-function AttachCard({ icon, label, url }: { icon: string; label: string; url: string }) {
+// Compact grid card: thumbnail (image) or big icon, filename below. Clicking
+// opens the in-app preview popup (or a new tab for non-previewable links).
+function AttachCard({ icon, label, url, onOpen }: { icon: string; label: string; url: string; onOpen: () => void }) {
   const img = isImageUrl(url)
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
+      onClick={onOpen}
       title={label}
       style={{
-        display: 'flex', flexDirection: 'column', gap: 8,
+        display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left',
         background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10,
-        padding: 8, textDecoration: 'none',
+        padding: 8, cursor: 'pointer', width: '100%',
       }}
       onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
       onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
@@ -246,9 +314,9 @@ function AttachCard({ icon, label, url }: { icon: string; label: string; url: st
           <span style={{ fontSize: 32 }}>{icon}</span>
         )}
       </div>
-      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
         {label}
       </div>
-    </a>
+    </button>
   )
 }
