@@ -384,9 +384,7 @@ export function Sidebar() {
         { href: '/projects',     label: 'All Projects',     icon: <FolderIcon />, color: COLOR.orange },
         { href: '/tasks',        label: 'Task Board',       icon: <TaskIcon />,   color: COLOR.green },
         { href: '/bpi-faizal',   label: 'Video Production', icon: <VideoIcon />,  color: COLOR.red },
-        { href: '/pipeline/vp',  label: 'Video Pipeline',   icon: <VideoIcon />,  color: COLOR.red },
         { href: '/bpi-reinaldi', label: 'Design Studio',    icon: <DesignIcon />, color: COLOR.purple },
-        { href: '/pipeline/ds',  label: 'Design Pipeline',  icon: <DesignIcon />, color: COLOR.purple },
       ],
     },
     {
