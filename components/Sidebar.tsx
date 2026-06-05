@@ -342,8 +342,26 @@ export function Sidebar() {
       badge: <BrandBadge text="smm" />,
       fullLabel: 'Socmed Management',
       items: [
-        { href: '/bpi', label: 'Bentala Project', icon: <ListIcon />, color: COLOR.orange },
-        { href: '/bsi', label: 'Bentala Studio',  icon: <ListIcon />, color: COLOR.purple },
+        {
+          type: 'subgroup', id: 'smm-bpi', label: 'Bentala Project',
+          items: [
+            { href: '/bpi/social/accounts',  label: 'Accounts',  icon: <PeopleIcon />, color: COLOR.blue },
+            { href: '/bpi/social/analytics', label: 'Analytics', icon: <ChartIcon />,  color: COLOR.teal },
+            { href: '/bpi/social/reports',   label: 'Reports',   icon: <ReportIcon />, color: COLOR.orange },
+            { href: '/bpi/social/plan',      label: 'Plan',      icon: <CalIcon />,    color: COLOR.purple },
+            { href: '/bpi',                  label: 'Projects',  icon: <ListIcon />,   color: COLOR.orange },
+          ],
+        },
+        {
+          type: 'subgroup', id: 'smm-bsi', label: 'Bentala Studio',
+          items: [
+            { href: '/bsi/social/accounts',  label: 'Accounts',  icon: <PeopleIcon />, color: COLOR.blue },
+            { href: '/bsi/social/analytics', label: 'Analytics', icon: <ChartIcon />,  color: COLOR.teal },
+            { href: '/bsi/social/reports',   label: 'Reports',   icon: <ReportIcon />, color: COLOR.orange },
+            { href: '/bsi/social/plan',      label: 'Plan',      icon: <CalIcon />,    color: COLOR.purple },
+            { href: '/bsi',                  label: 'Projects',  icon: <ListIcon />,   color: COLOR.purple },
+          ],
+        },
       ],
     },
     {
