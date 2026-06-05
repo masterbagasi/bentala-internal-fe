@@ -199,8 +199,13 @@ export function AnalyticsView({
         </div>
       )}
 
-      {/* Sub-views + date range (same row) */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+      {/* Sub-views + date range — sticky so it stays put while content scrolls */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 5,
+        display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+        background: 'var(--bg)', margin: '-24px -24px 16px', padding: '16px 24px',
+        borderBottom: '1px solid var(--border)',
+      }}>
         {(['overview', 'content', 'audience'] as SubView[]).map(v => (
           <button key={v} onClick={() => setView(v)} style={subPill(view === v)}>
             {v === 'overview' ? 'Overview' : v === 'content' ? 'Content' : 'Audience'}
