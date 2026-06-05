@@ -97,24 +97,6 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             padding: '9px 24px', borderBottom: '1px solid var(--border)',
             background: 'var(--bg2)', flexWrap: 'wrap',
           }}>
-            {/* Quick platform chips (toggle, synced with the popup) */}
-            <button
-              onClick={() => setFilters(f => ({ ...f, platforms: [] }))}
-              style={chipStyle(filters.platforms.length === 0)}
-            >
-              Semua
-            </button>
-            {POST_PLATFORMS.map(p => (
-              <button
-                key={p.key}
-                onClick={() => setFilters(f => ({ ...f, platforms: toggle(f.platforms, p.key) }))}
-                style={{ ...chipStyle(filters.platforms.includes(p.key)), paddingLeft: 5 }}
-              >
-                <PlatformIcon platform={p.key} size={16} />
-                {p.label}
-              </button>
-            ))}
-
             {/* Filter button */}
             <div style={{ position: 'relative', marginLeft: 'auto' }}>
               <button
@@ -513,15 +495,6 @@ const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: []
 
 function toggle(arr: string[], v: string): string[] {
   return arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]
-}
-
-function chipStyle(active: boolean): React.CSSProperties {
-  return {
-    display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20,
-    border: '1px solid', borderColor: active ? 'var(--accent)' : 'var(--border)',
-    background: active ? 'var(--accent)' : 'transparent', color: active ? '#fff' : 'var(--text2)',
-    cursor: 'pointer', fontSize: 12, fontWeight: 500, transition: 'all 0.15s', whiteSpace: 'nowrap',
-  }
 }
 
 function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
