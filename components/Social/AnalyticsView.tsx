@@ -155,20 +155,14 @@ export function AnalyticsView() {
     <div>
       <PreviewBanner />
 
-      {/* Platform filter */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 14, flexWrap: 'wrap' }}>
-        <PlatformTabBtn active={platform === 'all'} onClick={() => setPlatform('all')}>Semua</PlatformTabBtn>
-        {availablePlatforms.map(p => (
-          <PlatformTabBtn key={p} active={platform === p} onClick={() => setPlatform(p)}>
-            {PLATFORM_META[p].label}
-          </PlatformTabBtn>
-        ))}
-      </div>
-
-      {/* Account + date range */}
+      {/* Account + platform filter + date range */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
         <select value={subjectId} onChange={e => changeSubject(e.target.value)} style={{ ...selectStyle, width: 260, flexShrink: 0 }}>
           {SUBJECTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select value={platform} onChange={e => setPlatform(e.target.value as PlatformTab)} style={{ ...selectStyle, flexShrink: 0 }}>
+          <option value="all">Semua Platform</option>
+          {availablePlatforms.map(p => <option key={p} value={p}>{PLATFORM_META[p].label}</option>)}
         </select>
         <div style={{ marginLeft: 'auto' }}>
           <DateRangePicker value={range} onChange={setRange} />
@@ -291,27 +285,6 @@ export function AnalyticsView() {
         )}
       </div>
     </div>
-  )
-}
-
-function PlatformTabBtn({ active, onClick, children }: {
-  active: boolean; onClick: () => void; children: React.ReactNode
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 7,
-        padding: '11px 14px', marginBottom: -1, background: 'transparent',
-        border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-        fontSize: 13, fontWeight: active ? 600 : 400,
-        color: active ? 'var(--accent)' : 'var(--text2)',
-        borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
-        transition: 'color 0.15s, border-color 0.15s',
-      }}
-    >
-      {children}
-    </button>
   )
 }
 
