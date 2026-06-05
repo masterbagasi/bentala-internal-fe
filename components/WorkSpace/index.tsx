@@ -311,14 +311,15 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
             style={{
               minWidth: 265, maxWidth: 265,
               background: active ? `${col.color}14` : blocked ? '#ff6b6b12' : 'var(--bg2)',
-              border: `${active || blocked ? 2 : 1}px solid ${active ? col.color : blocked ? '#ff6b6b' : 'var(--border)'}`,
+              // Keep border width fixed (no layout shift) + ring via box-shadow.
+              // No transform — scaling the drop target mid-drag breaks the drop.
+              border: `1px solid ${active ? col.color : blocked ? '#ff6b6b' : 'var(--border)'}`,
               borderRadius: 12,
               padding: '14px 12px 10px', flexShrink: 0,
               display: 'flex', flexDirection: 'column',
               maxHeight: 'calc(100vh - 200px)',
-              transform: active ? 'scale(1.03)' : 'scale(1)',
-              boxShadow: active ? `0 8px 24px ${col.color}44` : 'none',
-              transition: 'transform 0.12s ease, border-color 0.12s, background 0.12s, box-shadow 0.12s',
+              boxShadow: active ? `0 0 0 2px ${col.color}66, 0 8px 24px ${col.color}33` : 'none',
+              transition: 'border-color 0.12s, background 0.12s, box-shadow 0.12s',
             }}
             onDragOver={e => {
               e.preventDefault()
