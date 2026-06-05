@@ -7,6 +7,7 @@ import { useStore } from '@/hooks/useStore'
 import { useLogActivity } from '@/hooks/useData'
 import { WS_STATUS_COLS, POST_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatFileSize, getFileIcon } from '@/lib/utils'
+import { uploadFileWithProgress } from '@/lib/storage'
 import { PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
 import type { Post, StageData } from '@/lib/types'
@@ -120,25 +121,20 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     if (!post) return
     setSaving(true)
 
-    // Upload one local file to Storage. Throws on failure so the caller can
-    // surface the error instead of silently "saving" a broken record.
-    const uploadFile = async (lf: LocalFile): Promise<string> => {
+    // Upload one local file via the proven XHR uploader (handles large videos
+    // up to the 200MB bucket limit, with clear errors). Throws on failure.
+    const uploadOne = async (lf: LocalFile): Promise<string> => {
       if (!lf.file) return lf.storageUrl || ''
-      const safeName = lf.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const path = `posts/${post.id}/${lf.id}_${safeName}`
-      const { error: upErr } = await supabase.storage
-        .from('bsi-website')
-        .upload(path, lf.file, { upsert: true, contentType: lf.type || undefined })
-      if (upErr) throw upErr
-      const { data } = supabase.storage.from('bsi-website').getPublicUrl(path)
-      return data.publicUrl
+      const { promise } = uploadFileWithProgress(lf.file, `task-${post.id}`, () => {})
+      const res = await promise
+      return res.url
     }
 
     try {
       // Upload every locally-picked file (don't depend on the cosmetic
       // upload-progress status, so saving early still works).
       const pending = files.filter(f => f.file)
-      const urls = await Promise.all(pending.map(uploadFile))
+      const urls = await Promise.all(pending.map(uploadOne))
 
       for (let i = 0; i < pending.length; i++) {
         const lf = pending[i]
