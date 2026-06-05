@@ -7,7 +7,7 @@ import { useStore } from '@/hooks/useStore'
 import { useLogActivity } from '@/hooks/useData'
 import { WS_STATUS_COLS, POST_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatFileSize, getFileIcon } from '@/lib/utils'
-import { uploadFileResumable } from '@/lib/storage'
+import { uploadFileResumable, deleteFile } from '@/lib/storage'
 import { PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
 import type { Post, StageData } from '@/lib/types'
@@ -174,6 +174,22 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
 
   function removeFile(id: string) {
     setFiles(p => p.filter(f => f.id !== id))
+  }
+
+  // Permanently delete an already-saved file: remove its DB row + storage object.
+  async function deleteSavedFile(lf: LocalFile) {
+    if (!window.confirm(`Hapus file "${lf.name}"?`)) return
+    try {
+      const { error } = await (supabase as any).from('file_attachments').delete().eq('id', lf.id)
+      if (error) throw error
+      if (lf.storageUrl) {
+        try { await deleteFile(lf.storageUrl) } catch { /* best-effort; row is gone either way */ }
+      }
+      setFiles(prev => prev.filter(f => f.id !== lf.id))
+    } catch (e) {
+      const err = e as { message?: string }
+      alert('Gagal menghapus file: ' + (err?.message || 'Coba lagi.'))
+    }
   }
 
   async function handleCreatePipeline() {
@@ -350,6 +366,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         files={files}
         onFilePick={handleFilePick}
         onRemove={removeFile}
+        onDelete={deleteSavedFile}
         onPreview={setPreviewFile}
         accept="*/*"
         linkPlaceholder="https://drive.google.com/... atau https://figma.com/..."
@@ -404,6 +421,17 @@ function DownloadIcon({ size = 15 }: { size?: number }) {
   )
 }
 
+function TrashIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  )
+}
+
 // Decide how to render a file preview.
 function fileKind(f: { type?: string; name?: string }): 'image' | 'video' | 'pdf' | 'other' {
   const t = (f.type || '').toLowerCase()
@@ -446,7 +474,7 @@ function FilePreviewBody({ file }: { file: LocalFile }) {
 // ── File Section ──
 function FileSection({
   title, tab, onTabChange, link, onLinkChange,
-  files, onFilePick, onRemove, onPreview, accept, linkPlaceholder, uploadHint,
+  files, onFilePick, onRemove, onDelete, onPreview, accept, linkPlaceholder, uploadHint,
 }: {
   title: string
   tab: 'link' | 'upload'
@@ -456,6 +484,7 @@ function FileSection({
   files: LocalFile[]
   onFilePick: (f: FileList) => void
   onRemove: (id: string) => void
+  onDelete: (f: LocalFile) => void
   onPreview: (f: LocalFile) => void
   accept: string
   linkPlaceholder: string
@@ -525,7 +554,7 @@ function FileSection({
       {files.length > 0 && (
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {files.map(f => (
-            <FileItem key={f.id} file={f} onRemove={() => onRemove(f.id)} onPreview={() => onPreview(f)} />
+            <FileItem key={f.id} file={f} onRemove={() => onRemove(f.id)} onDelete={() => onDelete(f)} onPreview={() => onPreview(f)} />
           ))}
         </div>
       )}
@@ -533,7 +562,7 @@ function FileSection({
   )
 }
 
-function FileItem({ file, onRemove, onPreview }: { file: LocalFile; onRemove: () => void; onPreview: () => void }) {
+function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; onRemove: () => void; onDelete: () => void; onPreview: () => void }) {
   const canPreview = !!(file.storageUrl || file.url) && fileKind(file) !== 'other'
   return (
     <div
@@ -587,31 +616,45 @@ function FileItem({ file, onRemove, onPreview }: { file: LocalFile; onRemove: ()
         )}
       </div>
 
-      {/* Right action: download (saved files) or remove (not-yet-saved) */}
-      {file.status === 'saved' && file.storageUrl ? (
-        <a
-          href={file.storageUrl}
-          download
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={e => e.stopPropagation()}
-          title="Download"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 6, color: 'var(--text2)', flexShrink: 0 }}
-          onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
-          onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
-        >
-          <DownloadIcon />
-        </a>
-      ) : file.status !== 'saved' ? (
+      {/* Right actions */}
+      {file.status === 'saved' ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+          {file.storageUrl && (
+            <a
+              href={file.storageUrl}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              title="Download"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 6, color: 'var(--text2)' }}
+              onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
+              onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
+            >
+              <DownloadIcon />
+            </a>
+          )}
+          <button
+            onClick={e => { e.stopPropagation(); onDelete() }}
+            title="Hapus"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 6, background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer' }}
+            onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
+            onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
+          >
+            <TrashIcon />
+          </button>
+        </div>
+      ) : (
         <button
           onClick={e => { e.stopPropagation(); onRemove() }}
+          title="Hapus dari daftar"
           style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 4, borderRadius: 5, fontSize: 15, lineHeight: 1, flexShrink: 0 }}
           onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
           onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
         >
           ✕
         </button>
-      ) : null}
+      )}
     </div>
   )
 }
