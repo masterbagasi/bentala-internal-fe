@@ -25,6 +25,13 @@ export interface WorkspacePageHandle {
 
 type WsTab = 'list' | 'board' | 'calendar' | 'summary'
 
+// Which worksheet column a post belongs to. BPI/BSI "Ready to Post" (ready) and
+// "Published" (published) both map to the worksheet's "Done" — production is
+// finished once the post is ready/published — without changing the real status.
+function wsColKey(status: string): string {
+  return status === 'ready' || status === 'published' ? 'done' : status
+}
+
 export const WorkspacePage = forwardRef<WorkspacePageHandle, WorkspacePageProps>(
   function WorkspacePage({ member, memberKey }, ref) {
   const { posts } = useStore()
@@ -56,7 +63,7 @@ export const WorkspacePage = forwardRef<WorkspacePageHandle, WorkspacePageProps>
 
   // Summary stats
   const stats = WS_STATUS_COLS.reduce((acc, col) => {
-    acc[col.key] = myPosts.filter(p => p.status === col.key).length
+    acc[col.key] = myPosts.filter(p => wsColKey(p.status) === col.key).length
     return acc
   }, {} as Record<string, number>)
 
@@ -239,7 +246,7 @@ function WSListView({ posts, member, onRowClick }: {
                     </span>
                   ) : <span style={{ color: 'var(--text2)', fontSize: 12 }}>—</span>}
                 </td>
-                <td><StatusBadge status={p.status} type="post" label={WS_STATUS_COLS.find(c => c.key === p.status)?.label} /></td>
+                <td><StatusBadge status={wsColKey(p.status)} type="post" label={WS_STATUS_COLS.find(c => c.key === wsColKey(p.status))?.label} /></td>
                 <td style={{ color: 'var(--text2)', fontSize: 12, maxWidth: 160 }}>
                   {p.notes ? p.notes.slice(0, 50) + (p.notes.length > 50 ? '...' : '') : '—'}
                 </td>
@@ -290,7 +297,7 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
   return (
     <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start', marginTop: 20 }}>
       {WS_STATUS_COLS.map(col => {
-        const colPosts = posts.filter(p => p.status === col.key)
+        const colPosts = posts.filter(p => wsColKey(p.status) === col.key)
         const isLocked = col.key === 'revisi' // can't drag TO revisi
         const isOver = dragOverCol === col.key
         const dragging = dragPostId !== null
