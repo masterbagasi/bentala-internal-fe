@@ -66,6 +66,40 @@ export const SUBJECTS: Subject[] = [
   },
 ]
 
+// REAL cumulative follower count at end of each day (@bentalaprojectindonesia,
+// reconstructed from the daily follower_count series via Composio 2026-06-05).
+// Used so the Followers figure reflects the selected date range.
+export const FOLLOWERS_BY_DAY: Record<string, number> = {
+  '2026-04-20': 7678, '2026-04-21': 7706, '2026-04-22': 7731, '2026-04-23': 7754,
+  '2026-04-24': 7778, '2026-04-25': 7805, '2026-04-26': 7868, '2026-04-27': 7916,
+  '2026-04-28': 7956, '2026-04-29': 7996, '2026-04-30': 8021, '2026-05-01': 8062,
+  '2026-05-02': 8112, '2026-05-03': 8177, '2026-05-04': 8233, '2026-05-05': 8279,
+  '2026-05-06': 8332, '2026-05-07': 8376, '2026-05-08': 8422, '2026-05-09': 8463,
+  '2026-05-10': 8498, '2026-05-11': 8534, '2026-05-12': 8560, '2026-05-13': 8578,
+  '2026-05-14': 8592, '2026-05-15': 8614, '2026-05-16': 8631, '2026-05-17': 8647,
+  '2026-05-18': 8668, '2026-05-19': 8695, '2026-05-20': 8735, '2026-05-21': 8772,
+  '2026-05-22': 8804, '2026-05-23': 8827, '2026-05-24': 8848, '2026-05-25': 8867,
+  '2026-05-26': 8878, '2026-05-27': 8896, '2026-05-28': 8915, '2026-05-29': 8943,
+  '2026-05-30': 8967, '2026-05-31': 8990, '2026-06-01': 9005, '2026-06-02': 9018,
+  '2026-06-03': 9047, '2026-06-04': 9047, '2026-06-05': 9047,
+}
+
+const FOLLOWER_DATES = Object.keys(FOLLOWERS_BY_DAY).sort()
+export const CURRENT_FOLLOWERS = FOLLOWERS_BY_DAY[FOLLOWER_DATES[FOLLOWER_DATES.length - 1]]
+
+/** Real follower count as of `dateIso` (latest day on/before it). Clamps to the
+ *  series bounds. Only meaningful for @bentalaprojectindonesia. */
+export function followersAsOf(dateIso: string): number {
+  if (dateIso >= FOLLOWER_DATES[FOLLOWER_DATES.length - 1]) return CURRENT_FOLLOWERS
+  if (dateIso < FOLLOWER_DATES[0]) return FOLLOWERS_BY_DAY[FOLLOWER_DATES[0]]
+  let val = FOLLOWERS_BY_DAY[FOLLOWER_DATES[0]]
+  for (const d of FOLLOWER_DATES) {
+    if (d <= dateIso) val = FOLLOWERS_BY_DAY[d]
+    else break
+  }
+  return val
+}
+
 // 12-week trend series for the analytics preview
 export const WEEKS = Array.from({ length: 12 }, (_, i) => `W${i + 1}`)
 

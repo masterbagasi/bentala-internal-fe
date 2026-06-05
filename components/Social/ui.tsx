@@ -115,7 +115,8 @@ export function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
+// Full number with thousands separators (id-ID → 9.047). We intentionally do
+// NOT abbreviate (no "9.0k") so the real figures are shown.
 export function fmtNum(n: number): string {
-  if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'k'
-  return String(n)
+  return n.toLocaleString('id-ID')
 }

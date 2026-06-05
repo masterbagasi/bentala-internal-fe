@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chart, registerables } from 'chart.js'
 import {
-  SUBJECTS, WEEKS, PLATFORM_TRENDS,
+  SUBJECTS, WEEKS, PLATFORM_TRENDS, followersAsOf,
   CONTENT_POSTS, PLATFORM_META, FORMAT_LABEL, type ContentPost, type Platform,
 } from './mock'
 import {
@@ -89,10 +89,16 @@ export function AnalyticsView({
     })
   }, [from, to, sortKey, platform])
 
-  // Summary
-  const followersForFilter = platform === 'all'
-    ? subject.connections.reduce((a, c) => a + c.followers, 0)
-    : (subject.connections.find(c => c.platform === platform)?.followers ?? 0)
+  // Summary. For the real account, followers reflect the selected range end
+  // date (and the ▲ delta shows how many were gained within the range) — both
+  // from the real daily follower series.
+  const realFollowers = subject.id === 'bentala' && (platform === 'all' || platform === 'instagram')
+  const followersForFilter = realFollowers
+    ? followersAsOf(to)
+    : platform === 'all'
+      ? subject.connections.reduce((a, c) => a + c.followers, 0)
+      : (subject.connections.find(c => c.platform === platform)?.followers ?? 0)
+  const followersGain = realFollowers ? followersForFilter - followersAsOf(from) : 0
   const totalReach = filtered.reduce((a, p) => a + p.reach, 0)
   const avgEng = filtered.length ? filtered.reduce((a, p) => a + p.engagement, 0) / filtered.length : 0
   // Per-period sums so the Overview cards respond to the date filter.
@@ -236,7 +242,12 @@ export function AnalyticsView({
         {view === 'overview' && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 16 }}>
-              <StatCard label={platform === 'all' ? 'Total Followers' : 'Followers'} value={fmtNum(followersForFilter)} delta="460 (28 hari)" />
+              <StatCard
+                label={platform === 'all' ? 'Total Followers' : 'Followers'}
+                value={fmtNum(followersForFilter)}
+                delta={realFollowers && followersGain !== 0 ? `${followersGain > 0 ? '+' : ''}${followersGain.toLocaleString('id-ID')} (periode)` : undefined}
+                deltaUp={followersGain >= 0}
+              />
               <StatCard label="Konten (periode)" value={String(filtered.length)}
                 breakdown={
                   <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11.5, color: 'var(--text2)' }}>
