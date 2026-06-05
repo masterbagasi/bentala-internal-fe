@@ -27,7 +27,7 @@ interface LocalFile {
   status: 'uploading' | 'done' | 'settled' | 'saved'
   url?: string
   storageUrl?: string
-  category: 'v' | 'd'
+  category: string
 }
 
 export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps) {
@@ -38,12 +38,10 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
   const [status, setStatus] = useState(post?.status || 'todo')
   const [statusMenuOpen, setStatusMenuOpen] = useState(false)
   const [statusMenuPos, setStatusMenuPos] = useState({ top: 0, left: 0 })
-  const [videoLink, setVideoLink] = useState(post?.video_link || '')
-  const [designLink, setDesignLink] = useState(post?.design_link || '')
-  const [videoTab, setVideoTab] = useState<'link' | 'upload'>('link')
-  const [designTab, setDesignTab] = useState<'link' | 'upload'>('link')
-  const [vFiles, setVFiles] = useState<LocalFile[]>([])
-  const [dFiles, setDFiles] = useState<LocalFile[]>([])
+  // Single unified file area (video + design merged into one).
+  const [link, setLink] = useState(post?.video_link || post?.design_link || '')
+  const [fileTab, setFileTab] = useState<'link' | 'upload'>('link')
+  const [files, setFiles] = useState<LocalFile[]>([])
   const [saving, setSaving] = useState(false)
   const statusBtnRef = useRef<HTMLButtonElement>(null)
   const [previewFile, setPreviewFile] = useState<LocalFile | null>(null)
@@ -54,15 +52,11 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
   useEffect(() => {
     if (!open || !post) return
     setStatus(post.status)
-    setVideoLink(post.video_link || '')
-    setDesignLink(post.design_link || '')
-    setVideoTab('link')
-    setDesignTab('link')
-    setVFiles([])
-    setDFiles([])
+    setLink(post.video_link || post.design_link || '')
+    setFileTab('link')
+    setFiles([])
 
-    // Load already-uploaded files so they're shown (previously these were
-    // saved to file_attachments but never read back).
+    // Load every already-uploaded file (any category) into one combined list.
     let cancelled = false
     ;(supabase as any)
       .from('file_attachments')
@@ -71,7 +65,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       .order('created_at', { ascending: true })
       .then(({ data }: { data: Array<Record<string, unknown>> | null }) => {
         if (cancelled || !data) return
-        const toLocal = (r: Record<string, unknown>, category: 'v' | 'd'): LocalFile => {
+        const toLocal = (r: Record<string, unknown>): LocalFile => {
           const fileType = (r.file_type as string) || ''
           const url = r.storage_path as string
           return {
@@ -83,11 +77,10 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
             status: 'saved',
             storageUrl: url,
             url: fileType.startsWith('image/') ? url : undefined,
-            category,
+            category: 'file',
           }
         }
-        setVFiles(data.filter(r => r.category === 'video').map(r => toLocal(r, 'v')))
-        setDFiles(data.filter(r => r.category === 'design').map(r => toLocal(r, 'd')))
+        setFiles(data.map(toLocal))
       })
     return () => { cancelled = true }
   }, [open, postId, post, supabase])
@@ -104,32 +97,22 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     setStatusMenuOpen(o => !o)
   }
 
-  async function handleFilePick(cat: 'v' | 'd', files: FileList) {
-    const newFiles: LocalFile[] = Array.from(files).map(f => ({
+  async function handleFilePick(picked: FileList) {
+    const newFiles: LocalFile[] = Array.from(picked).map(f => ({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
       file: f, name: f.name, size: f.size, type: f.type,
-      status: 'uploading', category: cat,
+      status: 'uploading', category: 'file',
       url: f.type.startsWith('image/') ? URL.createObjectURL(f) : undefined,
     }))
 
-    if (cat === 'v') setVFiles(p => [...p, ...newFiles])
-    else setDFiles(p => [...p, ...newFiles])
+    setFiles(p => [...p, ...newFiles])
 
     // Simulate upload progress
     for (const lf of newFiles) {
       await new Promise(r => setTimeout(r, 800 + Math.random() * 600))
-      const update = (prev: LocalFile[]) => prev.map(f =>
-        f.id === lf.id ? { ...f, status: 'done' as const } : f
-      )
-      if (cat === 'v') setVFiles(update)
-      else setDFiles(update)
-
+      setFiles(prev => prev.map(f => (f.id === lf.id ? { ...f, status: 'done' as const } : f)))
       await new Promise(r => setTimeout(r, 2000))
-      const settle = (prev: LocalFile[]) => prev.map(f =>
-        f.id === lf.id ? { ...f, status: 'settled' as const } : f
-      )
-      if (cat === 'v') setVFiles(settle)
-      else setDFiles(settle)
+      setFiles(prev => prev.map(f => (f.id === lf.id ? { ...f, status: 'settled' as const } : f)))
     }
   }
 
@@ -146,42 +129,29 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       return data.publicUrl
     }
 
-    // Upload all settled files
-    const settledV = vFiles.filter(f => f.status === 'settled' && f.file)
-    const settledD = dFiles.filter(f => f.status === 'settled' && f.file)
-
-    const vUrls = await Promise.all(settledV.map(uploadFile))
-    const dUrls = await Promise.all(settledD.map(uploadFile))
+    // Upload all settled files (single combined list)
+    const settled = files.filter(f => f.status === 'settled' && f.file)
+    const urls = await Promise.all(settled.map(uploadFile))
 
     // Insert file_attachments records
-    for (let i = 0; i < settledV.length; i++) {
-      const lf = settledV[i]
+    for (let i = 0; i < settled.length; i++) {
+      const lf = settled[i]
       await (supabase as any).from('file_attachments').insert({
         post_id: post.id,
-        category: 'video',
+        category: 'file',
         file_name: lf.name,
         file_size: lf.size,
         file_type: lf.type,
-        storage_path: vUrls[i],
-      })
-    }
-    for (let i = 0; i < settledD.length; i++) {
-      const lf = settledD[i]
-      await (supabase as any).from('file_attachments').insert({
-        post_id: post.id,
-        category: 'design',
-        file_name: lf.name,
-        file_size: lf.size,
-        file_type: lf.type,
-        storage_path: dUrls[i],
+        storage_path: urls[i],
       })
     }
 
-    // Update post status & links
+    // Update post status & link. The single link is consolidated into
+    // video_link; design_link is cleared so there's one source of truth.
     await (supabase as any).from('posts').update({
       status,
-      video_link: videoLink,
-      design_link: designLink,
+      video_link: link,
+      design_link: '',
     }).eq('id', post.id)
 
     const wsLabel = WS_STATUS_COLS.find(c => c.key === status)?.label || POST_STATUS_LABELS[status] || status
@@ -190,9 +160,8 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     onClose()
   }
 
-  function removeFile(cat: 'v' | 'd', id: string) {
-    if (cat === 'v') setVFiles(p => p.filter(f => f.id !== id))
-    else setDFiles(p => p.filter(f => f.id !== id))
+  function removeFile(id: string) {
+    setFiles(p => p.filter(f => f.id !== id))
   }
 
   async function handleCreatePipeline() {
@@ -359,41 +328,21 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       </div>
 
-      {/* Video files */}
+      {/* Files — single unified section (video + design merged) */}
       <FileSection
-        title="🎬 File Video"
-        cat="v"
-        tab={videoTab}
-        onTabChange={setVideoTab}
-        link={videoLink}
-        onLinkChange={setVideoLink}
-        files={vFiles}
-        onFilePick={(files) => handleFilePick('v', files)}
-        onRemove={(id) => removeFile('v', id)}
+        title="📎 File Lampiran"
+        tab={fileTab}
+        onTabChange={setFileTab}
+        link={link}
+        onLinkChange={setLink}
+        files={files}
+        onFilePick={handleFilePick}
+        onRemove={removeFile}
         onPreview={setPreviewFile}
-        accept="video/*,.mp4,.mov,.avi,.mkv"
-        linkPlaceholder="https://drive.google.com/file/..."
-        uploadHint="MP4, MOV, AVI, MKV"
+        accept="*/*"
+        linkPlaceholder="https://drive.google.com/... atau https://figma.com/..."
+        uploadHint="Video, gambar, PDF, dan lainnya"
       />
-
-      {/* Design files */}
-      <div style={{ marginTop: 12 }}>
-        <FileSection
-          title="🎨 File Design / Image"
-          cat="d"
-          tab={designTab}
-          onTabChange={setDesignTab}
-          link={designLink}
-          onLinkChange={setDesignLink}
-          files={dFiles}
-          onFilePick={(files) => handleFilePick('d', files)}
-          onRemove={(id) => removeFile('d', id)}
-          onPreview={setPreviewFile}
-          accept="image/*,.psd,.ai,.fig,.sketch,.xd,.pdf"
-          linkPlaceholder="https://figma.com/..."
-          uploadHint="JPG, PNG, PSD, AI, PDF"
-        />
-      </div>
 
       {/* Comment room + activity — same as Bentala Project / Studio
           (composer lives in the fixed footer below) */}
@@ -484,11 +433,10 @@ function FilePreviewBody({ file }: { file: LocalFile }) {
 
 // ── File Section ──
 function FileSection({
-  title, cat, tab, onTabChange, link, onLinkChange,
+  title, tab, onTabChange, link, onLinkChange,
   files, onFilePick, onRemove, onPreview, accept, linkPlaceholder, uploadHint,
 }: {
   title: string
-  cat: 'v' | 'd'
   tab: 'link' | 'upload'
   onTabChange: (t: 'link' | 'upload') => void
   link: string
