@@ -8,6 +8,7 @@ import { useLogActivity } from '@/hooks/useData'
 import { WS_STATUS_COLS, POST_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatFileSize, getFileIcon } from '@/lib/utils'
 import { PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
+import { PostComments } from '@/components/BPI/PostComments'
 import type { Post, StageData } from '@/lib/types'
 
 interface WSEditModalProps {
@@ -23,7 +24,7 @@ interface LocalFile {
   name: string
   size: number
   type: string
-  status: 'uploading' | 'done' | 'settled'
+  status: 'uploading' | 'done' | 'settled' | 'saved'
   url?: string
   storageUrl?: string
   category: 'v' | 'd'
@@ -56,10 +57,39 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     setDesignLink(post.design_link || '')
     setVideoTab('link')
     setDesignTab('link')
-    // TODO: load saved files from Supabase file_attachments
     setVFiles([])
     setDFiles([])
-  }, [open, postId, post])
+
+    // Load already-uploaded files so they're shown (previously these were
+    // saved to file_attachments but never read back).
+    let cancelled = false
+    ;(supabase as any)
+      .from('file_attachments')
+      .select('*')
+      .eq('post_id', post.id)
+      .order('created_at', { ascending: true })
+      .then(({ data }: { data: Array<Record<string, unknown>> | null }) => {
+        if (cancelled || !data) return
+        const toLocal = (r: Record<string, unknown>, category: 'v' | 'd'): LocalFile => {
+          const fileType = (r.file_type as string) || ''
+          const url = r.storage_path as string
+          return {
+            id: r.id as string,
+            file: null,
+            name: (r.file_name as string) || 'file',
+            size: Number(r.file_size ?? 0),
+            type: fileType,
+            status: 'saved',
+            storageUrl: url,
+            url: fileType.startsWith('image/') ? url : undefined,
+            category,
+          }
+        }
+        setVFiles(data.filter(r => r.category === 'video').map(r => toLocal(r, 'v')))
+        setDFiles(data.filter(r => r.category === 'design').map(r => toLocal(r, 'd')))
+      })
+    return () => { cancelled = true }
+  }, [open, postId, post, supabase])
 
   function toggleStatusMenu(e: React.MouseEvent) {
     e.stopPropagation()
@@ -205,7 +235,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     <Modal
       open={open}
       onClose={onClose}
-      maxWidth={560}
+      maxWidth={640}
       title="Detail Task"
       headerRight={
         <>
@@ -356,6 +386,9 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
           uploadHint="JPG, PNG, PSD, AI, PDF"
         />
       </div>
+
+      {/* Comment room + activity — same as Bentala Project / Studio */}
+      <PostComments post={post} />
     </Modal>
   )
 }
@@ -434,15 +467,16 @@ function FileSection({
             <div style={{ fontSize: 13, fontWeight: 500 }}>Drop file di sini atau <span style={{ color: 'var(--accent)' }}>browse</span></div>
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>{uploadHint}</div>
           </div>
+        </div>
+      )}
 
-          {/* File items */}
-          {files.length > 0 && (
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {files.map(f => (
-                <FileItem key={f.id} file={f} onRemove={() => onRemove(f.id)} />
-              ))}
-            </div>
-          )}
+      {/* File items — always visible (uploaded files + in-progress), regardless
+          of the Link/Upload tab, so saved files are shown when reopening. */}
+      {files.length > 0 && (
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {files.map(f => (
+            <FileItem key={f.id} file={f} onRemove={() => onRemove(f.id)} />
+          ))}
         </div>
       )}
     </div>
@@ -481,16 +515,31 @@ function FileItem({ file, onRemove }: { file: LocalFile; onRemove: () => void })
             Klik Simpan untuk menyimpan
           </div>
         )}
+        {file.status === 'saved' && file.storageUrl && (
+          <a
+            href={file.storageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 11, color: 'var(--accent)', marginTop: 3, display: 'inline-block', textDecoration: 'none' }}
+            onMouseOver={e => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+            onMouseOut={e => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+          >
+            ⬇ Download / Buka
+          </a>
+        )}
       </div>
 
-      <button
-        onClick={onRemove}
-        style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 4, borderRadius: 5, fontSize: 15, lineHeight: 1, flexShrink: 0 }}
-        onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
-        onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
-      >
-        ✕
-      </button>
+      {/* Remove only applies to not-yet-saved local files */}
+      {file.status !== 'saved' && (
+        <button
+          onClick={onRemove}
+          style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 4, borderRadius: 5, fontSize: 15, lineHeight: 1, flexShrink: 0 }}
+          onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
+          onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
+        >
+          ✕
+        </button>
+      )}
     </div>
   )
 }
