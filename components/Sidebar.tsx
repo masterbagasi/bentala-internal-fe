@@ -340,7 +340,7 @@ export function Sidebar() {
     {
       id: 'smm',
       badge: <BrandBadge text="smm" />,
-      fullLabel: 'Social Media Management',
+      fullLabel: 'Socmed Management',
       items: [
         { href: '/bpi', label: 'Bentala Project', icon: <ListIcon />, color: COLOR.orange },
         { href: '/bsi', label: 'Bentala Studio',  icon: <ListIcon />, color: COLOR.purple },
