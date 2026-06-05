@@ -142,9 +142,12 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
 
       for (let i = 0; i < pending.length; i++) {
         const lf = pending[i]
+        // The table's category CHECK only allows 'video' | 'design'; derive a
+        // valid value from the file type (everything non-video → 'design').
+        const category = (lf.type || '').startsWith('video/') ? 'video' : 'design'
         const { error: insErr } = await (supabase as any).from('file_attachments').insert({
           post_id: post.id,
-          category: 'file',
+          category,
           file_name: lf.name,
           file_size: lf.size,
           file_type: lf.type,
