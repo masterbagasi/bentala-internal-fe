@@ -38,12 +38,6 @@ export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
   useEffect(() => {
     setLoading(true)
     load()
-    // Realtime: reflect adds/edits/deletes from any session.
-    const channel = sb()
-      .channel(`social_accounts:${brand}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'social_accounts', filter: `brand=eq.${brand}` }, () => load())
-      .subscribe()
-    return () => { sb().removeChannel(channel) }
   }, [brand, load])
 
   async function removeAccount(id: string) {
