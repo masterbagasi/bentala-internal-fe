@@ -27,18 +27,26 @@ function fmtDate(iso: string): string {
 
 type SortKey = 'date' | 'reach' | 'engagement'
 export type PlatformTab = 'all' | Platform
-type SubView = 'overview' | 'content' | 'audience'
+export type SubView = 'overview' | 'content' | 'audience'
 
 export function AnalyticsView({
   subjectId: subjectIdProp,
   setSubjectId: setSubjectIdProp,
   platform: platformProp,
   setPlatform: setPlatformProp,
+  view: viewProp,
+  setView: setViewProp,
+  range: rangeProp,
+  setRange: setRangeProp,
 }: {
   subjectId?: string
   setSubjectId?: (id: string) => void
   platform?: PlatformTab
   setPlatform?: (p: PlatformTab) => void
+  view?: SubView
+  setView?: (v: SubView) => void
+  range?: DateRange
+  setRange?: (r: DateRange) => void
 } = {}) {
   // Account + platform can be controlled by the page (filter in the top bar) or
   // managed internally (standalone page → inline filter button).
@@ -53,8 +61,15 @@ export function AnalyticsView({
   const platform = platformProp ?? platformState
   const setPlatform = setPlatformProp ?? setPlatformState
   const [filterOpen, setFilterOpen] = useState(false)
-  const [view, setView] = useState<SubView>('overview')
-  const [range, setRange] = useState<DateRange>(presetRange('Last 90 days'))
+  // view + date range can be controlled by the page (sub-bar lives in the fixed
+  // header) or managed internally (standalone page → inline sub-bar).
+  const subBarControlled = viewProp !== undefined
+  const [viewState, setViewState] = useState<SubView>('overview')
+  const view = viewProp ?? viewState
+  const setView = setViewProp ?? setViewState
+  const [rangeState, setRangeState] = useState<DateRange>(presetRange('Last 90 days'))
+  const range = rangeProp ?? rangeState
+  const setRange = setRangeProp ?? setRangeState
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [contentType, setContentType] = useState<'all' | 'video' | 'photo'>('all')
 
@@ -199,22 +214,13 @@ export function AnalyticsView({
         </div>
       )}
 
-      {/* Sub-views + date range — sticky so it stays put while content scrolls */}
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 5,
-        display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
-        background: 'var(--bg)', margin: '-24px -24px 16px', padding: '16px 24px',
-        borderBottom: '1px solid var(--border)',
-      }}>
-        {(['overview', 'content', 'audience'] as SubView[]).map(v => (
-          <button key={v} onClick={() => setView(v)} style={subPill(view === v)}>
-            {v === 'overview' ? 'Overview' : v === 'content' ? 'Content' : 'Audience'}
-          </button>
-        ))}
-        <div style={{ marginLeft: 'auto' }}>
-          <DateRangePicker value={range} onChange={setRange} />
+      {/* Sub-views + date range — inline only on the standalone page; the social
+          page renders SocialAnalyticsSubBar in the fixed header instead. */}
+      {!subBarControlled && (
+        <div style={{ marginBottom: 16 }}>
+          <SocialAnalyticsSubBar view={view} setView={setView} range={range} setRange={setRange} />
         </div>
-      </div>
+      )}
 
       {/* Sections */}
       <div>
@@ -501,6 +507,28 @@ const selectStyle: React.CSSProperties = {
   background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)',
   borderRadius: 9, padding: '8px 12px', fontSize: 13, fontWeight: 500, minWidth: 220,
 }
+/** Overview / Content / Audience pills + date range. Rendered by the social
+ *  page in the fixed (non-scrolling) header so it stays put while content scrolls. */
+export function SocialAnalyticsSubBar({ view, setView, range, setRange }: {
+  view: SubView
+  setView: (v: SubView) => void
+  range: DateRange
+  setRange: (r: DateRange) => void
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      {(['overview', 'content', 'audience'] as SubView[]).map(v => (
+        <button key={v} onClick={() => setView(v)} style={subPill(view === v)}>
+          {v === 'overview' ? 'Overview' : v === 'content' ? 'Content' : 'Audience'}
+        </button>
+      ))}
+      <div style={{ marginLeft: 'auto' }}>
+        <DateRangePicker value={range} onChange={setRange} />
+      </div>
+    </div>
+  )
+}
+
 function subPill(active: boolean): React.CSSProperties {
   return {
     background: active ? 'var(--accent)' : 'var(--bg3)',
