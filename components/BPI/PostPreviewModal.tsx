@@ -1,7 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Modal, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
+import { getSupabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
@@ -17,8 +19,26 @@ interface PostPreviewModalProps {
 export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewModalProps) {
   const { posts } = useStore()
   const post = posts.find(p => p.id === postId)
-  // Hook must run before any early return (rules of hooks).
+  // Hooks must run before any early return (rules of hooks).
   const comments = usePostComments(post)
+
+  // Files uploaded via the Video Production / Design worksheet live in the
+  // file_attachments table — load them so they show here too.
+  const [extraFiles, setExtraFiles] = useState<{ url: string; name: string }[]>([])
+  useEffect(() => {
+    if (!open || !postId) { setExtraFiles([]); return }
+    let cancelled = false
+    ;(getSupabase() as unknown as { from: (t: string) => any })
+      .from('file_attachments')
+      .select('*')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true })
+      .then(({ data }: { data: Array<Record<string, unknown>> | null }) => {
+        if (cancelled || !data) return
+        setExtraFiles(data.map(r => ({ url: r.storage_path as string, name: (r.file_name as string) || 'file' })))
+      })
+    return () => { cancelled = true }
+  }, [open, postId])
 
   if (!post) return null
 
@@ -36,6 +56,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
   addAttach(post.video_file_url, '🎬', 'Video')
   addAttach(post.design_file_url, '🎨', 'Design')
   for (const f of post.files || []) addAttach(f)
+  for (const f of extraFiles) addAttach(f.url, undefined, f.name)
 
   return (
     <Modal
@@ -90,6 +111,20 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         } />
       </div>
 
+      {/* Brief — always shown to mirror the edit form */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
+          Brief
+        </div>
+        <pre style={{
+          fontSize: 13, lineHeight: 1.7, color: post.brief ? 'var(--text)' : 'var(--text2)',
+          background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
+          whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0,
+        }}>
+          {post.brief || 'Belum ada brief.'}
+        </pre>
+      </div>
+
       {/* Caption */}
       {post.caption && (
         <div style={{ marginBottom: 18 }}>
@@ -102,22 +137,6 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
             whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0,
           }}>
             {post.caption}
-          </pre>
-        </div>
-      )}
-
-      {/* Brief */}
-      {post.brief && (
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
-            Brief
-          </div>
-          <pre style={{
-            fontSize: 13, lineHeight: 1.7, color: 'var(--text)',
-            background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
-            whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0,
-          }}>
-            {post.brief}
           </pre>
         </div>
       )}
