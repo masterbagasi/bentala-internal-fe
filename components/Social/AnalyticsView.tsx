@@ -26,15 +26,32 @@ function fmtDate(iso: string): string {
 }
 
 type SortKey = 'date' | 'reach' | 'engagement'
-type PlatformTab = 'all' | Platform
+export type PlatformTab = 'all' | Platform
 type SubView = 'overview' | 'content' | 'audience'
 
-export function AnalyticsView() {
-  const [subjectId, setSubjectId] = useState(SUBJECTS[0].id)
-  const subject = SUBJECTS.find(s => s.id === subjectId)!
+export function AnalyticsView({
+  subjectId: subjectIdProp,
+  setSubjectId: setSubjectIdProp,
+  platform: platformProp,
+  setPlatform: setPlatformProp,
+}: {
+  subjectId?: string
+  setSubjectId?: (id: string) => void
+  platform?: PlatformTab
+  setPlatform?: (p: PlatformTab) => void
+} = {}) {
+  // Account + platform can be controlled by the page (filter in the top bar) or
+  // managed internally (standalone page → inline filter button).
+  const controlled = subjectIdProp !== undefined
+  const [subjectIdState, setSubjectIdState] = useState(SUBJECTS[0].id)
+  const subjectId = subjectIdProp ?? subjectIdState
+  const setSubjectId = setSubjectIdProp ?? setSubjectIdState
+  const subject = SUBJECTS.find(s => s.id === subjectId) ?? SUBJECTS[0]
   const availablePlatforms = subject.connections.map(c => c.platform)
 
-  const [platform, setPlatform] = useState<PlatformTab>('all')
+  const [platformState, setPlatformState] = useState<PlatformTab>('all')
+  const platform = platformProp ?? platformState
+  const setPlatform = setPlatformProp ?? setPlatformState
   const [filterOpen, setFilterOpen] = useState(false)
   const [view, setView] = useState<SubView>('overview')
   const [range, setRange] = useState<DateRange>(presetRange('Last 90 days'))
@@ -156,47 +173,33 @@ export function AnalyticsView() {
     <div>
       <PreviewBanner />
 
-      {/* Filter (account + platform) + date range */}
+      {/* Controls: inline filter (only when uncontrolled) + date range */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setFilterOpen(o => !o)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 7, height: 38, padding: '0 14px', borderRadius: 9,
-              border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)',
-              fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-            </svg>
-            Filter
-          </button>
-          {filterOpen && (
-            <>
-              <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setFilterOpen(false)} />
-              <div style={{
-                position: 'absolute', left: 0, top: 'calc(100% + 6px)', zIndex: 70, width: 300,
-                background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
-                padding: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-              }}>
-                <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>Akun</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                  {SUBJECTS.map(s => (
-                    <SocialFilterChip key={s.id} label={s.name} active={subjectId === s.id} onClick={() => changeSubject(s.id)} />
-                  ))}
-                </div>
-                <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>Platform</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  <SocialFilterChip label="Semua" active={platform === 'all'} onClick={() => setPlatform('all')} />
-                  {availablePlatforms.map(p => (
-                    <SocialFilterChip key={p} label={PLATFORM_META[p].label} active={platform === p} onClick={() => setPlatform(p)} />
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        {!controlled && (
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setFilterOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7, height: 38, padding: '0 14px', borderRadius: 9,
+                border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+              </svg>
+              Filter
+            </button>
+            {filterOpen && (
+              <SocialAnalyticsFilter
+                subjectId={subjectId} onSubject={changeSubject}
+                platform={platform} onPlatform={setPlatform}
+                availablePlatforms={availablePlatforms}
+                onClose={() => setFilterOpen(false)}
+              />
+            )}
+          </div>
+        )}
         <div style={{ marginLeft: 'auto' }}>
           <DateRangePicker value={range} onChange={setRange} />
         </div>
@@ -317,6 +320,83 @@ export function AnalyticsView() {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// The filter popup body (Akun + Platform chips). Anchored to the right.
+function SocialAnalyticsFilter({ subjectId, onSubject, platform, onPlatform, availablePlatforms, onClose }: {
+  subjectId: string
+  onSubject: (id: string) => void
+  platform: PlatformTab
+  onPlatform: (p: PlatformTab) => void
+  availablePlatforms: Platform[]
+  onClose: () => void
+}) {
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={onClose} />
+      <div style={{
+        position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 70, width: 300,
+        background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
+        padding: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+      }}>
+        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>Akun</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+          {SUBJECTS.map(s => (
+            <SocialFilterChip key={s.id} label={s.name} active={subjectId === s.id} onClick={() => onSubject(s.id)} />
+          ))}
+        </div>
+        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>Platform</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <SocialFilterChip label="Semua" active={platform === 'all'} onClick={() => onPlatform('all')} />
+          {availablePlatforms.map(p => (
+            <SocialFilterChip key={p} label={PLATFORM_META[p].label} active={platform === p} onClick={() => onPlatform(p)} />
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// Self-contained Filter button + popup for the page's top-right (tab row).
+export function SocialAnalyticsFilterButton({ subjectId, setSubjectId, platform, setPlatform }: {
+  subjectId: string
+  setSubjectId: (id: string) => void
+  platform: PlatformTab
+  setPlatform: (p: PlatformTab) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const subject = SUBJECTS.find(s => s.id === subjectId) ?? SUBJECTS[0]
+  const availablePlatforms = subject.connections.map(c => c.platform)
+  const count = (platform !== 'all' ? 1 : 0)
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 8,
+          border: '1px solid', borderColor: count ? 'var(--accent)' : 'var(--border)',
+          background: count ? 'rgba(108,99,255,0.12)' : 'var(--bg3)',
+          color: count ? 'var(--accent)' : 'var(--text2)',
+          cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+        </svg>
+        Filter
+      </button>
+      {open && (
+        <SocialAnalyticsFilter
+          subjectId={subjectId}
+          onSubject={(id) => { setSubjectId(id); setPlatform('all') }}
+          platform={platform}
+          onPlatform={setPlatform}
+          availablePlatforms={availablePlatforms}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </div>
   )
 }
