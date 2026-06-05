@@ -8,7 +8,7 @@ import { useLogActivity } from '@/hooks/useData'
 import { WS_STATUS_COLS, POST_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatFileSize, getFileIcon } from '@/lib/utils'
 import { PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
-import { PostComments } from '@/components/BPI/PostComments'
+import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
 import type { Post, StageData } from '@/lib/types'
 
 interface WSEditModalProps {
@@ -48,6 +48,8 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
   const statusBtnRef = useRef<HTMLButtonElement>(null)
   const [previewFile, setPreviewFile] = useState<LocalFile | null>(null)
   const supabase = getSupabase()
+  // Comment thread state (composer rendered in the fixed footer).
+  const comments = usePostComments(post)
 
   useEffect(() => {
     if (!open || !post) return
@@ -294,22 +296,26 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         </>
       }
       footer={
-        <>
-          {post.status === 'produksi' && (
-            <button
-              onClick={handleCreatePipeline}
-              style={{
-                padding: '7px 14px', background: 'transparent',
-                border: '1px solid var(--accent)', borderRadius: 8,
-                cursor: 'pointer', fontSize: 12, color: 'var(--accent)', fontWeight: 500,
-              }}
-            >
-              📌 Buat Pipeline Item
-            </button>
-          )}
-          <BtnSecondary onClick={onClose}>Batal</BtnSecondary>
-          <BtnPrimary onClick={handleSave} loading={saving}>Simpan</BtnPrimary>
-        </>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Comment composer — pinned in the fixed footer, always at the bottom */}
+          <PostCommentsComposer s={comments} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+            {post.status === 'produksi' && (
+              <button
+                onClick={handleCreatePipeline}
+                style={{
+                  padding: '7px 14px', background: 'transparent',
+                  border: '1px solid var(--accent)', borderRadius: 8,
+                  cursor: 'pointer', fontSize: 12, color: 'var(--accent)', fontWeight: 500,
+                }}
+              >
+                📌 Buat Pipeline Item
+              </button>
+            )}
+            <BtnSecondary onClick={onClose}>Batal</BtnSecondary>
+            <BtnPrimary onClick={handleSave} loading={saving}>Simpan</BtnPrimary>
+          </div>
+        </div>
       }
     >
       {/* Post info */}
@@ -389,8 +395,9 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         />
       </div>
 
-      {/* Comment room + activity — same as Bentala Project / Studio */}
-      <PostComments post={post} />
+      {/* Comment room + activity — same as Bentala Project / Studio
+          (composer lives in the fixed footer below) */}
+      <PostCommentsBody s={comments} />
     </Modal>
 
     {/* In-app file preview (image / video / pdf) — no need to leave the page */}

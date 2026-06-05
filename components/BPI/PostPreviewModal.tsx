@@ -5,7 +5,7 @@ import { useStore } from '@/hooks/useStore'
 import { formatDate } from '@/lib/utils'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
-import { PostComments } from '@/components/BPI/PostComments'
+import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
 
 interface PostPreviewModalProps {
   open: boolean
@@ -17,6 +17,8 @@ interface PostPreviewModalProps {
 export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewModalProps) {
   const { posts } = useStore()
   const post = posts.find(p => p.id === postId)
+  // Hook must run before any early return (rules of hooks).
+  const comments = usePostComments(post)
 
   if (!post) return null
 
@@ -26,15 +28,19 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
       onClose={onClose}
       wide
       footer={
-        <>
-          <BtnSecondary onClick={onClose}>Tutup</BtnSecondary>
-          <button
-            onClick={() => { onClose(); onEdit(post.id) }}
-            style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
-          >
-            Edit Post
-          </button>
-        </>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Comment composer — pinned in the fixed footer, always at the bottom */}
+          <PostCommentsComposer s={comments} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <BtnSecondary onClick={onClose}>Tutup</BtnSecondary>
+            <button
+              onClick={() => { onClose(); onEdit(post.id) }}
+              style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
+            >
+              Edit Post
+            </button>
+          </div>
+        </div>
       }
     >
       {/* Header — status only (platforms live in the meta grid below) */}
@@ -141,8 +147,8 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         </div>
       )}
 
-      {/* Comment room + activity feed */}
-      <PostComments post={post} />
+      {/* Comment room + activity feed (composer lives in the fixed footer) */}
+      <PostCommentsBody s={comments} />
     </Modal>
   )
 }

@@ -91,7 +91,10 @@ function Avatar({ name, size = 30 }: { name: string; size?: number }) {
   )
 }
 
-export function PostComments({ post }: { post: Post }) {
+// State + handlers for a post's comment thread. Returned by the hook so the
+// feed (in the modal body) and the composer (in the fixed modal footer) can be
+// rendered in separate parts of the modal while sharing one source of truth.
+export function usePostComments(post: Post | null | undefined) {
   const [tab, setTab] = useState<'comments' | 'activity'>('comments')
   // All rows for this post (comments + logged activity), kept in one list so a
   // single realtime subscription covers both.
@@ -117,14 +120,20 @@ export function PostComments({ post }: { post: Post }) {
   }, [])
 
   useEffect(() => {
+    if (!post) {
+      setRows([])
+      setLoading(false)
+      return
+    }
     let cancelled = false
     setLoading(true)
     const supabase = sb()
+    const postId = post.id
 
     supabase
       .from('post_comments')
       .select('*')
-      .eq('post_id', post.id)
+      .eq('post_id', postId)
       .order('created_at', { ascending: true })
       .then(({ data }) => {
         if (cancelled) return
@@ -135,10 +144,10 @@ export function PostComments({ post }: { post: Post }) {
     // Realtime: append new rows (comments + activity) as they're inserted,
     // from this or any other user's session — no manual reload needed.
     const channel = supabase
-      .channel(`post_comments:${post.id}`)
+      .channel(`post_comments:${postId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'post_comments', filter: `post_id=eq.${post.id}` },
+        { event: 'INSERT', schema: 'public', table: 'post_comments', filter: `post_id=eq.${postId}` },
         payload => {
           if (cancelled) return
           const row = payload.new as CommentRow
@@ -151,12 +160,13 @@ export function PostComments({ post }: { post: Post }) {
       cancelled = true
       supabase.removeChannel(channel)
     }
-  }, [post.id])
+  }, [post?.id])
 
   const comments = useMemo(() => rows.filter(r => (r.type ?? 'comment') !== 'activity'), [rows])
 
   // Activity events derived from the post itself.
   const activity = useMemo<FeedEntry[]>(() => {
+    if (!post) return []
     const author = post.created_by || 'Seseorang'
     const ev: FeedEntry[] = []
     if (post.created_at) {
@@ -216,7 +226,7 @@ export function PostComments({ post }: { post: Post }) {
 
   async function submit() {
     const body = input.trim()
-    if (!body || posting) return
+    if (!body || posting || !post) return
     if (!me.email) {
       setError('Tidak bisa mengenali akun Anda.')
       return
@@ -243,6 +253,14 @@ export function PostComments({ post }: { post: Post }) {
 
   const commentCount = comments.length
 
+  return { tab, setTab, feed, loading, commentCount, me, input, setInput, posting, error, submit }
+}
+
+export type PostCommentsState = ReturnType<typeof usePostComments>
+
+// Tabs + scrollable feed — goes in the modal body.
+export function PostCommentsBody({ s }: { s: PostCommentsState }) {
+  const { tab, setTab, feed, loading, commentCount } = s
   return (
     <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
       {/* Tabs */}
@@ -251,68 +269,63 @@ export function PostComments({ post }: { post: Post }) {
         <Tab label="Semua Aktivitas" active={tab === 'activity'} onClick={() => setTab('activity')} />
       </div>
 
-      {/* Chat panel — fixed height: the feed scrolls inside, the composer is
-          always pinned at the bottom of the panel (never scrolls away, never
-          overlaps the messages). */}
-      <div style={{ display: 'flex', flexDirection: 'column', height: 440 }}>
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          {loading ? (
-            <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>Memuat…</div>
-          ) : feed.length === 0 ? (
-            <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>
-              {tab === 'comments' ? 'Belum ada komentar. Jadilah yang pertama!' : 'Belum ada aktivitas.'}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 4 }}>
-              {feed.map(e => (
-                <FeedItem key={`${e.kind}-${e.id}`} entry={e} />
-              ))}
-            </div>
-          )}
+      {/* Feed — newest first */}
+      {loading ? (
+        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>Memuat…</div>
+      ) : feed.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>
+          {tab === 'comments' ? 'Belum ada komentar. Jadilah yang pertama!' : 'Belum ada aktivitas.'}
         </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {feed.map(e => (
+            <FeedItem key={`${e.kind}-${e.id}`} entry={e} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
-        {/* Composer — pinned at the bottom of the panel */}
-        <div
-          style={{
-            flexShrink: 0, display: 'flex', gap: 10, alignItems: 'flex-start',
-            marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)',
+// The comment composer — goes in the fixed modal footer so it's ALWAYS visible
+// at the very bottom, never scrolls with the feed.
+export function PostCommentsComposer({ s }: { s: PostCommentsState }) {
+  const { me, input, setInput, submit, posting, error } = s
+  return (
+    <div style={{ width: '100%', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+      <Avatar name={me.name || me.email || 'You'} size={30} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <textarea
+          rows={2}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit()
           }}
-        >
-          <Avatar name={me.name || me.email || 'You'} size={30} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <textarea
-            rows={2}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => {
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit()
-            }}
-            placeholder="Tulis komentar… (⌘/Ctrl + Enter untuk kirim)"
-            style={{
-              width: '100%', boxSizing: 'border-box', resize: 'vertical',
-              background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
-              padding: '10px 12px', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none',
-            }}
-          />
-          {error && <div style={{ fontSize: 12, color: '#f87171', marginTop: 6 }}>{error}</div>}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-            <button
-              onClick={submit}
-              disabled={posting || !input.trim()}
-              style={{
-                padding: '8px 16px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600,
-                background: !input.trim() ? 'var(--bg3)' : 'var(--accent)',
-                color: !input.trim() ? 'var(--text2)' : '#fff',
-                cursor: posting || !input.trim() ? 'not-allowed' : 'pointer',
-                opacity: posting ? 0.7 : 1,
-              }}
-            >
-              {posting ? 'Mengirim…' : 'Kirim'}
-            </button>
-          </div>
-        </div>
+          placeholder="Tulis komentar… (⌘/Ctrl + Enter untuk kirim)"
+          style={{
+            width: '100%', boxSizing: 'border-box', resize: 'vertical',
+            background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
+            padding: '10px 12px', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none',
+          }}
+        />
+        {error && <div style={{ fontSize: 12, color: '#f87171', marginTop: 6 }}>{error}</div>}
       </div>
-      </div>
+      <button
+        onClick={submit}
+        disabled={posting || !input.trim()}
+        style={{
+          padding: '9px 18px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600,
+          alignSelf: 'stretch',
+          background: !input.trim() ? 'var(--bg3)' : 'var(--accent)',
+          color: !input.trim() ? 'var(--text2)' : '#fff',
+          cursor: posting || !input.trim() ? 'not-allowed' : 'pointer',
+          opacity: posting ? 0.7 : 1,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {posting ? 'Mengirim…' : 'Kirim'}
+      </button>
     </div>
   )
 }
