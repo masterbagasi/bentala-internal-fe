@@ -22,6 +22,21 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
 
   if (!post) return null
 
+  // All attachments: legacy video/design links + uploaded file URLs + the
+  // links/files list — deduped, so the preview mirrors the edit form.
+  const attachments: { icon: string; label: string; url: string }[] = []
+  const seenUrls = new Set<string>()
+  const addAttach = (url: string | null | undefined, icon?: string, label?: string) => {
+    if (!url || seenUrls.has(url)) return
+    seenUrls.add(url)
+    attachments.push({ icon: icon ?? attachIcon(url), label: label ?? attachLabel(url), url })
+  }
+  addAttach(post.video_link, '🎬', 'Video')
+  addAttach(post.design_link, '🎨', 'Design')
+  addAttach(post.video_file_url, '🎬', 'Video')
+  addAttach(post.design_file_url, '🎨', 'Design')
+  for (const f of post.files || []) addAttach(f)
+
   return (
     <Modal
       open={open}
@@ -120,18 +135,15 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         </div>
       )}
 
-      {/* Attachments */}
-      {(post.video_link || post.design_link) && (
+      {/* Attachments — links + uploaded files */}
+      {attachments.length > 0 && (
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
-            File Terlampir
+            Lampiran File
           </div>
-          {post.video_link && (
-            <AttachItem icon="🎬" label="Video" url={post.video_link} />
-          )}
-          {post.design_link && (
-            <AttachItem icon="🎨" label="Design" url={post.design_link} />
-          )}
+          {attachments.map(a => (
+            <AttachItem key={a.url} icon={a.icon} label={a.label} url={a.url} />
+          ))}
         </div>
       )}
 
@@ -151,6 +163,24 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
       <PostCommentsBody s={comments} />
     </Modal>
   )
+}
+
+function attachIcon(url: string): string {
+  const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || ''
+  if (['mp4', 'mov', 'webm', 'm4v', 'avi', 'mkv'].includes(ext)) return '🎬'
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return '🖼️'
+  if (ext === 'pdf') return '📄'
+  return '🔗'
+}
+
+function attachLabel(url: string): string {
+  try {
+    const u = new URL(url)
+    const last = u.pathname.split('/').filter(Boolean).pop()
+    return last ? decodeURIComponent(last) : u.hostname
+  } catch {
+    return url
+  }
 }
 
 function MetaItem({ label, value }: { label: string; value: React.ReactNode }) {
