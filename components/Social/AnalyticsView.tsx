@@ -167,14 +167,12 @@ export function AnalyticsView({
     return () => { charts.current.forEach(c => c.destroy()); charts.current = [] }
   }, [series, reachByPlatform, view])
 
-  const activeLabel = platform === 'all' ? 'Semua platform' : PLATFORM_META[platform].label
-
   return (
     <div>
 
-      {/* Controls: inline filter (only when uncontrolled) + date range */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-        {!controlled && (
+      {/* Inline filter — only on the standalone page (top-bar filter when controlled) */}
+      {!controlled && (
+        <div style={{ display: 'flex', marginBottom: 14 }}>
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setFilterOpen(o => !o)}
@@ -198,26 +196,19 @@ export function AnalyticsView({
               />
             )}
           </div>
-        )}
-        <div style={{ marginLeft: 'auto' }}>
-          <DateRangePicker value={range} onChange={setRange} />
         </div>
-      </div>
+      )}
 
-      {/* Sub-views + summary */}
+      {/* Sub-views + date range (same row) */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
         {(['overview', 'content', 'audience'] as SubView[]).map(v => (
           <button key={v} onClick={() => setView(v)} style={subPill(view === v)}>
             {v === 'overview' ? 'Overview' : v === 'content' ? 'Content' : 'Audience'}
           </button>
         ))}
-        {view !== 'audience' && (
-          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text3)' }}>
-            Menampilkan <strong style={{ color: 'var(--text2)' }}>{filtered.length} konten</strong>
-            {' · '}<strong style={{ color: 'var(--text2)' }}>{activeLabel}</strong>
-            {' · '}{fmtDate(from)} – {fmtDate(to)}
-          </span>
-        )}
+        <div style={{ marginLeft: 'auto' }}>
+          <DateRangePicker value={range} onChange={setRange} />
+        </div>
       </div>
 
       {/* Sections */}
