@@ -26,6 +26,7 @@ interface NavSubgroup {
   type: 'subgroup'
   id: string
   label: string
+  badge?: React.ReactNode
   items: NavEntry[]
 }
 
@@ -343,14 +344,14 @@ export function Sidebar() {
       fullLabel: 'Socmed Management',
       items: [
         {
-          type: 'subgroup', id: 'smm-bpi', label: 'Bentala Project',
+          type: 'subgroup', id: 'smm-bpi', label: 'Bentala Project', badge: <BrandBadge text="bpi" />,
           items: [
             { href: '/bpi/social', label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
             { href: '/bpi',        label: 'Projects',     icon: <ListIcon />,  color: COLOR.orange },
           ],
         },
         {
-          type: 'subgroup', id: 'smm-bsi', label: 'Bentala Studio',
+          type: 'subgroup', id: 'smm-bsi', label: 'Bentala Studio', badge: <BrandBadge text="bsi" />,
           items: [
             { href: '/bsi/social', label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
             { href: '/bsi',        label: 'Projects',     icon: <ListIcon />,  color: COLOR.purple },
@@ -921,6 +922,11 @@ function Subgroup({
         >
           <ChevronIcon collapsed={isCollapsed} />
         </span>
+        {group.badge && (
+          <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', opacity: isExpanded ? 1 : 0 }}>
+            {group.badge}
+          </span>
+        )}
         <span
           style={{
             whiteSpace: 'nowrap',
