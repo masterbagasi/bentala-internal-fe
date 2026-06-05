@@ -7,7 +7,7 @@ import { useStore } from '@/hooks/useStore'
 import { useLogActivity } from '@/hooks/useData'
 import { WS_STATUS_COLS, POST_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatFileSize, getFileIcon } from '@/lib/utils'
-import { uploadFileWithProgress } from '@/lib/storage'
+import { uploadFileResumable } from '@/lib/storage'
 import { PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
 import type { Post, StageData } from '@/lib/types'
@@ -29,6 +29,7 @@ interface LocalFile {
   url?: string
   storageUrl?: string
   category: string
+  progress?: number // 0–100 while uploading
 }
 
 export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps) {
@@ -98,34 +99,30 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     setStatusMenuOpen(o => !o)
   }
 
-  async function handleFilePick(picked: FileList) {
+  function handleFilePick(picked: FileList) {
     const newFiles: LocalFile[] = Array.from(picked).map(f => ({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
       file: f, name: f.name, size: f.size, type: f.type,
-      status: 'uploading', category: 'file',
+      status: 'settled', category: 'file',
       url: f.type.startsWith('image/') ? URL.createObjectURL(f) : undefined,
     }))
-
+    // The real upload happens on Save; just queue the picked files here.
     setFiles(p => [...p, ...newFiles])
-
-    // Simulate upload progress
-    for (const lf of newFiles) {
-      await new Promise(r => setTimeout(r, 800 + Math.random() * 600))
-      setFiles(prev => prev.map(f => (f.id === lf.id ? { ...f, status: 'done' as const } : f)))
-      await new Promise(r => setTimeout(r, 2000))
-      setFiles(prev => prev.map(f => (f.id === lf.id ? { ...f, status: 'settled' as const } : f)))
-    }
   }
 
   async function handleSave() {
     if (!post) return
     setSaving(true)
 
-    // Upload one local file via the proven XHR uploader (handles large videos
-    // up to the 200MB bucket limit, with clear errors). Throws on failure.
+    // Upload one local file via the resumable (TUS) uploader — chunked, so it
+    // bypasses the 50MB single-shot cap and handles large videos. Reports real
+    // progress and throws on failure.
     const uploadOne = async (lf: LocalFile): Promise<string> => {
       if (!lf.file) return lf.storageUrl || ''
-      const { promise } = uploadFileWithProgress(lf.file, `task-${post.id}`, () => {})
+      setFiles(prev => prev.map(f => (f.id === lf.id ? { ...f, status: 'uploading', progress: 0 } : f)))
+      const { promise } = uploadFileResumable(lf.file, `task-${post.id}`, p => {
+        setFiles(prev => prev.map(f => (f.id === lf.id ? { ...f, progress: Math.round(p.percent) } : f)))
+      })
       const res = await promise
       return res.url
     }
@@ -563,8 +560,16 @@ function FileItem({ file, onRemove, onPreview }: { file: LocalFile; onRemove: ()
 
         {/* Status */}
         {file.status === 'uploading' && (
-          <div style={{ marginTop: 4, height: 3, background: 'var(--border)', borderRadius: 20, overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: 20, background: 'linear-gradient(90deg, var(--accent), #a78bfa)', animation: 'progressBar 1.2s cubic-bezier(0.4,0,0.2,1) forwards' }} />
+          <div style={{ marginTop: 4 }}>
+            <div style={{ height: 4, background: 'var(--border)', borderRadius: 20, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 20, background: 'linear-gradient(90deg, var(--accent), #a78bfa)',
+                width: `${file.progress ?? 0}%`, transition: 'width 0.2s ease',
+              }} />
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>
+              Mengupload… {file.progress ?? 0}%
+            </div>
           </div>
         )}
         {file.status === 'done' && (
