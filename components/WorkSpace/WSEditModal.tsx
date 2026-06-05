@@ -117,22 +117,11 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, postId, supabase])
 
-  // Apply a status change immediately (persist + reflect in the board),
-  // instead of waiting for Simpan.
-  async function changeStatus(newStatus: string) {
-    if (!post || newStatus === status) { setStatusMenuOpen(false); return }
-    const prev = status
+  // Update the LOCAL status only — it's persisted when the user clicks Simpan,
+  // not automatically on select.
+  function changeStatus(newStatus: string) {
     setStatus(newStatus as Post['status'])
     setStatusMenuOpen(false)
-    const { error } = await (supabase as any).from('posts').update({ status: newStatus }).eq('id', post.id)
-    if (error) {
-      setStatus(prev)
-      alert('Gagal mengubah status: ' + (error.message || 'Coba lagi.'))
-      return
-    }
-    upsertPost({ ...post, status: newStatus } as Post)
-    const wsLabel = WS_STATUS_COLS.find(c => c.key === newStatus)?.label || POST_STATUS_LABELS[newStatus] || newStatus
-    logActivity(`${member} mengubah status "${post.title}" → ${wsLabel}`)
   }
 
   function toggleStatusMenu(e: React.MouseEvent) {
@@ -231,11 +220,12 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     setSaving(true)
     try {
       // Status changes apply immediately; links/files are saved on add/upload.
-      // Simpan just re-asserts the current status.
+      // Simpan persists the (locally-changed) status now.
       const { error: updErr } = await (supabase as any).from('posts').update({
         status,
       }).eq('id', post.id)
       if (updErr) throw updErr
+      upsertPost({ ...post, status } as Post) // reflect on the board instantly
 
       const wsLabel = WS_STATUS_COLS.find(c => c.key === status)?.label || POST_STATUS_LABELS[status] || status
       logActivity(`${member} mengupdate post: "${post.title}" → ${wsLabel}`)

@@ -5,7 +5,9 @@ import { Modal, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
-import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
+import { TeamAvatar } from '@/components/shared/StatusBadge'
+import { BPI_STATUS_COLS } from '@/lib/constants'
+import type { Post } from '@/lib/types'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
 
@@ -17,10 +19,20 @@ interface PostPreviewModalProps {
 }
 
 export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewModalProps) {
-  const { posts } = useStore()
+  const { posts, upsertPost } = useStore()
   const post = posts.find(p => p.id === postId)
   // Hooks must run before any early return (rules of hooks).
   const comments = usePostComments(post)
+
+  // Status change (deferred — only persisted on Simpan, not on select).
+  const [statusDraft, setStatusDraft] = useState<string>(post?.status ?? '')
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false)
+  const [savingStatus, setSavingStatus] = useState(false)
+  useEffect(() => {
+    setStatusDraft(post?.status ?? '')
+    setStatusMenuOpen(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, postId, post?.status])
 
   // Files uploaded via the Video Production / Design worksheet live in the
   // file_attachments table — load them so they show here too.
@@ -70,6 +82,17 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
     }
   }
 
+  const statusChanged = statusDraft !== post.status
+  async function saveStatus() {
+    if (!statusChanged) return
+    setSavingStatus(true)
+    const { error } = await getSupabase().from('posts').update({ status: statusDraft }).eq('id', post!.id)
+    setSavingStatus(false)
+    if (error) { alert('Gagal mengubah status: ' + error.message); return }
+    upsertPost({ ...post!, status: statusDraft } as Post) // reflect on the board
+  }
+  const draftCol = BPI_STATUS_COLS.find(c => c.key === statusDraft)
+
   // All attachments: legacy video/design links + uploaded file URLs + the
   // links/files list — deduped, so the preview mirrors the edit form.
   const attachments: { icon: string; label: string; url: string }[] = []
@@ -96,11 +119,20 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Comment composer — pinned in the fixed footer, always at the bottom */}
           <PostCommentsComposer s={comments} />
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+            {statusChanged && (
+              <button
+                onClick={saveStatus}
+                disabled={savingStatus}
+                style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', cursor: savingStatus ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600, opacity: savingStatus ? 0.7 : 1 }}
+              >
+                {savingStatus ? 'Menyimpan…' : 'Simpan Status'}
+              </button>
+            )}
             <BtnSecondary onClick={onClose}>Tutup</BtnSecondary>
             <button
               onClick={() => { onClose(); onEdit(post.id) }}
-              style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
+              style={{ background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
             >
               Edit Post
             </button>
@@ -108,9 +140,51 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         </div>
       }
     >
-      {/* Header — status only (platforms live in the meta grid below) */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-        <StatusBadge status={post.status} type="post" />
+      {/* Header — status dropdown (change is deferred until Simpan) */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, position: 'relative' }}>
+        <button
+          onClick={() => setStatusMenuOpen(o => !o)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
+            background: (draftCol?.color || '#8b8fa8') + '22',
+            border: `1px solid ${(draftCol?.color || '#8b8fa8')}55`,
+            color: draftCol?.color || '#8b8fa8', fontSize: 12, fontWeight: 600,
+          }}
+        >
+          {draftCol?.label || statusDraft}
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        {statusMenuOpen && (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setStatusMenuOpen(false)} />
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
+              background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8,
+              padding: 4, width: 170, boxShadow: '0 6px 24px rgba(0,0,0,0.4)',
+            }}>
+              {BPI_STATUS_COLS.map(c => (
+                <button
+                  key={c.key}
+                  onClick={() => { setStatusDraft(c.key); setStatusMenuOpen(false) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    padding: '7px 10px', borderRadius: 5, cursor: 'pointer', fontSize: 12,
+                    background: statusDraft === c.key ? c.color + '22' : 'transparent',
+                    color: statusDraft === c.key ? c.color : 'var(--text)', border: 'none', textAlign: 'left',
+                  }}
+                  onMouseOver={e => { if (statusDraft !== c.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
+                  onMouseOut={e => { if (statusDraft !== c.key) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                >
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <h2 style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: 'var(--text)', marginBottom: 18 }}>
