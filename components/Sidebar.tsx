@@ -922,7 +922,7 @@ function Subgroup({
         title={group.label}
       >
         {group.icon && (
-          <IconBox color={group.color ?? COLOR.blue} active={hasActiveChild}>
+          <IconBox color={group.color ?? COLOR.blue} active={false}>
             {group.icon}
           </IconBox>
         )}
