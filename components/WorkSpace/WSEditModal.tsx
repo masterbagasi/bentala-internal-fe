@@ -33,7 +33,7 @@ interface LocalFile {
 }
 
 export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps) {
-  const { posts } = useStore()
+  const { posts, upsertPost } = useStore()
   const logActivity = useLogActivity()
   const post = posts.find(p => p.id === postId)
 
@@ -88,6 +88,24 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       })
     return () => { cancelled = true }
   }, [open, postId, post, supabase])
+
+  // Apply a status change immediately (persist + reflect in the board),
+  // instead of waiting for Simpan.
+  async function changeStatus(newStatus: string) {
+    if (!post || newStatus === status) { setStatusMenuOpen(false); return }
+    const prev = status
+    setStatus(newStatus as Post['status'])
+    setStatusMenuOpen(false)
+    const { error } = await (supabase as any).from('posts').update({ status: newStatus }).eq('id', post.id)
+    if (error) {
+      setStatus(prev)
+      alert('Gagal mengubah status: ' + (error.message || 'Coba lagi.'))
+      return
+    }
+    upsertPost({ ...post, status: newStatus } as Post)
+    const wsLabel = WS_STATUS_COLS.find(c => c.key === newStatus)?.label || POST_STATUS_LABELS[newStatus] || newStatus
+    logActivity(`${member} mengubah status "${post.title}" → ${wsLabel}`)
+  }
 
   function toggleStatusMenu(e: React.MouseEvent) {
     e.stopPropagation()
@@ -285,7 +303,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
                 }).map(c => (
                   <button
                     key={c.key}
-                    onClick={() => { setStatus(c.key as Post['status']); setStatusMenuOpen(false) }}
+                    onClick={() => changeStatus(c.key)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                       padding: '7px 10px', borderRadius: 5, cursor: 'pointer', fontSize: 12,
