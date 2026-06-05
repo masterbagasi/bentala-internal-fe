@@ -87,7 +87,12 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         setFiles(data.map(toLocal))
       })
     return () => { cancelled = true }
-  }, [open, postId, post, supabase])
+    // Depend on postId only — NOT the whole `post` object. Otherwise an
+    // optimistic status update (which creates a new post object) would re-run
+    // this and reload the files / reset the modal. We only want to (re)load
+    // when a different task is opened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, postId, supabase])
 
   // Apply a status change immediately (persist + reflect in the board),
   // instead of waiting for Simpan.
