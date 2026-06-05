@@ -517,7 +517,7 @@ export function SocialAnalyticsSubBar({ view, setView, range, setRange }: {
 }) {
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-      {(['overview', 'content', 'audience'] as SubView[]).map(v => (
+      {(['overview', 'audience', 'content'] as SubView[]).map(v => (
         <button key={v} onClick={() => setView(v)} style={subPill(view === v)}>
           {v === 'overview' ? 'Overview' : v === 'content' ? 'Content' : 'Audience'}
         </button>
