@@ -25,7 +25,7 @@ export default function BpiPage() {
   return (
     <>
       <PageHeader
-        title="Bentala Project Indonesia"
+        title="Projects"
         tabs={['list', 'board', 'calendar', 'files', 'analytics']}
         activeTab={tab}
         onTabChange={setTab}

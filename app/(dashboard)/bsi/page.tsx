@@ -12,7 +12,7 @@ export default function BsiPage() {
   return (
     <>
       <PageHeader
-        title="Bentala Studio Indonesia"
+        title="Projects"
         tabs={['list', 'board', 'calendar', 'files', 'analytics']}
         activeTab={tab}
         onTabChange={setTab}

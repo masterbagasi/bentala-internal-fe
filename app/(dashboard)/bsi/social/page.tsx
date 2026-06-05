@@ -19,7 +19,7 @@ export default function Page() {
   return (
     <>
       <PageHeader
-        title="Bentala Studio — Social Media"
+        title="Social Media"
         tabs={['accounts', 'analytics', 'reports', 'plan']}
         activeTab={tab}
         onTabChange={setTab}
