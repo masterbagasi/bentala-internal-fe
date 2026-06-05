@@ -48,6 +48,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
   // Open an attachment: preview image/video/pdf in a popup; open other links
   // (Drive/Figma/etc.) in a new tab.
   const openAttachment = (url: string, label: string) => {
+    if (!isSafeHttpUrl(url)) return // reject javascript:/data:/etc.
     if (previewKind(url) === 'other') {
       window.open(url, '_blank', 'noopener,noreferrer')
     } else {
@@ -207,16 +208,18 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         title={preview.label}
         maxWidth={760}
         headerRight={
-          <a
-            href={preview.url}
-            download
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Download"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
-          >
-            ⬇ Download
-          </a>
+          isSafeHttpUrl(preview.url) ? (
+            <a
+              href={preview.url}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Download"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
+            >
+              ⬇ Download
+            </a>
+          ) : undefined
         }
       >
         <AttachPreviewBody url={preview.url} label={preview.label} />
@@ -249,6 +252,17 @@ function isImageUrl(url: string): boolean {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)
 }
 
+// Only http(s) URLs may be rendered/opened — blocks javascript:/data:/blob:/
+// vbscript: schemes that could execute when used as iframe/anchor/window.open.
+function isSafeHttpUrl(url: string): boolean {
+  try {
+    const p = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
+    return p.protocol === 'http:' || p.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 function previewKind(url: string): 'image' | 'video' | 'pdf' | 'other' {
   const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || ''
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return 'image'
@@ -258,6 +272,9 @@ function previewKind(url: string): 'image' | 'video' | 'pdf' | 'other' {
 }
 
 function AttachPreviewBody({ url, label }: { url: string; label: string }) {
+  if (!isSafeHttpUrl(url)) {
+    return <div style={{ textAlign: 'center', padding: 24, fontSize: 13, color: 'var(--text2)' }}>File tidak tersedia.</div>
+  }
   const kind = previewKind(url)
   if (kind === 'image') {
     // eslint-disable-next-line @next/next/no-img-element
@@ -277,6 +294,11 @@ function AttachPreviewBody({ url, label }: { url: string; label: string }) {
   )
 }
 
+// Render an image thumbnail only for safe http(s) image URLs.
+function safeImageSrc(url: string): string | null {
+  return isImageUrl(url) && isSafeHttpUrl(url) ? url : null
+}
+
 function MetaItem({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -289,7 +311,7 @@ function MetaItem({ label, value }: { label: string; value: React.ReactNode }) {
 // Compact grid card: thumbnail (image) or big icon, filename below. Clicking
 // opens the in-app preview popup (or a new tab for non-previewable links).
 function AttachCard({ icon, label, url, onOpen }: { icon: string; label: string; url: string; onOpen: () => void }) {
-  const img = isImageUrl(url)
+  const thumbSrc = safeImageSrc(url)
   return (
     <button
       type="button"
@@ -307,9 +329,9 @@ function AttachCard({ icon, label, url, onOpen }: { icon: string; label: string;
         width: '100%', height: 96, borderRadius: 8, background: 'var(--bg2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
       }}>
-        {img ? (
+        {thumbSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={thumbSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <span style={{ fontSize: 32 }}>{icon}</span>
         )}
