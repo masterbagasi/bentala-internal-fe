@@ -168,7 +168,11 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       onClose()
     } catch (e) {
       setSaving(false)
-      alert('Gagal menyimpan file. ' + (e instanceof Error ? e.message : 'Coba lagi.'))
+      // Supabase errors aren't always `Error` instances — dig out a message.
+      const err = e as { message?: string; error?: string; statusCode?: string | number; name?: string }
+      const msg = err?.message || err?.error || (typeof e === 'string' ? e : JSON.stringify(e))
+      console.error('[WSEditModal] save failed:', e)
+      alert('Gagal menyimpan file: ' + msg)
     }
   }
 
