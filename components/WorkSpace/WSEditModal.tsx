@@ -8,7 +8,8 @@ import { useLogActivity } from '@/hooks/useData'
 import { WS_STATUS_COLS, POST_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatFileSize, getFileIcon } from '@/lib/utils'
 import { uploadFileResumable, deleteFile } from '@/lib/storage'
-import { PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
+import { TeamAvatar } from '@/components/shared/StatusBadge'
+import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
 import type { Post, StageData } from '@/lib/types'
 
@@ -55,6 +56,19 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
   const uploadsRef = useRef<Record<string, () => void>>({})
   // Comment thread state (composer rendered in the fixed footer).
   const comments = usePostComments(post)
+  // Real accounts, to resolve tagged emails to names.
+  const [accounts, setAccounts] = useState<{ email: string; name: string }[]>([])
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    fetch('/api/accounts')
+      .then(r => (r.ok ? r.json() : { accounts: [] }))
+      .then((d: { accounts?: { email: string; name: string }[] }) => {
+        if (!cancelled) setAccounts(d.accounts ?? [])
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [open])
 
   useEffect(() => {
     if (!open || !post) return
@@ -401,24 +415,48 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
           </div>
         )}
 
-        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>{post.title}</div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 14 }}>{post.title}</div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {/* Meta grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <InfoRow label="Tanggal Post">{formatDate(post.date)}</InfoRow>
           <InfoRow label="Platform">
-            <div style={{ display: 'flex', gap: 4 }}>
-              {(post.platforms || []).map(pl => <PlatformBadge key={pl} platform={pl} />)}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              {(post.platforms || []).map(pl => <PlatformIcon key={pl} platform={pl} size={20} />)}
               {!post.platforms?.length && '—'}
             </div>
           </InfoRow>
-          <InfoRow label="Tanggal Post">
-            {formatDate(post.date)}
-          </InfoRow>
-          <InfoRow label="Caption">
-            <span style={{ color: 'var(--text2)', fontSize: 12 }}>
-              {post.caption ? post.caption.slice(0, 60) + (post.caption.length > 60 ? '...' : '') : '—'}
-            </span>
+          <InfoRow label="Entity">{post.entity?.toUpperCase() || '—'}</InfoRow>
+          <InfoRow label="Dibuat oleh">{post.created_by || '—'}</InfoRow>
+          <InfoRow label="Jenis Konten">{(post.content_types || []).join(', ') || '—'}</InfoRow>
+          <InfoRow label="Ratio">{post.ratio || '—'}</InfoRow>
+          <InfoRow label="Tag">
+            {(() => {
+              const tags = (post.tagged || []).filter(m => m.includes('@') || accounts.some(a => a.name === m))
+              if (!tags.length) return '—'
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {tags.map(m => {
+                    const acc = accounts.find(a => a.email === m || a.name === m)
+                    const name = acc?.name ?? (m.includes('@') ? m.split('@')[0] : m)
+                    return (
+                      <span key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                        <TeamAvatar name={name} size={20} />
+                        <span style={{ fontSize: 13, color: 'var(--text)' }}>{name}</span>
+                      </span>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </InfoRow>
         </div>
+
+        {/* Text fields */}
+        {post.brief && <DetailBlock label="Brief">{post.brief}</DetailBlock>}
+        {post.caption && <DetailBlock label="Caption">{post.caption}</DetailBlock>}
+        {post.hashtags && <DetailBlock label="Hashtags" accent>{post.hashtags}</DetailBlock>}
+        {post.notes && <DetailBlock label="Catatan">{post.notes}</DetailBlock>}
       </div>
 
       {/* Update Task section */}
@@ -808,6 +846,23 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
         {label}
       </div>
       <div style={{ fontSize: 13 }}>{children}</div>
+    </div>
+  )
+}
+
+function DetailBlock({ label, accent, children }: { label: string; accent?: boolean; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.7px', color: 'var(--text2)', fontWeight: 700, marginBottom: 6 }}>
+        {label}
+      </div>
+      <pre style={{
+        fontSize: 13, lineHeight: 1.6, color: accent ? '#6b9bff' : 'var(--text)',
+        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
+        padding: '10px 12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit', margin: 0,
+      }}>
+        {children}
+      </pre>
     </div>
   )
 }
