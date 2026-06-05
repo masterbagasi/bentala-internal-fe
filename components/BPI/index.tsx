@@ -4,7 +4,7 @@ import { useState, forwardRef, useImperativeHandle } from 'react'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
 import { BPI_STATUS_COLS, POST_PLATFORMS } from '@/lib/constants'
-import { formatDate } from '@/lib/utils'
+import { formatDate, byPostDateAsc } from '@/lib/utils'
 import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { PostModal } from './PostModal'
@@ -162,7 +162,7 @@ function ListView({
                 </div>
               </td>
             </tr>
-          ) : posts.map(p => (
+          ) : posts.slice().sort(byPostDateAsc).map(p => (
             <tr key={p.id} onClick={() => onPreview(p.id)} style={{ cursor: 'pointer' }}>
               <td style={{ paddingLeft: 14 }}>
                 <CheckCircle
@@ -251,7 +251,7 @@ function KanbanBoard({
       alignItems: 'flex-start', marginTop: 20,
     }}>
       {BPI_STATUS_COLS.map(col => {
-        const colPosts = posts.filter(p => p.status === col.key)
+        const colPosts = posts.filter(p => p.status === col.key).slice().sort(byPostDateAsc)
         const isLocked = 'locked' in col && col.locked && currentUser === 'Naufal'
         const isOver = dragOverCol === col.key
         const active = isOver && !isLocked

@@ -96,3 +96,13 @@ export function colorToAlpha(hex: string, alpha: number): string {
   const b = parseInt(hex.slice(5, 7), 16)
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
+
+/**
+ * Comparator: sort posts by posting date ascending — the nearest/soonest date
+ * on top, furthest below. Posts without a date sort last.
+ */
+export function byPostDateAsc(a: { date?: string | null }, b: { date?: string | null }): number {
+  const da = a.date ? new Date(a.date).getTime() : Infinity
+  const db = b.date ? new Date(b.date).getTime() : Infinity
+  return da - db
+}

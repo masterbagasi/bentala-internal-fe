@@ -4,7 +4,7 @@ import { useState, forwardRef, useImperativeHandle } from 'react'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
 import { WS_STATUS_COLS, TEAM } from '@/lib/constants'
-import { formatDate } from '@/lib/utils'
+import { formatDate, byPostDateAsc } from '@/lib/utils'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { WSEditModal } from './WSEditModal'
@@ -190,7 +190,7 @@ function WSListView({ posts, member, onRowClick }: {
                 Tidak ada post yang ditugaskan ke kamu.
               </div>
             </td></tr>
-          ) : posts.map(p => {
+          ) : posts.slice().sort(byPostDateAsc).map(p => {
             const hasVideo = (p.content_types || []).includes('video')
             const hasDesign = (p.content_types || []).includes('design')
             const entityColor = p.entity === 'bpi' ? { bg: '#6c63ff22', text: '#6c63ff' }
@@ -297,7 +297,7 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
   return (
     <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start', marginTop: 20 }}>
       {WS_STATUS_COLS.map(col => {
-        const colPosts = posts.filter(p => wsColKey(p.status) === col.key)
+        const colPosts = posts.filter(p => wsColKey(p.status) === col.key).slice().sort(byPostDateAsc)
         const isLocked = col.key === 'revisi' // can't drag TO revisi
         const isOver = dragOverCol === col.key
         const active = isOver && !isLocked          // valid drop target hovered
