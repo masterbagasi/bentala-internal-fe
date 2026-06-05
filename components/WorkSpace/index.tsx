@@ -41,9 +41,12 @@ export const WorkspacePage = forwardRef<WorkspacePageHandle, WorkspacePageProps>
   const memberInfo = TEAM.find(t => t.name === member)
   const color = memberInfo?.color || '#6c63ff'
 
-  // Filter posts assigned to this member (BPI, BSI, and self-created workspace tasks)
+  // Filter posts assigned to this member (BPI, BSI, and self-created workspace
+  // tasks). Posts still at 'todo' (BPI "Idea") are NOT yet handed to production,
+  // so they must not appear in the worksheet.
   const myPosts = posts.filter(p =>
     (p.entity === 'bpi' || p.entity === 'bsi' || p.entity === 'ws') &&
+    p.status !== 'todo' &&
     (p.pics || []).includes(member)
   )
 
@@ -560,7 +563,7 @@ function WSAddModal({ open, member, onClose }: {
   const [loading, setLoading] = useState(false)
 
   function reset() {
-    setTitle(''); setDate(''); setStatus('todo')
+    setTitle(''); setDate(''); setStatus('brief')
     setContentTypes([]); setVideoLink(''); setDesignLink(''); setNotes('')
   }
 
