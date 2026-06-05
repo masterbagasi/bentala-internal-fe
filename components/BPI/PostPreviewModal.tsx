@@ -131,11 +131,19 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         <MetaItem label="Dibuat oleh" value={post.created_by || '—'} />
         <MetaItem label="Jenis Konten" value={(post.content_types || []).join(', ') || '—'} />
         <MetaItem label="Ratio" value={post.ratio || '—'} />
-        <MetaItem label="Tag" value={
-          (post.tagged || []).length ? (
+        <MetaItem label="Tag" value={(() => {
+          // Only show tags that are real accounts (by email, or — for legacy
+          // name tags — by matching an account name). Stale dummy-name tags
+          // left over from before the email-based Tag Akun are dropped, so the
+          // preview matches who's actually tagged in the edit form.
+          const tags = (post.tagged || []).filter(
+            m => m.includes('@') || accounts.some(a => a.name === m),
+          )
+          if (!tags.length) return '—'
+          return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {(post.tagged || []).map(m => {
-                const acc = accounts.find(a => a.email === m)
+              {tags.map(m => {
+                const acc = accounts.find(a => a.email === m || a.name === m)
                 const name = acc?.name ?? (m.includes('@') ? m.split('@')[0] : m)
                 return (
                   <span key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
@@ -145,8 +153,8 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
                 )
               })}
             </div>
-          ) : '—'
-        } />
+          )
+        })()} />
       </div>
 
       {/* Brief — always shown to mirror the edit form */}
