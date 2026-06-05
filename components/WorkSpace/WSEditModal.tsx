@@ -183,6 +183,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         storageUrl: res.url,
         url: (lf.type || '').startsWith('image/') ? res.url : undefined,
       } : f)))
+      logFileActivity(`telah menambahkan ${fileKindLabel(lf.type, lf.name)} dengan nama file ${lf.name}`)
     } catch (e) {
       delete uploadsRef.current[lf.id]
       setFiles(prev => prev.filter(f => f.id !== lf.id))
@@ -210,6 +211,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       if (error) throw error
       setFiles(prev => [...prev, { ...makeLinkItem(url), id: (data?.id as string) ?? `lnk-${Math.random().toString(36).slice(2)}` }])
       setLink('')
+      logFileActivity(`telah menambahkan tautan ${url}`)
     } catch (e) {
       alert('Gagal menambah link: ' + ((e as { message?: string })?.message || 'Coba lagi.'))
     }
@@ -229,6 +231,10 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
 
       const wsLabel = WS_STATUS_COLS.find(c => c.key === status)?.label || POST_STATUS_LABELS[status] || status
       logActivity(`${member} mengupdate post: "${post.title}" → ${wsLabel}`)
+      // Log the status change to the post's own activity feed too.
+      if (status !== post.status) {
+        logFileActivity(`telah mengubah status menjadi ${wsLabel}`)
+      }
       setSaving(false)
       onClose()
     } catch (e) {
@@ -245,6 +251,20 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     const abort = uploadsRef.current[id]
     if (abort) { abort(); delete uploadsRef.current[id] }
     setFiles(p => p.filter(f => f.id !== id))
+  }
+
+  // Log a file activity entry (actor = logged-in user) to the post's feed.
+  async function logFileActivity(body: string) {
+    if (!post || !comments.me.email) return
+    try {
+      await (supabase as any).from('post_comments').insert({
+        post_id: post.id,
+        type: 'activity',
+        author_email: comments.me.email,
+        author_name: comments.me.name,
+        body,
+      })
+    } catch { /* non-blocking */ }
   }
 
   // Permanently delete an already-saved file: remove its DB row + storage object.
@@ -264,6 +284,8 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         }
       }
       setFiles(prev => prev.filter(f => f.id !== lf.id))
+      const kind = lf.type === 'link' ? 'tautan' : fileKindLabel(lf.type, lf.name)
+      logFileActivity(`telah menghapus ${kind} ${lf.name}`)
     } catch (e) {
       const err = e as { message?: string }
       alert('Gagal menghapus: ' + (err?.message || 'Coba lagi.'))
@@ -568,6 +590,17 @@ function makeLinkItem(url: string, postLinkField?: 'video_link' | 'design_link')
     category: 'design',
     postLinkField,
   }
+}
+
+// Human label for a file's kind, used in activity messages
+// (e.g. "menambahkan gambar dengan nama file haha.jpg").
+function fileKindLabel(type?: string, name?: string): string {
+  const t = (type || '').toLowerCase()
+  const ext = (name || '').toLowerCase().split('.').pop() || ''
+  if (t.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return 'gambar'
+  if (t.startsWith('video/') || ['mp4', 'mov', 'webm', 'm4v', 'avi', 'mkv'].includes(ext)) return 'video'
+  if (t === 'application/pdf' || ext === 'pdf') return 'PDF'
+  return 'file'
 }
 
 // Decide how to render a file preview.

@@ -93,6 +93,14 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
     setSavingStatus(false)
     if (error) { alert('Gagal mengubah status: ' + error.message); return }
     upsertPost({ ...post!, status: statusDraft } as Post) // reflect on the board
+    // Log to the post's activity feed.
+    if (comments.me.email) {
+      const label = BPI_STATUS_COLS.find(c => c.key === statusDraft)?.label || statusDraft
+      await (getSupabase() as unknown as { from: (t: string) => any }).from('post_comments').insert({
+        post_id: post!.id, type: 'activity', author_email: comments.me.email, author_name: comments.me.name,
+        body: `telah mengubah status menjadi ${label}`,
+      })
+    }
   }
   const draftCol = BPI_STATUS_COLS.find(c => c.key === statusDraft)
 
