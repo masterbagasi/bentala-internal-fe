@@ -48,6 +48,8 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
   const statusBtnRef = useRef<HTMLButtonElement>(null)
   const [previewFile, setPreviewFile] = useState<LocalFile | null>(null)
   const supabase = getSupabase()
+  // Abort handlers for in-flight uploads, keyed by local file id.
+  const uploadsRef = useRef<Record<string, () => void>>({})
   // Comment thread state (composer rendered in the fixed footer).
   const comments = usePostComments(post)
 
@@ -103,54 +105,63 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     const newFiles: LocalFile[] = Array.from(picked).map(f => ({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
       file: f, name: f.name, size: f.size, type: f.type,
-      status: 'settled', category: 'file',
+      status: 'uploading', progress: 0, category: 'file',
       url: f.type.startsWith('image/') ? URL.createObjectURL(f) : undefined,
     }))
-    // The real upload happens on Save; just queue the picked files here.
     setFiles(p => [...p, ...newFiles])
+    // Start uploading immediately — no need to click Simpan.
+    newFiles.forEach(lf => void uploadAndPersist(lf))
   }
 
-  async function handleSave() {
-    if (!post) return
-    setSaving(true)
-
-    // Upload one local file via the resumable (TUS) uploader — chunked, so it
-    // bypasses the 50MB single-shot cap and handles large videos. Reports real
-    // progress and throws on failure.
-    const uploadOne = async (lf: LocalFile): Promise<string> => {
-      if (!lf.file) return lf.storageUrl || ''
-      setFiles(prev => prev.map(f => (f.id === lf.id ? { ...f, status: 'uploading', progress: 0 } : f)))
-      const { promise } = uploadFileResumable(lf.file, `task-${post.id}`, p => {
+  // Upload a freshly-picked file right away and persist its file_attachments
+  // row, so it's saved on its own. Simpan is only for status/link changes.
+  async function uploadAndPersist(lf: LocalFile) {
+    if (!post || !lf.file) return
+    try {
+      const { promise, abort } = uploadFileResumable(lf.file, `task-${post.id}`, p => {
         setFiles(prev => prev.map(f => (f.id === lf.id ? { ...f, progress: Math.round(p.percent) } : f)))
       })
+      uploadsRef.current[lf.id] = abort
       const res = await promise
-      return res.url
-    }
 
-    try {
-      // Upload every locally-picked file (don't depend on the cosmetic
-      // upload-progress status, so saving early still works).
-      const pending = files.filter(f => f.file)
-      const urls = await Promise.all(pending.map(uploadOne))
-
-      for (let i = 0; i < pending.length; i++) {
-        const lf = pending[i]
-        // The table's category CHECK only allows 'video' | 'design'; derive a
-        // valid value from the file type (everything non-video → 'design').
-        const category = (lf.type || '').startsWith('video/') ? 'video' : 'design'
-        const { error: insErr } = await (supabase as any).from('file_attachments').insert({
+      const category = (lf.type || '').startsWith('video/') ? 'video' : 'design'
+      const { data, error } = await (supabase as any)
+        .from('file_attachments')
+        .insert({
           post_id: post.id,
           category,
           file_name: lf.name,
           file_size: lf.size,
           file_type: lf.type,
-          storage_path: urls[i],
+          storage_path: res.url,
         })
-        if (insErr) throw insErr
-      }
+        .select('id')
+        .single()
+      if (error) throw error
 
-      // Update post status & link. The single link is consolidated into
-      // video_link; design_link is cleared so there's one source of truth.
+      delete uploadsRef.current[lf.id]
+      setFiles(prev => prev.map(f => (f.id === lf.id ? {
+        ...f,
+        id: data?.id ?? f.id,
+        file: null,
+        status: 'saved',
+        storageUrl: res.url,
+        url: (lf.type || '').startsWith('image/') ? res.url : undefined,
+      } : f)))
+    } catch (e) {
+      delete uploadsRef.current[lf.id]
+      setFiles(prev => prev.filter(f => f.id !== lf.id))
+      const err = e as { message?: string }
+      alert(`Gagal mengupload "${lf.name}": ${err?.message || 'Coba lagi.'}`)
+    }
+  }
+
+  async function handleSave() {
+    if (!post) return
+    setSaving(true)
+    try {
+      // Files upload on pick, so Simpan only persists status + link changes.
+      // The single link is consolidated into video_link; design_link cleared.
       const { error: updErr } = await (supabase as any).from('posts').update({
         status,
         video_link: link,
@@ -164,15 +175,17 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       onClose()
     } catch (e) {
       setSaving(false)
-      // Supabase errors aren't always `Error` instances — dig out a message.
-      const err = e as { message?: string; error?: string; statusCode?: string | number; name?: string }
+      const err = e as { message?: string; error?: string }
       const msg = err?.message || err?.error || (typeof e === 'string' ? e : JSON.stringify(e))
       console.error('[WSEditModal] save failed:', e)
-      alert('Gagal menyimpan file: ' + msg)
+      alert('Gagal menyimpan: ' + msg)
     }
   }
 
   function removeFile(id: string) {
+    // Abort an in-flight upload if this file is still uploading.
+    const abort = uploadsRef.current[id]
+    if (abort) { abort(); delete uploadsRef.current[id] }
     setFiles(p => p.filter(f => f.id !== id))
   }
 
