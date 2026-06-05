@@ -5,7 +5,7 @@ import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
 import { WS_STATUS_COLS, TEAM } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
-import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
+import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { WSEditModal } from './WSEditModal'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
@@ -222,9 +222,9 @@ function WSListView({ posts, member, onRowClick }: {
                   </span>
                 </td>
                 <td>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                     {(p.platforms || []).map(pl => (
-                      <PlatformBadge key={pl} platform={pl} />
+                      <PlatformIcon key={pl} platform={pl} size={18} />
                     ))}
                     {(p.platforms || []).length === 0 && <span style={{ color: 'var(--text2)', fontSize: 12 }}>—</span>}
                   </div>
@@ -434,9 +434,9 @@ function WSCard({ post, onDragStart, onClick }: {
         ) : (
           <span style={{ flex: 1 }} />
         )}
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {(post.platforms || []).map(pl => (
-            <PlatformBadge key={pl} platform={pl} />
+            <PlatformIcon key={pl} platform={pl} size={16} />
           ))}
         </div>
       </div>
