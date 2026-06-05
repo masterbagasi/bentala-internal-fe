@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Modal, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
+import { deleteFile } from '@/lib/storage'
 import { formatDate } from '@/lib/utils'
 import { TeamAvatar } from '@/components/shared/StatusBadge'
 import { BPI_STATUS_COLS } from '@/lib/constants'
@@ -38,7 +39,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
 
   // Files uploaded via the Video Production / Design worksheet live in the
   // file_attachments table — load them so they show here too.
-  const [extraFiles, setExtraFiles] = useState<{ url: string; name: string }[]>([])
+  const [extraFiles, setExtraFiles] = useState<{ id: string; url: string; name: string }[]>([])
   useEffect(() => {
     if (!open || !postId) { setExtraFiles([]); return }
     let cancelled = false
@@ -49,7 +50,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
       .order('created_at', { ascending: true })
       .then(({ data }: { data: Array<Record<string, unknown>> | null }) => {
         if (cancelled || !data) return
-        setExtraFiles(data.map(r => ({ url: r.storage_path as string, name: (r.file_name as string) || 'file' })))
+        setExtraFiles(data.map(r => ({ id: r.id as string, url: r.storage_path as string, name: (r.file_name as string) || 'file' })))
       })
     return () => { cancelled = true }
   }, [open, postId])
@@ -108,20 +109,50 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
   }
 
   // All attachments: legacy video/design links + uploaded file URLs + the
-  // links/files list — deduped, so the preview mirrors the edit form.
-  const attachments: { icon: string; label: string; url: string }[] = []
+  // links/files list — deduped, each tagged with its source so it can be
+  // deleted from the right place.
+  type AttachSrc =
+    | { kind: 'field'; field: 'video_link' | 'design_link' | 'video_file_url' | 'design_file_url' }
+    | { kind: 'files'; fileIdx: number }
+    | { kind: 'row'; rowId: string }
+  const attachments: { icon: string; label: string; url: string; src: AttachSrc }[] = []
   const seenUrls = new Set<string>()
-  const addAttach = (url: string | null | undefined, icon?: string, label?: string) => {
+  const addAttach = (url: string | null | undefined, src: AttachSrc, icon?: string, label?: string) => {
     if (!url || seenUrls.has(url)) return
     seenUrls.add(url)
-    attachments.push({ icon: icon ?? attachIcon(url), label: label ?? attachLabel(url), url })
+    attachments.push({ icon: icon ?? attachIcon(url), label: label ?? attachLabel(url), url, src })
   }
-  addAttach(post.video_link, '🎬', 'Video')
-  addAttach(post.design_link, '🎨', 'Design')
-  addAttach(post.video_file_url, '🎬', 'Video')
-  addAttach(post.design_file_url, '🎨', 'Design')
-  for (const f of post.files || []) addAttach(f)
-  for (const f of extraFiles) addAttach(f.url, undefined, f.name)
+  addAttach(post.video_link, { kind: 'field', field: 'video_link' }, '🎬', 'Video')
+  addAttach(post.design_link, { kind: 'field', field: 'design_link' }, '🎨', 'Design')
+  addAttach(post.video_file_url, { kind: 'field', field: 'video_file_url' }, '🎬', 'Video')
+  addAttach(post.design_file_url, { kind: 'field', field: 'design_file_url' }, '🎨', 'Design')
+  ;(post.files || []).forEach((f, i) => addAttach(f, { kind: 'files', fileIdx: i }))
+  for (const f of extraFiles) addAttach(f.url, { kind: 'row', rowId: f.id }, undefined, f.name)
+
+  async function deleteAttachment(att: { url: string; label: string; src: AttachSrc }) {
+    if (!post || !window.confirm(`Hapus "${att.label}"?`)) return
+    const sb = getSupabase() as unknown as { from: (t: string) => any }
+    try {
+      if (att.src.kind === 'row') {
+        const { error } = await sb.from('file_attachments').delete().eq('id', att.src.rowId)
+        if (error) throw error
+        try { await deleteFile(att.url) } catch { /* best-effort */ }
+        setExtraFiles(prev => prev.filter(f => f.id !== (att.src as { rowId: string }).rowId))
+      } else if (att.src.kind === 'files') {
+        const next = (post.files || []).filter((_, i) => i !== (att.src as { fileIdx: number }).fileIdx)
+        const { error } = await sb.from('posts').update({ files: next }).eq('id', post.id)
+        if (error) throw error
+        upsertPost({ ...post, files: next } as Post)
+      } else {
+        const field = att.src.field
+        const { error } = await sb.from('posts').update({ [field]: '' }).eq('id', post.id)
+        if (error) throw error
+        upsertPost({ ...post, [field]: '' } as Post)
+      }
+    } catch (e) {
+      alert('Gagal menghapus: ' + ((e as { message?: string })?.message || 'Coba lagi.'))
+    }
+  }
 
   return (
     <>
@@ -311,7 +342,14 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
             {attachments.map(a => (
-              <AttachCard key={a.url} icon={a.icon} label={a.label} url={a.url} onOpen={() => openAttachment(a.url, a.label)} />
+              <AttachCard
+                key={a.url}
+                icon={a.icon}
+                label={a.label}
+                url={a.url}
+                onOpen={() => openAttachment(a.url, a.label)}
+                onDelete={() => deleteAttachment(a)}
+              />
             ))}
           </div>
         </div>
@@ -431,17 +469,16 @@ function MetaItem({ label, value }: { label: string; value: React.ReactNode }) {
 
 // Compact grid card: thumbnail (image) or big icon, filename below. Clicking
 // opens the in-app preview popup (or a new tab for non-previewable links).
-function AttachCard({ icon, label, url, onOpen }: { icon: string; label: string; url: string; onOpen: () => void }) {
+function AttachCard({ icon, label, url, onOpen, onDelete }: { icon: string; label: string; url: string; onOpen: () => void; onDelete: () => void }) {
   const thumbSrc = safeImageSrc(url)
   return (
-    <button
-      type="button"
+    <div
       onClick={onOpen}
       title={label}
       style={{
-        display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left',
+        display: 'flex', flexDirection: 'column', gap: 8,
         background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10,
-        padding: 8, cursor: 'pointer', width: '100%',
+        padding: 8, cursor: 'pointer',
       }}
       onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
       onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
@@ -457,9 +494,56 @@ function AttachCard({ icon, label, url, onOpen }: { icon: string; label: string;
           <span style={{ fontSize: 32 }}>{icon}</span>
         )}
       </div>
-      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-        {label}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {label}
+        </span>
+        {isSafeHttpUrl(url) && (
+          <a
+            href={url}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            title="Download"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, color: 'var(--text2)', flexShrink: 0 }}
+            onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg2)' }}
+            onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
+          >
+            <PvDownloadIcon />
+          </a>
+        )}
+        <button
+          onClick={e => { e.stopPropagation(); onDelete() }}
+          title="Hapus"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', flexShrink: 0 }}
+          onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
+          onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
+        >
+          <PvTrashIcon />
+        </button>
       </div>
-    </button>
+    </div>
+  )
+}
+
+function PvDownloadIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
+function PvTrashIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
   )
 }
