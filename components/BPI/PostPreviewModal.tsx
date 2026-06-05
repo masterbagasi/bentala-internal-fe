@@ -160,9 +160,11 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
             Lampiran File
           </div>
-          {attachments.map(a => (
-            <AttachItem key={a.url} icon={a.icon} label={a.label} url={a.url} />
-          ))}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {attachments.map(a => (
+              <AttachCard key={a.url} icon={a.icon} label={a.label} url={a.url} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -202,6 +204,11 @@ function attachLabel(url: string): string {
   }
 }
 
+function isImageUrl(url: string): boolean {
+  const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || ''
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)
+}
+
 function MetaItem({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
@@ -211,27 +218,37 @@ function MetaItem({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-function AttachItem({ icon, label, url }: { icon: string; label: string; url: string }) {
+// Compact grid card: thumbnail (image) or big icon, filename below, opens URL.
+function AttachCard({ icon, label, url }: { icon: string; label: string; url: string }) {
+  const img = isImageUrl(url)
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      background: 'var(--bg3)', border: '1px solid var(--border)',
-      borderRadius: 8, padding: '10px 12px', marginBottom: 8,
-    }}>
-      <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>{label}</div>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ fontSize: 13, fontWeight: 500, color: 'var(--accent)', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          onMouseOver={e => (e.currentTarget.style.textDecoration = 'underline')}
-          onMouseOut={e => (e.currentTarget.style.textDecoration = 'none')}
-        >
-          {url}
-        </a>
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={label}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 8,
+        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10,
+        padding: 8, textDecoration: 'none',
+      }}
+      onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
+      onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+    >
+      <div style={{
+        width: '100%', height: 96, borderRadius: 8, background: 'var(--bg2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+      }}>
+        {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <span style={{ fontSize: 32 }}>{icon}</span>
+        )}
       </div>
-    </div>
+      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {label}
+      </div>
+    </a>
   )
 }
