@@ -35,6 +35,7 @@ export function AnalyticsView() {
   const availablePlatforms = subject.connections.map(c => c.platform)
 
   const [platform, setPlatform] = useState<PlatformTab>('all')
+  const [filterOpen, setFilterOpen] = useState(false)
   const [view, setView] = useState<SubView>('overview')
   const [range, setRange] = useState<DateRange>(presetRange('Last 90 days'))
   const [sortKey, setSortKey] = useState<SortKey>('date')
@@ -155,15 +156,47 @@ export function AnalyticsView() {
     <div>
       <PreviewBanner />
 
-      {/* Account + platform filter + date range */}
+      {/* Filter (account + platform) + date range */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-        <select value={subjectId} onChange={e => changeSubject(e.target.value)} style={{ ...selectStyle, width: 260, flexShrink: 0 }}>
-          {SUBJECTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <select value={platform} onChange={e => setPlatform(e.target.value as PlatformTab)} style={{ ...selectStyle, flexShrink: 0 }}>
-          <option value="all">Semua Platform</option>
-          {availablePlatforms.map(p => <option key={p} value={p}>{PLATFORM_META[p].label}</option>)}
-        </select>
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setFilterOpen(o => !o)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 7, height: 38, padding: '0 14px', borderRadius: 9,
+              border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+            </svg>
+            Filter
+          </button>
+          {filterOpen && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setFilterOpen(false)} />
+              <div style={{
+                position: 'absolute', left: 0, top: 'calc(100% + 6px)', zIndex: 70, width: 300,
+                background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
+                padding: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+              }}>
+                <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>Akun</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                  {SUBJECTS.map(s => (
+                    <SocialFilterChip key={s.id} label={s.name} active={subjectId === s.id} onClick={() => changeSubject(s.id)} />
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>Platform</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  <SocialFilterChip label="Semua" active={platform === 'all'} onClick={() => setPlatform('all')} />
+                  {availablePlatforms.map(p => (
+                    <SocialFilterChip key={p} label={PLATFORM_META[p].label} active={platform === p} onClick={() => setPlatform(p)} />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         <div style={{ marginLeft: 'auto' }}>
           <DateRangePicker value={range} onChange={setRange} />
         </div>
@@ -285,6 +318,22 @@ export function AnalyticsView() {
         )}
       </div>
     </div>
+  )
+}
+
+function SocialFilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '5px 11px', borderRadius: 16, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+        border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+        background: active ? 'rgba(108,99,255,0.15)' : 'var(--bg3)',
+        color: active ? 'var(--accent)' : 'var(--text2)', fontWeight: active ? 600 : 400,
+      }}
+    >
+      {label}
+    </button>
   )
 }
 
