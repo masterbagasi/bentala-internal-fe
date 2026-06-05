@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
-import { BPI_STATUS_COLS, POST_PLATFORMS } from '@/lib/constants'
+import { BPI_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
 import { formatDate, byPostDateAsc } from '@/lib/utils'
 import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
@@ -29,16 +29,49 @@ interface BPIPageProps {
 
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
   function BPIPage({ entity, currentUser = 'Naufal', activeTab }, ref) {
-    const { posts, bpiFilter, setBpiFilter } = useStore()
+    const { posts } = useStore()
     const [showPostModal, setShowPostModal] = useState(false)
     const [editPostId, setEditPostId] = useState<string | null>(null)
     const [previewPostId, setPreviewPostId] = useState<string | null>(null)
     const logActivity = useLogActivity()
 
-    const filtered = posts.filter(p => {
-      if (p.entity !== entity) return false
-      if (bpiFilter === 'all') return true
-      return (p.platforms || []).includes(bpiFilter as 'ig' | 'tiktok')
+    // ── Multi-criteria filter ──
+    const [filters, setFilters] = useState<PostFilters>(EMPTY_FILTERS)
+    const [filterOpen, setFilterOpen] = useState(false)
+    const [accounts, setAccounts] = useState<{ email: string; name: string }[]>([])
+    useEffect(() => {
+      let cancelled = false
+      fetch('/api/accounts')
+        .then(r => (r.ok ? r.json() : { accounts: [] }))
+        .then((d: { accounts?: { email: string; name: string }[] }) => { if (!cancelled) setAccounts(d.accounts ?? []) })
+        .catch(() => {})
+      return () => { cancelled = true }
+    }, [])
+
+    const entityPosts = useMemo(() => posts.filter(p => p.entity === entity), [posts, entity])
+
+    // Months present in this entity's posts (for the "Bulan posting" filter).
+    const months = useMemo(() => {
+      const set = new Set<string>()
+      for (const p of entityPosts) if (p.date) set.add(p.date.slice(0, 7))
+      return Array.from(set).sort().reverse()
+    }, [entityPosts])
+
+    const filterCount =
+      filters.platforms.length + filters.contentTypes.length + filters.tagged.length +
+      filters.ratios.length + filters.statuses.length + (filters.month ? 1 : 0)
+
+    const filtered = entityPosts.filter(p => {
+      if (filters.platforms.length && !filters.platforms.some(x => ((p.platforms || []) as string[]).includes(x))) return false
+      if (filters.contentTypes.length && !filters.contentTypes.some(x => (p.content_types || []).includes(x))) return false
+      if (filters.tagged.length && !filters.tagged.some(x => (p.tagged || []).includes(x))) return false
+      if (filters.ratios.length) {
+        const rs = (p.ratio || '').split(',').map(s => s.trim()).filter(Boolean)
+        if (!filters.ratios.some(x => rs.includes(x))) return false
+      }
+      if (filters.month && (p.date || '').slice(0, 7) !== filters.month) return false
+      if (filters.statuses.length && !filters.statuses.includes(p.status)) return false
+      return true
     })
 
     function openEdit(id?: string) {
@@ -60,31 +93,55 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
         {/* Filter Bar */}
         {(activeTab === 'list' || activeTab === 'board' || activeTab === 'calendar') && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
+            display: 'flex', alignItems: 'center', gap: 8, position: 'relative',
             padding: '9px 24px', borderBottom: '1px solid var(--border)',
-            background: 'var(--bg2)',
+            background: 'var(--bg2)', flexWrap: 'wrap',
           }}>
-            {[
-              { key: 'all', label: 'Semua' },
-              ...POST_PLATFORMS.map(p => ({ key: p.key as string, label: p.label })),
-            ].map(f => (
-              <button key={f.key}
-                onClick={() => setBpiFilter(f.key)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: f.key === 'all' ? '4px 12px' : '4px 12px 4px 5px', borderRadius: 20,
-                  border: '1px solid',
-                  borderColor: bpiFilter === f.key ? 'var(--accent)' : 'var(--border)',
-                  background: bpiFilter === f.key ? 'var(--accent)' : 'transparent',
-                  color: bpiFilter === f.key ? '#fff' : 'var(--text2)',
-                  cursor: 'pointer', fontSize: 12, fontWeight: 500,
-                  transition: 'all 0.15s',
-                }}
+            {/* Quick platform chips (toggle, synced with the popup) */}
+            <button
+              onClick={() => setFilters(f => ({ ...f, platforms: [] }))}
+              style={chipStyle(filters.platforms.length === 0)}
+            >
+              Semua
+            </button>
+            {POST_PLATFORMS.map(p => (
+              <button
+                key={p.key}
+                onClick={() => setFilters(f => ({ ...f, platforms: toggle(f.platforms, p.key) }))}
+                style={{ ...chipStyle(filters.platforms.includes(p.key)), paddingLeft: 5 }}
               >
-                {f.key !== 'all' && <PlatformIcon platform={f.key} size={16} />}
-                {f.label}
+                <PlatformIcon platform={p.key} size={16} />
+                {p.label}
               </button>
             ))}
+
+            {/* Filter button */}
+            <div style={{ position: 'relative', marginLeft: 'auto' }}>
+              <button
+                onClick={() => setFilterOpen(o => !o)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 8,
+                  border: '1px solid', borderColor: filterCount ? 'var(--accent)' : 'var(--border)',
+                  background: filterCount ? 'rgba(108,99,255,0.12)' : 'var(--bg3)',
+                  color: filterCount ? 'var(--accent)' : 'var(--text2)',
+                  cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                </svg>
+                Filter{filterCount ? ` (${filterCount})` : ''}
+              </button>
+              {filterOpen && (
+                <FilterPopup
+                  filters={filters}
+                  setFilters={setFilters}
+                  accounts={accounts}
+                  months={months}
+                  onClose={() => setFilterOpen(false)}
+                />
+              )}
+            </div>
           </div>
         )}
 
@@ -436,5 +493,136 @@ function CheckCircle({ done, onChange }: { done: boolean; onChange: (done: boole
         </svg>
       )}
     </button>
+  )
+}
+
+// ── Multi-criteria filter ──
+interface PostFilters {
+  platforms: string[]
+  contentTypes: string[]
+  tagged: string[]
+  ratios: string[]
+  month: string
+  statuses: string[]
+}
+const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: [], ratios: [], month: '', statuses: [] }
+
+function toggle(arr: string[], v: string): string[] {
+  return arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]
+}
+
+function chipStyle(active: boolean): React.CSSProperties {
+  return {
+    display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20,
+    border: '1px solid', borderColor: active ? 'var(--accent)' : 'var(--border)',
+    background: active ? 'var(--accent)' : 'transparent', color: active ? '#fff' : 'var(--text2)',
+    cursor: 'pointer', fontSize: 12, fontWeight: 500, transition: 'all 0.15s', whiteSpace: 'nowrap',
+  }
+}
+
+function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '4px 10px', borderRadius: 16, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
+        border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+        background: active ? 'rgba(108,99,255,0.15)' : 'var(--bg3)',
+        color: active ? 'var(--accent)' : 'var(--text2)', fontWeight: active ? 600 : 400,
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+function FilterSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{children}</div>
+    </div>
+  )
+}
+
+function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
+  filters: PostFilters
+  setFilters: React.Dispatch<React.SetStateAction<PostFilters>>
+  accounts: { email: string; name: string }[]
+  months: string[]
+  onClose: () => void
+}) {
+  const monthLabel = (ym: string) => {
+    const [y, m] = ym.split('-')
+    return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })
+  }
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={onClose} />
+      <div style={{
+        position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 70, width: 320,
+        maxHeight: '64vh', overflowY: 'auto',
+        background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
+        padding: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Filter</span>
+          <button
+            onClick={() => setFilters(EMPTY_FILTERS)}
+            style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+          >
+            Reset
+          </button>
+        </div>
+
+        <FilterSection label="Sosial Media">
+          {POST_PLATFORMS.map(p => (
+            <FilterChip key={p.key} label={p.label} active={filters.platforms.includes(p.key)}
+              onClick={() => setFilters(f => ({ ...f, platforms: toggle(f.platforms, p.key) }))} />
+          ))}
+        </FilterSection>
+
+        <FilterSection label="Jenis Konten">
+          {[{ key: 'video', label: 'Video' }, { key: 'design', label: 'Design' }].map(c => (
+            <FilterChip key={c.key} label={c.label} active={filters.contentTypes.includes(c.key)}
+              onClick={() => setFilters(f => ({ ...f, contentTypes: toggle(f.contentTypes, c.key) }))} />
+          ))}
+        </FilterSection>
+
+        <FilterSection label="Tag Akun">
+          {accounts.length === 0 ? (
+            <span style={{ fontSize: 12, color: 'var(--text2)' }}>—</span>
+          ) : accounts.map(a => (
+            <FilterChip key={a.email} label={a.name} active={filters.tagged.includes(a.email)}
+              onClick={() => setFilters(f => ({ ...f, tagged: toggle(f.tagged, a.email) }))} />
+          ))}
+        </FilterSection>
+
+        <FilterSection label="Ratio">
+          {POST_RATIOS.map(r => (
+            <FilterChip key={r.key} label={r.label} active={filters.ratios.includes(r.key)}
+              onClick={() => setFilters(f => ({ ...f, ratios: toggle(f.ratios, r.key) }))} />
+          ))}
+        </FilterSection>
+
+        <FilterSection label="Bulan Posting">
+          {months.length === 0 ? (
+            <span style={{ fontSize: 12, color: 'var(--text2)' }}>—</span>
+          ) : months.map(ym => (
+            <FilterChip key={ym} label={monthLabel(ym)} active={filters.month === ym}
+              onClick={() => setFilters(f => ({ ...f, month: f.month === ym ? '' : ym }))} />
+          ))}
+        </FilterSection>
+
+        <FilterSection label="Status">
+          {BPI_STATUS_COLS.map(s => (
+            <FilterChip key={s.key} label={s.label} active={filters.statuses.includes(s.key)}
+              onClick={() => setFilters(f => ({ ...f, statuses: toggle(f.statuses, s.key) }))} />
+          ))}
+        </FilterSection>
+      </div>
+    </>
   )
 }
