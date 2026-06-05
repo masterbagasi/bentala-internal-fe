@@ -26,7 +26,8 @@ interface NavSubgroup {
   type: 'subgroup'
   id: string
   label: string
-  badge?: React.ReactNode
+  icon?: React.ReactNode
+  color?: string
   items: NavEntry[]
 }
 
@@ -344,14 +345,14 @@ export function Sidebar() {
       fullLabel: 'Socmed Management',
       items: [
         {
-          type: 'subgroup', id: 'smm-bpi', label: 'Bentala Project', badge: <BrandBadge text="bpi" />,
+          type: 'subgroup', id: 'smm-bpi', label: 'Bentala Project', icon: <BrandGlyph text="bpi" />, color: COLOR.orange,
           items: [
             { href: '/bpi/social', label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
             { href: '/bpi',        label: 'Projects',     icon: <ListIcon />,  color: COLOR.orange },
           ],
         },
         {
-          type: 'subgroup', id: 'smm-bsi', label: 'Bentala Studio', badge: <BrandBadge text="bsi" />,
+          type: 'subgroup', id: 'smm-bsi', label: 'Bentala Studio', icon: <BrandGlyph text="bsi" />, color: COLOR.purple,
           items: [
             { href: '/bsi/social', label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
             { href: '/bsi',        label: 'Projects',     icon: <ListIcon />,  color: COLOR.purple },
@@ -758,6 +759,17 @@ export function Sidebar() {
 
 // ── Subcomponents ────────────────────────────────────────────
 
+/** Brand wordmark rendered inside an IconBox tile (used for the
+ *  Bentala Project / Studio sub-group logos). Stays visible — and aligned
+ *  with the item icons — even when the sidebar is collapsed to the icon rail. */
+function BrandGlyph({ text }: { text: string }) {
+  return (
+    <span style={{ fontSize: 8.5, fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: '0.02em', textTransform: 'lowercase' }}>
+      {text}
+    </span>
+  )
+}
+
 function BrandBadge({ text }: { text: string }) {
   return (
     <span
@@ -899,24 +911,20 @@ function Subgroup({
         onClick={() => toggleSection(userCollapsedKey)}
         className="flex items-center w-full cursor-pointer select-none transition-colors duration-150"
         style={{
-          padding: isExpanded ? '6px 12px' : '6px 0',
+          padding: isExpanded ? '7px 12px' : '7px 0',
           background: 'transparent',
           border: 'none',
           color: 'var(--text2)',
-          opacity: 0.7,
           justifyContent: isExpanded ? 'flex-start' : 'center',
-          gap: isExpanded ? 8 : 0,
-          fontSize: 11,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          fontWeight: 600,
+          gap: isExpanded ? 10 : 0,
           width: '100%',
         }}
+        title={group.label}
       >
-        {group.badge && (
-          <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', opacity: isExpanded ? 1 : 0 }}>
-            {group.badge}
-          </span>
+        {group.icon && (
+          <IconBox color={group.color ?? COLOR.blue} active={hasActiveChild}>
+            {group.icon}
+          </IconBox>
         )}
         <span
           style={{
@@ -925,9 +933,27 @@ function Subgroup({
             opacity: isExpanded ? 1 : 0,
             overflow: 'hidden',
             transition: 'max-width 0.22s ease, opacity 0.15s ease',
+            fontSize: 11,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            fontWeight: 600,
+            color: 'var(--text2)',
           }}
         >
           {group.label}
+        </span>
+        <span
+          style={{
+            marginLeft: 'auto',
+            color: 'var(--text2)',
+            display: 'inline-flex',
+            maxWidth: isExpanded ? 16 : 0,
+            opacity: isExpanded ? 0.7 : 0,
+            overflow: 'hidden',
+            transition: 'max-width 0.22s ease, opacity 0.15s ease',
+          }}
+        >
+          <ChevronIcon collapsed={isCollapsed} />
         </span>
       </button>
       {!isCollapsed && (
