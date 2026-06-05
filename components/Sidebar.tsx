@@ -913,15 +913,6 @@ function Subgroup({
           width: '100%',
         }}
       >
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            opacity: isExpanded ? 1 : 0,
-          }}
-        >
-          <ChevronIcon collapsed={isCollapsed} />
-        </span>
         {group.badge && (
           <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', opacity: isExpanded ? 1 : 0 }}>
             {group.badge}
