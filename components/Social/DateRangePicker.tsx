@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 
-export const PICKER_TODAY = '2026-06-03'
+export const PICKER_TODAY = '2026-06-05'
 export const DATA_START = '2026-01-01'
 
 export interface DateRange { from: string; to: string; label: string }

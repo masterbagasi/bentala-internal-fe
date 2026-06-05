@@ -1,6 +1,10 @@
-// ── PREVIEW-ONLY mock data for the Social Media tab ──
-// Replaced by live Composio + Supabase data in the implementation phase.
-// See docs/superpowers/specs/2026-06-03-social-media-tab-design.md
+// ── Social Media tab data ──
+// Bentala Project Indonesia (the first subject) holds a REAL snapshot pulled
+// from Instagram via Composio on 2026-06-05 (@bentalaprojectindonesia):
+// 9.047 followers, 169 posts, 28-day reach 52.981, plus the 12 latest reels
+// with real reach/views/likes/comments and real follower demographics.
+// Follower/engagement *trend* series remain illustrative (the IG API doesn't
+// expose historical follower counts). The other two subjects are sample data.
 
 export type Platform = 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'x' | 'linkedin'
 export type SubjectType = 'owned' | 'prospect'
@@ -32,14 +36,13 @@ export interface Subject {
 export const SUBJECTS: Subject[] = [
   {
     id: 'bentala',
-    name: 'Bentala Creative',
+    name: 'Bentala Project Indonesia',
     type: 'owned',
     connections: [
-      { platform: 'instagram', handle: '@bentala.id',     status: 'connected', followers: 48200 },
-      { platform: 'tiktok',    handle: '@bentala',         status: 'connected', followers: 31700 },
-      { platform: 'youtube',   handle: 'Bentala Creative', status: 'connected', followers: 12400 },
-      { platform: 'x',         handle: '@bentala',         status: 'connected', followers: 5600 },
-      { platform: 'linkedin',  handle: 'Bentala Creative', status: 'pending',   followers: 0 },
+      // REAL — pulled via Composio 2026-06-05.
+      { platform: 'instagram', handle: '@bentalaprojectindonesia', status: 'connected', followers: 9047 },
+      // Belum tersambung (handle dari bio IG); follower terisi setelah di-connect.
+      { platform: 'tiktok',    handle: '@bentalaprojectindonesia', status: 'pending',   followers: 0 },
     ],
   },
   {
@@ -83,8 +86,10 @@ export const REACH_BY_PLATFORM = {
 // platform updates the charts. 'all' is aggregated in the component.
 export const PLATFORM_TRENDS: Partial<Record<Platform, { followers: number[]; engagement: number[] }>> = {
   instagram: {
-    followers:  [41000, 41900, 42600, 43500, 44200, 45000, 45700, 46400, 47000, 47500, 47900, 48200],
-    engagement: [3.8, 4.1, 3.9, 4.4, 4.6, 4.2, 4.8, 5.1, 4.9, 5.3, 5.0, 5.4],
+    // Endpoint (9047) is the real current follower count; earlier weeks are
+    // illustrative since IG doesn't expose historical follower counts.
+    followers:  [7900, 8050, 8200, 8350, 8480, 8600, 8720, 8820, 8900, 8970, 9010, 9047],
+    engagement: [2.4, 2.6, 2.5, 2.9, 3.0, 2.8, 3.2, 2.7, 3.0, 2.6, 2.8, 2.9],
   },
   tiktok: {
     followers:  [26000, 26900, 27600, 28400, 29000, 29600, 30100, 30600, 31000, 31300, 31550, 31700],
@@ -167,33 +172,33 @@ export const FORMAT_LABEL: Record<ContentFormat, string> = {
   video: 'Video', short: 'Short', story: 'Story',
 }
 
-// Spread across Apr–Jun 2026 so the custom date filter visibly works.
+// REAL — 12 latest Instagram reels of @bentalaprojectindonesia, pulled via
+// Composio on 2026-06-05 (reach/views/likes/comments/shares are actual; times
+// shown in WIB). engagement = (likes+comments+shares+saves) / reach.
 export const CONTENT_POSTS: ContentPost[] = [
-  { id: 'c1',  platform: 'tiktok',    format: 'video',    caption: 'Behind the scenes — studio session',        date: '2026-05-28', time: '19:15', reach: 84200, likes: 7100, comments: 412, shares: 980, engagement: 9.1 },
-  { id: 'c2',  platform: 'instagram', format: 'carousel', caption: '5 tips branding untuk UMKM',                 date: '2026-05-24', time: '12:30', reach: 41800, likes: 3050, comments: 188, shares: 240, engagement: 7.4 },
-  { id: 'c3',  platform: 'instagram', format: 'reel',     caption: 'Transformasi logo klien — before/after',     date: '2026-05-21', time: '20:00', reach: 38600, likes: 2660, comments: 154, shares: 310, engagement: 6.9 },
-  { id: 'c4',  platform: 'youtube',   format: 'video',    caption: 'Case study: rebranding Kopi Nusantara',      date: '2026-05-18', time: '18:45', reach: 22400, likes: 1180, comments: 96,  shares: 70,  engagement: 5.2 },
-  { id: 'c5',  platform: 'tiktok',    format: 'video',    caption: 'Trend audio + quick brand tip',              date: '2026-05-15', time: '21:10', reach: 19700, likes: 1540, comments: 88,  shares: 150, engagement: 4.8 },
-  { id: 'c6',  platform: 'instagram', format: 'photo',    caption: 'Quote of the day — desain minimalis',        date: '2026-05-11', time: '08:30', reach: 16200, likes: 1320, comments: 64,  shares: 40,  engagement: 4.3 },
-  { id: 'c7',  platform: 'instagram', format: 'reel',     caption: 'Proses desain dari sketsa ke final',         date: '2026-05-07', time: '19:40', reach: 29800, likes: 2110, comments: 132, shares: 205, engagement: 6.1 },
-  { id: 'c8',  platform: 'tiktok',    format: 'video',    caption: 'POV: meeting kickoff dengan klien baru',     date: '2026-05-03', time: '13:20', reach: 25400, likes: 1980, comments: 110, shares: 175, engagement: 5.5 },
-  { id: 'c9',  platform: 'youtube',   format: 'short',    caption: 'Short: 3 kesalahan branding UMKM',           date: '2026-04-28', time: '17:05', reach: 14100, likes: 720,  comments: 52,  shares: 38,  engagement: 4.0 },
-  { id: 'c10', platform: 'instagram', format: 'carousel', caption: 'Studi warna: palet brand 2026',              date: '2026-04-23', time: '11:15', reach: 21300, likes: 1640, comments: 91,  shares: 120, engagement: 5.0 },
-  { id: 'c11', platform: 'tiktok',    format: 'video',    caption: 'Reaksi tim ke desain pertama',               date: '2026-04-18', time: '20:30', reach: 31200, likes: 2480, comments: 143, shares: 260, engagement: 6.4 },
-  { id: 'c12', platform: 'instagram', format: 'reel',     caption: 'Tutorial: pilih font untuk brand',           date: '2026-04-14', time: '18:00', reach: 27600, likes: 1990, comments: 121, shares: 198, engagement: 5.8 },
-  { id: 'c13', platform: 'facebook',  format: 'photo',    caption: 'Promo paket branding bulan ini',             date: '2026-04-09', time: '10:45', reach: 9800,  likes: 410,  comments: 33,  shares: 25,  engagement: 3.1 },
-  { id: 'c14', platform: 'youtube',   format: 'video',    caption: 'Vlog: sehari di studio Bentala',             date: '2026-04-04', time: '16:20', reach: 18700, likes: 980,  comments: 74,  shares: 55,  engagement: 4.6 },
-  { id: 'c15', platform: 'x',         format: 'photo',    caption: 'Thread: prinsip desain brand yang kuat',     date: '2026-05-20', time: '09:50', reach: 12300, likes: 540,  comments: 47,  shares: 210, engagement: 3.5 },
-  { id: 'c16', platform: 'x',         format: 'photo',    caption: 'Hot take: tren visual 2026',                 date: '2026-04-26', time: '14:35', reach: 8900,  likes: 380,  comments: 62,  shares: 145, engagement: 3.1 },
+  { id: 'c1',  platform: 'instagram', format: 'reel', caption: "Indonesia 'negara paling mager'? Kreator WNA buktikan sendiri", date: '2026-06-05', time: '09:34', reach: 980,  likes: 31,  comments: 1, shares: 0, engagement: 3.4 },
+  { id: 'c2',  platform: 'instagram', format: 'reel', caption: 'Slamet Santoso: dari kerja jadi pemain bola di Polandia',       date: '2026-06-04', time: '09:05', reach: 861,  likes: 27,  comments: 1, shares: 0, engagement: 3.3 },
+  { id: 'c3',  platform: 'instagram', format: 'reel', caption: "Turis Inggris kaget kebiasaan panggil 'Pak/Bu' di Indonesia",  date: '2026-06-03', time: '20:01', reach: 1147, likes: 27,  comments: 0, shares: 1, engagement: 2.6 },
+  { id: 'c4',  platform: 'instagram', format: 'reel', caption: '700rb tanda tangan dunia desak stop perdagangan daging anabul', date: '2026-06-02', time: '23:05', reach: 2347, likes: 45,  comments: 0, shares: 2, engagement: 2.1 },
+  { id: 'c5',  platform: 'instagram', format: 'reel', caption: 'Bahasa Indonesia jembatani WN Jepang & Jordan di Petra',        date: '2026-06-02', time: '20:16', reach: 2707, likes: 164, comments: 8, shares: 2, engagement: 6.6 },
+  { id: 'c6',  platform: 'instagram', format: 'reel', caption: 'Scam internasional digerebek di ruko Solo Baru',               date: '2026-05-31', time: '21:19', reach: 2222, likes: 30,  comments: 0, shares: 2, engagement: 1.4 },
+  { id: 'c7',  platform: 'instagram', format: 'reel', caption: "Solo dev Indonesia 'Rizu' rilis game kereta, viral di dunia",  date: '2026-05-30', time: '21:52', reach: 886,  likes: 46,  comments: 0, shares: 2, engagement: 5.6 },
+  { id: 'c8',  platform: 'instagram', format: 'reel', caption: 'WNI ketahuan pakai riset palsu di konferensi ilmiah dunia',     date: '2026-05-29', time: '19:22', reach: 3751, likes: 57,  comments: 2, shares: 1, engagement: 1.7 },
+  { id: 'c9',  platform: 'instagram', format: 'reel', caption: "Label baru botol sirup ABC: 'jangan diminum langsung'",        date: '2026-05-28', time: '21:06', reach: 4478, likes: 151, comments: 0, shares: 5, engagement: 3.7 },
+  { id: 'c10', platform: 'instagram', format: 'reel', caption: 'Culture shock WNI ketemu komunitas Hijra di India',            date: '2026-05-28', time: '10:21', reach: 2912, likes: 35,  comments: 0, shares: 0, engagement: 1.3 },
+  { id: 'c11', platform: 'instagram', format: 'reel', caption: 'WNA kagum kereta cepat Indonesia yang bersih',                 date: '2026-05-27', time: '20:44', reach: 1295, likes: 24,  comments: 0, shares: 1, engagement: 2.1 },
+  { id: 'c12', platform: 'instagram', format: 'reel', caption: 'WNI di Dubai tinggal di bed space Rp2,4 juta/bulan',           date: '2026-05-26', time: '19:32', reach: 7693, likes: 73,  comments: 0, shares: 6, engagement: 1.1 },
 ]
 
 // ── Overview metrics (Instagram-Insights style) ──
+// views / interactions / accountsReached are REAL (last 28 days, via Composio
+// 2026-06-05). The remaining fields stay illustrative.
 export const OVERVIEW = {
-  views: 31787, viewsFollowersPct: 65.2,
+  views: 69428, viewsFollowersPct: 65.2,
   netFollowers: -39, follows: 37, unfollows: 76,
-  interactions: 426, interactionsFollowersPct: 87.1,
+  interactions: 12176, interactionsFollowersPct: 87.1,
   shares: 312, sharesFollowersPct: 79.0,
-  accountsReached: 6182,
+  accountsReached: 52981,
   profileVisits: 677, externalLinkTaps: 12, bioLinkTaps: 0,
 }
 
@@ -219,30 +224,33 @@ export interface LocationRow { name: string; pct: number }
 
 export const ACTIVE_HOURS = ['12a', '3a', '6a', '9a', '12p', '3p', '6p', '9p']
 
+// gender / ageRange / countries / cities are REAL follower demographics
+// (@bentalaprojectindonesia via Composio 2026-06-05). Age buckets are split by
+// the overall gender ratio (the API gives age and gender separately).
 export const AUDIENCE = {
-  gender: { women: 58.8, men: 41.2 },
+  gender: { women: 48.2, men: 51.8 },
   ageRange: [
-    { range: '13-17', women: 0.1, men: 0.1 },
-    { range: '18-24', women: 8.4, men: 5.1 },
-    { range: '25-34', women: 44.8, men: 28.6 },
-    { range: '35-44', women: 4.9, men: 4.3 },
-    { range: '45-54', women: 1.2, men: 1.1 },
-    { range: '55-64', women: 0.3, men: 0.3 },
-    { range: '65+',   women: 0.4, men: 0.3 },
+    { range: '13-17', women: 1.4,  men: 1.5 },
+    { range: '18-24', women: 5.3,  men: 5.7 },
+    { range: '25-34', women: 13.4, men: 14.3 },
+    { range: '35-44', women: 13.2, men: 14.1 },
+    { range: '45-54', women: 8.7,  men: 9.3 },
+    { range: '55-64', women: 4.5,  men: 4.8 },
+    { range: '65+',   women: 1.8,  men: 1.9 },
   ] as AgeBucket[],
   countries: [
-    { name: 'Indonesia',     pct: 61.4 },
-    { name: 'India',         pct: 13.7 },
-    { name: 'Brazil',        pct: 4.0 },
-    { name: 'United States', pct: 3.4 },
-    { name: 'Malaysia',      pct: 2.7 },
+    { name: 'Indonesia',     pct: 92.9 },
+    { name: 'Malaysia',      pct: 1.8 },
+    { name: 'Japan',         pct: 0.6 },
+    { name: 'Hong Kong',     pct: 0.4 },
+    { name: 'United States', pct: 0.4 },
   ] as LocationRow[],
   cities: [
-    { name: 'Jakarta',  pct: 22.1 },
-    { name: 'Surabaya', pct: 8.4 },
-    { name: 'Bandung',  pct: 6.9 },
-    { name: 'Bekasi',   pct: 4.2 },
-    { name: 'Medan',    pct: 3.1 },
+    { name: 'Jakarta',  pct: 13.0 },
+    { name: 'Surabaya', pct: 2.8 },
+    { name: 'Depok',    pct: 2.7 },
+    { name: 'Bekasi',   pct: 2.6 },
+    { name: 'Bandung',  pct: 2.4 },
   ] as LocationRow[],
   // 8 buckets per day matching ACTIVE_HOURS (relative 0-100)
   activeTimes: {
@@ -262,14 +270,14 @@ export const AUDIENCE = {
 }
 
 export const AI_RECOMMENDATIONS = [
-  'TikTok jadi penyumbang reach terbesar (264k) — naikkan frekuensi posting jadi 4–5×/minggu, fokus format behind-the-scenes yang engagement-nya tertinggi (9.1%).',
-  'Engagement rate Instagram naik konsisten 12 minggu (3.8% → 5.4%). Pertahankan format carousel edukasi; jadwalkan di jam 19.00–21.00 saat audiens paling aktif.',
-  'YouTube masih underutilized (12.4k subs). Manfaatkan studi kasus klien sebagai long-form authority content, lalu potong jadi Shorts untuk cross-posting.',
-  'Prospek Glow Skincare punya engagement TikTok tinggi — siapkan pitch deck berbasis benchmark performa mereka vs rata-rata industri.',
+  'Reels adalah format inti (28-hari: reach 52.981, views 69.428). Pertahankan kadens posting harian dan konsisten di tema "Indonesian Stories Beyond Borders".',
+  'Konten yang memicu diskusi memberi engagement tertinggi — reel "Bahasa Indonesia di Petra" mencapai 6,6% (164 likes, 8 komentar). Perbanyak angle cerita diaspora & culture shock dengan ajakan komentar.',
+  'Audiens 92,9% dari Indonesia (Jakarta 13%, lalu Surabaya/Depok/Bekasi/Bandung) dan didominasi umur 25–44. Jadwalkan posting di jam prime-time malam WIB untuk reach maksimal.',
+  'TikTok @bentalaprojectindonesia belum tersambung — connect via Composio agar performa lintas-kanal (IG + TikTok) bisa dibandingkan dalam satu dashboard.',
 ]
 
-export const REPORT_NARRATIVE = `Sepanjang periode ini, performa sosial media Bentala Creative menunjukkan tren positif di seluruh kanal utama. Total followers tumbuh 17.0% (41.2k → 48.2k), didorong terutama oleh TikTok yang mencatat reach tertinggi (264k impresi) berkat konten behind-the-scenes. Engagement rate rata-rata naik dari 3.8% menjadi 5.4%, melampaui benchmark industri kreatif (~3.5%).
+export const REPORT_NARRATIVE = `Pada periode ini akun Instagram Bentala Project Indonesia (@bentalaprojectindonesia) memiliki 9.047 followers dari total 169 konten. Dalam 28 hari terakhir, akun menjangkau 52.981 akun (reach), mencatat 69.428 views dan 12.176 interaksi konten — angka yang sehat untuk basis audiens seukuran ini.
 
-Instagram tetap menjadi kanal paling stabil dengan pertumbuhan engagement yang konsisten setiap minggu; format carousel edukasi dan reel transformasi desain memberikan kontribusi terbesar. YouTube, meski basis audiensnya paling kecil, menunjukkan potensi sebagai kanal authority lewat konten studi kasus.
+Format konten didominasi Reels bertema "Indonesian Stories Beyond Borders". Reel dengan performa terbaik di periode ini antara lain "WNI di Dubai tinggal di bed space" (reach 7.693) dan "Label baru botol sirup ABC" (reach 4.478), sementara reel "Bahasa Indonesia di Petra" mencatat engagement rate tertinggi (6,6%) berkat 164 likes dan 8 komentar.
 
-Rekomendasi utama: tingkatkan kadens produksi TikTok, lanjutkan ritme konten edukasi Instagram di jam prime-time, dan kembangkan strategi long-form YouTube yang dipotong menjadi Shorts untuk memaksimalkan jangkauan lintas kanal.`
+Audiens sangat terpusat di Indonesia (92,9%) dengan kantong terbesar di Jakarta (13,0%), Surabaya, Depok, Bekasi, dan Bandung; secara umur didominasi rentang produktif 25–44 tahun. Rekomendasi: pertahankan ritme posting Reels harian, perbanyak angle yang memicu komentar (seperti cerita diaspora & culture shock), dan jadwalkan di jam prime-time malam saat audiens domestik paling aktif.`
