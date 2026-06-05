@@ -120,44 +120,56 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     if (!post) return
     setSaving(true)
 
-    // Upload pending files to Supabase Storage
+    // Upload one local file to Storage. Throws on failure so the caller can
+    // surface the error instead of silently "saving" a broken record.
     const uploadFile = async (lf: LocalFile): Promise<string> => {
       if (!lf.file) return lf.storageUrl || ''
-      const path = `posts/${post.id}/${lf.category}/${lf.id}_${lf.name}`
-      await supabase.storage.from('bentala-files').upload(path, lf.file, { upsert: true })
-      const { data } = supabase.storage.from('bentala-files').getPublicUrl(path)
+      const safeName = lf.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `posts/${post.id}/${lf.id}_${safeName}`
+      const { error: upErr } = await supabase.storage
+        .from('bsi-website')
+        .upload(path, lf.file, { upsert: true, contentType: lf.type || undefined })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from('bsi-website').getPublicUrl(path)
       return data.publicUrl
     }
 
-    // Upload all settled files (single combined list)
-    const settled = files.filter(f => f.status === 'settled' && f.file)
-    const urls = await Promise.all(settled.map(uploadFile))
+    try {
+      // Upload every locally-picked file (don't depend on the cosmetic
+      // upload-progress status, so saving early still works).
+      const pending = files.filter(f => f.file)
+      const urls = await Promise.all(pending.map(uploadFile))
 
-    // Insert file_attachments records
-    for (let i = 0; i < settled.length; i++) {
-      const lf = settled[i]
-      await (supabase as any).from('file_attachments').insert({
-        post_id: post.id,
-        category: 'file',
-        file_name: lf.name,
-        file_size: lf.size,
-        file_type: lf.type,
-        storage_path: urls[i],
-      })
+      for (let i = 0; i < pending.length; i++) {
+        const lf = pending[i]
+        const { error: insErr } = await (supabase as any).from('file_attachments').insert({
+          post_id: post.id,
+          category: 'file',
+          file_name: lf.name,
+          file_size: lf.size,
+          file_type: lf.type,
+          storage_path: urls[i],
+        })
+        if (insErr) throw insErr
+      }
+
+      // Update post status & link. The single link is consolidated into
+      // video_link; design_link is cleared so there's one source of truth.
+      const { error: updErr } = await (supabase as any).from('posts').update({
+        status,
+        video_link: link,
+        design_link: '',
+      }).eq('id', post.id)
+      if (updErr) throw updErr
+
+      const wsLabel = WS_STATUS_COLS.find(c => c.key === status)?.label || POST_STATUS_LABELS[status] || status
+      logActivity(`${member} mengupdate post: "${post.title}" → ${wsLabel}`)
+      setSaving(false)
+      onClose()
+    } catch (e) {
+      setSaving(false)
+      alert('Gagal menyimpan file. ' + (e instanceof Error ? e.message : 'Coba lagi.'))
     }
-
-    // Update post status & link. The single link is consolidated into
-    // video_link; design_link is cleared so there's one source of truth.
-    await (supabase as any).from('posts').update({
-      status,
-      video_link: link,
-      design_link: '',
-    }).eq('id', post.id)
-
-    const wsLabel = WS_STATUS_COLS.find(c => c.key === status)?.label || POST_STATUS_LABELS[status] || status
-    logActivity(`${member} mengupdate post: "${post.title}" → ${wsLabel}`)
-    setSaving(false)
-    onClose()
   }
 
   function removeFile(id: string) {
