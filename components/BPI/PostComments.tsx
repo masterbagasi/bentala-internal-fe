@@ -304,28 +304,30 @@ export function PostCommentsComposer({ s }: { s: PostCommentsState }) {
           }}
           placeholder="Tulis komentar… (⌘/Ctrl + Enter untuk kirim)"
           style={{
+            display: 'block',
             width: '100%', boxSizing: 'border-box', resize: 'vertical',
             background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
             padding: '10px 12px', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none',
           }}
         />
         {error && <div style={{ fontSize: 12, color: '#f87171', marginTop: 6 }}>{error}</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button
+            onClick={submit}
+            disabled={posting || !input.trim()}
+            style={{
+              height: 34, padding: '0 18px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600,
+              background: !input.trim() ? 'var(--bg3)' : 'var(--accent)',
+              color: !input.trim() ? 'var(--text2)' : '#fff',
+              cursor: posting || !input.trim() ? 'not-allowed' : 'pointer',
+              opacity: posting ? 0.7 : 1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {posting ? 'Mengirim…' : 'Kirim'}
+          </button>
+        </div>
       </div>
-      <button
-        onClick={submit}
-        disabled={posting || !input.trim()}
-        style={{
-          padding: '9px 18px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600,
-          alignSelf: 'stretch',
-          background: !input.trim() ? 'var(--bg3)' : 'var(--accent)',
-          color: !input.trim() ? 'var(--text2)' : '#fff',
-          cursor: posting || !input.trim() ? 'not-allowed' : 'pointer',
-          opacity: posting ? 0.7 : 1,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {posting ? 'Mengirim…' : 'Kirim'}
-      </button>
     </div>
   )
 }
