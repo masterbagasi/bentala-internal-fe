@@ -300,7 +300,6 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
         const colPosts = posts.filter(p => wsColKey(p.status) === col.key)
         const isLocked = col.key === 'revisi' // can't drag TO revisi
         const isOver = dragOverCol === col.key
-        const dragging = dragPostId !== null
         const active = isOver && !isLocked          // valid drop target hovered
         const blocked = isOver && isLocked          // hovering a locked column
 
@@ -324,14 +323,8 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
             onDragOver={e => {
               e.preventDefault()
               e.dataTransfer.dropEffect = isLocked ? 'none' : 'move'
+              // Set on hover only (no onDragLeave) to avoid flicker.
               if (dragOverCol !== col.key) setDragOverCol(col.key)
-            }}
-            onDragLeave={e => {
-              // Only clear when the pointer truly leaves the column (not when
-              // moving over a child element).
-              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                setDragOverCol(c => (c === col.key ? null : c))
-              }
             }}
             onDrop={() => { setDragOverCol(null); if (!isLocked) handleDrop(col.key) }}
           >
@@ -343,20 +336,7 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
               {col.key === 'revisi' && <span title="Hanya BPI yang bisa memindahkan ke Revisi" style={{ fontSize: 13, opacity: 0.5 }}>🔒</span>}
             </div>
 
-            {/* Drop hint — appears while dragging over this column */}
-            {dragging && (active || blocked) && (
-              <div style={{
-                border: `2px dashed ${active ? col.color : '#ff6b6b'}`,
-                borderRadius: 10, padding: '14px 8px', marginBottom: 10,
-                textAlign: 'center', fontSize: 12, fontWeight: 600,
-                color: active ? col.color : '#ff6b6b',
-                background: active ? `${col.color}10` : '#ff6b6b10',
-              }}>
-                {active ? `Lepas di ${col.label}` : '🔒 Tidak bisa ke Revisi'}
-              </div>
-            )}
-
-            <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ overflowY: 'auto', flex: 1, minHeight: 60 }}>
               {colPosts.map(p => (
                 <WSCard
                   key={p.id}

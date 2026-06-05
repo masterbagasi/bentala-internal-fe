@@ -254,7 +254,6 @@ function KanbanBoard({
         const colPosts = posts.filter(p => p.status === col.key)
         const isLocked = 'locked' in col && col.locked && currentUser === 'Naufal'
         const isOver = dragOverCol === col.key
-        const dragging = dragPostId !== null
         const active = isOver && !isLocked
         const blocked = isOver && isLocked
         return (
@@ -276,12 +275,9 @@ function KanbanBoard({
             onDragOver={(e) => {
               e.preventDefault()
               e.dataTransfer.dropEffect = isLocked ? 'none' : 'move'
+              // Set on hover only (no onDragLeave) to avoid flicker from
+              // entering/leaving child elements.
               if (dragOverCol !== col.key) setDragOverCol(col.key)
-            }}
-            onDragLeave={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                setDragOverCol(c => (c === col.key ? null : c))
-              }
             }}
             onDrop={() => { setDragOverCol(null); if (!isLocked) handleDrop(col.key) }}
           >
@@ -296,20 +292,7 @@ function KanbanBoard({
               {isLocked && <span title="Kamu tidak bisa drag ke kolom ini" style={{ fontSize: 13, opacity: 0.5 }}>🔒</span>}
             </div>
 
-            {/* Drop hint — appears while dragging over this column */}
-            {dragging && (active || blocked) && (
-              <div style={{
-                border: `2px dashed ${active ? col.color : '#ff6b6b'}`,
-                borderRadius: 10, padding: '14px 8px', marginBottom: 10,
-                textAlign: 'center', fontSize: 12, fontWeight: 600,
-                color: active ? col.color : '#ff6b6b',
-                background: active ? `${col.color}10` : '#ff6b6b10',
-              }}>
-                {active ? `Lepas di ${col.label}` : '🔒 Tidak bisa ke sini'}
-              </div>
-            )}
-
-            <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ overflowY: 'auto', flex: 1, minHeight: 60 }}>
               {colPosts.map(p => (
                 <KanbanCard
                   key={p.id}
