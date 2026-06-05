@@ -1,7 +1,7 @@
 'use client'
 
 import { SUBJECTS, PLAN_ITEMS, AI_RECOMMENDATIONS, PLATFORM_META } from './mock'
-import { PreviewBanner, Card, PlatformChip, SectionTitle } from './ui'
+import { Card, PlatformChip, SectionTitle } from './ui'
 
 const DOW = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
 // June 2026 starts on a Monday (1 Jun 2026 = Monday) → offset 0
@@ -19,7 +19,6 @@ export function PlanView() {
 
   return (
     <div>
-      <PreviewBanner />
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
         <select

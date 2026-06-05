@@ -2,13 +2,12 @@
 
 import { SUBJECTS, PLATFORM_META } from './mock'
 import {
-  PreviewBanner, Card, PlatformChip, StatusDot, SubjectTypeBadge, fmtNum,
+  Card, PlatformChip, StatusDot, SubjectTypeBadge, fmtNum,
 } from './ui'
 
 export function AccountsView() {
   return (
     <div>
-      <PreviewBanner />
 
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
         <p style={{ fontSize: 13, color: 'var(--text2)', margin: 0 }}>

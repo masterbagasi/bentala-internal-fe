@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { SUBJECTS, REPORT_NARRATIVE } from './mock'
-import { PreviewBanner, Card, StatCard, SectionTitle, fmtNum } from './ui'
+import { Card, StatCard, SectionTitle, fmtNum } from './ui'
 
 export function ReportsView() {
   const [subjectId, setSubjectId] = useState(SUBJECTS[0].id)
@@ -11,7 +11,6 @@ export function ReportsView() {
 
   return (
     <div>
-      <PreviewBanner />
 
       {/* Controls */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>

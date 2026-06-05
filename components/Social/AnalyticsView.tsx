@@ -7,7 +7,7 @@ import {
   CONTENT_POSTS, PLATFORM_META, FORMAT_LABEL, type ContentPost, type Platform,
 } from './mock'
 import {
-  PreviewBanner, Card, StatCard, PlatformChip, SectionTitle, fmtNum,
+  Card, StatCard, PlatformChip, SectionTitle, fmtNum,
 } from './ui'
 import { DateRangePicker, presetRange, type DateRange } from './DateRangePicker'
 import {
@@ -171,7 +171,6 @@ export function AnalyticsView({
 
   return (
     <div>
-      <PreviewBanner />
 
       {/* Controls: inline filter (only when uncontrolled) + date range */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
