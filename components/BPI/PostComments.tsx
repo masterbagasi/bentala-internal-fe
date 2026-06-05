@@ -251,35 +251,34 @@ export function PostComments({ post }: { post: Post }) {
         <Tab label="Semua Aktivitas" active={tab === 'activity'} onClick={() => setTab('activity')} />
       </div>
 
-      {/* Feed — newest first */}
-      {loading ? (
-        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>Memuat…</div>
-      ) : feed.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>
-          {tab === 'comments' ? 'Belum ada komentar. Jadilah yang pertama!' : 'Belum ada aktivitas.'}
+      {/* Chat panel — fixed height: the feed scrolls inside, the composer is
+          always pinned at the bottom of the panel (never scrolls away, never
+          overlaps the messages). */}
+      <div style={{ display: 'flex', flexDirection: 'column', height: 440 }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          {loading ? (
+            <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>Memuat…</div>
+          ) : feed.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>
+              {tab === 'comments' ? 'Belum ada komentar. Jadilah yang pertama!' : 'Belum ada aktivitas.'}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 4 }}>
+              {feed.map(e => (
+                <FeedItem key={`${e.kind}-${e.id}`} entry={e} />
+              ))}
+            </div>
+          )}
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 8 }}>
-          {feed.map(e => (
-            <FeedItem key={`${e.kind}-${e.id}`} entry={e} />
-          ))}
-        </div>
-      )}
 
-      {/* Composer — pinned to the bottom of the modal, always visible while the
-          feed above scrolls. Negative margins reach the modal body edges so the
-          backdrop spans full width (modal body padding is 20px). */}
-      <div
-        style={{
-          position: 'sticky', bottom: 0, zIndex: 5,
-          background: 'var(--bg2)',
-          marginLeft: -20, marginRight: -20, marginBottom: -20,
-          paddingLeft: 20, paddingRight: 20, paddingBottom: 20, paddingTop: 14,
-          marginTop: 12, borderTop: '1px solid var(--border)',
-          display: 'flex', gap: 10, alignItems: 'flex-start',
-        }}
-      >
-        <Avatar name={me.name || me.email || 'You'} size={30} />
+        {/* Composer — pinned at the bottom of the panel */}
+        <div
+          style={{
+            flexShrink: 0, display: 'flex', gap: 10, alignItems: 'flex-start',
+            marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)',
+          }}
+        >
+          <Avatar name={me.name || me.email || 'You'} size={30} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <textarea
             rows={2}
@@ -312,6 +311,7 @@ export function PostComments({ post }: { post: Post }) {
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

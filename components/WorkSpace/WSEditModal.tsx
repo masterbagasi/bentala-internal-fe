@@ -47,7 +47,6 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
   const [saving, setSaving] = useState(false)
   const statusBtnRef = useRef<HTMLButtonElement>(null)
   const [previewFile, setPreviewFile] = useState<LocalFile | null>(null)
-  const [previewIdx, setPreviewIdx] = useState(0)
   const supabase = getSupabase()
 
   useEffect(() => {
@@ -232,6 +231,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
   const statusColor = curStatusCol?.color || '#8b8fa8'
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -364,6 +364,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         files={vFiles}
         onFilePick={(files) => handleFilePick('v', files)}
         onRemove={(id) => removeFile('v', id)}
+        onPreview={setPreviewFile}
         accept="video/*,.mp4,.mov,.avi,.mkv"
         linkPlaceholder="https://drive.google.com/file/..."
         uploadHint="MP4, MOV, AVI, MKV"
@@ -381,6 +382,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
           files={dFiles}
           onFilePick={(files) => handleFilePick('d', files)}
           onRemove={(id) => removeFile('d', id)}
+          onPreview={setPreviewFile}
           accept="image/*,.psd,.ai,.fig,.sketch,.xd,.pdf"
           linkPlaceholder="https://figma.com/..."
           uploadHint="JPG, PNG, PSD, AI, PDF"
@@ -390,13 +392,93 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       {/* Comment room + activity — same as Bentala Project / Studio */}
       <PostComments post={post} />
     </Modal>
+
+    {/* In-app file preview (image / video / pdf) — no need to leave the page */}
+    {previewFile && (
+      <Modal
+        open={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+        title={previewFile.name}
+        maxWidth={760}
+        headerRight={
+          (previewFile.storageUrl || previewFile.url) ? (
+            <a
+              href={previewFile.storageUrl || previewFile.url}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Download"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+                borderRadius: 8, background: 'var(--accent)', color: '#fff',
+                fontSize: 12, fontWeight: 600, textDecoration: 'none',
+              }}
+            >
+              <DownloadIcon size={14} /> Download
+            </a>
+          ) : undefined
+        }
+      >
+        <FilePreviewBody file={previewFile} />
+      </Modal>
+    )}
+    </>
+  )
+}
+
+function DownloadIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
+// Decide how to render a file preview.
+function fileKind(f: { type?: string; name?: string }): 'image' | 'video' | 'pdf' | 'other' {
+  const t = (f.type || '').toLowerCase()
+  const ext = (f.name || '').toLowerCase().split('.').pop() || ''
+  if (t.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return 'image'
+  if (t.startsWith('video/') || ['mp4', 'mov', 'webm', 'm4v', 'avi', 'mkv'].includes(ext)) return 'video'
+  if (t === 'application/pdf' || ext === 'pdf') return 'pdf'
+  return 'other'
+}
+
+function FilePreviewBody({ file }: { file: LocalFile }) {
+  const url = file.storageUrl || file.url || ''
+  const kind = fileKind(file)
+  if (!url) {
+    return <div style={{ color: 'var(--text2)', fontSize: 13 }}>File tidak tersedia.</div>
+  }
+  if (kind === 'image') {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={url} alt={file.name} style={{ maxWidth: '100%', maxHeight: '70vh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
+  }
+  if (kind === 'video') {
+    return <video src={url} controls autoPlay style={{ width: '100%', maxHeight: '70vh', borderRadius: 8, background: '#000' }} />
+  }
+  if (kind === 'pdf') {
+    return <iframe src={url} title={file.name} style={{ width: '100%', height: '70vh', border: 'none', borderRadius: 8, background: '#fff' }} />
+  }
+  return (
+    <div style={{ textAlign: 'center', padding: 24 }}>
+      <div style={{ fontSize: 40, marginBottom: 10 }}>{getFileIcon(file.type, file.name)}</div>
+      <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
+        Preview tidak tersedia untuk tipe file ini.
+      </div>
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: 13, textDecoration: 'none' }}>
+        ⬇ Download / Buka
+      </a>
+    </div>
   )
 }
 
 // ── File Section ──
 function FileSection({
   title, cat, tab, onTabChange, link, onLinkChange,
-  files, onFilePick, onRemove, accept, linkPlaceholder, uploadHint,
+  files, onFilePick, onRemove, onPreview, accept, linkPlaceholder, uploadHint,
 }: {
   title: string
   cat: 'v' | 'd'
@@ -407,6 +489,7 @@ function FileSection({
   files: LocalFile[]
   onFilePick: (f: FileList) => void
   onRemove: (id: string) => void
+  onPreview: (f: LocalFile) => void
   accept: string
   linkPlaceholder: string
   uploadHint: string
@@ -475,7 +558,7 @@ function FileSection({
       {files.length > 0 && (
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {files.map(f => (
-            <FileItem key={f.id} file={f} onRemove={() => onRemove(f.id)} />
+            <FileItem key={f.id} file={f} onRemove={() => onRemove(f.id)} onPreview={() => onPreview(f)} />
           ))}
         </div>
       )}
@@ -483,9 +566,18 @@ function FileSection({
   )
 }
 
-function FileItem({ file, onRemove }: { file: LocalFile; onRemove: () => void }) {
+function FileItem({ file, onRemove, onPreview }: { file: LocalFile; onRemove: () => void; onPreview: () => void }) {
+  const canPreview = !!(file.storageUrl || file.url) && fileKind(file) !== 'other'
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px' }}>
+    <div
+      onClick={canPreview ? onPreview : undefined}
+      title={canPreview ? 'Klik untuk preview' : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg2)',
+        border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px',
+        cursor: canPreview ? 'pointer' : 'default',
+      }}
+    >
       {/* Thumbnail */}
       {file.url && file.type.startsWith('image/') ? (
         <img src={file.url} alt={file.name} style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
@@ -515,31 +607,36 @@ function FileItem({ file, onRemove }: { file: LocalFile; onRemove: () => void })
             Klik Simpan untuk menyimpan
           </div>
         )}
-        {file.status === 'saved' && file.storageUrl && (
-          <a
-            href={file.storageUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: 11, color: 'var(--accent)', marginTop: 3, display: 'inline-block', textDecoration: 'none' }}
-            onMouseOver={e => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
-            onMouseOut={e => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
-          >
-            ⬇ Download / Buka
-          </a>
+        {file.status === 'saved' && (
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>Tersimpan · klik untuk preview</div>
         )}
       </div>
 
-      {/* Remove only applies to not-yet-saved local files */}
-      {file.status !== 'saved' && (
+      {/* Right action: download (saved files) or remove (not-yet-saved) */}
+      {file.status === 'saved' && file.storageUrl ? (
+        <a
+          href={file.storageUrl}
+          download
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
+          title="Download"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 6, color: 'var(--text2)', flexShrink: 0 }}
+          onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
+          onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
+        >
+          <DownloadIcon />
+        </a>
+      ) : file.status !== 'saved' ? (
         <button
-          onClick={onRemove}
+          onClick={e => { e.stopPropagation(); onRemove() }}
           style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 4, borderRadius: 5, fontSize: 15, lineHeight: 1, flexShrink: 0 }}
           onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
           onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
         >
           ✕
         </button>
-      )}
+      ) : null}
     </div>
   )
 }
