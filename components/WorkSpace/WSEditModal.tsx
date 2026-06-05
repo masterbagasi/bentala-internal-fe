@@ -30,6 +30,9 @@ interface LocalFile {
   storageUrl?: string
   category: string
   progress?: number // 0–100 while uploading
+  // Set when this item is a link that lives in the post's own video_link/
+  // design_link column (legacy single-link fields) rather than file_attachments.
+  postLinkField?: 'video_link' | 'design_link'
 }
 
 export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps) {
@@ -56,11 +59,17 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
   useEffect(() => {
     if (!open || !post) return
     setStatus(post.status)
-    setLink(post.video_link || post.design_link || '')
+    setLink('') // the input is for adding a NEW link, not bound to a field
     setFileTab('link')
     setFiles([])
 
-    // Load every already-uploaded file (any category) into one combined list.
+    // Surface the post's legacy single-link fields as link items in the list.
+    const legacyLinks: LocalFile[] = []
+    if (post.video_link) legacyLinks.push(makeLinkItem(post.video_link, 'video_link'))
+    if (post.design_link) legacyLinks.push(makeLinkItem(post.design_link, 'design_link'))
+    setFiles(legacyLinks)
+
+    // Load every already-uploaded file + saved link (any category) into the list.
     let cancelled = false
     ;(supabase as any)
       .from('file_attachments')
@@ -84,7 +93,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
             category: 'file',
           }
         }
-        setFiles(data.map(toLocal))
+        setFiles([...legacyLinks, ...data.map(toLocal)])
       })
     return () => { cancelled = true }
     // Depend on postId only — NOT the whole `post` object. Otherwise an
@@ -179,16 +188,38 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     }
   }
 
+  // Add a link as an attachment (persisted to file_attachments) — appears in
+  // the list immediately, like an uploaded file.
+  async function addLink() {
+    if (!post) return
+    const raw = link.trim()
+    if (!raw) return
+    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+    try {
+      const { data, error } = await (supabase as any).from('file_attachments').insert({
+        post_id: post.id,
+        category: 'design',
+        file_name: url,
+        file_size: 0,
+        file_type: 'link',
+        storage_path: url,
+      }).select('id').single()
+      if (error) throw error
+      setFiles(prev => [...prev, { ...makeLinkItem(url), id: (data?.id as string) ?? `lnk-${Math.random().toString(36).slice(2)}` }])
+      setLink('')
+    } catch (e) {
+      alert('Gagal menambah link: ' + ((e as { message?: string })?.message || 'Coba lagi.'))
+    }
+  }
+
   async function handleSave() {
     if (!post) return
     setSaving(true)
     try {
-      // Files upload on pick, so Simpan only persists status + link changes.
-      // The single link is consolidated into video_link; design_link cleared.
+      // Status changes apply immediately; links/files are saved on add/upload.
+      // Simpan just re-asserts the current status.
       const { error: updErr } = await (supabase as any).from('posts').update({
         status,
-        video_link: link,
-        design_link: '',
       }).eq('id', post.id)
       if (updErr) throw updErr
 
@@ -214,17 +245,24 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
 
   // Permanently delete an already-saved file: remove its DB row + storage object.
   async function deleteSavedFile(lf: LocalFile) {
-    if (!window.confirm(`Hapus file "${lf.name}"?`)) return
+    if (!post) return
+    if (!window.confirm(`Hapus "${lf.name}"?`)) return
     try {
-      const { error } = await (supabase as any).from('file_attachments').delete().eq('id', lf.id)
-      if (error) throw error
-      if (lf.storageUrl) {
-        try { await deleteFile(lf.storageUrl) } catch { /* best-effort; row is gone either way */ }
+      if (lf.postLinkField) {
+        // Legacy link stored on the post itself — clear that column.
+        const { error } = await (supabase as any).from('posts').update({ [lf.postLinkField]: '' }).eq('id', post.id)
+        if (error) throw error
+      } else {
+        const { error } = await (supabase as any).from('file_attachments').delete().eq('id', lf.id)
+        if (error) throw error
+        if (lf.storageUrl) {
+          try { await deleteFile(lf.storageUrl) } catch { /* best-effort; row is gone either way */ }
+        }
       }
       setFiles(prev => prev.filter(f => f.id !== lf.id))
     } catch (e) {
       const err = e as { message?: string }
-      alert('Gagal menghapus file: ' + (err?.message || 'Coba lagi.'))
+      alert('Gagal menghapus: ' + (err?.message || 'Coba lagi.'))
     }
   }
 
@@ -404,6 +442,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         onRemove={removeFile}
         onDelete={deleteSavedFile}
         onPreview={setPreviewFile}
+        onAddLink={addLink}
         accept="*/*"
         linkPlaceholder="https://drive.google.com/... atau https://figma.com/..."
         uploadHint="Video, gambar, PDF, dan lainnya"
@@ -457,6 +496,25 @@ function DownloadIcon({ size = 15 }: { size?: number }) {
   )
 }
 
+function LinkIcon({ size = 17 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  )
+}
+
+function ExternalLinkIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  )
+}
+
 function TrashIcon({ size = 15 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -466,6 +524,22 @@ function TrashIcon({ size = 15 }: { size?: number }) {
       <line x1="14" y1="11" x2="14" y2="17" />
     </svg>
   )
+}
+
+// Build a LocalFile that represents a link (either a saved file_attachments
+// 'link' row or one of the post's legacy video_link/design_link fields).
+function makeLinkItem(url: string, postLinkField?: 'video_link' | 'design_link'): LocalFile {
+  return {
+    id: postLinkField ? `plink-${postLinkField}` : `lnk-${Math.random().toString(36).slice(2)}`,
+    file: null,
+    name: url,
+    size: 0,
+    type: 'link',
+    status: 'saved',
+    storageUrl: url,
+    category: 'design',
+    postLinkField,
+  }
 }
 
 // Decide how to render a file preview.
@@ -510,7 +584,7 @@ function FilePreviewBody({ file }: { file: LocalFile }) {
 // ── File Section ──
 function FileSection({
   title, tab, onTabChange, link, onLinkChange,
-  files, onFilePick, onRemove, onDelete, onPreview, accept, linkPlaceholder, uploadHint,
+  files, onFilePick, onRemove, onDelete, onPreview, onAddLink, accept, linkPlaceholder, uploadHint,
 }: {
   title: string
   tab: 'link' | 'upload'
@@ -522,6 +596,7 @@ function FileSection({
   onRemove: (id: string) => void
   onDelete: (f: LocalFile) => void
   onPreview: (f: LocalFile) => void
+  onAddLink: () => void
   accept: string
   linkPlaceholder: string
   uploadHint: string
@@ -550,7 +625,29 @@ function FileSection({
       </div>
 
       {tab === 'link' ? (
-        <input type="url" value={link} onChange={e => onLinkChange(e.target.value)} placeholder={linkPlaceholder} />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            type="url"
+            value={link}
+            onChange={e => onLinkChange(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onAddLink() } }}
+            placeholder={linkPlaceholder}
+            style={{ flex: 1 }}
+          />
+          <button
+            type="button"
+            onClick={onAddLink}
+            disabled={!link.trim()}
+            style={{
+              padding: '0 16px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 600,
+              background: link.trim() ? 'var(--accent)' : 'var(--bg2)',
+              color: link.trim() ? '#fff' : 'var(--text2)',
+              cursor: link.trim() ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap',
+            }}
+          >
+            + Tambah
+          </button>
+        </div>
       ) : (
         <div>
           <input
@@ -599,19 +696,26 @@ function FileSection({
 }
 
 function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; onRemove: () => void; onDelete: () => void; onPreview: () => void }) {
-  const canPreview = !!(file.storageUrl || file.url) && fileKind(file) !== 'other'
+  const isLink = file.type === 'link'
+  const canPreview = !isLink && !!(file.storageUrl || file.url) && fileKind(file) !== 'other'
+  const openLink = () => { if (file.storageUrl) window.open(file.storageUrl, '_blank', 'noopener,noreferrer') }
+  const onRowClick = isLink ? openLink : (canPreview ? onPreview : undefined)
   return (
     <div
-      onClick={canPreview ? onPreview : undefined}
-      title={canPreview ? 'Klik untuk preview' : undefined}
+      onClick={onRowClick}
+      title={isLink ? 'Klik untuk buka tautan' : canPreview ? 'Klik untuk preview' : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg2)',
         border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px',
-        cursor: canPreview ? 'pointer' : 'default',
+        cursor: onRowClick ? 'pointer' : 'default',
       }}
     >
       {/* Thumbnail */}
-      {file.url && file.type.startsWith('image/') ? (
+      {isLink ? (
+        <div style={{ width: 34, height: 34, borderRadius: 7, background: 'var(--bg3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
+          <LinkIcon />
+        </div>
+      ) : file.url && file.type.startsWith('image/') ? (
         <img src={file.url} alt={file.name} style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
       ) : (
         <div style={{ width: 34, height: 34, borderRadius: 7, background: 'var(--bg3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>
@@ -621,7 +725,7 @@ function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; on
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</div>
-        <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{formatFileSize(file.size)}</div>
+        {!isLink && <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{formatFileSize(file.size)}</div>}
 
         {/* Status */}
         {file.status === 'uploading' && (
@@ -648,7 +752,9 @@ function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; on
           </div>
         )}
         {file.status === 'saved' && (
-          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>Tersimpan · klik untuk preview</div>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>
+            {isLink ? 'Tautan · klik untuk buka' : 'Tersimpan · klik untuk preview'}
+          </div>
         )}
       </div>
 
@@ -658,16 +764,16 @@ function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; on
           {file.storageUrl && (
             <a
               href={file.storageUrl}
-              download
+              {...(isLink ? {} : { download: true })}
               target="_blank"
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
-              title="Download"
+              title={isLink ? 'Buka tautan' : 'Download'}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 6, color: 'var(--text2)' }}
               onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
               onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
             >
-              <DownloadIcon />
+              {isLink ? <ExternalLinkIcon /> : <DownloadIcon />}
             </a>
           )}
           <button
