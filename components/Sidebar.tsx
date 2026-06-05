@@ -26,7 +26,7 @@ interface NavSubgroup {
   type: 'subgroup'
   id: string
   label: string
-  items: NavItem[]
+  items: NavEntry[]
 }
 
 type NavEntry = NavItem | NavSubgroup
@@ -345,21 +345,31 @@ export function Sidebar() {
         {
           type: 'subgroup', id: 'smm-bpi', label: 'Bentala Project',
           items: [
-            { href: '/bpi/social/accounts',  label: 'Accounts',  icon: <PeopleIcon />, color: COLOR.blue },
-            { href: '/bpi/social/analytics', label: 'Analytics', icon: <ChartIcon />,  color: COLOR.teal },
-            { href: '/bpi/social/reports',   label: 'Reports',   icon: <ReportIcon />, color: COLOR.orange },
-            { href: '/bpi/social/plan',      label: 'Plan',      icon: <CalIcon />,    color: COLOR.purple },
-            { href: '/bpi',                  label: 'Projects',  icon: <ListIcon />,   color: COLOR.orange },
+            {
+              type: 'subgroup', id: 'smm-bpi-social', label: 'Social Media',
+              items: [
+                { href: '/bpi/social/accounts',  label: 'Accounts',  icon: <PeopleIcon />, color: COLOR.blue },
+                { href: '/bpi/social/analytics', label: 'Analytics', icon: <ChartIcon />,  color: COLOR.teal },
+                { href: '/bpi/social/reports',   label: 'Reports',   icon: <ReportIcon />, color: COLOR.orange },
+                { href: '/bpi/social/plan',      label: 'Plan',      icon: <CalIcon />,    color: COLOR.purple },
+              ],
+            },
+            { href: '/bpi', label: 'Projects', icon: <ListIcon />, color: COLOR.orange },
           ],
         },
         {
           type: 'subgroup', id: 'smm-bsi', label: 'Bentala Studio',
           items: [
-            { href: '/bsi/social/accounts',  label: 'Accounts',  icon: <PeopleIcon />, color: COLOR.blue },
-            { href: '/bsi/social/analytics', label: 'Analytics', icon: <ChartIcon />,  color: COLOR.teal },
-            { href: '/bsi/social/reports',   label: 'Reports',   icon: <ReportIcon />, color: COLOR.orange },
-            { href: '/bsi/social/plan',      label: 'Plan',      icon: <CalIcon />,    color: COLOR.purple },
-            { href: '/bsi',                  label: 'Projects',  icon: <ListIcon />,   color: COLOR.purple },
+            {
+              type: 'subgroup', id: 'smm-bsi-social', label: 'Social Media',
+              items: [
+                { href: '/bsi/social/accounts',  label: 'Accounts',  icon: <PeopleIcon />, color: COLOR.blue },
+                { href: '/bsi/social/analytics', label: 'Analytics', icon: <ChartIcon />,  color: COLOR.teal },
+                { href: '/bsi/social/reports',   label: 'Reports',   icon: <ReportIcon />, color: COLOR.orange },
+                { href: '/bsi/social/plan',      label: 'Plan',      icon: <CalIcon />,    color: COLOR.purple },
+              ],
+            },
+            { href: '/bsi', label: 'Projects', icon: <ListIcon />, color: COLOR.purple },
           ],
         },
       ],
@@ -478,15 +488,7 @@ export function Sidebar() {
   // accidentally highlight Dashboard.
   const activeHref = useMemo(() => {
     const all: string[] = []
-    for (const sec of sections) {
-      for (const entry of sec.items) {
-        if ('type' in entry && entry.type === 'subgroup') {
-          for (const child of entry.items) all.push(child.href)
-        } else {
-          all.push((entry as NavItem).href)
-        }
-      }
-    }
+    for (const sec of sections) all.push(...collectHrefs(sec.items))
     let best = ''
     for (const href of all) {
       if (href === '/') {
@@ -901,7 +903,7 @@ function Subgroup({
   collapsed: Record<string, boolean>
   toggleSection: (id: string) => void
 }) {
-  const hasActiveChild = group.items.some((item) => isActive(item.href))
+  const hasActiveChild = subgroupHasActive(group.items, isActive)
   const userCollapsedKey = `subgroup:${group.id}`
   const isCollapsed = collapsed[userCollapsedKey] === true && !hasActiveChild
 
@@ -949,16 +951,50 @@ function Subgroup({
       </button>
       {!isCollapsed && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingLeft: isExpanded ? 8 : 0 }}>
-          {group.items.map((item) => (
-            <NavLink
-              key={item.href}
-              item={item}
-              isExpanded={isExpanded}
-              active={isActive(item.href)}
-            />
-          ))}
+          {group.items.map((entry) => {
+            if ('type' in entry && entry.type === 'subgroup') {
+              return (
+                <Subgroup
+                  key={entry.id}
+                  group={entry}
+                  isExpanded={isExpanded}
+                  isActive={isActive}
+                  collapsed={collapsed}
+                  toggleSection={toggleSection}
+                />
+              )
+            }
+            const item = entry as NavItem
+            return (
+              <NavLink
+                key={item.href}
+                item={item}
+                isExpanded={isExpanded}
+                active={isActive(item.href)}
+              />
+            )
+          })}
         </div>
       )}
     </div>
+  )
+}
+
+// Flatten all hrefs from items (recursing into nested subgroups).
+function collectHrefs(items: NavEntry[]): string[] {
+  const out: string[] = []
+  for (const e of items) {
+    if ('type' in e && e.type === 'subgroup') out.push(...collectHrefs(e.items))
+    else out.push((e as NavItem).href)
+  }
+  return out
+}
+
+// Recursively checks whether any descendant link is the active route.
+function subgroupHasActive(items: NavEntry[], isActive: (href: string) => boolean): boolean {
+  return items.some(e =>
+    'type' in e && e.type === 'subgroup'
+      ? subgroupHasActive(e.items, isActive)
+      : isActive((e as NavItem).href),
   )
 }
