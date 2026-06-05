@@ -36,7 +36,7 @@ export default function Page() {
         </div>
       )}
       <div className="flex-1 overflow-y-auto min-h-0" style={{ padding: 24 }}>
-        {tab === 'accounts' && <AccountsView />}
+        {tab === 'accounts' && <AccountsView brand="bsi" />}
         {tab === 'analytics' && (
           <AnalyticsView
             subjectId={subjectId} setSubjectId={setSubjectId}
