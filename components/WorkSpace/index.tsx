@@ -256,12 +256,14 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
   onCardClick: (id: string) => void
 }) {
   const [dragPostId, setDragPostId] = useState<string | null>(null)
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const logActivity = useLogActivity()
   const { upsertPost } = useStore()
 
   async function handleDrop(newStatus: string) {
     const id = dragPostId
     setDragPostId(null)
+    setDragOverCol(null)
     if (!id) return
 
     // WS rule: cannot drag TO revisi
@@ -287,6 +289,10 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
       {WS_STATUS_COLS.map(col => {
         const colPosts = posts.filter(p => p.status === col.key)
         const isLocked = col.key === 'revisi' // can't drag TO revisi
+        const isOver = dragOverCol === col.key
+        const dragging = dragPostId !== null
+        const active = isOver && !isLocked          // valid drop target hovered
+        const blocked = isOver && isLocked          // hovering a locked column
 
         return (
           <div
@@ -294,13 +300,29 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
             className="kanban-col"
             style={{
               minWidth: 265, maxWidth: 265,
-              background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
+              background: active ? `${col.color}14` : blocked ? '#ff6b6b12' : 'var(--bg2)',
+              border: `${active || blocked ? 2 : 1}px solid ${active ? col.color : blocked ? '#ff6b6b' : 'var(--border)'}`,
+              borderRadius: 12,
               padding: '14px 12px 10px', flexShrink: 0,
               display: 'flex', flexDirection: 'column',
               maxHeight: 'calc(100vh - 200px)',
+              transform: active ? 'scale(1.03)' : 'scale(1)',
+              boxShadow: active ? `0 8px 24px ${col.color}44` : 'none',
+              transition: 'transform 0.12s ease, border-color 0.12s, background 0.12s, box-shadow 0.12s',
             }}
-            onDragOver={e => { e.preventDefault(); if (!isLocked) e.dataTransfer.dropEffect = 'move'; else e.dataTransfer.dropEffect = 'none' }}
-            onDrop={() => !isLocked && handleDrop(col.key)}
+            onDragOver={e => {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = isLocked ? 'none' : 'move'
+              if (dragOverCol !== col.key) setDragOverCol(col.key)
+            }}
+            onDragLeave={e => {
+              // Only clear when the pointer truly leaves the column (not when
+              // moving over a child element).
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                setDragOverCol(c => (c === col.key ? null : c))
+              }
+            }}
+            onDrop={() => { setDragOverCol(null); if (!isLocked) handleDrop(col.key) }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexShrink: 0 }}>
               <span style={{ fontWeight: 600, color: col.color, fontSize: 14 }}>{col.label}</span>
@@ -310,7 +332,18 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
               {col.key === 'revisi' && <span title="Hanya BPI yang bisa memindahkan ke Revisi" style={{ fontSize: 13, opacity: 0.5 }}>🔒</span>}
             </div>
 
-            <div className="drop-hint">Drop di sini</div>
+            {/* Drop hint — appears while dragging over this column */}
+            {dragging && (active || blocked) && (
+              <div style={{
+                border: `2px dashed ${active ? col.color : '#ff6b6b'}`,
+                borderRadius: 10, padding: '14px 8px', marginBottom: 10,
+                textAlign: 'center', fontSize: 12, fontWeight: 600,
+                color: active ? col.color : '#ff6b6b',
+                background: active ? `${col.color}10` : '#ff6b6b10',
+              }}>
+                {active ? `Lepas di ${col.label}` : '🔒 Tidak bisa ke Revisi'}
+              </div>
+            )}
 
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {colPosts.map(p => (
@@ -324,6 +357,7 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
                     e.dataTransfer.effectAllowed = 'move'
                     setDragPostId(p.id)
                   }}
+                  onDragEnd={() => { setDragPostId(null); setDragOverCol(null) }}
                   onClick={() => onCardClick(p.id)}
                 />
               ))}
@@ -360,9 +394,10 @@ function CalIcon12() {
   )
 }
 
-function WSCard({ post, onDragStart, onClick }: {
+function WSCard({ post, onDragStart, onDragEnd, onClick }: {
   post: Post
   onDragStart: (e: React.DragEvent) => void
+  onDragEnd: () => void
   onClick: () => void
 }) {
   const hasVideo = (post.content_types || []).includes('video')
@@ -377,6 +412,7 @@ function WSCard({ post, onDragStart, onClick }: {
     <div
       draggable
       onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       className="kanban-card"
       style={{
