@@ -1,52 +1,107 @@
 // ── Menu access control — single source of truth ──────────────
 //
-// Defines which sidebar *sections* exist, how routes map to them, and the
-// super-admin allowlist. Imported by:
-//   - middleware.ts        (server-side route enforcement)
-//   - components/Sidebar.tsx (hide sections the user can't access)
-//   - app/api/access/*     (admin management API)
+// Access is GRANULAR: one entry per leaf menu item (mirrors the sidebar), so a
+// super admin can grant e.g. just "Socmed Management → Bentala Project → Social
+// Media". Items are grouped (group / optional subgroup) for the admin UI.
+//
+// Imported by:
+//   - middleware.ts          (server-side route enforcement)
+//   - components/Sidebar.tsx  (hide items the user can't access)
+//   - app/api/access/*        (admin management API)
 //   - app/(dashboard)/settings/access/* (admin UI)
 //
 // Access is stored per-account in the `menu_access` Supabase table as an array
-// of the section `id`s below. Default is DENY: an account with no row (or an
-// empty array) can access nothing until the super admin grants sections.
+// of the granular `id`s below. Default is DENY. Legacy top-level ids (e.g.
+// 'smm', 'website') stored by older rows are auto-expanded to their children
+// (see LEGACY_ALIASES + normaliseSections) so existing grants keep working.
 
-/**
- * Accounts that can access everything and are the only ones allowed to manage
- * access. Compared case-insensitively against the authenticated email.
- */
 export const SUPER_ADMIN_EMAILS = ['dandirivaldi@masterbagasi.com'] as const
 
 export interface AccessSection {
-  /** Stable id — matches the section `id` in components/Sidebar.tsx and the
-   *  values stored in `menu_access.sections`. */
+  /** Stable granular id stored in menu_access.sections. */
   id: string
-  /** Human label shown in the access-management UI. */
+  /** Leaf label shown in the admin UI (e.g. "Social Media"). */
   label: string
-  /** Route prefixes that belong to this section. Matched segment-aware
-   *  (exact, or prefix followed by `/`) so e.g. `/bpi-faizal` does NOT match
-   *  the `/bpi` route. The root `/` matches only the exact root path. */
+  /** Top-level heading in the admin UI (e.g. "Socmed Management"). */
+  group: string
+  /** Optional nested heading (e.g. "Bentala Project"). */
+  subgroup?: string
+  /** Route prefixes that belong to this item. Matched segment-aware (exact, or
+   *  prefix followed by `/`). The root `/` matches only the exact root path. */
   routes: string[]
-  /** Where to send a user who lands on a blocked route but DOES have this
-   *  section — also used to pick a post-login landing. */
+  /** Where to send a user who lands on a blocked route but DOES have this item. */
   landing: string
 }
 
 // Order matters only for picking a deterministic "first allowed landing".
 export const ACCESS_SECTIONS: AccessSection[] = [
-  { id: 'overview', label: 'Dashboard',       routes: ['/'],                                                              landing: '/' },
-  { id: 'website',  label: 'Website',         routes: ['/website/home', '/website/about', '/website/news', '/website/seo', '/website/navbar'], landing: '/website/home' },
-  { id: 'smm',      label: 'Socmed Management', routes: ['/bpi', '/bsi'],                                                 landing: '/bpi' },
-  { id: 'social',   label: 'Social Media',    routes: ['/social'],                                                        landing: '/social/accounts' },
-  { id: 'client',   label: 'Client',          routes: ['/website/leads', '/clients', '/invoices'],                        landing: '/clients' },
-  { id: 'projects', label: 'Projects',        routes: ['/projects', '/tasks', '/bpi-faizal', '/bpi-reinaldi', '/pipeline/vp', '/pipeline/ds'], landing: '/projects' },
-  { id: 'ai',       label: 'AI Studio',       routes: ['/ai'],                                                            landing: '/ai/chat' },
-  { id: 'team',     label: 'Team',            routes: ['/team'],                                                          landing: '/team' },
-  { id: 'settings', label: 'Settings',        routes: ['/settings'],                                                      landing: '/settings/ai' },
+  { id: 'overview', label: 'Dashboard', group: 'Dashboard', routes: ['/'], landing: '/' },
+
+  // Website
+  { id: 'website.home',   label: 'Home Page',  group: 'Website', routes: ['/website/home'],   landing: '/website/home' },
+  { id: 'website.about',  label: 'About Page', group: 'Website', routes: ['/website/about'],  landing: '/website/about' },
+  { id: 'website.news',   label: 'News Page',  group: 'Website', routes: ['/website/news'],   landing: '/website/news' },
+  { id: 'website.seo',    label: 'SEO',        group: 'Website', routes: ['/website/seo'],    landing: '/website/seo' },
+  { id: 'website.navbar', label: 'Setting',    group: 'Website', routes: ['/website/navbar'], landing: '/website/navbar' },
+
+  // Socmed Management
+  { id: 'smm.bpi.social',   label: 'Social Media', group: 'Socmed Management', subgroup: 'Bentala Project', routes: ['/bpi/social'], landing: '/bpi/social' },
+  { id: 'smm.bpi.projects', label: 'Projects',     group: 'Socmed Management', subgroup: 'Bentala Project', routes: ['/bpi'],        landing: '/bpi' },
+  { id: 'smm.bsi.social',   label: 'Social Media', group: 'Socmed Management', subgroup: 'Bentala Studio',  routes: ['/bsi/social'], landing: '/bsi/social' },
+  { id: 'smm.bsi.projects', label: 'Projects',     group: 'Socmed Management', subgroup: 'Bentala Studio',  routes: ['/bsi'],        landing: '/bsi' },
+
+  // Social Media (standalone)
+  { id: 'social.accounts',  label: 'Accounts',  group: 'Social Media', routes: ['/social/accounts'],  landing: '/social/accounts' },
+  { id: 'social.analytics', label: 'Analytics', group: 'Social Media', routes: ['/social/analytics'], landing: '/social/analytics' },
+  { id: 'social.reports',   label: 'Reports',   group: 'Social Media', routes: ['/social/reports'],   landing: '/social/reports' },
+  { id: 'social.plan',      label: 'Plan',      group: 'Social Media', routes: ['/social/plan'],      landing: '/social/plan' },
+
+  // Client
+  { id: 'client.leads',    label: 'Leads',           group: 'Client', routes: ['/website/leads'], landing: '/website/leads' },
+  { id: 'client.crm',      label: 'CRM Pipeline',    group: 'Client', routes: ['/clients'],       landing: '/clients' },
+  { id: 'client.invoices', label: 'Invoice & Bayar', group: 'Client', routes: ['/invoices'],      landing: '/invoices' },
+
+  // Projects
+  { id: 'projects.all',   label: 'All Projects',     group: 'Projects', routes: ['/projects'],                   landing: '/projects' },
+  { id: 'projects.tasks', label: 'Task Board',       group: 'Projects', routes: ['/tasks'],                      landing: '/tasks' },
+  { id: 'projects.vp',    label: 'Video Production',  group: 'Projects', routes: ['/bpi-faizal', '/pipeline/vp'], landing: '/bpi-faizal' },
+  { id: 'projects.ds',    label: 'Design Studio',     group: 'Projects', routes: ['/bpi-reinaldi', '/pipeline/ds'], landing: '/bpi-reinaldi' },
+
+  // AI Studio
+  { id: 'ai.chat',      label: 'Chat AI',          group: 'AI Studio', routes: ['/ai/chat'],         landing: '/ai/chat' },
+  { id: 'ai.ideas',     label: 'Pencari Ide',      group: 'AI Studio', routes: ['/ai/ideas'],        landing: '/ai/ideas' },
+  { id: 'ai.image',     label: 'Generator Gambar', group: 'AI Studio', routes: ['/ai/image'],        landing: '/ai/image' },
+  { id: 'ai.templates', label: 'Template Gambar',  group: 'AI Studio', routes: ['/ai/templates'],    landing: '/ai/templates' },
+  { id: 'ai.video',     label: 'Script Video',     group: 'AI Studio', routes: ['/ai/video'],        landing: '/ai/video' },
+  { id: 'ai.render',    label: 'Video Render',     group: 'AI Studio', routes: ['/ai/video/render'], landing: '/ai/video/render' },
+  { id: 'ai.audio',     label: 'Generator Audio',  group: 'AI Studio', routes: ['/ai/audio'],        landing: '/ai/audio' },
+  { id: 'ai.bpi',       label: 'BPI Intelligence', group: 'AI Studio', routes: ['/ai/bpi'],          landing: '/ai/bpi' },
+
+  // Team
+  { id: 'team', label: 'Team & Roles', group: 'Team', routes: ['/team'], landing: '/team' },
+
+  // Settings ( /settings/access is super-admin only and gated separately )
+  { id: 'settings.ai', label: 'AI Integrations', group: 'Settings', routes: ['/settings/ai'], landing: '/settings/ai' },
 ]
 
-/** All valid section ids — used to sanitise input from the admin API. */
+/** All valid granular ids — used to sanitise input from the admin API. */
 export const ALL_SECTION_IDS: string[] = ACCESS_SECTIONS.map(s => s.id)
+
+/** Legacy top-level ids (older menu_access rows) → granular children. Lets old
+ *  grants keep working after the move to per-item access. */
+const LEGACY_ALIASES: Record<string, string[]> = {
+  website:  ['website.home', 'website.about', 'website.news', 'website.seo', 'website.navbar'],
+  smm:      ['smm.bpi.social', 'smm.bpi.projects', 'smm.bsi.social', 'smm.bsi.projects'],
+  // Pre-merge ids (Bentala Project / Studio were separate sections).
+  bpi:      ['smm.bpi.social', 'smm.bpi.projects'],
+  bsi:      ['smm.bsi.social', 'smm.bsi.projects'],
+  social:   ['social.accounts', 'social.analytics', 'social.reports', 'social.plan'],
+  client:   ['client.leads', 'client.crm', 'client.invoices'],
+  projects: ['projects.all', 'projects.tasks', 'projects.vp', 'projects.ds'],
+  ai:       ['ai.chat', 'ai.ideas', 'ai.image', 'ai.templates', 'ai.video', 'ai.render', 'ai.audio', 'ai.bpi'],
+  settings: ['settings.ai'],
+  // overview / team granular ids equal their legacy ids — no alias needed.
+}
 
 export function isSuperAdmin(email: string | null | undefined): boolean {
   if (!email) return false
@@ -54,19 +109,13 @@ export function isSuperAdmin(email: string | null | undefined): boolean {
   return SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === lower)
 }
 
-/** True when `pathname` is within `route`, treating `/` as a path boundary so
- *  `/bpi-faizal` does not match `/bpi`. The root `/` matches only itself. */
 function pathMatchesRoute(pathname: string, route: string): boolean {
   if (route === '/') return pathname === '/'
   return pathname === route || pathname.startsWith(route + '/')
 }
 
-/**
- * Resolve the access section a given path belongs to. Longest matching route
- * wins so more specific entries (e.g. `/website/leads` → client) beat broader
- * ones. Returns `null` for paths that belong to no managed section — those are
- * not gated.
- */
+/** Resolve the granular access item a path belongs to. Longest matching route
+ *  wins. Returns null for paths that belong to no managed item (not gated). */
 export function sectionForPath(pathname: string): string | null {
   let bestId: string | null = null
   let bestLen = -1
@@ -81,8 +130,7 @@ export function sectionForPath(pathname: string): string | null {
   return bestId
 }
 
-/** Landing path for the first section the user is allowed into, or null when
- *  they have no sections (caller should send them to /no-access). */
+/** Landing path for the first item the user is allowed into, or null. */
 export function firstAllowedLanding(allowed: string[]): string | null {
   if (!allowed || allowed.length === 0) return null
   const set = new Set(allowed)
@@ -92,13 +140,17 @@ export function firstAllowedLanding(allowed: string[]): string | null {
   return null
 }
 
-/** Sanitise an arbitrary array into known section ids (drops unknowns/dupes). */
+/** Sanitise an arbitrary array into known granular ids. Legacy top-level ids
+ *  are expanded to their children, so existing grants survive the migration. */
 export function normaliseSections(input: unknown): string[] {
   if (!Array.isArray(input)) return []
   const valid = new Set(ALL_SECTION_IDS)
   const out: string[] = []
+  const push = (id: string) => { if (valid.has(id) && !out.includes(id)) out.push(id) }
   for (const v of input) {
-    if (typeof v === 'string' && valid.has(v) && !out.includes(v)) out.push(v)
+    if (typeof v !== 'string') continue
+    if (valid.has(v)) push(v)
+    else if (LEGACY_ALIASES[v]) LEGACY_ALIASES[v].forEach(push)
   }
   return out
 }

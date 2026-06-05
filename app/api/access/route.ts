@@ -85,7 +85,7 @@ export async function GET() {
 
     return NextResponse.json({
       users,
-      sections: ACCESS_SECTIONS.map(s => ({ id: s.id, label: s.label })),
+      sections: ACCESS_SECTIONS.map(s => ({ id: s.id, label: s.label, group: s.group, subgroup: s.subgroup })),
     })
   } catch (err) {
     console.error('[/api/access] GET', err)

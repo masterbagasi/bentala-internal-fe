@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { useState, useEffect, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { AccountButton } from '@/components/shared/AccountButton'
-import { isSuperAdmin, normaliseSections, ALL_SECTION_IDS } from '@/lib/access'
+import { isSuperAdmin, normaliseSections, ALL_SECTION_IDS, sectionForPath } from '@/lib/access'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -439,10 +439,29 @@ export function Sidebar() {
   // Restrict to sections this account may access before any search filtering.
   // Super admin sees all. While access is still loading, show nothing so we
   // never flash a menu the account can't open.
+  // Access is now per leaf item: keep only items whose route maps to a granular
+  // section the account is allowed. Drop empty subgroups and empty sections.
   const accessibleSections = useMemo(() => {
     if (access.loading) return []
     if (access.isSuper) return sections
-    return sections.filter(sec => access.allowed.has(sec.id))
+    const filterItems = (items: NavEntry[]): NavEntry[] => {
+      const out: NavEntry[] = []
+      for (const e of items) {
+        if ('type' in e && e.type === 'subgroup') {
+          const kids = filterItems(e.items)
+          if (kids.length) out.push({ ...e, items: kids })
+        } else {
+          const href = (e as NavItem).href
+          const secId = sectionForPath(href)
+          // Routes with no managed section aren't gated; otherwise require grant.
+          if (secId === null || access.allowed.has(secId)) out.push(e)
+        }
+      }
+      return out
+    }
+    return sections
+      .map(sec => ({ ...sec, items: filterItems(sec.items) }))
+      .filter(sec => sec.items.length > 0)
   }, [sections, access])
 
   const filteredSections = useMemo(() => {

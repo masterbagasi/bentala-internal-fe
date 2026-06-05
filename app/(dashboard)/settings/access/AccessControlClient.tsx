@@ -7,6 +7,8 @@ import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 interface SectionMeta {
   id: string
   label: string
+  group: string
+  subgroup?: string
 }
 interface AccessUser {
   email: string
@@ -193,6 +195,31 @@ export default function AccessControlClient() {
     }))
     setStatus(prev => ({ ...prev, [email]: 'idle' }))
   }
+
+  // Toggle every item in one group (e.g. all of "Socmed Management") at once.
+  function setGroupAll(email: string, group: string, on: boolean) {
+    const ids = sections.filter(s => s.group === group).map(s => s.id)
+    setDraft(prev => {
+      const next = new Set(prev[email] ?? [])
+      ids.forEach(id => (on ? next.add(id) : next.delete(id)))
+      return { ...prev, [email]: next }
+    })
+    setStatus(prev => ({ ...prev, [email]: 'idle' }))
+  }
+
+  // group (ordered) → subgroup-key (ordered) → items.
+  const grouped = useMemo(() => {
+    const groupOrder: string[] = []
+    const map = new Map<string, Map<string, SectionMeta[]>>()
+    for (const s of sections) {
+      if (!map.has(s.group)) { map.set(s.group, new Map()); groupOrder.push(s.group) }
+      const subs = map.get(s.group)!
+      const key = s.subgroup ?? ''
+      if (!subs.has(key)) subs.set(key, [])
+      subs.get(key)!.push(s)
+    }
+    return { groupOrder, map }
+  }, [sections])
 
   function isDirty(email: string): boolean {
     const a = draft[email] ?? new Set<string>()
@@ -418,44 +445,52 @@ export default function AccessControlClient() {
                 )}
               </div>
 
-              {/* Section checkboxes */}
+              {/* Grouped, per-item checkboxes */}
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                  gap: 8,
+                  display: 'flex', flexDirection: 'column', gap: 14,
                   opacity: u.isSuperAdmin ? 0.6 : 1,
                   pointerEvents: u.isSuperAdmin ? 'none' : 'auto',
                 }}
               >
-                {sections.map(s => {
-                  const checked = u.isSuperAdmin || sel.has(s.id)
+                {grouped.groupOrder.map(group => {
+                  const subs = grouped.map.get(group)!
+                  const groupIds = sections.filter(s => s.group === group).map(s => s.id)
+                  const allOn = groupIds.every(id => u.isSuperAdmin || sel.has(id))
                   return (
-                    <label
-                      key={s.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        padding: '8px 10px',
-                        borderRadius: 8,
-                        border: `1px solid ${checked ? 'var(--accent)' : 'var(--border)'}`,
-                        background: checked ? 'rgba(108,99,255,0.10)' : 'var(--bg3)',
-                        cursor: u.isSuperAdmin ? 'default' : 'pointer',
-                        fontSize: 13,
-                        color: 'var(--text)',
-                        userSelect: 'none',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={u.isSuperAdmin}
-                        onChange={() => toggle(u.email, s.id)}
-                        style={{ accentColor: 'var(--accent)', width: 15, height: 15 }}
-                      />
-                      {s.label}
-                    </label>
+                    <div key={group}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{group}</div>
+                        {!u.isSuperAdmin && (
+                          <button onClick={() => setGroupAll(u.email, group, !allOn)} style={groupBtnStyle}>
+                            {allOn ? 'Kosongkan' : 'Pilih semua'}
+                          </button>
+                        )}
+                      </div>
+                      {Array.from(subs.entries()).map(([subKey, items]) => (
+                        <div key={subKey || '_'} style={{ marginBottom: subKey ? 8 : 0, paddingLeft: subKey ? 10 : 0, borderLeft: subKey ? '2px solid var(--border)' : 'none' }}>
+                          {subKey && (
+                            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>{subKey}</div>
+                          )}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+                            {items.map(s => {
+                              const checked = u.isSuperAdmin || sel.has(s.id)
+                              return (
+                                <label key={s.id} style={{
+                                  display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8,
+                                  border: `1px solid ${checked ? 'var(--accent)' : 'var(--border)'}`,
+                                  background: checked ? 'rgba(108,99,255,0.10)' : 'var(--bg3)',
+                                  cursor: u.isSuperAdmin ? 'default' : 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none',
+                                }}>
+                                  <input type="checkbox" checked={checked} disabled={u.isSuperAdmin} onChange={() => toggle(u.email, s.id)} style={{ accentColor: 'var(--accent)', width: 15, height: 15 }} />
+                                  {s.label}
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )
                 })}
               </div>
@@ -622,6 +657,17 @@ function PasswordField({
       </div>
     </div>
   )
+}
+
+const groupBtnStyle: React.CSSProperties = {
+  padding: '3px 9px',
+  borderRadius: 6,
+  border: '1px solid var(--border)',
+  background: 'var(--bg3)',
+  color: 'var(--text2)',
+  fontSize: 11,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
 }
 
 const quickBtnStyle: React.CSSProperties = {
