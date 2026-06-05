@@ -343,7 +343,6 @@ export function Sidebar() {
       fullLabel: 'bentala project',
       items: [
         { href: '/bpi',              label: 'Content',  icon: <ListIcon />, color: COLOR.orange },
-        { href: '/bpi?tab=calendar', label: 'Calendar', icon: <CalIcon />,  color: COLOR.red },
       ],
     },
     {
@@ -352,7 +351,6 @@ export function Sidebar() {
       fullLabel: 'bentala studio',
       items: [
         { href: '/bsi',              label: 'Content',  icon: <ListIcon />, color: COLOR.purple },
-        { href: '/bsi?tab=calendar', label: 'Calendar', icon: <CalIcon />,  color: COLOR.red },
       ],
     },
     {
