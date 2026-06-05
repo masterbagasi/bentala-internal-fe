@@ -262,7 +262,6 @@ export function PageHeader({
             gap: 4,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'stretch', gap: 4, overflowX: 'auto', flex: 1 }}>
           {tabs!.map(t => {
             const isActive = activeTab === t
             return (
@@ -302,9 +301,8 @@ export function PageHeader({
               </button>
             )
           })}
-          </div>
           {tabsRight && (
-            <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, paddingLeft: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 'auto', paddingLeft: 12 }}>
               {tabsRight}
             </div>
           )}
