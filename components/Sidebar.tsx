@@ -338,19 +338,12 @@ export function Sidebar() {
       ],
     },
     {
-      id: 'bpi',
-      badge: <BrandBadge text="bpi" />,
-      fullLabel: 'bentala project',
+      id: 'smm',
+      badge: <BrandBadge text="smm" />,
+      fullLabel: 'Social Media Management',
       items: [
-        { href: '/bpi',              label: 'Content',  icon: <ListIcon />, color: COLOR.orange },
-      ],
-    },
-    {
-      id: 'bsi',
-      badge: <BrandBadge text="bsi" />,
-      fullLabel: 'bentala studio',
-      items: [
-        { href: '/bsi',              label: 'Content',  icon: <ListIcon />, color: COLOR.purple },
+        { href: '/bpi', label: 'Bentala Project', icon: <ListIcon />, color: COLOR.orange },
+        { href: '/bsi', label: 'Bentala Studio',  icon: <ListIcon />, color: COLOR.purple },
       ],
     },
     {

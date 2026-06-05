@@ -36,8 +36,7 @@ export interface AccessSection {
 export const ACCESS_SECTIONS: AccessSection[] = [
   { id: 'overview', label: 'Dashboard',       routes: ['/'],                                                              landing: '/' },
   { id: 'website',  label: 'Website',         routes: ['/website/home', '/website/about', '/website/news', '/website/seo', '/website/navbar'], landing: '/website/home' },
-  { id: 'bpi',      label: 'Bentala Project', routes: ['/bpi'],                                                           landing: '/bpi' },
-  { id: 'bsi',      label: 'Bentala Studio',  routes: ['/bsi'],                                                           landing: '/bsi' },
+  { id: 'smm',      label: 'Social Media Management', routes: ['/bpi', '/bsi'],                                           landing: '/bpi' },
   { id: 'social',   label: 'Social Media',    routes: ['/social'],                                                        landing: '/social/accounts' },
   { id: 'client',   label: 'Client',          routes: ['/website/leads', '/clients', '/invoices'],                        landing: '/clients' },
   { id: 'projects', label: 'Projects',        routes: ['/projects', '/tasks', '/bpi-faizal', '/bpi-reinaldi', '/pipeline/vp', '/pipeline/ds'], landing: '/projects' },
