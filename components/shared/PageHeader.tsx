@@ -77,6 +77,8 @@ interface PageHeaderProps {
   activeTab?: TabKey
   onTabChange?: (tab: TabKey) => void
   action?: React.ReactNode
+  /** Rendered at the right edge of the tab row (e.g. a Filter button). */
+  tabsRight?: React.ReactNode
 }
 
 // ── Shared button height constant ──
@@ -89,6 +91,7 @@ export function PageHeader({
   activeTab,
   onTabChange,
   action,
+  tabsRight,
 }: PageHeaderProps) {
   const { dateRange, setDateRange } = useStore()
   const [dateOpen, setDateOpen] = useState(false)
@@ -257,9 +260,9 @@ export function PageHeader({
             alignItems: 'stretch',
             padding: '0 24px',
             gap: 4,
-            overflowX: 'auto',
           }}
         >
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: 4, overflowX: 'auto', flex: 1 }}>
           {tabs!.map(t => {
             const isActive = activeTab === t
             return (
@@ -299,6 +302,12 @@ export function PageHeader({
               </button>
             )
           })}
+          </div>
+          {tabsRight && (
+            <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, paddingLeft: 12 }}>
+              {tabsRight}
+            </div>
+          )}
         </div>
       )}
     </div>

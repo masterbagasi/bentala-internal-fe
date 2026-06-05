@@ -25,43 +25,19 @@ interface BPIPageProps {
   entity: 'bpi' | 'bsi'
   currentUser?: string
   activeTab: BPITabType
+  filters: PostFilters
 }
 
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
-  function BPIPage({ entity, currentUser = 'Naufal', activeTab }, ref) {
+  function BPIPage({ entity, currentUser = 'Naufal', activeTab, filters }, ref) {
     const { posts } = useStore()
     const [showPostModal, setShowPostModal] = useState(false)
     const [editPostId, setEditPostId] = useState<string | null>(null)
     const [previewPostId, setPreviewPostId] = useState<string | null>(null)
     const logActivity = useLogActivity()
 
-    // ── Multi-criteria filter ──
-    const [filters, setFilters] = useState<PostFilters>(EMPTY_FILTERS)
-    const [filterOpen, setFilterOpen] = useState(false)
-    const [accounts, setAccounts] = useState<{ email: string; name: string }[]>([])
-    useEffect(() => {
-      let cancelled = false
-      fetch('/api/accounts')
-        .then(r => (r.ok ? r.json() : { accounts: [] }))
-        .then((d: { accounts?: { email: string; name: string }[] }) => { if (!cancelled) setAccounts(d.accounts ?? []) })
-        .catch(() => {})
-      return () => { cancelled = true }
-    }, [])
-
-    const entityPosts = useMemo(() => posts.filter(p => p.entity === entity), [posts, entity])
-
-    // Months present in this entity's posts (for the "Bulan posting" filter).
-    const months = useMemo(() => {
-      const set = new Set<string>()
-      for (const p of entityPosts) if (p.date) set.add(p.date.slice(0, 7))
-      return Array.from(set).sort().reverse()
-    }, [entityPosts])
-
-    const filterCount =
-      filters.platforms.length + filters.contentTypes.length + filters.tagged.length +
-      filters.ratios.length + filters.statuses.length + (filters.month ? 1 : 0)
-
-    const filtered = entityPosts.filter(p => {
+    const filtered = posts.filter(p => {
+      if (p.entity !== entity) return false
       if (filters.platforms.length && !filters.platforms.some(x => ((p.platforms || []) as string[]).includes(x))) return false
       if (filters.contentTypes.length && !filters.contentTypes.some(x => (p.content_types || []).includes(x))) return false
       if (filters.tagged.length && !filters.tagged.some(x => (p.tagged || []).includes(x))) return false
@@ -73,20 +49,6 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       if (filters.statuses.length && !filters.statuses.includes(p.status)) return false
       return true
     })
-
-    // Active-filter chips (removable) shown in the toolbar.
-    const drop = (key: keyof PostFilters, val: string) =>
-      setFilters(f => key === 'month'
-        ? { ...f, month: '' }
-        : { ...f, [key]: (f[key] as string[]).filter(x => x !== val) })
-    const activeChips: { label: string; onRemove: () => void }[] = [
-      ...filters.platforms.map(k => ({ label: POST_PLATFORMS.find(p => p.key === k)?.label || k, onRemove: () => drop('platforms', k) })),
-      ...filters.contentTypes.map(k => ({ label: k === 'video' ? 'Video' : k === 'design' ? 'Design' : k, onRemove: () => drop('contentTypes', k) })),
-      ...filters.tagged.map(e => ({ label: accounts.find(a => a.email === e)?.name || e, onRemove: () => drop('tagged', e) })),
-      ...filters.ratios.map(k => ({ label: POST_RATIOS.find(r => r.key === k)?.label || k, onRemove: () => drop('ratios', k) })),
-      ...(filters.month ? [{ label: fmtMonth(filters.month), onRemove: () => drop('month', '') }] : []),
-      ...filters.statuses.map(k => ({ label: BPI_STATUS_COLS.find(s => s.key === k)?.label || k, onRemove: () => drop('statuses', k) })),
-    ]
 
     function openEdit(id?: string) {
       setEditPostId(id || null)
@@ -104,76 +66,6 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
 
     return (
       <div>
-        {/* Filter Bar */}
-        {(activeTab === 'list' || activeTab === 'board' || activeTab === 'calendar') && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10, position: 'relative',
-            padding: '8px 24px', borderBottom: '1px solid var(--border)',
-            background: 'var(--bg2)', minHeight: 46,
-          }}>
-            {/* Result count */}
-            <span style={{ fontSize: 12, color: 'var(--text2)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-              <strong style={{ color: 'var(--text)', fontWeight: 700 }}>{filtered.length}</strong> post
-            </span>
-
-            {/* Active filter chips */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-              {activeChips.map((c, i) => (
-                <span key={i} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 6px 3px 10px',
-                  borderRadius: 16, fontSize: 12, fontWeight: 500,
-                  background: 'rgba(108,99,255,0.14)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.3)',
-                }}>
-                  {c.label}
-                  <button
-                    onClick={c.onRemove}
-                    aria-label={`Hapus ${c.label}`}
-                    style={{ display: 'flex', background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, lineHeight: 1, opacity: 0.8 }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                  </button>
-                </span>
-              ))}
-              {activeChips.length > 0 && (
-                <button
-                  onClick={() => setFilters(EMPTY_FILTERS)}
-                  style={{ background: 'none', border: 'none', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '0 4px' }}
-                >
-                  Hapus semua
-                </button>
-              )}
-            </div>
-
-            {/* Filter button */}
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              <button
-                onClick={() => setFilterOpen(o => !o)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 8,
-                  border: '1px solid', borderColor: filterCount ? 'var(--accent)' : 'var(--border)',
-                  background: filterCount ? 'rgba(108,99,255,0.12)' : 'var(--bg3)',
-                  color: filterCount ? 'var(--accent)' : 'var(--text2)',
-                  cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-                </svg>
-                Filter{filterCount ? ` (${filterCount})` : ''}
-              </button>
-              {filterOpen && (
-                <FilterPopup
-                  filters={filters}
-                  setFilters={setFilters}
-                  accounts={accounts}
-                  months={months}
-                  onClose={() => setFilterOpen(false)}
-                />
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Tab content */}
         <div style={{ padding: activeTab === 'board' ? '0 24px 24px' : 24 }}>
           {activeTab === 'list' && (
@@ -530,12 +422,7 @@ function CheckCircle({ done, onChange }: { done: boolean; onChange: (done: boole
 }
 
 // ── Multi-criteria filter ──
-function fmtMonth(ym: string): string {
-  const [y, m] = ym.split('-')
-  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })
-}
-
-interface PostFilters {
+export interface PostFilters {
   platforms: string[]
   contentTypes: string[]
   tagged: string[]
@@ -543,7 +430,63 @@ interface PostFilters {
   month: string
   statuses: string[]
 }
-const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: [], ratios: [], month: '', statuses: [] }
+export const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: [], ratios: [], month: '', statuses: [] }
+
+// Owns filter state + the data the popup needs (accounts, months for an entity).
+export function useBoardFilter(entity: 'bpi' | 'bsi') {
+  const { posts } = useStore()
+  const [filters, setFilters] = useState<PostFilters>(EMPTY_FILTERS)
+  const [accounts, setAccounts] = useState<{ email: string; name: string }[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/accounts')
+      .then(r => (r.ok ? r.json() : { accounts: [] }))
+      .then((d: { accounts?: { email: string; name: string }[] }) => { if (!cancelled) setAccounts(d.accounts ?? []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+  const months = useMemo(() => {
+    const set = new Set<string>()
+    for (const p of posts) if (p.entity === entity && p.date) set.add(p.date.slice(0, 7))
+    return Array.from(set).sort().reverse()
+  }, [posts, entity])
+  return { filters, setFilters, accounts, months }
+}
+
+// Filter button + popup. Render in the page header's tab row.
+export function BoardFilter({ filters, setFilters, accounts, months }: {
+  filters: PostFilters
+  setFilters: React.Dispatch<React.SetStateAction<PostFilters>>
+  accounts: { email: string; name: string }[]
+  months: string[]
+}) {
+  const [open, setOpen] = useState(false)
+  const count =
+    filters.platforms.length + filters.contentTypes.length + filters.tagged.length +
+    filters.ratios.length + filters.statuses.length + (filters.month ? 1 : 0)
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 8,
+          border: '1px solid', borderColor: count ? 'var(--accent)' : 'var(--border)',
+          background: count ? 'rgba(108,99,255,0.12)' : 'var(--bg3)',
+          color: count ? 'var(--accent)' : 'var(--text2)',
+          cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+        </svg>
+        Filter{count ? ` (${count})` : ''}
+      </button>
+      {open && (
+        <FilterPopup filters={filters} setFilters={setFilters} accounts={accounts} months={months} onClose={() => setOpen(false)} />
+      )}
+    </div>
+  )
+}
 
 function toggle(arr: string[], v: string): string[] {
   return arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]

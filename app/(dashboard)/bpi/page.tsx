@@ -2,12 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
-import { BPIPage, type BPIPageHandle, type BPITabType } from '@/components/BPI'
+import { BPIPage, BoardFilter, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
 import { getSupabase } from '@/lib/supabase'
 
 export default function BpiPage() {
   const [tab, setTab] = useState<TabKey>('list')
   const bpiRef = useRef<BPIPageHandle>(null)
+  const bf = useBoardFilter('bpi')
 
   // Real logged-in user — column locks apply only to the actual person,
   // not to everyone (previously hardcoded to "Naufal", which blocked all drags).
@@ -29,6 +30,7 @@ export default function BpiPage() {
         activeTab={tab}
         onTabChange={setTab}
         showDateFilter={tab === 'analytics'}
+        tabsRight={tab !== 'analytics' ? <BoardFilter filters={bf.filters} setFilters={bf.setFilters} accounts={bf.accounts} months={bf.months} /> : undefined}
         action={
           <button
             onClick={() => bpiRef.current?.openEdit()}
@@ -49,7 +51,7 @@ export default function BpiPage() {
         }
       />
       <div className="flex-1 overflow-y-auto min-h-0">
-        <BPIPage ref={bpiRef} entity="bpi" currentUser={currentUser} activeTab={tab as BPITabType} />
+        <BPIPage ref={bpiRef} entity="bpi" currentUser={currentUser} activeTab={tab as BPITabType} filters={bf.filters} />
       </div>
     </>
   )
