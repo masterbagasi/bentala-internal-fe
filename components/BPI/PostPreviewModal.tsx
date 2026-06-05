@@ -43,6 +43,20 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
   // In-app file preview popup.
   const [preview, setPreview] = useState<{ url: string; label: string } | null>(null)
 
+  // Real accounts, to resolve tagged emails to names/avatars.
+  const [accounts, setAccounts] = useState<{ email: string; name: string; avatarUrl: string | null }[]>([])
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    fetch('/api/accounts')
+      .then(r => (r.ok ? r.json() : { accounts: [] }))
+      .then((d: { accounts?: { email: string; name: string; avatarUrl: string | null }[] }) => {
+        if (!cancelled) setAccounts(d.accounts ?? [])
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [open])
+
   if (!post) return null
 
   // Open an attachment: preview image/video/pdf in a popup; open other links
@@ -119,8 +133,17 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         <MetaItem label="Ratio" value={post.ratio || '—'} />
         <MetaItem label="Tag" value={
           (post.tagged || []).length ? (
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {(post.tagged || []).map(m => <TeamAvatar key={m} name={m} size={22} />)}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {(post.tagged || []).map(m => {
+                const acc = accounts.find(a => a.email === m)
+                const name = acc?.name ?? (m.includes('@') ? m.split('@')[0] : m)
+                return (
+                  <span key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                    <TeamAvatar name={name} size={22} />
+                    <span style={{ fontSize: 13, color: 'var(--text)' }}>{name}</span>
+                  </span>
+                )
+              })}
             </div>
           ) : '—'
         } />
