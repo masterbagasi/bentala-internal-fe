@@ -14,7 +14,7 @@ export default function Page() {
   const [subjectId, setSubjectId] = useState(SUBJECTS[0].id)
   const [platform, setPlatform] = useState<PlatformTab>('all')
   const [view, setView] = useState<SubView>('overview')
-  const [range, setRange] = useState<DateRange>(presetRange('Last 90 days'))
+  const [range, setRange] = useState<DateRange>(presetRange('Lifetime'))
   const [period, setPeriod] = useState<ReportPeriod>(REPORT_PERIODS[0])
   return (
     <>

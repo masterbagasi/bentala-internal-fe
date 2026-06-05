@@ -67,7 +67,7 @@ export function AnalyticsView({
   const [viewState, setViewState] = useState<SubView>('overview')
   const view = viewProp ?? viewState
   const setView = setViewProp ?? setViewState
-  const [rangeState, setRangeState] = useState<DateRange>(presetRange('Last 90 days'))
+  const [rangeState, setRangeState] = useState<DateRange>(presetRange('Lifetime'))
   const range = rangeProp ?? rangeState
   const setRange = setRangeProp ?? setRangeState
   const [sortKey, setSortKey] = useState<SortKey>('date')
