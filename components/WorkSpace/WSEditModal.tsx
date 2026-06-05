@@ -713,7 +713,7 @@ function FileSection({
       {/* File items — always visible (uploaded files + in-progress), regardless
           of the Link/Upload tab, so saved files are shown when reopening. */}
       {files.length > 0 && (
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, alignItems: 'start' }}>
           {files.map(f => (
             <FileItem key={f.id} file={f} onRemove={() => onRemove(f.id)} onDelete={() => onDelete(f)} onPreview={() => onPreview(f)} />
           ))}
@@ -723,107 +723,101 @@ function FileSection({
   )
 }
 
+// Grid card (matches the BPI/BSI preview): thumbnail + name + actions.
 function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; onRemove: () => void; onDelete: () => void; onPreview: () => void }) {
   const isLink = file.type === 'link'
+  const isImage = !isLink && !!file.url && file.type.startsWith('image/')
   const canPreview = !isLink && !!(file.storageUrl || file.url) && fileKind(file) !== 'other'
   const openLink = () => { if (file.storageUrl) window.open(file.storageUrl, '_blank', 'noopener,noreferrer') }
-  const onRowClick = isLink ? openLink : (canPreview ? onPreview : undefined)
+  const onCardClick = file.status === 'saved' ? (isLink ? openLink : (canPreview ? onPreview : undefined)) : undefined
+  const uploading = file.status === 'uploading'
   return (
     <div
-      onClick={onRowClick}
-      title={isLink ? 'Klik untuk buka tautan' : canPreview ? 'Klik untuk preview' : undefined}
+      onClick={onCardClick}
+      title={file.name}
       style={{
-        display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg2)',
-        border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px',
-        cursor: onRowClick ? 'pointer' : 'default',
+        display: 'flex', flexDirection: 'column', gap: 8,
+        background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10,
+        padding: 8, cursor: onCardClick ? 'pointer' : 'default',
       }}
+      onMouseOver={e => { if (onCardClick) (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
+      onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
     >
       {/* Thumbnail */}
-      {isLink ? (
-        <div style={{ width: 34, height: 34, borderRadius: 7, background: 'var(--bg3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
-          <LinkIcon />
-        </div>
-      ) : file.url && file.type.startsWith('image/') ? (
-        <img src={file.url} alt={file.name} style={{ width: 34, height: 34, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
-      ) : (
-        <div style={{ width: 34, height: 34, borderRadius: 7, background: 'var(--bg3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17 }}>
-          {getFileIcon(file.type, file.name)}
-        </div>
-      )}
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</div>
-        {!isLink && <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{formatFileSize(file.size)}</div>}
-
-        {/* Status */}
-        {file.status === 'uploading' && (
-          <div style={{ marginTop: 4 }}>
-            <div style={{ height: 4, background: 'var(--border)', borderRadius: 20, overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', borderRadius: 20, background: 'linear-gradient(90deg, var(--accent), #a78bfa)',
-                width: `${file.progress ?? 0}%`, transition: 'width 0.2s ease',
-              }} />
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>
-              Mengupload… {file.progress ?? 0}%
-            </div>
-          </div>
-        )}
-        {file.status === 'done' && (
-          <div style={{ fontSize: 11, color: 'var(--accent3)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
-            ✓ Selesai
-          </div>
-        )}
-        {file.status === 'settled' && file.file && (
-          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>
-            Klik Simpan untuk menyimpan
-          </div>
-        )}
-        {file.status === 'saved' && (
-          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>
-            {isLink ? 'Tautan · klik untuk buka' : 'Tersimpan · klik untuk preview'}
-          </div>
+      <div style={{
+        width: '100%', height: 96, borderRadius: 8, background: 'var(--bg3)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+      }}>
+        {isImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={file.url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : isLink ? (
+          <span style={{ color: 'var(--accent)' }}><LinkIcon size={28} /></span>
+        ) : (
+          <span style={{ fontSize: 30 }}>{getFileIcon(file.type, file.name)}</span>
         )}
       </div>
 
-      {/* Right actions */}
-      {file.status === 'saved' ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-          {file.storageUrl && (
-            <a
-              href={file.storageUrl}
-              {...(isLink ? {} : { download: true })}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              title={isLink ? 'Buka tautan' : 'Download'}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 6, color: 'var(--text2)' }}
-              onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
+      {/* Name */}
+      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {file.name}
+      </div>
+
+      {/* Upload progress */}
+      {uploading && (
+        <div>
+          <div style={{ height: 4, background: 'var(--border)', borderRadius: 20, overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 20, background: 'linear-gradient(90deg, var(--accent), #a78bfa)', width: `${file.progress ?? 0}%`, transition: 'width 0.2s ease' }} />
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>Mengupload… {file.progress ?? 0}%</div>
+        </div>
+      )}
+
+      {/* Meta + actions */}
+      {!uploading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--text2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {isLink ? 'Tautan' : file.status === 'saved' ? formatFileSize(file.size) : 'Klik Simpan'}
+          </span>
+          {file.status === 'saved' ? (
+            <>
+              {file.storageUrl && (
+                <a
+                  href={file.storageUrl}
+                  {...(isLink ? {} : { download: true })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  title={isLink ? 'Buka tautan' : 'Download'}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, color: 'var(--text2)', flexShrink: 0 }}
+                  onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
+                  onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
+                >
+                  {isLink ? <ExternalLinkIcon /> : <DownloadIcon />}
+                </a>
+              )}
+              <button
+                onClick={e => { e.stopPropagation(); onDelete() }}
+                title="Hapus"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', flexShrink: 0 }}
+                onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
+                onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
+              >
+                <TrashIcon />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={e => { e.stopPropagation(); onRemove() }}
+              title="Hapus dari daftar"
+              style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', width: 26, height: 26, borderRadius: 6, fontSize: 14, lineHeight: 1, flexShrink: 0 }}
+              onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
               onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
             >
-              {isLink ? <ExternalLinkIcon /> : <DownloadIcon />}
-            </a>
+              ✕
+            </button>
           )}
-          <button
-            onClick={e => { e.stopPropagation(); onDelete() }}
-            title="Hapus"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 6, background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer' }}
-            onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
-            onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
-          >
-            <TrashIcon />
-          </button>
         </div>
-      ) : (
-        <button
-          onClick={e => { e.stopPropagation(); onRemove() }}
-          title="Hapus dari daftar"
-          style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 4, borderRadius: 5, fontSize: 15, lineHeight: 1, flexShrink: 0 }}
-          onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
-          onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
-        >
-          ✕
-        </button>
       )}
     </div>
   )
