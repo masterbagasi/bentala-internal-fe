@@ -340,7 +340,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
             Lampiran File
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, alignItems: 'start' }}>
             {attachments.map(a => (
               <AttachCard
                 key={a.url}
