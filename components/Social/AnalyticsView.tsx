@@ -152,58 +152,47 @@ export function AnalyticsView() {
   const activeLabel = platform === 'all' ? 'Semua platform' : PLATFORM_META[platform].label
 
   return (
-    <>
-      {/* Header — title row + platform tabs, same placement as other pages */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'var(--bg2)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-        <div style={{
-          height: 64, display: 'flex', alignItems: 'center',
-          padding: '0 24px', borderBottom: '1px solid var(--border)',
-        }}>
-          <span style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.005em', color: 'var(--text)' }}>
-            Social Media — Analytics
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 4, padding: '0 24px', overflowX: 'auto', borderBottom: '1px solid var(--border)' }}>
-          <PlatformTabBtn active={platform === 'all'} onClick={() => setPlatform('all')}>Semua</PlatformTabBtn>
-          {availablePlatforms.map(p => (
-            <PlatformTabBtn key={p} active={platform === p} onClick={() => setPlatform(p)}>
-              {PLATFORM_META[p].label}
-            </PlatformTabBtn>
-          ))}
-        </div>
+    <div>
+      <PreviewBanner />
 
-        {/* Fixed controls: banner + account/date + sub-tabs + summary line */}
-        <div style={{ padding: '14px 24px 12px' }}>
-          <PreviewBanner />
+      {/* Platform filter */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 14, flexWrap: 'wrap' }}>
+        <PlatformTabBtn active={platform === 'all'} onClick={() => setPlatform('all')}>Semua</PlatformTabBtn>
+        {availablePlatforms.map(p => (
+          <PlatformTabBtn key={p} active={platform === p} onClick={() => setPlatform(p)}>
+            {PLATFORM_META[p].label}
+          </PlatformTabBtn>
+        ))}
+      </div>
 
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-            <select value={subjectId} onChange={e => changeSubject(e.target.value)} style={{ ...selectStyle, width: 260, flexShrink: 0 }}>
-              {SUBJECTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            <div style={{ marginLeft: 'auto' }}>
-              <DateRangePicker value={range} onChange={setRange} />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {(['overview', 'content', 'audience'] as SubView[]).map(v => (
-              <button key={v} onClick={() => setView(v)} style={subPill(view === v)}>
-                {v === 'overview' ? 'Overview' : v === 'content' ? 'Content' : 'Audience'}
-              </button>
-            ))}
-            {view !== 'audience' && (
-              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text3)' }}>
-                Menampilkan <strong style={{ color: 'var(--text2)' }}>{filtered.length} konten</strong>
-                {' · '}<strong style={{ color: 'var(--text2)' }}>{activeLabel}</strong>
-                {' · '}{fmtDate(from)} – {fmtDate(to)}
-              </span>
-            )}
-          </div>
+      {/* Account + date range */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
+        <select value={subjectId} onChange={e => changeSubject(e.target.value)} style={{ ...selectStyle, width: 260, flexShrink: 0 }}>
+          {SUBJECTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <div style={{ marginLeft: 'auto' }}>
+          <DateRangePicker value={range} onChange={setRange} />
         </div>
       </div>
 
-      {/* Scrollable content — only the sections scroll */}
-      <div className="flex-1 overflow-y-auto min-h-0" style={{ padding: 24 }}>
+      {/* Sub-views + summary */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+        {(['overview', 'content', 'audience'] as SubView[]).map(v => (
+          <button key={v} onClick={() => setView(v)} style={subPill(view === v)}>
+            {v === 'overview' ? 'Overview' : v === 'content' ? 'Content' : 'Audience'}
+          </button>
+        ))}
+        {view !== 'audience' && (
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text3)' }}>
+            Menampilkan <strong style={{ color: 'var(--text2)' }}>{filtered.length} konten</strong>
+            {' · '}<strong style={{ color: 'var(--text2)' }}>{activeLabel}</strong>
+            {' · '}{fmtDate(from)} – {fmtDate(to)}
+          </span>
+        )}
+      </div>
+
+      {/* Sections */}
+      <div>
 
         {/* ── OVERVIEW ── */}
         {view === 'overview' && (
@@ -301,7 +290,7 @@ export function AnalyticsView() {
           </>
         )}
       </div>
-    </>
+    </div>
   )
 }
 
