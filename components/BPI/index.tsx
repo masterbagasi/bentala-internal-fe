@@ -154,6 +154,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             <KanbanBoard
               posts={filtered}
               currentUser={currentUser}
+              statusFilter={filters.statuses}
               onEdit={openEdit}
               onCardClick={id => setPreviewPostId(id)}
             />
@@ -268,13 +269,16 @@ function ListView({
 
 // ── Kanban Board ──
 function KanbanBoard({
-  posts, currentUser, onEdit, onCardClick,
+  posts, currentUser, statusFilter, onEdit, onCardClick,
 }: {
   posts: Post[]
   currentUser: string
+  statusFilter: string[]
   onEdit: (id: string) => void
   onCardClick: (id: string) => void
 }) {
+  // When statuses are filtered, only show those columns.
+  const cols = statusFilter.length ? BPI_STATUS_COLS.filter(c => statusFilter.includes(c.key)) : BPI_STATUS_COLS
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const logActivity = useLogActivity()
@@ -307,7 +311,7 @@ function KanbanBoard({
       display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8,
       alignItems: 'flex-start', marginTop: 20,
     }}>
-      {BPI_STATUS_COLS.map(col => {
+      {cols.map(col => {
         const colPosts = posts.filter(p => p.status === col.key).slice().sort(byPostDateAsc)
         const isLocked = 'locked' in col && col.locked && currentUser === 'Naufal'
         const isOver = dragOverCol === col.key
