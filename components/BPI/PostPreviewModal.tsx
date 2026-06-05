@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Modal, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
@@ -27,7 +27,9 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
   // Status change (deferred — only persisted on Simpan, not on select).
   const [statusDraft, setStatusDraft] = useState<string>(post?.status ?? '')
   const [statusMenuOpen, setStatusMenuOpen] = useState(false)
+  const [statusMenuPos, setStatusMenuPos] = useState({ top: 0, left: 0 })
   const [savingStatus, setSavingStatus] = useState(false)
+  const statusBtnRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     setStatusDraft(post?.status ?? '')
     setStatusMenuOpen(false)
@@ -93,6 +95,18 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
   }
   const draftCol = BPI_STATUS_COLS.find(c => c.key === statusDraft)
 
+  function toggleStatusMenu(e: React.MouseEvent) {
+    e.stopPropagation()
+    const btn = statusBtnRef.current
+    if (!btn) return
+    const rect = btn.getBoundingClientRect()
+    const mw = 180
+    let left = rect.right - mw
+    if (left < 8) left = 8
+    setStatusMenuPos({ top: rect.bottom + 6, left })
+    setStatusMenuOpen(o => !o)
+  }
+
   // All attachments: legacy video/design links + uploaded file URLs + the
   // links/files list — deduped, so the preview mirrors the edit form.
   const attachments: { icon: string; label: string; url: string }[] = []
@@ -115,6 +129,55 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
       open={open}
       onClose={onClose}
       wide
+      title="Detail Post"
+      headerRight={
+        <>
+          <button
+            ref={statusBtnRef}
+            onClick={toggleStatusMenu}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
+              background: (draftCol?.color || '#8b8fa8') + '22',
+              border: `1px solid ${(draftCol?.color || '#8b8fa8')}55`,
+              color: draftCol?.color || '#8b8fa8', fontSize: 12, fontWeight: 600,
+            }}
+          >
+            {draftCol?.label || statusDraft}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {statusMenuOpen && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 2999 }} onClick={() => setStatusMenuOpen(false)} />
+              <div style={{
+                position: 'fixed', top: statusMenuPos.top, left: statusMenuPos.left, zIndex: 3000,
+                background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8,
+                padding: 4, width: 180, boxShadow: '0 6px 24px rgba(0,0,0,0.4)',
+              }}>
+                {BPI_STATUS_COLS.map(c => (
+                  <button
+                    key={c.key}
+                    onClick={() => { setStatusDraft(c.key); setStatusMenuOpen(false) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '7px 10px', borderRadius: 5, cursor: 'pointer', fontSize: 12,
+                      background: statusDraft === c.key ? c.color + '22' : 'transparent',
+                      color: statusDraft === c.key ? c.color : 'var(--text)', border: 'none', textAlign: 'left',
+                    }}
+                    onMouseOver={e => { if (statusDraft !== c.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
+                    onMouseOut={e => { if (statusDraft !== c.key) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                  >
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      }
       footer={
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Comment composer — pinned in the fixed footer, always at the bottom */}
@@ -140,54 +203,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         </div>
       }
     >
-      {/* Header — status dropdown (change is deferred until Simpan) */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, position: 'relative' }}>
-        <button
-          onClick={() => setStatusMenuOpen(o => !o)}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
-            background: (draftCol?.color || '#8b8fa8') + '22',
-            border: `1px solid ${(draftCol?.color || '#8b8fa8')}55`,
-            color: draftCol?.color || '#8b8fa8', fontSize: 12, fontWeight: 600,
-          }}
-        >
-          {draftCol?.label || statusDraft}
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-        {statusMenuOpen && (
-          <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setStatusMenuOpen(false)} />
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
-              background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8,
-              padding: 4, width: 170, boxShadow: '0 6px 24px rgba(0,0,0,0.4)',
-            }}>
-              {BPI_STATUS_COLS.map(c => (
-                <button
-                  key={c.key}
-                  onClick={() => { setStatusDraft(c.key); setStatusMenuOpen(false) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                    padding: '7px 10px', borderRadius: 5, cursor: 'pointer', fontSize: 12,
-                    background: statusDraft === c.key ? c.color + '22' : 'transparent',
-                    color: statusDraft === c.key ? c.color : 'var(--text)', border: 'none', textAlign: 'left',
-                  }}
-                  onMouseOver={e => { if (statusDraft !== c.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
-                  onMouseOut={e => { if (statusDraft !== c.key) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-                >
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
-                  {c.label}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      <h2 style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: 'var(--text)', marginBottom: 18 }}>
+      <h2 style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: 'var(--text)', marginTop: 4, marginBottom: 18 }}>
         {post.title}
       </h2>
 
