@@ -9,7 +9,16 @@ export function createClient(): SupabaseClient<Database> {
   // are wrong, so cast to a properly-typed SupabaseClient<Database>.
   return createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        // Disable gotrue's Web Locks–based mutual exclusion. With several auth
+        // consumers (realtime channels, getUser, queries) running at once it
+        // throws a transient "AbortError: Lock was stolen by another request".
+        // A passthrough lock keeps a single-session app working without it.
+        lock: async <R>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => fn(),
+      },
+    }
   ) as unknown as SupabaseClient<Database>
 }
 

@@ -26,12 +26,24 @@ export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
   const [adding, setAdding] = useState(false)
 
   const load = useCallback(async () => {
-    const { data } = await sb()
-      .from('social_accounts')
-      .select('*')
-      .eq('brand', brand)
-      .order('created_at', { ascending: true })
-    setAccounts((data as SocialAccount[] | null) ?? [])
+    // Retry a couple of times: Supabase's gotrue navigator lock can throw a
+    // transient AbortError ("Lock was stolen") when several auth consumers run
+    // at once. Always clear the loading state so the UI never hangs.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const { data, error } = await sb()
+          .from('social_accounts')
+          .select('*')
+          .eq('brand', brand)
+          .order('created_at', { ascending: true })
+        if (error) throw error
+        setAccounts((data as SocialAccount[] | null) ?? [])
+        setLoading(false)
+        return
+      } catch {
+        await new Promise(r => setTimeout(r, 200 * (attempt + 1)))
+      }
+    }
     setLoading(false)
   }, [brand])
 
