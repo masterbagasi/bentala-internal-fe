@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
 import { AccountsView } from '@/components/Social/AccountsView'
 import { AnalyticsView, SocialAnalyticsFilterButton, SocialAnalyticsSubBar, type PlatformTab, type SubView } from '@/components/Social/AnalyticsView'
-import { ReportsView } from '@/components/Social/ReportsView'
-import { PlanView } from '@/components/Social/PlanView'
+import { ReportsView, SocialReportsFilterButton, REPORT_PERIODS, type ReportPeriod } from '@/components/Social/ReportsView'
+import { PlanView, SocialPlanFilterButton } from '@/components/Social/PlanView'
 import { SUBJECTS } from '@/components/Social/mock'
 import { presetRange, type DateRange } from '@/components/Social/DateRangePicker'
 
@@ -15,6 +15,7 @@ export default function Page() {
   const [platform, setPlatform] = useState<PlatformTab>('all')
   const [view, setView] = useState<SubView>('overview')
   const [range, setRange] = useState<DateRange>(presetRange('Last 90 days'))
+  const [period, setPeriod] = useState<ReportPeriod>(REPORT_PERIODS[0])
   return (
     <>
       <PageHeader
@@ -22,8 +23,10 @@ export default function Page() {
         tabs={['accounts', 'analytics', 'reports', 'plan']}
         activeTab={tab}
         onTabChange={setTab}
-        tabsRight={tab === 'analytics'
-          ? <SocialAnalyticsFilterButton subjectId={subjectId} setSubjectId={setSubjectId} platform={platform} setPlatform={setPlatform} />
+        tabsRight={
+          tab === 'analytics' ? <SocialAnalyticsFilterButton subjectId={subjectId} setSubjectId={setSubjectId} platform={platform} setPlatform={setPlatform} />
+          : tab === 'reports' ? <SocialReportsFilterButton subjectId={subjectId} setSubjectId={setSubjectId} period={period} setPeriod={setPeriod} />
+          : tab === 'plan' ? <SocialPlanFilterButton subjectId={subjectId} setSubjectId={setSubjectId} />
           : undefined}
       />
       {/* Fixed sub-header for Analytics — stays put while content scrolls */}
@@ -41,7 +44,7 @@ export default function Page() {
             view={view} setView={setView} range={range} setRange={setRange}
           />
         )}
-        {tab === 'reports' && <ReportsView />}
+        {tab === 'reports' && <ReportsView subjectId={subjectId} period={period} />}
         {tab === 'plan' && <PlanView />}
       </div>
     </>

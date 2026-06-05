@@ -2,6 +2,8 @@
 
 import { SUBJECTS, PLAN_ITEMS, AI_RECOMMENDATIONS, PLATFORM_META } from './mock'
 import { Card, PlatformChip, SectionTitle } from './ui'
+import { SocialFilterChip } from './AnalyticsView'
+import { SocialFilterButton, SocialFilterLabel } from './FilterButton'
 
 const DOW = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
 // June 2026 starts on a Monday (1 Jun 2026 = Monday) → offset 0
@@ -20,18 +22,11 @@ export function PlanView() {
   return (
     <div>
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
-        <select
-          style={{
-            background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)',
-            borderRadius: 9, padding: '8px 12px', fontSize: 13, fontWeight: 500, minWidth: 220,
-          }}
-        >
-          {SUBJECTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
+      {/* Page action (account filter moved to the top-right Filter button) */}
+      <div style={{ display: 'flex', marginBottom: 18, justifyContent: 'flex-end' }}>
         <button
           style={{
-            marginLeft: 'auto', background: 'var(--accent)', color: '#fff', border: 'none',
+            background: 'var(--accent)', color: '#fff', border: 'none',
             borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
           }}
         >
@@ -109,5 +104,23 @@ export function PlanView() {
         </Card>
       </div>
     </div>
+  )
+}
+
+/** Top-right Filter button for the Plan tab — Akun. */
+export function SocialPlanFilterButton({ subjectId, setSubjectId }: {
+  subjectId: string
+  setSubjectId: (id: string) => void
+}) {
+  const count = subjectId !== SUBJECTS[0].id ? 1 : 0
+  return (
+    <SocialFilterButton count={count}>
+      <SocialFilterLabel>Akun</SocialFilterLabel>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {SUBJECTS.map(s => (
+          <SocialFilterChip key={s.id} label={s.name} active={subjectId === s.id} onClick={() => setSubjectId(s.id)} />
+        ))}
+      </div>
+    </SocialFilterButton>
   )
 }

@@ -3,55 +3,46 @@
 import { useState } from 'react'
 import { SUBJECTS, REPORT_NARRATIVE } from './mock'
 import { Card, StatCard, SectionTitle, fmtNum } from './ui'
+import { SocialFilterChip } from './AnalyticsView'
+import { SocialFilterButton, SocialFilterLabel } from './FilterButton'
 
-export function ReportsView() {
-  const [subjectId, setSubjectId] = useState(SUBJECTS[0].id)
+export const REPORT_PERIODS = ['Mei 2026', 'April 2026', 'Q2 2026'] as const
+export type ReportPeriod = typeof REPORT_PERIODS[number]
+
+export function ReportsView({
+  subjectId: subjectIdProp,
+  period: periodProp,
+}: {
+  subjectId?: string
+  period?: ReportPeriod
+} = {}) {
+  const [subjectIdState] = useState(SUBJECTS[0].id)
+  const subjectId = subjectIdProp ?? subjectIdState
+  const period = periodProp ?? REPORT_PERIODS[0]
   const subject = SUBJECTS.find(s => s.id === subjectId)!
   const totalFollowers = subject.connections.reduce((a, c) => a + c.followers, 0)
 
   return (
     <div>
 
-      {/* Controls */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
-        <select
-          value={subjectId}
-          onChange={e => setSubjectId(e.target.value)}
+      {/* Page actions (filters moved to the top-right Filter button) */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        <button
           style={{
-            background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)',
-            borderRadius: 9, padding: '8px 12px', fontSize: 13, fontWeight: 500, minWidth: 220,
+            background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 9,
+            padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
           }}
         >
-          {SUBJECTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <select
+          Generate Laporan (AI)
+        </button>
+        <button
           style={{
-            background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)',
-            borderRadius: 9, padding: '8px 12px', fontSize: 13, fontWeight: 500,
+            background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)',
+            borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer',
           }}
         >
-          <option>Mei 2026</option>
-          <option>April 2026</option>
-          <option>Q2 2026</option>
-        </select>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button
-            style={{
-              background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 9,
-              padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            Generate Laporan (AI)
-          </button>
-          <button
-            style={{
-              background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)',
-              borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-            }}
-          >
-            Export PDF
-          </button>
-        </div>
+          Export PDF
+        </button>
       </div>
 
       {/* Report document mockup */}
@@ -62,7 +53,7 @@ export function ReportsView() {
               Laporan Performa Sosial Media
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>
-              {subject.name} · Periode Mei 2026
+              {subject.name} · Periode {period}
             </div>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>Dibuat 3 Jun 2026</div>
@@ -90,5 +81,31 @@ export function ReportsView() {
         </div>
       </Card>
     </div>
+  )
+}
+
+/** Top-right Filter button for the Reports tab — Akun + Periode. */
+export function SocialReportsFilterButton({ subjectId, setSubjectId, period, setPeriod }: {
+  subjectId: string
+  setSubjectId: (id: string) => void
+  period: ReportPeriod
+  setPeriod: (p: ReportPeriod) => void
+}) {
+  const count = (subjectId !== SUBJECTS[0].id ? 1 : 0) + (period !== REPORT_PERIODS[0] ? 1 : 0)
+  return (
+    <SocialFilterButton count={count}>
+      <SocialFilterLabel>Akun</SocialFilterLabel>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+        {SUBJECTS.map(s => (
+          <SocialFilterChip key={s.id} label={s.name} active={subjectId === s.id} onClick={() => setSubjectId(s.id)} />
+        ))}
+      </div>
+      <SocialFilterLabel>Periode</SocialFilterLabel>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {REPORT_PERIODS.map(p => (
+          <SocialFilterChip key={p} label={p} active={period === p} onClick={() => setPeriod(p)} />
+        ))}
+      </div>
+    </SocialFilterButton>
   )
 }
