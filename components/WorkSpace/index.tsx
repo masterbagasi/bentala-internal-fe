@@ -257,19 +257,29 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
 }) {
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const logActivity = useLogActivity()
+  const { upsertPost } = useStore()
 
   async function handleDrop(newStatus: string) {
-    if (!dragPostId) return
+    const id = dragPostId
+    setDragPostId(null)
+    if (!id) return
 
     // WS rule: cannot drag TO revisi
-    if (newStatus === 'revisi') {
-      setDragPostId(null); return
-    }
+    if (newStatus === 'revisi') return
 
+    const target = posts.find(p => p.id === id)
+    if (!target || target.status === newStatus) return
+
+    // Optimistically move the card so it updates instantly (don't wait for the
+    // realtime echo), then persist. Revert if the write fails.
+    upsertPost({ ...target, status: newStatus } as Post)
     const supabase = getSupabase()
-    await supabase.from('posts').update({ status: newStatus }).eq('id', dragPostId)
+    const { error } = await supabase.from('posts').update({ status: newStatus }).eq('id', id)
+    if (error) {
+      upsertPost(target)
+      return
+    }
     logActivity(`${member} memindahkan post ke ${newStatus}`)
-    setDragPostId(null)
   }
 
   return (
@@ -307,7 +317,13 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
                 <WSCard
                   key={p.id}
                   post={p}
-                  onDragStart={() => setDragPostId(p.id)}
+                  onDragStart={e => {
+                    // setData is required for the drag to actually start in
+                    // Safari/Firefox.
+                    e.dataTransfer.setData('text/plain', p.id)
+                    e.dataTransfer.effectAllowed = 'move'
+                    setDragPostId(p.id)
+                  }}
                   onClick={() => onCardClick(p.id)}
                 />
               ))}
@@ -346,7 +362,7 @@ function CalIcon12() {
 
 function WSCard({ post, onDragStart, onClick }: {
   post: Post
-  onDragStart: () => void
+  onDragStart: (e: React.DragEvent) => void
   onClick: () => void
 }) {
   const hasVideo = (post.content_types || []).includes('video')
