@@ -154,9 +154,11 @@ export interface ContentPost {
   date: string          // YYYY-MM-DD
   time?: string         // HH:mm upload time
   reach: number
+  views: number
   likes: number
   comments: number
   shares: number
+  saves: number
   engagement: number    // %
   /**
    * Cover image. In production this is resolved by the connector:
@@ -172,22 +174,34 @@ export const FORMAT_LABEL: Record<ContentFormat, string> = {
   video: 'Video', short: 'Short', story: 'Story',
 }
 
-// REAL — 12 latest Instagram reels of @bentalaprojectindonesia, pulled via
-// Composio on 2026-06-05 (reach/views/likes/comments/shares are actual; times
-// shown in WIB). engagement = (likes+comments+shares+saves) / reach.
+// REAL — 24 latest Instagram posts of @bentalaprojectindonesia, pulled via
+// Composio on 2026-06-05. reach/views/likes/comments/shares/saves are actual;
+// times in WIB. engagement = (likes+comments+shares+saves) / reach.
 export const CONTENT_POSTS: ContentPost[] = [
-  { id: 'c1',  platform: 'instagram', format: 'reel', caption: "Indonesia 'negara paling mager'? Kreator WNA buktikan sendiri", date: '2026-06-05', time: '09:34', reach: 980,  likes: 31,  comments: 1, shares: 0, engagement: 3.4, cover: '/social/c1.jpg' },
-  { id: 'c2',  platform: 'instagram', format: 'reel', caption: 'Slamet Santoso: dari kerja jadi pemain bola di Polandia',       date: '2026-06-04', time: '09:05', reach: 861,  likes: 27,  comments: 1, shares: 0, engagement: 3.3, cover: '/social/c2.jpg' },
-  { id: 'c3',  platform: 'instagram', format: 'reel', caption: "Turis Inggris kaget kebiasaan panggil 'Pak/Bu' di Indonesia",  date: '2026-06-03', time: '20:01', reach: 1147, likes: 27,  comments: 0, shares: 1, engagement: 2.6, cover: '/social/c3.jpg' },
-  { id: 'c4',  platform: 'instagram', format: 'reel', caption: '700rb tanda tangan dunia desak stop perdagangan daging anabul', date: '2026-06-02', time: '23:05', reach: 2347, likes: 45,  comments: 0, shares: 2, engagement: 2.1, cover: '/social/c4.jpg' },
-  { id: 'c5',  platform: 'instagram', format: 'reel', caption: 'Bahasa Indonesia jembatani WN Jepang & Jordan di Petra',        date: '2026-06-02', time: '20:16', reach: 2707, likes: 164, comments: 8, shares: 2, engagement: 6.6, cover: '/social/c5.jpg' },
-  { id: 'c6',  platform: 'instagram', format: 'reel', caption: 'Scam internasional digerebek di ruko Solo Baru',               date: '2026-05-31', time: '21:19', reach: 2222, likes: 30,  comments: 0, shares: 2, engagement: 1.4, cover: '/social/c6.jpg' },
-  { id: 'c7',  platform: 'instagram', format: 'reel', caption: "Solo dev Indonesia 'Rizu' rilis game kereta, viral di dunia",  date: '2026-05-30', time: '21:52', reach: 886,  likes: 46,  comments: 0, shares: 2, engagement: 5.6, cover: '/social/c7.jpg' },
-  { id: 'c8',  platform: 'instagram', format: 'reel', caption: 'WNI ketahuan pakai riset palsu di konferensi ilmiah dunia',     date: '2026-05-29', time: '19:22', reach: 3751, likes: 57,  comments: 2, shares: 1, engagement: 1.7, cover: '/social/c8.jpg' },
-  { id: 'c9',  platform: 'instagram', format: 'reel', caption: "Label baru botol sirup ABC: 'jangan diminum langsung'",        date: '2026-05-28', time: '21:06', reach: 4478, likes: 151, comments: 0, shares: 5, engagement: 3.7, cover: '/social/c9.jpg' },
-  { id: 'c10', platform: 'instagram', format: 'reel', caption: 'Culture shock WNI ketemu komunitas Hijra di India',            date: '2026-05-28', time: '10:21', reach: 2912, likes: 35,  comments: 0, shares: 0, engagement: 1.3, cover: '/social/c10.jpg' },
-  { id: 'c11', platform: 'instagram', format: 'reel', caption: 'WNA kagum kereta cepat Indonesia yang bersih',                 date: '2026-05-27', time: '20:44', reach: 1295, likes: 24,  comments: 0, shares: 1, engagement: 2.1, cover: '/social/c11.jpg' },
-  { id: 'c12', platform: 'instagram', format: 'reel', caption: 'WNI di Dubai tinggal di bed space Rp2,4 juta/bulan',           date: '2026-05-26', time: '19:32', reach: 7693, likes: 73,  comments: 0, shares: 6, engagement: 1.1, cover: '/social/c12.jpg' },
+  { id: 'c1',  platform: 'instagram', format: 'reel',     caption: "Indonesia 'negara paling mager'? Kreator WNA buktikan sendiri", date: '2026-06-05', time: '09:34', reach: 980,   views: 1561,  likes: 31,  comments: 1,  shares: 0,   saves: 1,  engagement: 3.4, cover: '/social/c1.jpg' },
+  { id: 'c2',  platform: 'instagram', format: 'reel',     caption: 'Slamet Santoso: dari kerja jadi pemain bola di Polandia',       date: '2026-06-04', time: '09:05', reach: 861,   views: 1920,  likes: 27,  comments: 1,  shares: 0,   saves: 0,  engagement: 3.3, cover: '/social/c2.jpg' },
+  { id: 'c3',  platform: 'instagram', format: 'reel',     caption: "Turis Inggris kaget kebiasaan panggil 'Pak/Bu' di Indonesia",  date: '2026-06-03', time: '20:01', reach: 1147,  views: 1701,  likes: 27,  comments: 0,  shares: 1,   saves: 2,  engagement: 2.6, cover: '/social/c3.jpg' },
+  { id: 'c4',  platform: 'instagram', format: 'reel',     caption: '700rb tanda tangan dunia desak stop perdagangan daging anabul', date: '2026-06-02', time: '23:05', reach: 2347,  views: 3286,  likes: 45,  comments: 0,  shares: 2,   saves: 3,  engagement: 2.1, cover: '/social/c4.jpg' },
+  { id: 'c5',  platform: 'instagram', format: 'reel',     caption: 'Bahasa Indonesia jembatani WN Jepang & Jordan di Petra',        date: '2026-06-02', time: '20:16', reach: 2707,  views: 3442,  likes: 164, comments: 8,  shares: 2,   saves: 6,  engagement: 6.6, cover: '/social/c5.jpg' },
+  { id: 'c6',  platform: 'instagram', format: 'reel',     caption: 'Scam internasional digerebek di ruko Solo Baru',               date: '2026-05-31', time: '21:19', reach: 2222,  views: 3492,  likes: 30,  comments: 0,  shares: 2,   saves: 0,  engagement: 1.4, cover: '/social/c6.jpg' },
+  { id: 'c7',  platform: 'instagram', format: 'reel',     caption: "Solo dev Indonesia 'Rizu' rilis game kereta, viral di dunia",  date: '2026-05-30', time: '21:52', reach: 886,   views: 1195,  likes: 46,  comments: 0,  shares: 2,   saves: 2,  engagement: 5.6, cover: '/social/c7.jpg' },
+  { id: 'c8',  platform: 'instagram', format: 'reel',     caption: 'WNI ketahuan pakai riset palsu di konferensi ilmiah dunia',     date: '2026-05-29', time: '19:22', reach: 3751,  views: 5456,  likes: 57,  comments: 2,  shares: 1,   saves: 4,  engagement: 1.7, cover: '/social/c8.jpg' },
+  { id: 'c9',  platform: 'instagram', format: 'reel',     caption: "Label baru botol sirup ABC: 'jangan diminum langsung'",        date: '2026-05-28', time: '21:06', reach: 4478,  views: 7969,  likes: 151, comments: 0,  shares: 5,   saves: 11, engagement: 3.7, cover: '/social/c9.jpg' },
+  { id: 'c10', platform: 'instagram', format: 'reel',     caption: 'Culture shock WNI ketemu komunitas Hijra di India',            date: '2026-05-28', time: '10:21', reach: 2912,  views: 4148,  likes: 35,  comments: 0,  shares: 0,   saves: 3,  engagement: 1.3, cover: '/social/c10.jpg' },
+  { id: 'c11', platform: 'instagram', format: 'reel',     caption: 'WNA kagum kereta cepat Indonesia yang bersih',                 date: '2026-05-27', time: '20:44', reach: 1295,  views: 2179,  likes: 24,  comments: 0,  shares: 1,   saves: 2,  engagement: 2.1, cover: '/social/c11.jpg' },
+  { id: 'c12', platform: 'instagram', format: 'reel',     caption: 'WNI di Dubai tinggal di bed space Rp2,4 juta/bulan',           date: '2026-05-26', time: '19:32', reach: 7693,  views: 9930,  likes: 73,  comments: 0,  shares: 6,   saves: 9,  engagement: 1.1, cover: '/social/c12.jpg' },
+  { id: 'c13', platform: 'instagram', format: 'reel',     caption: 'Turis UK: kereta Jakarta lebih bagus dari Inggris',            date: '2026-05-25', time: '20:38', reach: 1825,  views: 2471,  likes: 51,  comments: 0,  shares: 3,   saves: 4,  engagement: 3.2, cover: '/social/c13.jpg' },
+  { id: 'c14', platform: 'instagram', format: 'reel',     caption: 'WNA terpukau Tari Piring di atas pecahan kaca',               date: '2026-05-25', time: '10:09', reach: 6740,  views: 10404, likes: 198, comments: 2,  shares: 0,   saves: 2,  engagement: 3.0, cover: '/social/c14.jpg' },
+  { id: 'c15', platform: 'instagram', format: 'reel',     caption: 'Siswi Al Azhar bawakan Tari Ratoh Jaroe di Paris',            date: '2026-05-24', time: '18:34', reach: 1559,  views: 1946,  likes: 62,  comments: 1,  shares: 1,   saves: 6,  engagement: 4.5, cover: '/social/c15.jpg' },
+  { id: 'c16', platform: 'instagram', format: 'reel',     caption: 'Pria India ambilkan selendang WNI dari kolong rel',           date: '2026-05-23', time: '21:34', reach: 2077,  views: 3324,  likes: 19,  comments: 0,  shares: 1,   saves: 1,  engagement: 1.0, cover: '/social/c16.jpg' },
+  { id: 'c17', platform: 'instagram', format: 'reel',     caption: 'Polisi Jepang gendong kakek kelelahan saat matsuri',         date: '2026-05-23', time: '17:57', reach: 1541,  views: 2406,  likes: 43,  comments: 0,  shares: 1,   saves: 1,  engagement: 2.9, cover: '/social/c17.jpg' },
+  { id: 'c18', platform: 'instagram', format: 'reel',     caption: 'Pandawara Group raih 2 rekor Guinness World Records',         date: '2026-05-22', time: '23:11', reach: 932,   views: 1291,  likes: 29,  comments: 1,  shares: 0,   saves: 2,  engagement: 3.4, cover: '/social/c18.jpg' },
+  { id: 'c19', platform: 'instagram', format: 'reel',     caption: '9 WNI relawan Sumud Flotilla bebas, tiba di Turki',          date: '2026-05-22', time: '13:58', reach: 1661,  views: 2207,  likes: 61,  comments: 2,  shares: 1,   saves: 0,  engagement: 3.9, cover: '/social/c19.jpg' },
+  { id: 'c20', platform: 'instagram', format: 'reel',     caption: 'WNI korban sindikat timah ilegal di Malaysia',               date: '2026-05-21', time: '19:28', reach: 1704,  views: 2601,  likes: 15,  comments: 0,  shares: 4,   saves: 0,  engagement: 1.1, cover: '/social/c20.jpg' },
+  { id: 'c21', platform: 'instagram', format: 'reel',     caption: "Plat mobil 'Geulis/Rendang/Bahagia' di Perth",               date: '2026-05-21', time: '09:05', reach: 1637,  views: 2500,  likes: 51,  comments: 2,  shares: 5,   saves: 6,  engagement: 3.9, cover: '/social/c21.jpg' },
+  { id: 'c22', platform: 'instagram', format: 'carousel', caption: 'Dhea Natasya, perempuan RI pertama di World Longboard Tour',  date: '2026-05-20', time: '22:12', reach: 749,   views: 0,     likes: 12,  comments: 0,  shares: 0,   saves: 0,  engagement: 1.6, cover: '/social/c22.jpg' },
+  { id: 'c23', platform: 'instagram', format: 'reel',     caption: 'Mahasiswi WNI ditangkap di Jepang terkait jasad bayi',       date: '2026-05-20', time: '19:23', reach: 25489, views: 32823, likes: 818, comments: 74, shares: 537, saves: 69, engagement: 5.9, cover: '/social/c23.jpg' },
+  { id: 'c24', platform: 'instagram', format: 'reel',     caption: 'Member AAA Clan pecahkan 2 rekor Guinness',                  date: '2026-05-20', time: '09:04', reach: 23215, views: 33123, likes: 494, comments: 4,  shares: 6,   saves: 5,  engagement: 2.2, cover: '/social/c24.jpg' },
 ]
 
 // ── Overview metrics (Instagram-Insights style) — REAL, last 28 days via

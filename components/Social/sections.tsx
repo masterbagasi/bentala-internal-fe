@@ -56,20 +56,31 @@ function Dot({ c }: { c: string }) {
 }
 
 // ════════ OVERVIEW ════════
-export function OverviewStats() {
-  const nonFollowersViews = (100 - OVERVIEW.viewsFollowersPct).toFixed(1)
+// Views/Interactions/Shares reflect the selected date range when the parent
+// passes per-period sums; otherwise they fall back to the 28-day account
+// totals. Net followers is always the 28-day account figure (the IG API
+// can't window it to an arbitrary range).
+export function OverviewStats(props: {
+  views?: number; reach?: number; interactions?: number
+  likes?: number; comments?: number; saves?: number; shares?: number
+} = {}) {
   const n = (v: number) => v.toLocaleString('id-ID')
+  const views = props.views ?? OVERVIEW.views
+  const reach = props.reach ?? OVERVIEW.accountsReached
+  const interactions = props.interactions ?? OVERVIEW.interactions
+  const likes = props.likes ?? OVERVIEW.likes
+  const comments = props.comments ?? OVERVIEW.comments
+  const saves = props.saves ?? OVERVIEW.saves
+  const shares = props.shares ?? OVERVIEW.shares
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 16 }}>
-      <BigStat label="Views" value={n(OVERVIEW.views)}
-        sub={`${OVERVIEW.viewsFollowersPct}% followers · ${nonFollowersViews}% non-followers`} />
+      <BigStat label="Views" value={n(views)} sub={`${n(reach)} accounts reached`} />
       <BigStat label="Net followers" value={(OVERVIEW.netFollowers > 0 ? '+' : '') + OVERVIEW.netFollowers}
-        sub={`+${OVERVIEW.follows} follows · -${OVERVIEW.unfollows} unfollows`}
+        sub={`+${OVERVIEW.follows} follows · -${OVERVIEW.unfollows} unfollows · 28 hari`}
         negative={OVERVIEW.netFollowers < 0} />
-      <BigStat label="Interactions" value={n(OVERVIEW.interactions)}
-        sub={`${n(OVERVIEW.likes)} likes · ${n(OVERVIEW.comments)} komentar · ${n(OVERVIEW.saves)} saves`} />
-      <BigStat label="Shares" value={n(OVERVIEW.shares)}
-        sub={`28 hari terakhir`} />
+      <BigStat label="Interactions" value={n(interactions)}
+        sub={`${n(likes)} likes · ${n(comments)} komentar · ${n(saves)} saves`} />
+      <BigStat label="Shares" value={n(shares)} sub="periode terpilih" />
     </div>
   )
 }

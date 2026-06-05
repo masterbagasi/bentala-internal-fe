@@ -95,6 +95,13 @@ export function AnalyticsView({
     : (subject.connections.find(c => c.platform === platform)?.followers ?? 0)
   const totalReach = filtered.reduce((a, p) => a + p.reach, 0)
   const avgEng = filtered.length ? filtered.reduce((a, p) => a + p.engagement, 0) / filtered.length : 0
+  // Per-period sums so the Overview cards respond to the date filter.
+  const sumViews = filtered.reduce((a, p) => a + p.views, 0)
+  const sumLikes = filtered.reduce((a, p) => a + p.likes, 0)
+  const sumComments = filtered.reduce((a, p) => a + p.comments, 0)
+  const sumShares = filtered.reduce((a, p) => a + p.shares, 0)
+  const sumSaves = filtered.reduce((a, p) => a + p.saves, 0)
+  const sumInteractions = sumLikes + sumComments + sumShares + sumSaves
 
   // Content type split: video (video/reel/short) vs design/photo (carousel/photo/story)
   const VIDEO_FORMATS = ['video', 'reel', 'short']
@@ -247,7 +254,10 @@ export function AnalyticsView({
               <StatCard label="Avg Engagement" value={avgEng.toFixed(1) + '%'} />
             </div>
 
-            <OverviewStats />
+            <OverviewStats
+              views={sumViews} reach={totalReach} interactions={sumInteractions}
+              likes={sumLikes} comments={sumComments} saves={sumSaves} shares={sumShares}
+            />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
               <Card>
