@@ -6,6 +6,7 @@ import {
   SUBJECTS, WEEKS, PLATFORM_TRENDS, followersAsOf,
   CONTENT_POSTS, PLATFORM_META, FORMAT_LABEL, type ContentPost, type Platform,
 } from './mock'
+import { POSTS_META } from './postLog'
 import {
   Card, StatCard, PlatformChip, SectionTitle, fmtNum,
 } from './ui'
@@ -109,10 +110,14 @@ export function AnalyticsView({
   const sumSaves = filtered.reduce((a, p) => a + p.saves, 0)
   const sumInteractions = sumLikes + sumComments + sumShares + sumSaves
 
-  // Content type split: video (video/reel/short) vs design/photo (carousel/photo/story)
+  // Content count + video/design split. For the real account we use the full
+  // per-post log (every post's date+kind), so the count is accurate for ANY
+  // range — not just the latest posts that carry full metrics in the grid.
   const VIDEO_FORMATS = ['video', 'reel', 'short']
-  const videoCount = filtered.filter(p => VIDEO_FORMATS.includes(p.format)).length
-  const designCount = filtered.length - videoCount
+  const kontenLog = realFollowers ? POSTS_META.filter(p => p.d >= from && p.d <= to) : null
+  const kontenCount = kontenLog ? kontenLog.length : filtered.length
+  const videoCount = kontenLog ? kontenLog.filter(p => p.k === 'v').length : filtered.filter(p => VIDEO_FORMATS.includes(p.format)).length
+  const designCount = kontenCount - videoCount
 
   // Content tab: filter by Video / Photo
   const contentFiltered = useMemo(() => {
@@ -248,7 +253,7 @@ export function AnalyticsView({
                 delta={realFollowers && followersGain !== 0 ? `${followersGain > 0 ? '+' : ''}${followersGain.toLocaleString('id-ID')} (periode)` : undefined}
                 deltaUp={followersGain >= 0}
               />
-              <StatCard label="Konten (periode)" value={String(filtered.length)}
+              <StatCard label="Konten (periode)" value={kontenCount.toLocaleString('id-ID')}
                 breakdown={
                   <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11.5, color: 'var(--text2)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
