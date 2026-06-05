@@ -74,6 +74,20 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       return true
     })
 
+    // Active-filter chips (removable) shown in the toolbar.
+    const drop = (key: keyof PostFilters, val: string) =>
+      setFilters(f => key === 'month'
+        ? { ...f, month: '' }
+        : { ...f, [key]: (f[key] as string[]).filter(x => x !== val) })
+    const activeChips: { label: string; onRemove: () => void }[] = [
+      ...filters.platforms.map(k => ({ label: POST_PLATFORMS.find(p => p.key === k)?.label || k, onRemove: () => drop('platforms', k) })),
+      ...filters.contentTypes.map(k => ({ label: k === 'video' ? 'Video' : k === 'design' ? 'Design' : k, onRemove: () => drop('contentTypes', k) })),
+      ...filters.tagged.map(e => ({ label: accounts.find(a => a.email === e)?.name || e, onRemove: () => drop('tagged', e) })),
+      ...filters.ratios.map(k => ({ label: POST_RATIOS.find(r => r.key === k)?.label || k, onRemove: () => drop('ratios', k) })),
+      ...(filters.month ? [{ label: fmtMonth(filters.month), onRemove: () => drop('month', '') }] : []),
+      ...filters.statuses.map(k => ({ label: BPI_STATUS_COLS.find(s => s.key === k)?.label || k, onRemove: () => drop('statuses', k) })),
+    ]
+
     function openEdit(id?: string) {
       setEditPostId(id || null)
       setShowPostModal(true)
@@ -93,12 +107,45 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
         {/* Filter Bar */}
         {(activeTab === 'list' || activeTab === 'board' || activeTab === 'calendar') && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, position: 'relative',
-            padding: '9px 24px', borderBottom: '1px solid var(--border)',
-            background: 'var(--bg2)', flexWrap: 'wrap',
+            display: 'flex', alignItems: 'center', gap: 10, position: 'relative',
+            padding: '8px 24px', borderBottom: '1px solid var(--border)',
+            background: 'var(--bg2)', minHeight: 46,
           }}>
+            {/* Result count */}
+            <span style={{ fontSize: 12, color: 'var(--text2)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+              <strong style={{ color: 'var(--text)', fontWeight: 700 }}>{filtered.length}</strong> post
+            </span>
+
+            {/* Active filter chips */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+              {activeChips.map((c, i) => (
+                <span key={i} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 6px 3px 10px',
+                  borderRadius: 16, fontSize: 12, fontWeight: 500,
+                  background: 'rgba(108,99,255,0.14)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.3)',
+                }}>
+                  {c.label}
+                  <button
+                    onClick={c.onRemove}
+                    aria-label={`Hapus ${c.label}`}
+                    style={{ display: 'flex', background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, lineHeight: 1, opacity: 0.8 }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                  </button>
+                </span>
+              ))}
+              {activeChips.length > 0 && (
+                <button
+                  onClick={() => setFilters(EMPTY_FILTERS)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '0 4px' }}
+                >
+                  Hapus semua
+                </button>
+              )}
+            </div>
+
             {/* Filter button */}
-            <div style={{ position: 'relative', marginLeft: 'auto' }}>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
               <button
                 onClick={() => setFilterOpen(o => !o)}
                 style={{
@@ -483,6 +530,11 @@ function CheckCircle({ done, onChange }: { done: boolean; onChange: (done: boole
 }
 
 // ── Multi-criteria filter ──
+function fmtMonth(ym: string): string {
+  const [y, m] = ym.split('-')
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })
+}
+
 interface PostFilters {
   platforms: string[]
   contentTypes: string[]
