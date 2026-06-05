@@ -58,19 +58,18 @@ function Dot({ c }: { c: string }) {
 // ════════ OVERVIEW ════════
 export function OverviewStats() {
   const nonFollowersViews = (100 - OVERVIEW.viewsFollowersPct).toFixed(1)
-  const nonFollowersInter = (100 - OVERVIEW.interactionsFollowersPct).toFixed(1)
-  const nonFollowersShares = (100 - OVERVIEW.sharesFollowersPct).toFixed(1)
+  const n = (v: number) => v.toLocaleString('id-ID')
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 16 }}>
-      <BigStat label="Views" value={OVERVIEW.views.toLocaleString('id-ID')}
+      <BigStat label="Views" value={n(OVERVIEW.views)}
         sub={`${OVERVIEW.viewsFollowersPct}% followers · ${nonFollowersViews}% non-followers`} />
       <BigStat label="Net followers" value={(OVERVIEW.netFollowers > 0 ? '+' : '') + OVERVIEW.netFollowers}
         sub={`+${OVERVIEW.follows} follows · -${OVERVIEW.unfollows} unfollows`}
         negative={OVERVIEW.netFollowers < 0} />
-      <BigStat label="Interactions" value={OVERVIEW.interactions.toLocaleString('id-ID')}
-        sub={`${OVERVIEW.interactionsFollowersPct}% followers · ${nonFollowersInter}% non-followers`} />
-      <BigStat label="Shares" value={OVERVIEW.shares.toLocaleString('id-ID')}
-        sub={`${OVERVIEW.sharesFollowersPct}% followers · ${nonFollowersShares}% non-followers`} />
+      <BigStat label="Interactions" value={n(OVERVIEW.interactions)}
+        sub={`${n(OVERVIEW.likes)} likes · ${n(OVERVIEW.comments)} komentar · ${n(OVERVIEW.saves)} saves`} />
+      <BigStat label="Shares" value={n(OVERVIEW.shares)}
+        sub={`28 hari terakhir`} />
     </div>
   )
 }

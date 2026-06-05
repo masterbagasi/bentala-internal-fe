@@ -176,30 +176,31 @@ export const FORMAT_LABEL: Record<ContentFormat, string> = {
 // Composio on 2026-06-05 (reach/views/likes/comments/shares are actual; times
 // shown in WIB). engagement = (likes+comments+shares+saves) / reach.
 export const CONTENT_POSTS: ContentPost[] = [
-  { id: 'c1',  platform: 'instagram', format: 'reel', caption: "Indonesia 'negara paling mager'? Kreator WNA buktikan sendiri", date: '2026-06-05', time: '09:34', reach: 980,  likes: 31,  comments: 1, shares: 0, engagement: 3.4 },
-  { id: 'c2',  platform: 'instagram', format: 'reel', caption: 'Slamet Santoso: dari kerja jadi pemain bola di Polandia',       date: '2026-06-04', time: '09:05', reach: 861,  likes: 27,  comments: 1, shares: 0, engagement: 3.3 },
-  { id: 'c3',  platform: 'instagram', format: 'reel', caption: "Turis Inggris kaget kebiasaan panggil 'Pak/Bu' di Indonesia",  date: '2026-06-03', time: '20:01', reach: 1147, likes: 27,  comments: 0, shares: 1, engagement: 2.6 },
-  { id: 'c4',  platform: 'instagram', format: 'reel', caption: '700rb tanda tangan dunia desak stop perdagangan daging anabul', date: '2026-06-02', time: '23:05', reach: 2347, likes: 45,  comments: 0, shares: 2, engagement: 2.1 },
-  { id: 'c5',  platform: 'instagram', format: 'reel', caption: 'Bahasa Indonesia jembatani WN Jepang & Jordan di Petra',        date: '2026-06-02', time: '20:16', reach: 2707, likes: 164, comments: 8, shares: 2, engagement: 6.6 },
-  { id: 'c6',  platform: 'instagram', format: 'reel', caption: 'Scam internasional digerebek di ruko Solo Baru',               date: '2026-05-31', time: '21:19', reach: 2222, likes: 30,  comments: 0, shares: 2, engagement: 1.4 },
-  { id: 'c7',  platform: 'instagram', format: 'reel', caption: "Solo dev Indonesia 'Rizu' rilis game kereta, viral di dunia",  date: '2026-05-30', time: '21:52', reach: 886,  likes: 46,  comments: 0, shares: 2, engagement: 5.6 },
-  { id: 'c8',  platform: 'instagram', format: 'reel', caption: 'WNI ketahuan pakai riset palsu di konferensi ilmiah dunia',     date: '2026-05-29', time: '19:22', reach: 3751, likes: 57,  comments: 2, shares: 1, engagement: 1.7 },
-  { id: 'c9',  platform: 'instagram', format: 'reel', caption: "Label baru botol sirup ABC: 'jangan diminum langsung'",        date: '2026-05-28', time: '21:06', reach: 4478, likes: 151, comments: 0, shares: 5, engagement: 3.7 },
-  { id: 'c10', platform: 'instagram', format: 'reel', caption: 'Culture shock WNI ketemu komunitas Hijra di India',            date: '2026-05-28', time: '10:21', reach: 2912, likes: 35,  comments: 0, shares: 0, engagement: 1.3 },
-  { id: 'c11', platform: 'instagram', format: 'reel', caption: 'WNA kagum kereta cepat Indonesia yang bersih',                 date: '2026-05-27', time: '20:44', reach: 1295, likes: 24,  comments: 0, shares: 1, engagement: 2.1 },
-  { id: 'c12', platform: 'instagram', format: 'reel', caption: 'WNI di Dubai tinggal di bed space Rp2,4 juta/bulan',           date: '2026-05-26', time: '19:32', reach: 7693, likes: 73,  comments: 0, shares: 6, engagement: 1.1 },
+  { id: 'c1',  platform: 'instagram', format: 'reel', caption: "Indonesia 'negara paling mager'? Kreator WNA buktikan sendiri", date: '2026-06-05', time: '09:34', reach: 980,  likes: 31,  comments: 1, shares: 0, engagement: 3.4, cover: '/social/c1.jpg' },
+  { id: 'c2',  platform: 'instagram', format: 'reel', caption: 'Slamet Santoso: dari kerja jadi pemain bola di Polandia',       date: '2026-06-04', time: '09:05', reach: 861,  likes: 27,  comments: 1, shares: 0, engagement: 3.3, cover: '/social/c2.jpg' },
+  { id: 'c3',  platform: 'instagram', format: 'reel', caption: "Turis Inggris kaget kebiasaan panggil 'Pak/Bu' di Indonesia",  date: '2026-06-03', time: '20:01', reach: 1147, likes: 27,  comments: 0, shares: 1, engagement: 2.6, cover: '/social/c3.jpg' },
+  { id: 'c4',  platform: 'instagram', format: 'reel', caption: '700rb tanda tangan dunia desak stop perdagangan daging anabul', date: '2026-06-02', time: '23:05', reach: 2347, likes: 45,  comments: 0, shares: 2, engagement: 2.1, cover: '/social/c4.jpg' },
+  { id: 'c5',  platform: 'instagram', format: 'reel', caption: 'Bahasa Indonesia jembatani WN Jepang & Jordan di Petra',        date: '2026-06-02', time: '20:16', reach: 2707, likes: 164, comments: 8, shares: 2, engagement: 6.6, cover: '/social/c5.jpg' },
+  { id: 'c6',  platform: 'instagram', format: 'reel', caption: 'Scam internasional digerebek di ruko Solo Baru',               date: '2026-05-31', time: '21:19', reach: 2222, likes: 30,  comments: 0, shares: 2, engagement: 1.4, cover: '/social/c6.jpg' },
+  { id: 'c7',  platform: 'instagram', format: 'reel', caption: "Solo dev Indonesia 'Rizu' rilis game kereta, viral di dunia",  date: '2026-05-30', time: '21:52', reach: 886,  likes: 46,  comments: 0, shares: 2, engagement: 5.6, cover: '/social/c7.jpg' },
+  { id: 'c8',  platform: 'instagram', format: 'reel', caption: 'WNI ketahuan pakai riset palsu di konferensi ilmiah dunia',     date: '2026-05-29', time: '19:22', reach: 3751, likes: 57,  comments: 2, shares: 1, engagement: 1.7, cover: '/social/c8.jpg' },
+  { id: 'c9',  platform: 'instagram', format: 'reel', caption: "Label baru botol sirup ABC: 'jangan diminum langsung'",        date: '2026-05-28', time: '21:06', reach: 4478, likes: 151, comments: 0, shares: 5, engagement: 3.7, cover: '/social/c9.jpg' },
+  { id: 'c10', platform: 'instagram', format: 'reel', caption: 'Culture shock WNI ketemu komunitas Hijra di India',            date: '2026-05-28', time: '10:21', reach: 2912, likes: 35,  comments: 0, shares: 0, engagement: 1.3, cover: '/social/c10.jpg' },
+  { id: 'c11', platform: 'instagram', format: 'reel', caption: 'WNA kagum kereta cepat Indonesia yang bersih',                 date: '2026-05-27', time: '20:44', reach: 1295, likes: 24,  comments: 0, shares: 1, engagement: 2.1, cover: '/social/c11.jpg' },
+  { id: 'c12', platform: 'instagram', format: 'reel', caption: 'WNI di Dubai tinggal di bed space Rp2,4 juta/bulan',           date: '2026-05-26', time: '19:32', reach: 7693, likes: 73,  comments: 0, shares: 6, engagement: 1.1, cover: '/social/c12.jpg' },
 ]
 
-// ── Overview metrics (Instagram-Insights style) ──
-// views / interactions / accountsReached are REAL (last 28 days, via Composio
-// 2026-06-05). The remaining fields stay illustrative.
+// ── Overview metrics (Instagram-Insights style) — REAL, last 28 days via
+// Composio 2026-06-05. viewsFollowersPct = followers' share of views
+// (2.162 / 69.528 ≈ 3,1%). netFollowers from follows_and_unfollows.
 export const OVERVIEW = {
-  views: 69428, viewsFollowersPct: 65.2,
-  netFollowers: -39, follows: 37, unfollows: 76,
-  interactions: 12176, interactionsFollowersPct: 87.1,
-  shares: 312, sharesFollowersPct: 79.0,
-  accountsReached: 52981,
-  profileVisits: 677, externalLinkTaps: 12, bioLinkTaps: 0,
+  views: 69528, viewsFollowersPct: 3.1,
+  netFollowers: 460, follows: 671, unfollows: 211,
+  interactions: 12188,
+  likes: 10786, comments: 44, saves: 358,
+  shares: 381,
+  accountsReached: 53038,
+  profileVisits: 0, externalLinkTaps: 0, bioLinkTaps: 0,
 }
 
 export interface TypeBreakdown { type: string; total: number; followersPct: number }

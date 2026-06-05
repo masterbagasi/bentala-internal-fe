@@ -229,7 +229,7 @@ export function AnalyticsView({
         {view === 'overview' && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 16 }}>
-              <StatCard label={platform === 'all' ? 'Total Followers' : 'Followers'} value={fmtNum(followersForFilter)} delta="17.0% (12mg)" />
+              <StatCard label={platform === 'all' ? 'Total Followers' : 'Followers'} value={fmtNum(followersForFilter)} delta="460 (28 hari)" />
               <StatCard label="Konten (periode)" value={String(filtered.length)}
                 breakdown={
                   <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11.5, color: 'var(--text2)' }}>
@@ -243,8 +243,8 @@ export function AnalyticsView({
                     </span>
                   </div>
                 } />
-              <StatCard label="Total Reach" value={fmtNum(totalReach)} delta="22.3%" />
-              <StatCard label="Avg Engagement" value={avgEng.toFixed(1) + '%'} delta="1.6pts" />
+              <StatCard label="Total Reach" value={fmtNum(totalReach)} />
+              <StatCard label="Avg Engagement" value={avgEng.toFixed(1) + '%'} />
             </div>
 
             <OverviewStats />
