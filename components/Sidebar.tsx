@@ -345,31 +345,15 @@ export function Sidebar() {
         {
           type: 'subgroup', id: 'smm-bpi', label: 'Bentala Project',
           items: [
-            {
-              type: 'subgroup', id: 'smm-bpi-social', label: 'Social Media',
-              items: [
-                { href: '/bpi/social/accounts',  label: 'Accounts',  icon: <PeopleIcon />, color: COLOR.blue },
-                { href: '/bpi/social/analytics', label: 'Analytics', icon: <ChartIcon />,  color: COLOR.teal },
-                { href: '/bpi/social/reports',   label: 'Reports',   icon: <ReportIcon />, color: COLOR.orange },
-                { href: '/bpi/social/plan',      label: 'Plan',      icon: <CalIcon />,    color: COLOR.purple },
-              ],
-            },
-            { href: '/bpi', label: 'Projects', icon: <ListIcon />, color: COLOR.orange },
+            { href: '/bpi/social', label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
+            { href: '/bpi',        label: 'Projects',     icon: <ListIcon />,  color: COLOR.orange },
           ],
         },
         {
           type: 'subgroup', id: 'smm-bsi', label: 'Bentala Studio',
           items: [
-            {
-              type: 'subgroup', id: 'smm-bsi-social', label: 'Social Media',
-              items: [
-                { href: '/bsi/social/accounts',  label: 'Accounts',  icon: <PeopleIcon />, color: COLOR.blue },
-                { href: '/bsi/social/analytics', label: 'Analytics', icon: <ChartIcon />,  color: COLOR.teal },
-                { href: '/bsi/social/reports',   label: 'Reports',   icon: <ReportIcon />, color: COLOR.orange },
-                { href: '/bsi/social/plan',      label: 'Plan',      icon: <CalIcon />,    color: COLOR.purple },
-              ],
-            },
-            { href: '/bsi', label: 'Projects', icon: <ListIcon />, color: COLOR.purple },
+            { href: '/bsi/social', label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
+            { href: '/bsi',        label: 'Projects',     icon: <ListIcon />,  color: COLOR.purple },
           ],
         },
       ],
