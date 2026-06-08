@@ -1,6 +1,7 @@
 'use client'
 
 import { PipelineCard as PipelineCardType } from '@/lib/types'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const ENTITY_COLORS: Record<string, string> = {
   bpi: '#6c63ff',
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function PipelineCard({ card, onGenerateBrief, onOpenBuilder }: Props) {
+  const t = useT()
   const entityColor = ENTITY_COLORS[card.entity] ?? '#6c63ff'
 
   return (
@@ -76,7 +78,7 @@ export default function PipelineCard({ card, onGenerateBrief, onOpenBuilder }: P
 
       {card.stage === 'brief' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ fontSize: 10, color: 'var(--text2)' }}>Brief dalam proses produksi...</div>
+          <div style={{ fontSize: 10, color: 'var(--text2)' }}>{t('Brief dalam proses produksi...')}</div>
           <button
             onClick={() => onOpenBuilder(card)}
             style={{
@@ -90,7 +92,7 @@ export default function PipelineCard({ card, onGenerateBrief, onOpenBuilder }: P
               cursor: 'pointer',
             }}
           >
-            ✎ Buat Caption
+            ✎ {t('Buat Caption')}
           </button>
         </div>
       )}

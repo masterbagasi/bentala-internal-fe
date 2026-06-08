@@ -7,6 +7,7 @@ import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
 import { getSupabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const PRESETS = [
   { label: 'Hari Ini',    days: 0 },
@@ -22,6 +23,7 @@ interface TopbarProps {
 }
 
 export function Topbar({ page }: TopbarProps) {
+  const t = useT()
   const { dateRange, setDateRange } = useStore()
   const [open, setOpen] = useState(false)
   const showDateFilter = ['dashboard', 'bpi-analytics'].includes(page)
@@ -117,7 +119,7 @@ export function Topbar({ page }: TopbarProps) {
               >
                 <div style={{ padding: '8px 4px' }}>
                   <div className="text-[11px] uppercase tracking-widest px-3 pb-2" style={{ color: 'var(--text2)' }}>
-                    Periode
+                    {t('Periode')}
                   </div>
                   {PRESETS.map(p => (
                     <button
@@ -167,7 +169,7 @@ export function Topbar({ page }: TopbarProps) {
             ;(e.currentTarget as HTMLElement).style.color = 'var(--text2)'
           }}
         >
-          Keluar
+          {t('Keluar')}
         </button>
       </div>
     </div>

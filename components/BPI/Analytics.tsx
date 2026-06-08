@@ -4,10 +4,12 @@ import { useStore } from '@/hooks/useStore'
 import { POST_STATUS_LABELS, POST_STATUS_COLORS } from '@/lib/constants'
 import { useEffect, useRef } from 'react'
 import { Chart, registerables } from 'chart.js'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 Chart.register(...registerables)
 
 export function BPIAnalytics({ entity = 'bpi' }: { entity?: 'bpi' | 'bsi' }) {
+  const t = useT()
   const { posts, dateRange } = useStore()
   const chartRef = useRef<HTMLCanvasElement>(null)
   const chartInstance = useRef<Chart | null>(null)
@@ -75,7 +77,7 @@ export function BPIAnalytics({ entity = 'bpi' }: { entity?: 'bpi' | 'bsi' }) {
           { label: 'Instagram',   value: igPosts,           color: '#e1306c' },
           { label: 'TikTok',      value: ttPosts,           color: '#69c9d0' },
           { label: 'In Progress', value: (statusCounts['produksi'] || 0) + (statusCounts['brief'] || 0), color: '#5b9bd5' },
-          { label: 'Need Revisi', value: statusCounts['revisi'] || 0, color: '#a78bfa' },
+          { label: t('Need Revisi'), value: statusCounts['revisi'] || 0, color: '#a78bfa' },
         ].map(k => (
           <div key={k.label}
             style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
@@ -110,7 +112,7 @@ export function BPIAnalytics({ entity = 'bpi' }: { entity?: 'bpi' | 'bsi' }) {
             </div>
           ))}
           {Object.keys(statusCounts).length === 0 && (
-            <div style={{ fontSize: 12, color: 'var(--text2)', textAlign: 'center', padding: '20px 0' }}>Belum ada data</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', textAlign: 'center', padding: '20px 0' }}>{t('Belum ada data')}</div>
           )}
         </div>
       </div>

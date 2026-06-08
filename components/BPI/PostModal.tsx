@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { getSupabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { useLogActivity } from '@/hooks/useData'
 import { BPI_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
@@ -42,6 +43,7 @@ const DEFAULT_FORM = {
 }
 
 export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
+  const t = useT()
   const { posts, upsertPost } = useStore()
   const logActivity = useLogActivity()
   const [form, setForm] = useState(DEFAULT_FORM)
@@ -206,7 +208,7 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
   }
 
   async function handleSave() {
-    if (!form.title.trim()) { alert('Judul post wajib diisi!'); return }
+    if (!form.title.trim()) { alert(t('Judul post wajib diisi!')); return }
 
     setLoading(true)
     const supabase = getSupabase()
@@ -283,21 +285,21 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
     <Modal
       open={open}
       onClose={onClose}
-      title={editId ? 'Edit Post' : 'Tambah Post Baru'}
+      title={editId ? t('Edit Post') : t('Tambah Post Baru')}
       maxWidth={880}
       footer={
         <>
-          <BtnSecondary onClick={onClose}>Batal</BtnSecondary>
-          <BtnPrimary onClick={handleSave} loading={loading}>Simpan</BtnPrimary>
+          <BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary>
+          <BtnPrimary onClick={handleSave} loading={loading}>{t('Simpan')}</BtnPrimary>
         </>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {/* Title */}
-        <FormGroup label="Judul Post *">
+        <FormGroup label={t('Judul Post *')}>
           <input
             type="text"
-            placeholder="Judul konten..."
+            placeholder={t('Judul konten...')}
             value={form.title}
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
           />
@@ -305,13 +307,13 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
 
         {/* 2. Tanggal Posting + Status */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <FormGroup label="Tanggal Posting">
+          <FormGroup label={t('Tanggal Posting')}>
             <SingleDatePicker
               value={form.date}
               onChange={d => setForm(f => ({ ...f, date: d }))}
             />
           </FormGroup>
-          <FormGroup label="Status">
+          <FormGroup label={t('Status')}>
             <SingleDropdown
               options={statusCols.map((s: any) => ({ value: s.key, label: s.label }))}
               value={form.status}
@@ -322,17 +324,17 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
 
         {/* 3. Platform + Jenis Konten */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <FormGroup label="Platform">
+          <FormGroup label={t('Platform')}>
             <MultiDropdown
-              placeholder="Pilih platform..."
+              placeholder={t('Pilih platform...')}
               options={POST_PLATFORMS.map(p => ({ value: p.key, label: p.label, avatar: <PlatformIcon platform={p.key} /> }))}
               selected={form.platforms}
               onChange={next => setForm(f => ({ ...f, platforms: next as Platform[] }))}
             />
           </FormGroup>
-          <FormGroup label="Jenis Konten">
+          <FormGroup label={t('Jenis Konten')}>
             <MultiDropdown
-              placeholder="Pilih jenis konten..."
+              placeholder={t('Pilih jenis konten...')}
               options={[
                 { value: 'video', label: '🎬 Video', color: '#6c63ff' },
                 { value: 'design', label: '🎨 Design', color: '#43d9a2' },
@@ -345,17 +347,17 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
 
         {/* 4. Ratio + Tag Akun */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <FormGroup label="Ratio">
+          <FormGroup label={t('Ratio')}>
             <MultiDropdown
-              placeholder="Pilih ratio..."
+              placeholder={t('Pilih ratio...')}
               options={POST_RATIOS.map(r => ({ value: r.key, label: r.label, hint: r.hint }))}
               selected={form.ratio ? form.ratio.split(',').map(s => s.trim()).filter(Boolean) : []}
               onChange={next => setForm(f => ({ ...f, ratio: next.join(', ') }))}
             />
           </FormGroup>
-          <FormGroup label="Tag Akun">
+          <FormGroup label={t('Tag Akun')}>
             <MultiDropdown
-              placeholder={accounts.length ? 'Pilih akun...' : 'Memuat akun...'}
+              placeholder={accounts.length ? t('Pilih akun...') : t('Memuat akun...')}
               options={accounts.map(a => ({
                 value: a.email,
                 label: a.email === currentUserEmail ? `${a.name} (You)` : a.name,
@@ -369,10 +371,10 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
         </div>
 
         {/* Brief (above Caption) */}
-        <FormGroup label="Brief">
+        <FormGroup label={t('Brief')}>
           <textarea
             rows={4}
-            placeholder="Tulis brief konten (konsep, referensi, arahan untuk tim)..."
+            placeholder={t('Tulis brief konten (konsep, referensi, arahan untuk tim)...')}
             value={form.brief}
             onChange={e => setForm(f => ({ ...f, brief: e.target.value }))}
             style={{ fontFamily: 'inherit', resize: 'vertical' }}
@@ -380,10 +382,10 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
         </FormGroup>
 
         {/* Caption */}
-        <FormGroup label="Caption">
+        <FormGroup label={t('Caption')}>
           <textarea
             rows={4}
-            placeholder="Tulis caption konten..."
+            placeholder={t('Tulis caption konten...')}
             value={form.caption}
             onChange={e => setForm(f => ({ ...f, caption: e.target.value }))}
             style={{ fontFamily: 'inherit', resize: 'vertical' }}
@@ -391,7 +393,7 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
         </FormGroup>
 
         {/* 6. Hashtags — auto '#' on space */}
-        <FormGroup label="Hashtags">
+        <FormGroup label={t('Hashtags')}>
           <input
             type="text"
             placeholder="#bentala #konten ..."
@@ -402,21 +404,21 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
         </FormGroup>
 
         {/* 7. Notes */}
-        <FormGroup label="Catatan Internal">
+        <FormGroup label={t('Catatan Internal')}>
           <textarea
             rows={3}
-            placeholder="Catatan untuk tim..."
+            placeholder={t('Catatan untuk tim...')}
             value={form.notes}
             onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
           />
         </FormGroup>
 
         {/* 8. Lampiran File — link atau upload */}
-        <FormGroup label="Lampiran File">
+        <FormGroup label={t('Lampiran File')}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             <input
               type="url"
-              placeholder="Tempel link (Drive / Figma / dll)..."
+              placeholder={t('Tempel link (Drive / Figma / dll)...')}
               value={linkInput}
               onChange={e => setLinkInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLink() } }}

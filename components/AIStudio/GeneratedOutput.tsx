@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 
 interface GeneratedData {
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export default function GeneratedOutput({ data, platform, inputText }: Props) {
+  const t = useT()
   const [exporting, setExporting] = useState<'bpi' | 'bsi' | null>(null)
   const [exported, setExported] = useState<string | null>(null)
 
@@ -90,7 +92,7 @@ export default function GeneratedOutput({ data, platform, inputText }: Props) {
         <div style={{ ...fieldStyle, color: 'var(--accent)', fontSize: 12 }}>{data.hashtags}</div>
       </div>
       <div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Script Video</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{t('Script Video')}</div>
         <div style={fieldStyle}>{data.script}</div>
       </div>
       <div style={{
@@ -105,12 +107,12 @@ export default function GeneratedOutput({ data, platform, inputText }: Props) {
         color: 'var(--text2)',
       }}>
         <span>🕐</span>
-        <span>Waktu terbaik: <strong style={{ color: 'var(--text)' }}>{data.posting_time}</strong></span>
+        <span>{t('Waktu terbaik:')} <strong style={{ color: 'var(--text)' }}>{data.posting_time}</strong></span>
       </div>
 
       {exported && (
         <div style={{ padding: '10px 14px', background: 'rgba(67,217,162,0.1)', border: '1px solid var(--accent3)', borderRadius: 8, color: 'var(--accent3)', fontSize: 13, fontWeight: 600 }}>
-          ✓ Berhasil dikirim ke {exported} sebagai draft post
+          ✓ {t('Berhasil dikirim ke')} {exported} {t('sebagai draft post')}
         </div>
       )}
 
@@ -129,7 +131,7 @@ export default function GeneratedOutput({ data, platform, inputText }: Props) {
             cursor: exporting || exported ? 'not-allowed' : 'pointer',
           }}
         >
-          {exporting === 'bpi' ? 'Mengirim...' : 'Kirim ke BPI'}
+          {exporting === 'bpi' ? t('Mengirim...') : t('Kirim ke BPI')}
         </button>
         <button
           onClick={() => exportTo('bsi')}
@@ -145,7 +147,7 @@ export default function GeneratedOutput({ data, platform, inputText }: Props) {
             cursor: exporting || exported ? 'not-allowed' : 'pointer',
           }}
         >
-          {exporting === 'bsi' ? 'Mengirim...' : 'Kirim ke BSI'}
+          {exporting === 'bsi' ? t('Mengirim...') : t('Kirim ke BSI')}
         </button>
         <button
           onClick={copyAll}
@@ -160,7 +162,7 @@ export default function GeneratedOutput({ data, platform, inputText }: Props) {
             cursor: 'pointer',
           }}
         >
-          Salin Caption + Hashtag
+          {t('Salin Caption + Hashtag')}
         </button>
       </div>
     </div>

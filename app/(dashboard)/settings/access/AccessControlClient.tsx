@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { AccountEditModal } from './AccountEditModal'
 import { getSupabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // ── Types (mirror /api/access GET response) ──
 interface SectionMeta {
@@ -48,6 +49,7 @@ function initials(name: string): string {
 }
 
 export default function AccessControlClient() {
+  const t = useT()
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [sections, setSections] = useState<SectionMeta[]>([])
@@ -124,7 +126,7 @@ export default function AccessControlClient() {
   useEffect(() => {
     let cancelled = false
     reload(false)
-      .catch(() => { if (!cancelled) setLoadError('Gagal memuat data akses. Pastikan Anda super admin.') })
+      .catch(() => { if (!cancelled) setLoadError(t('Gagal memuat data akses. Pastikan Anda super admin.')) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -132,9 +134,9 @@ export default function AccessControlClient() {
 
   async function addAccount() {
     setAddError('')
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) { setAddError('Email tidak valid'); return }
-    if (newPassword.length < 6) { setAddError('Password minimal 6 karakter'); return }
-    if (newPassword !== newPassword2) { setAddError('Password tidak sama dengan pengulangannya'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) { setAddError(t('Email tidak valid')); return }
+    if (newPassword.length < 6) { setAddError(t('Password minimal 6 karakter')); return }
+    if (newPassword !== newPassword2) { setAddError(t('Password tidak sama dengan pengulangannya')); return }
     setAddBusy(true)
     try {
       const r = await fetch('/api/access/account', {
@@ -143,11 +145,11 @@ export default function AccessControlClient() {
         body: JSON.stringify({ email: newEmail.trim(), password: newPassword }),
       })
       const data = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(data.error || 'Gagal membuat akun')
+      if (!r.ok) throw new Error(data.error || t('Gagal membuat akun'))
       await reload(true)
       setShowAdd(false); setNewEmail(''); setNewPassword(''); setNewPassword2('')
     } catch (e) {
-      setAddError(e instanceof Error ? e.message : 'Gagal membuat akun')
+      setAddError(e instanceof Error ? e.message : t('Gagal membuat akun'))
     } finally {
       setAddBusy(false)
     }
@@ -156,8 +158,8 @@ export default function AccessControlClient() {
   async function submitPassword() {
     if (!pwEmail) return
     setPwError('')
-    if (pw1.length < 6) { setPwError('Password minimal 6 karakter'); return }
-    if (pw1 !== pw2) { setPwError('Password tidak sama dengan pengulangannya'); return }
+    if (pw1.length < 6) { setPwError(t('Password minimal 6 karakter')); return }
+    if (pw1 !== pw2) { setPwError(t('Password tidak sama dengan pengulangannya')); return }
     setPwBusy(true)
     try {
       if (pwEmail.toLowerCase() === me) {
@@ -171,12 +173,12 @@ export default function AccessControlClient() {
           body: JSON.stringify({ email: pwEmail, password: pw1 }),
         })
         const data = await r.json().catch(() => ({}))
-        if (!r.ok) throw new Error(data.error || 'Gagal mengganti password')
+        if (!r.ok) throw new Error(data.error || t('Gagal mengganti password'))
       }
       setPwDone(true)
       setTimeout(() => closePwModal(), 1200)
     } catch (e) {
-      setPwError(e instanceof Error ? e.message : 'Gagal mengganti password')
+      setPwError(e instanceof Error ? e.message : t('Gagal mengganti password'))
     } finally {
       setPwBusy(false)
     }
@@ -264,7 +266,7 @@ export default function AccessControlClient() {
     }
   }
 
-  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: 8 }}>Memuat…</div>
+  if (loading) return <div style={{ color: 'var(--text2)', fontSize: 13, padding: 8 }}>{t('Memuat…')}</div>
   if (loadError) return <div style={{ color: '#f87171', fontSize: 13, padding: 8 }}>{loadError}</div>
 
   const editUser = users.find(u => u.email === editEmail) ?? null
@@ -278,14 +280,14 @@ export default function AccessControlClient() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
-            type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari akun…"
+            type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Cari akun…')}
             style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, minWidth: 180, outline: 'none' }}
           />
           <button
             onClick={openAddModal}
             style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
-            + Tambah Akun
+            + {t('Tambah Akun')}
           </button>
         </div>
       </div>
@@ -294,11 +296,11 @@ export default function AccessControlClient() {
       <Modal
         open={showAdd}
         onClose={() => setShowAdd(false)}
-        title="Tambah Akun Baru"
+        title={t('Tambah Akun Baru')}
         footer={
           <>
-            <BtnSecondary onClick={() => setShowAdd(false)} disabled={addBusy}>Batal</BtnSecondary>
-            <BtnPrimary onClick={addAccount} loading={addBusy}>Buat Akun</BtnPrimary>
+            <BtnSecondary onClick={() => setShowAdd(false)} disabled={addBusy}>{t('Batal')}</BtnSecondary>
+            <BtnPrimary onClick={addAccount} loading={addBusy}>{t('Buat Akun')}</BtnPrimary>
           </>
         }
       >
@@ -312,8 +314,8 @@ export default function AccessControlClient() {
               style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
             />
           </div>
-          <PasswordField label="Password" value={newPassword} onChange={setNewPassword} show={showNp1} onToggleShow={() => setShowNp1(s => !s)} placeholder="Minimal 6 karakter" onEnter={addAccount} />
-          <PasswordField label="Ulangi Password" value={newPassword2} onChange={setNewPassword2} show={showNp2} onToggleShow={() => setShowNp2(s => !s)} placeholder="Ketik ulang password" onEnter={addAccount} />
+          <PasswordField label={t('Password')} value={newPassword} onChange={setNewPassword} show={showNp1} onToggleShow={() => setShowNp1(s => !s)} placeholder={t('Minimal 6 karakter')} onEnter={addAccount} />
+          <PasswordField label={t('Ulangi Password')} value={newPassword2} onChange={setNewPassword2} show={showNp2} onToggleShow={() => setShowNp2(s => !s)} placeholder={t('Ketik ulang password')} onEnter={addAccount} />
           {addError && <div style={{ fontSize: 12, color: '#f87171' }}>{addError}</div>}
         </div>
       </Modal>
@@ -347,17 +349,17 @@ export default function AccessControlClient() {
                   onClick={() => setEditEmail(u.email)}
                   style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
                 >
-                  Atur Akses
+                  {t('Atur Akses')}
                 </button>
-                <button onClick={() => setProfileUser(u)} style={quickBtnStyle}>Edit Akun</button>
-                <button onClick={() => openPwModal(u.email)} style={quickBtnStyle}>Ubah Password</button>
+                <button onClick={() => setProfileUser(u)} style={quickBtnStyle}>{t('Edit Akun')}</button>
+                <button onClick={() => openPwModal(u.email)} style={quickBtnStyle}>{t('Ubah Password')}</button>
               </div>
             </div>
           )
         })}
 
         {filteredUsers.length === 0 && (
-          <div style={{ color: 'var(--text2)', fontSize: 13, textAlign: 'center', padding: 20 }}>Tidak ada akun yang cocok.</div>
+          <div style={{ color: 'var(--text2)', fontSize: 13, textAlign: 'center', padding: 20 }}>{t('Tidak ada akun yang cocok.')}</div>
         )}
       </div>
 
@@ -367,22 +369,22 @@ export default function AccessControlClient() {
         onClose={closeEditModal}
         wide
         maxWidth={760}
-        title="Atur Akses"
+        title={t('Atur Akses')}
         headerRight={
           editEmail ? (
             <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={() => setAll(editEmail, true)} style={groupBtnStyle}>Pilih semua</button>
-              <button onClick={() => setAll(editEmail, false)} style={groupBtnStyle}>Kosongkan</button>
+              <button onClick={() => setAll(editEmail, true)} style={groupBtnStyle}>{t('Pilih semua')}</button>
+              <button onClick={() => setAll(editEmail, false)} style={groupBtnStyle}>{t('Kosongkan')}</button>
             </div>
           ) : undefined
         }
         footer={
           <>
-            {editSt === 'saved' && <span style={{ fontSize: 12, color: '#34d399', marginRight: 'auto' }}>Tersimpan ✓</span>}
-            {editSt === 'error' && <span style={{ fontSize: 12, color: '#f87171', marginRight: 'auto' }}>Gagal menyimpan</span>}
-            <BtnSecondary onClick={closeEditModal}>Tutup</BtnSecondary>
+            {editSt === 'saved' && <span style={{ fontSize: 12, color: '#34d399', marginRight: 'auto' }}>{t('Tersimpan ✓')}</span>}
+            {editSt === 'error' && <span style={{ fontSize: 12, color: '#f87171', marginRight: 'auto' }}>{t('Gagal menyimpan')}</span>}
+            <BtnSecondary onClick={closeEditModal}>{t('Tutup')}</BtnSecondary>
             <BtnPrimary onClick={() => editEmail && save(editEmail)} loading={editSt === 'saving'} disabled={!editDirty}>
-              Simpan
+              {t('Simpan')}
             </BtnPrimary>
           </>
         }
@@ -413,7 +415,7 @@ export default function AccessControlClient() {
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{group}</div>
                   <span style={{ fontSize: 10.5, fontWeight: 600, color: selCount ? 'var(--accent)' : 'var(--text3)', background: selCount ? 'rgba(108,99,255,0.12)' : 'var(--bg3)', border: `1px solid ${selCount ? 'rgba(108,99,255,0.3)' : 'var(--border)'}`, borderRadius: 999, padding: '1px 8px' }}>{selCount}/{groupIds.length}</span>
                   <button onClick={() => editEmail && setGroupAll(editEmail, group, !allOn)} style={{ ...groupBtnStyle, marginLeft: 'auto' }}>
-                    {allOn ? 'Kosongkan' : 'Pilih semua'}
+                    {allOn ? t('Kosongkan') : t('Pilih semua')}
                   </button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -449,24 +451,24 @@ export default function AccessControlClient() {
       <Modal
         open={pwEmail !== null}
         onClose={closePwModal}
-        title="Ubah Password"
+        title={t('Ubah Password')}
         footer={
           <>
-            <BtnSecondary onClick={closePwModal} disabled={pwBusy}>Batal</BtnSecondary>
+            <BtnSecondary onClick={closePwModal} disabled={pwBusy}>{t('Batal')}</BtnSecondary>
             <BtnPrimary onClick={submitPassword} loading={pwBusy} disabled={pwDone}>
-              {pwDone ? 'Tersimpan ✓' : 'Simpan Password'}
+              {pwDone ? t('Tersimpan ✓') : t('Simpan Password')}
             </BtnPrimary>
           </>
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ fontSize: 12, color: 'var(--text2)' }}>
-            Akun: <span style={{ color: 'var(--text)', fontWeight: 600 }}>{pwEmail}</span>
+            {t('Akun:')} <span style={{ color: 'var(--text)', fontWeight: 600 }}>{pwEmail}</span>
           </div>
-          <PasswordField label="Password baru" value={pw1} onChange={setPw1} show={show1} onToggleShow={() => setShow1(s => !s)} placeholder="Minimal 6 karakter" onEnter={submitPassword} />
-          <PasswordField label="Ulangi password" value={pw2} onChange={setPw2} show={show2} onToggleShow={() => setShow2(s => !s)} placeholder="Ketik ulang password baru" onEnter={submitPassword} />
+          <PasswordField label={t('Password baru')} value={pw1} onChange={setPw1} show={show1} onToggleShow={() => setShow1(s => !s)} placeholder={t('Minimal 6 karakter')} onEnter={submitPassword} />
+          <PasswordField label={t('Ulangi password')} value={pw2} onChange={setPw2} show={show2} onToggleShow={() => setShow2(s => !s)} placeholder={t('Ketik ulang password baru')} onEnter={submitPassword} />
           {pwError && <div style={{ fontSize: 12, color: '#f87171' }}>{pwError}</div>}
-          {pwDone && <div style={{ fontSize: 12, color: '#34d399' }}>Password berhasil diganti ✓</div>}
+          {pwDone && <div style={{ fontSize: 12, color: '#34d399' }}>{t('Password berhasil diganti ✓')}</div>}
         </div>
       </Modal>
     </div>
@@ -506,6 +508,7 @@ function PasswordField({
   placeholder?: string
   onEnter?: () => void
 }) {
+  const t = useT()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{label}</label>
@@ -521,7 +524,7 @@ function PasswordField({
         />
         <button
           type="button" onClick={onToggleShow}
-          aria-label={show ? 'Sembunyikan password' : 'Lihat password'} title={show ? 'Sembunyikan' : 'Lihat'}
+          aria-label={show ? t('Sembunyikan password') : t('Lihat password')} title={show ? t('Sembunyikan') : t('Lihat')}
           style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: 'var(--text2)', cursor: 'pointer' }}
         >
           {show ? (

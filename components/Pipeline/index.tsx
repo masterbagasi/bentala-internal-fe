@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { usePipelineData } from '@/hooks/usePipelineData'
 import { PipelineList } from './PipelineList'
@@ -19,6 +20,7 @@ interface PipelinePageProps {
 export function PipelinePage({ member, stages }: PipelinePageProps) {
   usePipelineData(member)
 
+  const t = useT()
   const { pipelineItems } = useStore()
   const [tab, setTab] = useState<PipelineTab>('pipeline')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -38,17 +40,17 @@ export function PipelinePage({ member, stages }: PipelinePageProps) {
         borderBottom: '1px solid var(--border)', padding: '0 24px',
         background: 'var(--bg)', position: 'sticky', top: 0, zIndex: 10,
       }}>
-        {(['pipeline', 'summary'] as PipelineTab[]).map(t => (
-          <button key={t} onClick={() => setTab(t)}
+        {(['pipeline', 'summary'] as PipelineTab[]).map(tk => (
+          <button key={tk} onClick={() => setTab(tk)}
             style={{
               padding: '10px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 500,
-              color: tab === t ? 'var(--accent)' : 'var(--text2)',
+              color: tab === tk ? 'var(--accent)' : 'var(--text2)',
               background: 'none', border: 'none',
-              borderBottom: `2px solid ${tab === t ? 'var(--accent)' : 'transparent'}`,
+              borderBottom: `2px solid ${tab === tk ? 'var(--accent)' : 'transparent'}`,
               marginBottom: -1, transition: 'all 0.15s', textTransform: 'capitalize',
             }}
           >
-            {t === 'pipeline' ? 'Pipeline' : 'Ringkasan'}
+            {tk === 'pipeline' ? 'Pipeline' : t('Ringkasan')}
           </button>
         ))}
       </div>
@@ -78,12 +80,12 @@ export function PipelinePage({ member, stages }: PipelinePageProps) {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text2)', flexDirection: 'column', gap: 12 }}>
                 <div style={{ fontSize: 40 }}>🎬</div>
-                <div style={{ fontSize: 14 }}>Belum ada konten pipeline</div>
+                <div style={{ fontSize: 14 }}>{t('Belum ada konten pipeline')}</div>
                 <button
                   onClick={() => setShowAdd(true)}
                   style={{ padding: '8px 18px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}
                 >
-                  + Tambah Konten Pertama
+                  {t('+ Tambah Konten Pertama')}
                 </button>
               </div>
             )}

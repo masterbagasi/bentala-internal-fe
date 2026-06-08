@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { StageData } from '@/lib/types'
 import type { PipelineStage } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface StageCardProps {
   stageDef: PipelineStage
@@ -13,6 +14,7 @@ interface StageCardProps {
 }
 
 export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCardProps) {
+  const t = useT()
   const [expanded, setExpanded] = useState(stageData.status === 'in_progress')
   const [newCheckText, setNewCheckText] = useState('')
   const [showFileForm, setShowFileForm] = useState(false)
@@ -103,17 +105,17 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
 
         {stageData.status === 'done' && (
           <span style={{ fontSize: 11, color: '#43d9a2', fontWeight: 600 }}>
-            ✓ Selesai {stageData.completed_at ? `· ${formatDate(stageData.completed_at.slice(0, 10))}` : ''}
+            ✓ {t('Selesai')} {stageData.completed_at ? `· ${formatDate(stageData.completed_at.slice(0, 10))}` : ''}
           </span>
         )}
         {stageData.status === 'in_progress' && (
           <span style={{ fontSize: 11, color: '#ffc542', fontWeight: 600 }}>
-            ⟳ Berjalan
+            ⟳ {t('Berjalan')}
             {totalChecks > 0 && ` · ${doneChecks}/${totalChecks}`}
           </span>
         )}
         {stageData.status === 'pending' && isUnlocked && (
-          <span style={{ fontSize: 11, color: 'var(--text2)' }}>○ Belum mulai</span>
+          <span style={{ fontSize: 11, color: 'var(--text2)' }}>○ {t('Belum mulai')}</span>
         )}
 
         {isUnlocked && (
@@ -127,7 +129,7 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
       {/* Locked */}
       {!isUnlocked && (
         <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--text2)', fontStyle: 'italic' }}>
-          Stage sebelumnya belum selesai
+          {t('Stage sebelumnya belum selesai')}
         </div>
       )}
 
@@ -138,13 +140,13 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
           {/* Notes */}
           <div>
             <div style={{ fontSize: 11, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
-              Catatan
+              {t('Catatan')}
             </div>
             <textarea
               key={stageData.notes}
               defaultValue={stageData.notes}
               onBlur={e => handleNotesBlur(e.target.value)}
-              placeholder="Tambah catatan..."
+              placeholder={t('Tambah catatan...')}
               rows={2}
               style={{ fontFamily: 'inherit', fontSize: 13, resize: 'vertical' }}
             />
@@ -181,7 +183,7 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
                 value={newCheckText}
                 onChange={e => setNewCheckText(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCheck() } }}
-                placeholder="+ Tambah checklist (Enter untuk simpan)"
+                placeholder={t('+ Tambah checklist (Enter untuk simpan)')}
                 style={{ fontSize: 12, padding: '5px 8px' }}
               />
             </div>
@@ -216,7 +218,7 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
                 <input
                   value={newFileLabel}
                   onChange={e => setNewFileLabel(e.target.value)}
-                  placeholder="Label (contoh: Script Doc)"
+                  placeholder={t('Label (contoh: Script Doc)')}
                   style={{ fontSize: 12, padding: '5px 8px' }}
                 />
                 <input
@@ -228,11 +230,11 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={addFile}
                     style={{ fontSize: 12, padding: '5px 14px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
-                    Tambah
+                    {t('Tambah')}
                   </button>
                   <button onClick={() => { setShowFileForm(false); setNewFileLabel(''); setNewFileUrl('') }}
                     style={{ fontSize: 12, padding: '5px 14px', background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer' }}>
-                    Batal
+                    {t('Batal')}
                   </button>
                 </div>
               </div>
@@ -241,7 +243,7 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
                 onClick={() => setShowFileForm(true)}
                 style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
               >
-                + Tambah file / link
+                {t('+ Tambah file / link')}
               </button>
             )}
           </div>
@@ -257,7 +259,7 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
                   cursor: 'pointer', fontSize: 13, color: stageDef.color, fontWeight: 600,
                 }}
               >
-                Mulai Stage
+                {t('Mulai Stage')}
               </button>
             )}
             {stageData.status === 'in_progress' && (
@@ -269,7 +271,7 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
                   cursor: 'pointer', fontSize: 13, color: '#43d9a2', fontWeight: 600,
                 }}
               >
-                ✓ Tandai Selesai
+                ✓ {t('Tandai Selesai')}
               </button>
             )}
             {stageData.status === 'done' && (
@@ -281,7 +283,7 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
                   cursor: 'pointer', fontSize: 12, color: 'var(--text2)',
                 }}
               >
-                Buka Kembali
+                {t('Buka Kembali')}
               </button>
             )}
           </div>

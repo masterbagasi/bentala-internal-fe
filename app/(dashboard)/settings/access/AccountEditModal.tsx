@@ -5,6 +5,7 @@ import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { getSupabase } from '@/lib/supabase'
 import { CropModal } from './CropModal'
 import type { AccessUser } from './AccessControlClient'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const sb = () => getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
 
@@ -25,6 +26,7 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
   /** Allow a super admin to change this account's role (Admin / Super Admin). */
   canEditRole?: boolean
 }) {
+  const t = useT()
   const [name, setName] = useState(user.name)
   const [email, setEmail] = useState(user.email)
   const [phone, setPhone] = useState(user.phone)
@@ -54,21 +56,23 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
     if (self) {
       const { data: au } = await sb().auth.getUser()
       const id = au.user?.id
-      if (!id) throw new Error('Sesi tidak ditemukan')
-      const path = `${id}/avatar-${Date.now()}.${ext}`
-      const { error: upErr } = await sb().storage.from('avatars').upload(path, avatarFile, { upsert: true, contentType: avatarFile.type })
-      if (upErr) throw new Error('Gagal upload foto: ' + upErr.message)
-      return sb().storage.from('avatars').getPublicUrl(path).data.publicUrl
+      if (!id) throw new Error(t('Sesi tidak ditemukan'))
+      // Reuse the existing public bucket (its RLS already allows any
+      // authenticated user to upload). Scope by user id to avoid clashes.
+      const path = `avatars/${id}/avatar-${Date.now()}.${ext}`
+      const { error: upErr } = await sb().storage.from('bsi-website').upload(path, avatarFile, { upsert: true, contentType: avatarFile.type })
+      if (upErr) throw new Error(t('Gagal upload foto: ') + upErr.message)
+      return sb().storage.from('bsi-website').getPublicUrl(path).data.publicUrl
     }
     const path = `avatars/${user.email.replace(/[^a-z0-9]/gi, '_')}-${Date.now()}.${ext}`
     const { error: upErr } = await sb().storage.from('bsi-website').upload(path, avatarFile, { upsert: true, contentType: avatarFile.type })
-    if (upErr) throw new Error('Gagal upload foto: ' + upErr.message)
+    if (upErr) throw new Error(t('Gagal upload foto: ') + upErr.message)
     return sb().storage.from('bsi-website').getPublicUrl(path).data.publicUrl
   }
 
   async function save() {
     setError('')
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Email tidak valid'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError(t('Email tidak valid')); return }
     setBusy(true)
     try {
       let finalAvatar = avatarUrl
@@ -93,13 +97,13 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
           }),
         })
         const data = await r.json().catch(() => ({}))
-        if (!r.ok) throw new Error(data.error || 'Gagal menyimpan')
+        if (!r.ok) throw new Error(data.error || t('Gagal menyimpan'))
       }
 
       setDone(true)
       setTimeout(() => onSaved(), 700)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal menyimpan')
+      setError(e instanceof Error ? e.message : t('Gagal menyimpan'))
     } finally {
       setBusy(false)
     }
@@ -114,13 +118,13 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
       onClose={onClose}
       wide
       maxWidth={620}
-      title="Edit Akun"
+      title={t('Edit Akun')}
       footer={
         <>
-          {done && <span style={{ fontSize: 12.5, color: '#34d399', marginRight: 'auto' }}>Tersimpan ✓</span>}
+          {done && <span style={{ fontSize: 12.5, color: '#34d399', marginRight: 'auto' }}>{t('Tersimpan ✓')}</span>}
           {error && <span style={{ fontSize: 12.5, color: '#f87171', marginRight: 'auto' }}>{error}</span>}
-          <BtnSecondary onClick={onClose} disabled={busy}>Tutup</BtnSecondary>
-          <BtnPrimary onClick={save} loading={busy}>Simpan Perubahan</BtnPrimary>
+          <BtnSecondary onClick={onClose} disabled={busy}>{t('Tutup')}</BtnSecondary>
+          <BtnPrimary onClick={save} loading={busy}>{t('Simpan Perubahan')}</BtnPrimary>
         </>
       }
     >
@@ -130,7 +134,7 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <div
               onClick={() => { if (shownAvatar) setPreview(true) }}
-              title={shownAvatar ? 'Lihat foto' : undefined}
+              title={shownAvatar ? t('Lihat foto') : undefined}
               style={{
                 width: 72, height: 72, borderRadius: '50%', overflow: 'hidden',
                 background: shownAvatar ? 'var(--bg3)' : 'linear-gradient(135deg,#6c63ff,#a855f7)',
@@ -146,7 +150,7 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
             </div>
             <button
               onClick={() => fileRef.current?.click()}
-              title="Ganti foto"
+              title={t('Ganti foto')}
               style={{
                 position: 'absolute', right: -2, bottom: -2, width: 28, height: 28, borderRadius: '50%',
                 border: '2px solid var(--bg2)', background: 'var(--accent)', color: '#fff',
@@ -162,8 +166,8 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name || '—'}</div>
             <div style={{ fontSize: 12.5, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
             <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button onClick={() => fileRef.current?.click()} style={btnGhost}>Ganti Foto</button>
-              {shownAvatar && <button onClick={() => { setAvatarFile(null); setAvatarPreview(null); setAvatarUrl(null) }} style={btnGhostMuted}>Hapus</button>}
+              <button onClick={() => fileRef.current?.click()} style={btnGhost}>{t('Ganti Foto')}</button>
+              {shownAvatar && <button onClick={() => { setAvatarFile(null); setAvatarPreview(null); setAvatarUrl(null) }} style={btnGhostMuted}>{t('Hapus')}</button>}
             </div>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; if (f) setCropFile(f); e.currentTarget.value = '' }} />
           </div>
@@ -172,20 +176,20 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
         <Divider />
 
         {/* Profile */}
-        <Section title="Profil">
+        <Section title={t('Profil')}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <Field label="Nama lengkap"><Input value={name} onChange={setName} placeholder="Nama lengkap" /></Field>
+            <Field label={t('Nama lengkap')}><Input value={name} onChange={setName} placeholder={t('Nama lengkap')} /></Field>
             <Field label="Email">
               <Input value={email} onChange={setEmail} type="email" placeholder="email@masterbagasi.com" />
               {self && email.trim() !== user.email && (
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Link konfirmasi akan dikirim ke email baru.</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>{t('Link konfirmasi akan dikirim ke email baru.')}</div>
               )}
             </Field>
-            <Field label="Nomor telepon"><Input value={phone} onChange={setPhone} placeholder="08xxxxxxxxxx" /></Field>
-            <Field label="Jabatan / posisi"><Input value={position} onChange={setPosition} placeholder="mis. Videographer" /></Field>
+            <Field label={t('Nomor telepon')}><Input value={phone} onChange={setPhone} placeholder="08xxxxxxxxxx" /></Field>
+            <Field label={t('Jabatan / posisi')}><Input value={position} onChange={setPosition} placeholder={t('mis. Videographer')} /></Field>
             {canEditRole && (
               <div style={{ gridColumn: '1 / -1' }}>
-                <Field label="Peran (role)">
+                <Field label={t('Peran (role)')}>
                   <div style={{ display: 'flex', gap: 8 }}>
                     {([['super_admin', 'Super Admin'], ['admin', 'Admin'], ['user', 'User']] as const).map(([r, lbl]) => (
                       <button
@@ -211,10 +215,10 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
         <Divider />
 
         {/* Info */}
-        <Section title="Info Akun">
+        <Section title={t('Info Akun')}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <InfoCell label="Tanggal bergabung" value={fmtDate(user.createdAt)} />
-            <InfoCell label="Login terakhir" value={fmtDate(user.lastSignInAt)} />
+            <InfoCell label={t('Tanggal bergabung')} value={fmtDate(user.createdAt)} />
+            <InfoCell label={t('Login terakhir')} value={fmtDate(user.lastSignInAt)} />
           </div>
         </Section>
       </div>
@@ -229,7 +233,7 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
           <img src={shownAvatar} alt="" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12, boxShadow: '0 12px 48px rgba(0,0,0,0.6)' }} />
           <button
             onClick={(e) => { e.stopPropagation(); setPreview(false) }}
-            aria-label="Tutup"
+            aria-label={t('Tutup')}
             style={{ position: 'absolute', top: 18, right: 22, width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.12)', color: '#fff', fontSize: 20, cursor: 'pointer' }}
           >
             ✕

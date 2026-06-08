@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { PipelineItem } from '@/lib/types'
 import type { PipelineStage } from '@/lib/constants'
 
@@ -15,6 +16,7 @@ interface PipelineListProps {
 }
 
 export function PipelineList({ items, stages, selectedId, onSelect, onAddClick }: PipelineListProps) {
+  const t = useT()
   const [filter, setFilter] = useState<FilterType>('all')
 
   const filtered = items.filter(item => {
@@ -29,7 +31,7 @@ export function PipelineList({ items, stages, selectedId, onSelect, onAddClick }
       <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-            Konten ({items.length})
+            {t('Konten')} ({items.length})
           </span>
           <button
             onClick={onAddClick}
@@ -39,16 +41,16 @@ export function PipelineList({ items, stages, selectedId, onSelect, onAddClick }
               border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 500,
             }}
           >
-            + Tambah
+            + {t('Tambah')}
           </button>
         </div>
 
         {/* Filter tabs */}
         <div style={{ display: 'flex', gap: 4 }}>
           {([
-            { key: 'all', label: 'Semua' },
-            { key: 'source', label: 'Dari BPI/BSI' },
-            { key: 'manual', label: 'Mandiri' },
+            { key: 'all', label: t('Semua') },
+            { key: 'source', label: t('Dari BPI/BSI') },
+            { key: 'manual', label: t('Mandiri') },
           ] as { key: FilterType; label: string }[]).map(f => (
             <button
               key={f.key}
@@ -71,7 +73,7 @@ export function PipelineList({ items, stages, selectedId, onSelect, onAddClick }
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {filtered.length === 0 ? (
           <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text2)', fontSize: 13 }}>
-            Belum ada konten
+            {t('Belum ada konten')}
           </div>
         ) : filtered.map(item => {
           const stageDef = stages.find(s => s.key === item.current_stage)

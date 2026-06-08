@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export interface Provider {
   key: 'leonardo' | 'dalle' | 'stability' | 'higgsfield'
@@ -157,6 +158,7 @@ interface Props {
 }
 
 export default function ImageProviderSettings({ onClose }: Props) {
+  const t = useT()
   const { keys, saveKey, removeKey } = useProviderSettings()
   const [inputs, setInputs] = useState<Record<string, string>>({})
   const [visible, setVisible] = useState<Record<string, boolean>>({})
@@ -180,8 +182,8 @@ export default function ImageProviderSettings({ onClose }: Props) {
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Pengaturan Provider Gambar</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>API key disimpan di browser kamu, tidak dikirim ke server kami.</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{t('Pengaturan Provider Gambar')}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{t('API key disimpan di browser kamu, tidak dikirim ke server kami.')}</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text2)', fontSize: 20, cursor: 'pointer', padding: 4 }}>×</button>
         </div>
@@ -223,10 +225,10 @@ export default function ImageProviderSettings({ onClose }: Props) {
                   borderRadius: 6,
                 }}>
                   <div style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.5 }}>
-                    Key dikelola via <strong style={{ color: 'var(--text)' }}>Settings → AI Integrations</strong>. Generate akan otomatis pakai key tsb.
+                    {t('Key dikelola via')} <strong style={{ color: 'var(--text)' }}>Settings → AI Integrations</strong>. {t('Generate akan otomatis pakai key tsb.')}
                   </div>
                   <a href="/settings/ai" style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                    Kelola →
+                    {t('Kelola')} →
                   </a>
                 </div>
               ) : connected ? (
@@ -238,7 +240,7 @@ export default function ImageProviderSettings({ onClose }: Props) {
                     onClick={() => setVisible(prev => ({ ...prev, [provider.key]: !prev[provider.key] }))}
                     style={{ padding: '6px 10px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', fontSize: 11, cursor: 'pointer' }}
                   >
-                    {isVisible ? 'Sembunyikan' : 'Lihat'}
+                    {isVisible ? t('Sembunyikan') : t('Lihat')}
                   </button>
                   <button
                     onClick={() => disconnect(provider.key)}
@@ -273,7 +275,7 @@ export default function ImageProviderSettings({ onClose }: Props) {
                     </button>
                   </div>
                   <a href={provider.docsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: provider.color, textDecoration: 'none', opacity: 0.8 }}>
-                    → Ambil API key di sini
+                    → {t('Ambil API key di sini')}
                   </a>
                 </div>
               )}

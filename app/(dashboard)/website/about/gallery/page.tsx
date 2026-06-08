@@ -10,6 +10,7 @@ import { FileUploader } from '@/components/website/FileUploader'
 import { ListEmpty, ListError, ModalShell } from '@/components/website/SimpleList'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
 import { Section } from '@/components/website/Section'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 type FormState = Omit<BsiTeamGallery, 'id' | 'created_at' | 'updated_at'>
 
@@ -323,6 +324,7 @@ function getPublicColCount(): number {
 }
 
 export default function TeamGalleryAdminPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiTeamGallery[]>([])
   const [loading, setLoading] = useState(true)
@@ -359,9 +361,9 @@ export default function TeamGalleryAdminPage() {
 
   async function handleDelete(item: BsiTeamGallery) {
     setConfirmReq({
-      title: 'Hapus foto?',
+      title: t('Hapus foto?'),
       message: `"${item.caption || 'No caption'}" will be removed from the gallery.`,
-      confirmLabel: 'Hapus',
+      confirmLabel: t('Hapus'),
       tone: 'danger',
       onConfirm: async () => {
         setConfirmReq(null)
@@ -390,7 +392,7 @@ export default function TeamGalleryAdminPage() {
   }
 
   useRegisterPageAction(
-    <PrimaryActionButton onClick={() => setCreating(true)}>+ Tambah Foto</PrimaryActionButton>,
+    <PrimaryActionButton onClick={() => setCreating(true)}>{t('+ Tambah Foto')}</PrimaryActionButton>,
   )
 
   // Run the public packer locally so every PhotoCard previews the
@@ -415,7 +417,7 @@ export default function TeamGalleryAdminPage() {
           height="calc(100vh - 200px)"
         >
           {loading ? (
-            <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+            <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
           ) : items.length === 0 ? (
             <ListEmpty message="No photos yet. Click + Add Photo to start." />
           ) : (
@@ -485,6 +487,7 @@ function PhotoCard({
   onDelete: () => void
   onTogglePublish: () => void
 }) {
+  const t = useT()
   // Resolve the LABEL ratio from the post-packer tile size — that's
   // what visitors see, including any trailing-row reshape.
   const ratio: TeamGalleryRatio =
@@ -623,7 +626,7 @@ function PhotoCard({
           </button>
           <button
             onClick={onTogglePublish}
-            title={item.is_published ? 'Sembunyikan' : 'Publikasikan'}
+            title={item.is_published ? t('Sembunyikan') : t('Publikasikan')}
             style={{
               width: 28,
               height: 28,
@@ -642,7 +645,7 @@ function PhotoCard({
           </button>
           <button
             onClick={onDelete}
-            title="Hapus"
+            title={t('Hapus')}
             style={{
               width: 28,
               height: 28,
@@ -677,6 +680,7 @@ function PhotoModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const t = useT()
   const supabase = getSupabase()
   const [form, setForm] = useState<FormState>(
     initial
@@ -736,7 +740,7 @@ function PhotoModal({
 
   async function handleSave() {
     if (!form.image_url) {
-      setError('Upload foto dulu sebelum menyimpan.')
+      setError(t('Upload foto dulu sebelum menyimpan.'))
       return
     }
     setSaving(true)
@@ -763,7 +767,7 @@ function PhotoModal({
 
   return (
     <ModalShell
-      title={initial ? 'Edit Foto' : 'Tambah Foto'}
+      title={initial ? t('Edit Foto') : t('Tambah Foto')}
       onClose={onClose}
       maxWidth={680}
       footer={
@@ -781,7 +785,7 @@ function PhotoModal({
               cursor: 'pointer',
             }}
           >
-            Batal
+            {t('Batal')}
           </button>
           <button
             onClick={handleSave}
@@ -799,7 +803,7 @@ function PhotoModal({
               opacity: saving || !form.image_url ? 0.5 : 1,
             }}
           >
-            {saving ? 'Menyimpan…' : initial ? 'Simpan' : 'Tambah'}
+            {saving ? t('Menyimpan…') : initial ? t('Simpan') : t('Tambah')}
           </button>
         </>
       }
@@ -839,8 +843,8 @@ function PhotoModal({
         <FormField
           label={
             autoRatio === previewRatio
-              ? `Framing — slot ${previewRatio} · drag titik fokus + zoom`
-              : `Framing — slot ${previewRatio} (auto-fit dari ${autoRatio}) · drag titik fokus + zoom`
+              ? `${t('Framing — slot')} ${previewRatio} · ${t('drag titik fokus + zoom')}`
+              : `${t('Framing — slot')} ${previewRatio} (${t('auto-fit dari')} ${autoRatio}) · ${t('drag titik fokus + zoom')}`
           }
         >
           <ImagePositioner
@@ -894,7 +898,7 @@ function PhotoModal({
                 background: form.is_published ? '#43d9a2' : 'var(--text2)',
               }}
             />
-            {form.is_published ? 'Aktif' : 'Tersembunyi'}
+            {form.is_published ? t('Aktif') : t('Tersembunyi')}
           </button>
         </FormField>
       </div>
@@ -917,6 +921,7 @@ function ImagePositioner({
   zoom: number
   onChange: (next: { focal_x?: number; focal_y?: number; zoom?: number }) => void
 }) {
+  const t = useT()
   const frameRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -1091,7 +1096,7 @@ function ImagePositioner({
             fontSize: 11,
             cursor: 'pointer',
           }}
-          title="Reset focal ke tengah dan zoom ke 1×"
+          title={t('Reset focal ke tengah dan zoom ke 1×')}
         >
           Reset
         </button>

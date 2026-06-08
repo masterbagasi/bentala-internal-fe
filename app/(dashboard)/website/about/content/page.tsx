@@ -10,6 +10,7 @@ import { Section } from '@/components/website/Section'
 import { FileUploader } from '@/components/website/FileUploader'
 import { RichTextEditor } from '@/components/website/RichTextEditor'
 import { HeadlinePreview } from '@/components/website/HeadlinePreview'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import DOMPurify from 'isomorphic-dompurify'
 
 // Mirror the public site's sanitize-keep-styles pipeline. Each
@@ -138,6 +139,7 @@ const EMPTY_FORM: FormState = {
 }
 
 export default function AboutEditorPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -243,7 +245,7 @@ export default function AboutEditorPage() {
 
     if (error) {
       setError(`${error.message}${error.hint ? ' — ' + error.hint : ''}`)
-      alert(`Simpan gagal: ${error.message}`)
+      alert(`${t('Simpan gagal')}: ${error.message}`)
       setSaving(false)
       return
     }
@@ -258,18 +260,18 @@ export default function AboutEditorPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {savedAt && (
           <span style={{ fontSize: 11, color: 'var(--accent3)' }}>
-            Tersimpan {savedAt.toLocaleTimeString('id-ID')}
+            {t('Tersimpan')} {savedAt.toLocaleTimeString('id-ID')}
           </span>
         )}
         <PrimaryActionButton onClick={handleSave} disabled={saving}>
-          {saving ? 'Menyimpan…' : 'Simpan'}
+          {saving ? t('Menyimpan…') : t('Simpan')}
         </PrimaryActionButton>
       </div>
     ),
   )
 
   if (loading) {
-    return <div style={{ padding: 24, color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+    return <div style={{ padding: 24, color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
   }
 
   return (
@@ -310,9 +312,8 @@ export default function AboutEditorPage() {
                 previewHeight={220}
               />
               <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 6 }}>
-                Opsional. Tampil di layar HP dengan rasio <b>9:16</b>{' '}
-                (portrait) — utuh tanpa terpotong. Kalau kosong, banner
-                desktop dipakai.
+                {t('Opsional. Tampil di layar HP dengan rasio')} <b>9:16</b>{' '}
+                {t('(portrait) — utuh tanpa terpotong. Kalau kosong, banner desktop dipakai.')}
               </p>
             </FormField>
           </Section>
@@ -674,6 +675,7 @@ function StoryHeadlinePreview({
   heading: string
   paragraph: string
 }) {
+  const t = useT()
   const headingIsHtml = looksLikeHtml(heading)
   const paragraphIsHtml = looksLikeHtml(paragraph)
 
@@ -728,7 +730,7 @@ function StoryHeadlinePreview({
           fontWeight: 700,
         }}
       >
-        Live preview · sesuai tampilan public site
+        {t('Live preview · sesuai tampilan public site')}
       </div>
       <PublicViewportSimulator>
         {headingIsHtml ? (
@@ -790,6 +792,7 @@ type PhilosophyPreviewItem = {
 }
 
 function PhilosophyPreview({ items }: { items: PhilosophyPreviewItem[] }) {
+  const t = useT()
   // Mirror the public site's paragraph styling exactly: clamp
   // typography, soft-white color, tight letter-spacing, max width
   // for readable line length. Inline font-size / color set by the
@@ -835,7 +838,7 @@ function PhilosophyPreview({ items }: { items: PhilosophyPreviewItem[] }) {
           textAlign: 'center',
         }}
       >
-        Live preview · sesuai tampilan public site
+        {t('Live preview · sesuai tampilan public site')}
       </div>
       <PublicViewportSimulator>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 128 }}>
@@ -969,6 +972,7 @@ type PhilosophyListItem = {
 }
 
 function PhilosophyList({ items }: { items: PhilosophyListItem[] }) {
+  const t = useT()
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const editingItem = items.find((it) => it.key === editingKey) ?? null
 
@@ -1072,7 +1076,7 @@ function PhilosophyList({ items }: { items: PhilosophyListItem[] }) {
                 >
                   {snippet || (
                     <span style={{ fontStyle: 'italic', opacity: 0.6 }}>
-                      Belum diisi — klik Edit untuk menambah deskripsi.
+                      {t('Belum diisi — klik Edit untuk menambah deskripsi.')}
                     </span>
                   )}
                 </div>
@@ -1134,6 +1138,7 @@ function PhilosophyEditDialog({
   item: PhilosophyListItem
   onClose: () => void
 }) {
+  const t = useT()
   // Snapshot the row's text + image at the moment the modal
   // opens so the Cancel button can roll back to it. Edits flow
   // straight into the parent form state on each keystroke
@@ -1246,7 +1251,7 @@ function PhilosophyEditDialog({
                 color: 'var(--text2)',
               }}
             >
-              Deskripsi
+              {t('Deskripsi')}
             </label>
             {/* Spacing antar baris is now a toolbar dropdown inside
                 RichTextEditor itself ("Spacing baris" button) —
@@ -1365,6 +1370,7 @@ function CarouselUploader({
   urls: string[]
   onChange: (next: string[]) => void
 }) {
+  const t = useT()
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
@@ -1403,7 +1409,7 @@ function CarouselUploader({
         }
         onChange([...urls, ...uploadedUrls])
       } catch (err) {
-        alert(`Upload gagal: ${err instanceof Error ? err.message : String(err)}`)
+        alert(`${t('Upload gagal')}: ${err instanceof Error ? err.message : String(err)}`)
       } finally {
         setUploading(false)
         setProgress(0)
@@ -1457,7 +1463,7 @@ function CarouselUploader({
             gap: 8,
           }}
         >
-          {uploading ? `Mengupload ${progress}%` : '+ Pilih beberapa gambar sekaligus (multi-select)'}
+          {uploading ? `${t('Mengupload')} ${progress}%` : t('+ Pilih beberapa gambar sekaligus (multi-select)')}
         </button>
       ) : (
         <div
@@ -1519,7 +1525,7 @@ function CarouselUploader({
               <button
                 type="button"
                 onClick={() => handleRemove(idx)}
-                aria-label="Hapus"
+                aria-label={t('Hapus')}
                 style={{
                   position: 'absolute',
                   top: 6,
@@ -1571,12 +1577,12 @@ function CarouselUploader({
             {uploading ? (
               <>
                 <span style={{ fontSize: 16, fontWeight: 700 }}>{progress}%</span>
-                <span>Mengupload…</span>
+                <span>{t('Mengupload…')}</span>
               </>
             ) : (
               <>
                 <span style={{ fontSize: 22, fontWeight: 400 }}>+</span>
-                <span>Tambah</span>
+                <span>{t('Tambah')}</span>
               </>
             )}
           </button>
@@ -1585,8 +1591,7 @@ function CarouselUploader({
 
       {urls.length > 0 && (
         <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--text2)', opacity: 0.7 }}>
-          Drag thumbnail untuk reorder · klik × untuk hapus · gambar urut #1 → #N akan
-          tampil dari kiri ke kanan di marquee public site.
+          {t('Drag thumbnail untuk reorder · klik × untuk hapus · gambar urut #1 → #N akan tampil dari kiri ke kanan di marquee public site.')}
         </p>
       )}
     </div>
@@ -1702,6 +1707,7 @@ function PhilosophyCard({
   onImageChange: (url: string | null) => void
   placeholder?: string
 }) {
+  const t = useT()
   const hasImage = !!imageUrl
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -1773,9 +1779,9 @@ function PhilosophyCard({
               textAlign: 'center',
             }}
           >
-            <span>Belum ada gambar</span>
+            <span>{t('Belum ada gambar')}</span>
             <span style={{ fontSize: 10, opacity: 0.75 }}>
-              Rasio 4:3 landscape · ±1200×900 px
+              {t('Rasio 4:3 landscape · ±1200×900 px')}
             </span>
           </div>
         )}
@@ -1832,7 +1838,7 @@ function PhilosophyCard({
           )}
           {uploading ? (
             <PlateActionButton
-              label="Batalkan"
+              label={t('Batalkan')}
               tone="danger"
               onClick={() => {
                 abortRef.current?.()
@@ -1841,7 +1847,7 @@ function PhilosophyCard({
           ) : (
             <>
               <PlateActionButton
-                label={hasImage ? 'Ganti' : 'Upload'}
+                label={hasImage ? t('Ganti') : t('Upload')}
                 onClick={() => {
                   const input = document.createElement('input')
                   input.type = 'file'
@@ -1856,7 +1862,7 @@ function PhilosophyCard({
                     const MAX_BYTES = 200 * 1024 * 1024
                     if (file.size > MAX_BYTES) {
                       alert(
-                        `File terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimum 200 MB.`,
+                        `${t('File terlalu besar')} (${(file.size / 1024 / 1024).toFixed(1)} MB). ${t('Maksimum 200 MB.')}`,
                       )
                       return
                     }
@@ -1908,10 +1914,10 @@ function PhilosophyCard({
                         ) {
                           const sizeMB = (file.size / 1024 / 1024).toFixed(2)
                           throw new Error(
-                            `Bucket "bsi-website" menolak file ${sizeMB} MB. ` +
-                              `Naikkan file_size_limit di Supabase: ` +
-                              `Dashboard → Storage → bsi-website → ⚙ Edit bucket → File size limit. ` +
-                              `Pastikan project Supabase yang aktif benar (cek URL .env.local).`,
+                            `${t('Bucket "bsi-website" menolak file')} ${sizeMB} MB. ` +
+                              `${t('Naikkan file_size_limit di Supabase:')} ` +
+                              `${t('Dashboard → Storage → bsi-website → ⚙ Edit bucket → File size limit.')} ` +
+                              `${t('Pastikan project Supabase yang aktif benar (cek URL .env.local).')}`,
                           )
                         }
                         throw new Error(uploadErr.message)
@@ -1924,7 +1930,7 @@ function PhilosophyCard({
                     } catch (err) {
                       if (cancelled) return
                       const msg = err instanceof Error ? err.message : String(err)
-                      alert(`Upload gagal: ${msg}`)
+                      alert(`${t('Upload gagal')}: ${msg}`)
                     } finally {
                       abortRef.current = null
                       setUploading(false)
@@ -1936,7 +1942,7 @@ function PhilosophyCard({
               />
               {hasImage && (
                 <PlateActionButton
-                  label="Hapus"
+                  label={t('Hapus')}
                   tone="danger"
                   onClick={() => onImageChange(null)}
                 />
@@ -2062,6 +2068,7 @@ function PlateActionButton({
 }
 
 function StatsEditor({ stats, onChange }: { stats: Stat[]; onChange: (s: Stat[]) => void }) {
+  const t = useT()
   function update(idx: number, key: keyof Stat, value: string) {
     onChange(stats.map((s, i) => (i === idx ? { ...s, [key]: value } : s)))
   }
@@ -2077,13 +2084,13 @@ function StatsEditor({ stats, onChange }: { stats: Stat[]; onChange: (s: Stat[])
         <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 8 }}>
           <input
             style={inputStyle}
-            placeholder="Value (contoh: 50+)"
+            placeholder={t('Value (contoh: 50+)')}
             value={s.value}
             onChange={(e) => update(idx, 'value', e.target.value)}
           />
           <input
             style={inputStyle}
-            placeholder="Label (contoh: Brands Served)"
+            placeholder={t('Label (contoh: Brands Served)')}
             value={s.label}
             onChange={(e) => update(idx, 'label', e.target.value)}
           />
@@ -2116,7 +2123,7 @@ function StatsEditor({ stats, onChange }: { stats: Stat[]; onChange: (s: Stat[])
           cursor: 'pointer',
         }}
       >
-        + Tambah Stat
+        {t('+ Tambah Stat')}
       </button>
     </div>
   )
@@ -2189,6 +2196,7 @@ function HeroGridEditor({
   urls: string[]
   onChange: (next: string[]) => void
 }) {
+  const t = useT()
   const move = (idx: number, dir: -1 | 1) => {
     const next = [...urls]
     const target = idx + dir
@@ -2227,7 +2235,7 @@ function HeroGridEditor({
             textAlign: 'center',
           }}
         >
-          Belum ada foto. Tambah satu di bawah.
+          {t('Belum ada foto. Tambah satu di bawah.')}
         </div>
       )}
 
@@ -2246,7 +2254,7 @@ function HeroGridEditor({
           }}
         >
           <FileUploader
-            label={`Foto #${idx + 1}`}
+            label={`${t('Foto')} #${idx + 1}`}
             value={url}
             onChange={(next) => updateAt(idx, next)}
             prefix="about-hero-grid"
@@ -2258,7 +2266,7 @@ function HeroGridEditor({
               type="button"
               onClick={() => move(idx, -1)}
               disabled={idx === 0}
-              title="Pindah ke atas"
+              title={t('Pindah ke atas')}
               style={{
                 width: 32,
                 height: 28,
@@ -2277,7 +2285,7 @@ function HeroGridEditor({
               type="button"
               onClick={() => move(idx, 1)}
               disabled={idx === urls.length - 1}
-              title="Pindah ke bawah"
+              title={t('Pindah ke bawah')}
               style={{
                 width: 32,
                 height: 28,
@@ -2295,7 +2303,7 @@ function HeroGridEditor({
             <button
               type="button"
               onClick={() => remove(idx)}
-              title="Hapus"
+              title={t('Hapus')}
               style={{
                 width: 32,
                 height: 28,
@@ -2314,7 +2322,7 @@ function HeroGridEditor({
       ))}
 
       <FileUploader
-        label="+ Tambah foto"
+        label={t('+ Tambah foto')}
         value={null}
         onChange={add}
         prefix="about-hero-grid"
@@ -2331,12 +2339,13 @@ function HeroGridEditor({
  * consistent across every admin modal.
  */
 function DialogCloseButton({ onClick }: { onClick: () => void }) {
+  const t = useT()
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Tutup"
-      title="Tutup"
+      aria-label={t('Tutup')}
+      title={t('Tutup')}
       style={{
         width: 32,
         height: 32,

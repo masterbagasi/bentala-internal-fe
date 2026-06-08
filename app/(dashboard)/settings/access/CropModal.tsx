@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
 import 'react-easy-crop/react-easy-crop.css'
 import { BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => {
@@ -32,6 +33,7 @@ export function CropModal({ file, onCancel, onDone }: {
   onCancel: () => void
   onDone: (cropped: File) => void
 }) {
+  const t = useT()
   const [src] = useState(() => URL.createObjectURL(file))
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
@@ -61,7 +63,7 @@ export function CropModal({ file, onCancel, onDone }: {
         style={{ width: 'min(440px, 95vw)', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.55)' }}
       >
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
-          Atur Foto Profil
+          {t('Atur Foto Profil')}
         </div>
 
         {/* Cropper canvas */}
@@ -90,8 +92,8 @@ export function CropModal({ file, onCancel, onDone }: {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 18px', borderTop: '1px solid var(--border)' }}>
-          <BtnSecondary onClick={onCancel} disabled={busy}>Batal</BtnSecondary>
-          <BtnPrimary onClick={done} loading={busy}>Gunakan Foto</BtnPrimary>
+          <BtnSecondary onClick={onCancel} disabled={busy}>{t('Batal')}</BtnSecondary>
+          <BtnPrimary onClick={done} loading={busy}>{t('Gunakan Foto')}</BtnPrimary>
         </div>
       </div>
     </div>

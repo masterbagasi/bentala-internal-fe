@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AI_PLATFORMS } from '@/lib/constants'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import GeneratedOutput from './GeneratedOutput'
 
 interface GeneratedData {
@@ -13,6 +14,7 @@ interface GeneratedData {
 }
 
 export default function ContentBuilder() {
+  const t = useT()
   const params = useSearchParams()
   const [inputText, setInputText] = useState('')
   const [platform, setPlatform] = useState('ig')
@@ -65,12 +67,12 @@ export default function ContentBuilder() {
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-            Ide / Konsep Konten
+            {t('Ide / Konsep Konten')}
           </label>
           <textarea
             value={inputText}
             onChange={e => setInputText(e.target.value)}
-            placeholder="Ketik ide konten atau paste dari Pencari Ide..."
+            placeholder={t('Ketik ide konten atau paste dari Pencari Ide...')}
             rows={4}
             style={{ width: '100%' }}
           />
@@ -110,13 +112,13 @@ export default function ContentBuilder() {
             alignSelf: 'flex-start',
           }}
         >
-          {loading ? 'Generating...' : 'Generate Konten →'}
+          {loading ? 'Generating...' : t('Generate Konten →')}
         </button>
       </div>
 
       {result && (
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 24 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>Hasil Generate</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>{t('Hasil Generate')}</div>
           <GeneratedOutput data={result} platform={platform} inputText={inputText} />
         </div>
       )}

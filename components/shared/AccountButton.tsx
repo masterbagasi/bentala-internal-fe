@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { isSuperAdmin } from '@/lib/access'
 import { AccountEditModal } from '@/app/(dashboard)/settings/access/AccountEditModal'
 import type { AccessUser } from '@/app/(dashboard)/settings/access/AccessControlClient'
+import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
+import { useLang } from '@/lib/i18n/LanguageProvider'
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -122,8 +124,15 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
     lastSignInAt: string | null
   }>({ name: '', email: '', avatarUrl: null, phone: '', position: '', createdAt: null, lastSignInAt: null })
   const [editOpen, setEditOpen] = useState(false)
-  const [theme, setThemeState] = useState<'dark' | 'light'>('dark')
-  const [lang, setLangState] = useState<'id' | 'en'>('id')
+  // Self-service password change.
+  const [pwOpen, setPwOpen] = useState(false)
+  const [pw1, setPw1] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [showPw, setShowPw] = useState(false)
+  const [pwBusy, setPwBusy] = useState(false)
+  const [pwErr, setPwErr] = useState('')
+  const [pwOk, setPwOk] = useState(false)
+  const { lang, setLang, t } = useLang()
   const [isSuper, setIsSuper] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -148,16 +157,9 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
     setIsSuper(isSuperAdmin(data.user.email) || data.user.app_metadata?.role === 'super_admin')
   }, [])
 
-  // Load user + settings on mount
+  // Load user on mount
   useEffect(() => {
     loadUser()
-
-    try {
-      const t = localStorage.getItem('bentala_theme') as 'dark' | 'light' | null
-      if (t) setThemeState(t)
-      const l = localStorage.getItem('bentala_lang') as 'id' | 'en' | null
-      if (l) setLangState(l)
-    } catch {}
   }, [loadUser])
 
   // Click-outside to close popup
@@ -174,23 +176,8 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
 
   // ── Actions ──
 
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark'
-    setThemeState(next)
-    try { localStorage.setItem('bentala_theme', next) } catch {}
-    if (next === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light')
-    } else {
-      document.documentElement.removeAttribute('data-theme')
-    }
-    window.dispatchEvent(new CustomEvent('bentala:theme', { detail: next }))
-  }
-
   function toggleLang() {
-    const next = lang === 'id' ? 'en' : 'id'
-    setLangState(next)
-    try { localStorage.setItem('bentala_lang', next) } catch {}
-    window.dispatchEvent(new CustomEvent('bentala:lang', { detail: next }))
+    setLang(lang === 'id' ? 'en' : 'id')
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -199,7 +186,7 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
     setUploadError('')
 
     if (file.size > 20 * 1024 * 1024) {
-      setUploadError('Ukuran file maks 20MB')
+      setUploadError(t('Ukuran file maks 20MB'))
       return
     }
 
@@ -212,23 +199,45 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
       } = await supabase.auth.getUser()
       if (!authUser) throw new Error('no user')
 
-      const path = `${authUser.id}/avatar.jpg`
+      const path = `avatars/${authUser.id}/avatar.jpg`
       const { error: upErr } = await supabase.storage
-        .from('avatars')
+        .from('bsi-website')
         .upload(path, blob, { upsert: true, contentType: 'image/jpeg' })
       if (upErr) throw upErr
 
       const {
         data: { publicUrl },
-      } = supabase.storage.from('avatars').getPublicUrl(path)
+      } = supabase.storage.from('bsi-website').getPublicUrl(path)
 
       await supabase.auth.updateUser({ data: { avatar_url: publicUrl } })
       setUser(u => ({ ...u, avatarUrl: publicUrl }))
     } catch {
-      setUploadError('Upload gagal, coba lagi')
+      setUploadError(t('Upload gagal, coba lagi'))
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  function openPwModal() {
+    setPw1(''); setPw2(''); setShowPw(false); setPwErr(''); setPwOk(false)
+    setOpen(false); setPwOpen(true)
+  }
+
+  async function submitPassword() {
+    setPwErr(''); setPwOk(false)
+    if (pw1.length < 6) { setPwErr(t('Password minimal 6 karakter')); return }
+    if (pw1 !== pw2) { setPwErr(t('Konfirmasi password tidak cocok')); return }
+    setPwBusy(true)
+    try {
+      const { error } = await getSupabase().auth.updateUser({ password: pw1 })
+      if (error) throw new Error(error.message)
+      setPwOk(true)
+      setPw1(''); setPw2('')
+    } catch (err) {
+      setPwErr(err instanceof Error ? err.message : 'Gagal mengubah password')
+    } finally {
+      setPwBusy(false)
     }
   }
 
@@ -369,7 +378,7 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
           >
             <div
               onClick={() => fileInputRef.current?.click()}
-              title="Ganti foto profil"
+              title={t('Ganti foto profil')}
               style={{ cursor: 'pointer', borderRadius: '50%', flexShrink: 0 }}
             >
               <Avatar url={user.avatarUrl} initials={initials} size={40} hoverable />
@@ -423,8 +432,20 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
                   <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                 </svg>
               }
-              label="Edit Profil"
+              label={t('Edit Profil')}
               onClick={() => { setOpen(false); setEditOpen(true) }}
+            />
+
+            <PopupItem
+              icon={
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  <circle cx="12" cy="16" r="1"/>
+                </svg>
+              }
+              label={t('Ubah Password')}
+              onClick={openPwModal}
             />
 
             <PopupItem
@@ -435,7 +456,7 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
                   <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                 </svg>
               }
-              label="Ganti Bahasa"
+              label={t('Ganti Bahasa')}
               right={
                 <span
                   style={{
@@ -453,44 +474,6 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
               onClick={toggleLang}
             />
 
-            <PopupItem
-              icon={
-                theme === 'dark' ? (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                  </svg>
-                ) : (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="5"/>
-                    <line x1="12" y1="1" x2="12" y2="3"/>
-                    <line x1="12" y1="21" x2="12" y2="23"/>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                    <line x1="1" y1="12" x2="3" y2="12"/>
-                    <line x1="21" y1="12" x2="23" y2="12"/>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                  </svg>
-                )
-              }
-              label="Tema"
-              right={
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: 'var(--accent)',
-                    background: 'rgba(108,99,255,0.12)',
-                    padding: '2px 6px',
-                    borderRadius: 4,
-                  }}
-                >
-                  {theme === 'dark' ? 'Dark' : 'Light'}
-                </span>
-              }
-              onClick={toggleTheme}
-            />
-
             {isSuper && (
               <PopupItem
                 icon={
@@ -499,7 +482,7 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                   </svg>
                 }
-                label="Setting Access"
+                label={t('Setting Access')}
                 onClick={() => {
                   setOpen(false)
                   router.push('/settings/access')
@@ -517,7 +500,7 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
                   <line x1="21" y1="12" x2="9" y2="12"/>
                 </svg>
               }
-              label="Keluar"
+              label={t('Keluar')}
               danger
               onClick={handleLogout}
             />
@@ -540,6 +523,68 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
           onSaved={() => { setEditOpen(false); loadUser() }}
         />
       )}
+
+      {/* Self password-change modal */}
+      <Modal
+        open={pwOpen}
+        onClose={() => setPwOpen(false)}
+        title={t('Ubah Password')}
+        footer={
+          pwOk ? (
+            <BtnPrimary onClick={() => setPwOpen(false)}>{t('Selesai')}</BtnPrimary>
+          ) : (
+            <>
+              <BtnSecondary onClick={() => setPwOpen(false)}>{t('Batal')}</BtnSecondary>
+              <BtnPrimary onClick={submitPassword} loading={pwBusy} disabled={!pw1 || !pw2}>
+                {t('Simpan Password')}
+              </BtnPrimary>
+            </>
+          )
+        }
+      >
+        {pwOk ? (
+          <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
+            {t('Password berhasil diubah. Gunakan password baru saat login berikutnya.')}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <PwField label={t('Password baru')} value={pw1} onChange={setPw1} show={showPw} placeholder={t('Minimal 6 karakter')} onEnter={submitPassword} />
+            <PwField label={t('Ulangi password baru')} value={pw2} onChange={setPw2} show={showPw} placeholder={t('Ketik ulang password')} onEnter={submitPassword} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text2)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showPw} onChange={e => setShowPw(e.target.checked)} style={{ width: 'auto' }} />
+              {t('Tampilkan password')}
+            </label>
+            {pwErr && <div style={{ fontSize: 12, color: 'var(--accent2)' }}>{pwErr}</div>}
+          </div>
+        )}
+      </Modal>
+    </div>
+  )
+}
+
+// ── Password field ────────────────────────────────────────────
+
+function PwField({
+  label, value, onChange, show, placeholder, onEnter,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  show: boolean
+  placeholder?: string
+  onEnter?: () => void
+}) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>{label}</div>
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete="new-password"
+        onKeyDown={e => { if (e.key === 'Enter') onEnter?.() }}
+      />
     </div>
   )
 }

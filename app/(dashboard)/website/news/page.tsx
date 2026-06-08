@@ -15,6 +15,7 @@ import {
   RowCard,
 } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const ACCOUNT_OPTIONS = [
   { value: 'bpi_ig', label: 'Bentala Project — Instagram' },
@@ -51,6 +52,7 @@ const EMPTY: FormState = {
  * render separate IG / TT grids.
  */
 export default function NewsAdminPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiNewsFeed[]>([])
   const [loading, setLoading] = useState(true)
@@ -74,7 +76,7 @@ export default function NewsAdminPage() {
   }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus post ini? Tidak bisa di-undo.')) return
+    if (!confirm(t('Hapus post ini? Tidak bisa di-undo.'))) return
     const { error } = await supabase.from('bsi_news_feed').delete().eq('id', id)
     if (error) {
       alert(error.message)
@@ -105,7 +107,7 @@ export default function NewsAdminPage() {
       title="News"
       action={
         <ActionButton variant="primary" onClick={() => setCreating(true)}>
-          + Tambah Post
+          + {t('Tambah Post')}
         </ActionButton>
       }
     >
@@ -113,10 +115,10 @@ export default function NewsAdminPage() {
         {error && <ListError message={error} />}
 
         {loading ? (
-          <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+          <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
         ) : items.length === 0 ? (
           <Section title="Feed Posts">
-            <ListEmpty message="Belum ada post. Tambah post pertama untuk muncul di /news." />
+            <ListEmpty message={t('Belum ada post. Tambah post pertama untuk muncul di /news.')} />
           </Section>
         ) : (
           groups.map(([account, posts]) => (
@@ -217,7 +219,7 @@ export default function NewsAdminPage() {
                     </IconBtn>
                     <IconBtn
                       onClick={() => handleDelete(p.id)}
-                      title="Hapus"
+                      title={t('Hapus')}
                       color="#ff6b6b"
                     >
                       ×
@@ -284,6 +286,7 @@ function NewsModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const t = useT()
   const supabase = getSupabase()
   const [form, setForm] = useState<FormState>(
     initial
@@ -332,7 +335,7 @@ function NewsModal({
 
   return (
     <ModalShell
-      title={initial ? `Edit Post — ${accountLabel(initial.account)}` : 'Tambah Post Baru'}
+      title={initial ? `${t('Edit Post')} — ${accountLabel(initial.account)}` : t('Tambah Post Baru')}
       onClose={onClose}
       footer={
         <>
@@ -349,7 +352,7 @@ function NewsModal({
               cursor: 'pointer',
             }}
           >
-            Batal
+            {t('Batal')}
           </button>
           <button
             onClick={handleSave}
@@ -367,7 +370,7 @@ function NewsModal({
               opacity: saving ? 0.6 : 1,
             }}
           >
-            {saving ? 'Menyimpan…' : initial ? 'Simpan' : 'Tambah'}
+            {saving ? t('Menyimpan…') : initial ? t('Simpan') : t('Tambah')}
           </button>
         </>
       }
@@ -430,11 +433,11 @@ function NewsModal({
           value={form.caption}
           onChange={(e) => update('caption', e.target.value)}
           rows={3}
-          placeholder="Caption singkat untuk post"
+          placeholder={t('Caption singkat untuk post')}
         />
       </FormField>
 
-      <FormField label="Permalink" hint="Link ke post asli di Instagram / TikTok">
+      <FormField label="Permalink" hint={t('Link ke post asli di Instagram / TikTok')}>
         <input
           style={inputStyle}
           value={form.permalink}
@@ -462,7 +465,7 @@ function NewsModal({
             onChange={(e) => update('comments_count', Number(e.target.value) || 0)}
           />
         </FormField>
-        <FormField label="Sort Order" hint="Kecil = atas">
+        <FormField label="Sort Order" hint={t('Kecil = atas')}>
           <input
             style={inputStyle}
             type="number"
@@ -472,7 +475,7 @@ function NewsModal({
         </FormField>
       </div>
 
-      <FormField label="Posted At" hint="Tanggal post di-publish di sosmed">
+      <FormField label="Posted At" hint={t('Tanggal post di-publish di sosmed')}>
         <input
           style={inputStyle}
           type="datetime-local"
@@ -504,7 +507,7 @@ function NewsModal({
             onChange={(e) => update('is_published', e.target.checked)}
             style={{ width: 'auto' }}
           />
-          Tampilkan di public site (/news)
+          {t('Tampilkan di public site (/news)')}
         </label>
       </FormField>
     </ModalShell>

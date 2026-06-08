@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { AITool, HistoryItem, getHistoryByTool, deleteHistoryItem, clearHistoryByTool, formatHistoryDate } from '@/lib/aiHistory'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const TOOL_CONFIG: Record<AITool, { label: string; icon: string; color: string }> = {
   chat:  { label: 'Chat AI',        icon: '💬', color: '#6c63ff' },
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function AIHistoryPanel({ tool, onRestore, onClose }: Props) {
+  const t = useT()
   const [items, setItems] = useState<HistoryItem[]>([])
   const [confirmClear, setConfirmClear] = useState(false)
   const config = TOOL_CONFIG[tool]
@@ -65,7 +67,7 @@ export default function AIHistoryPanel({ tool, onRestore, onClose }: Props) {
             </div>
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text2)', fontSize: 18, cursor: 'pointer', padding: 4, lineHeight: 1 }}>×</button>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text2)' }}>{config.label} — disimpan di browser kamu</div>
+          <div style={{ fontSize: 11, color: 'var(--text2)' }}>{config.label} — {t('disimpan di browser kamu')}</div>
         </div>
 
         {/* List */}
@@ -73,7 +75,7 @@ export default function AIHistoryPanel({ tool, onRestore, onClose }: Props) {
           {items.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text2)', fontSize: 13 }}>
               <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.4 }}>{config.icon}</div>
-              Belum ada history tersimpan
+              {t('Belum ada history tersimpan')}
             </div>
           ) : (
             items.map(item => <HistoryCard key={item.id} item={item} tool={tool} onRestore={handleRestore} onDelete={handleDelete} />)
@@ -85,13 +87,13 @@ export default function AIHistoryPanel({ tool, onRestore, onClose }: Props) {
           <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
             {confirmClear ? (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: 'var(--text2)', flex: 1 }}>Hapus semua history?</span>
-                <button onClick={() => setConfirmClear(false)} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 11, cursor: 'pointer' }}>Batal</button>
-                <button onClick={handleClear} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: 'rgba(255,80,80,0.15)', color: '#ff6b6b', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Hapus Semua</button>
+                <span style={{ fontSize: 12, color: 'var(--text2)', flex: 1 }}>{t('Hapus semua history?')}</span>
+                <button onClick={() => setConfirmClear(false)} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 11, cursor: 'pointer' }}>{t('Batal')}</button>
+                <button onClick={handleClear} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: 'rgba(255,80,80,0.15)', color: '#ff6b6b', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>{t('Hapus Semua')}</button>
               </div>
             ) : (
               <button onClick={() => setConfirmClear(true)} style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', fontSize: 12, cursor: 'pointer' }}>
-                Hapus semua history
+                {t('Hapus semua history')}
               </button>
             )}
           </div>

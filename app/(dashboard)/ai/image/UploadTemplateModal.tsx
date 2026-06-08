@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const RATIOS = [
   { key: '1:1', label: '1:1 — Square' },
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export default function UploadTemplateModal({ onClose, onCreated }: Props) {
+  const t = useT()
   const [brand, setBrand] = useState<'bpi' | 'bsi' | 'custom'>('bpi')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -48,11 +50,11 @@ export default function UploadTemplateModal({ onClose, onCreated }: Props) {
     setError(null)
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setError('File harus image (jpg/png/webp)')
+      setError(t('File harus image (jpg/png/webp)'))
       return
     }
     if (file.size > MAX_FILE_BYTES) {
-      setError(`File terlalu besar (${Math.round(file.size / 1024 / 1024 * 10) / 10} MB). Max 3.5 MB. Compress dulu.`)
+      setError(`${t('File terlalu besar')} (${Math.round(file.size / 1024 / 1024 * 10) / 10} MB). ${t('Max 3.5 MB. Compress dulu.')}`)
       return
     }
     const reader = new FileReader()
@@ -60,7 +62,7 @@ export default function UploadTemplateModal({ onClose, onCreated }: Props) {
       setImageDataUrl(reader.result as string)
       setImageFileName(file.name)
     }
-    reader.onerror = () => setError('Gagal baca file')
+    reader.onerror = () => setError(t('Gagal baca file'))
     reader.readAsDataURL(file)
   }
 
@@ -74,8 +76,8 @@ export default function UploadTemplateModal({ onClose, onCreated }: Props) {
     setSaving(true)
     setError(null)
     try {
-      if (!name.trim()) throw new Error('Nama template wajib diisi')
-      if (!prompt.trim()) throw new Error('Prompt wajib diisi')
+      if (!name.trim()) throw new Error(t('Nama template wajib diisi'))
+      if (!prompt.trim()) throw new Error(t('Prompt wajib diisi'))
       const res = await fetch('/api/image-templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,11 +87,11 @@ export default function UploadTemplateModal({ onClose, onCreated }: Props) {
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal simpan')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal simpan'))
       onCreated()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal simpan template')
+      setError(e instanceof Error ? e.message : t('Gagal simpan template'))
     } finally {
       setSaving(false)
     }
@@ -115,9 +117,9 @@ export default function UploadTemplateModal({ onClose, onCreated }: Props) {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>+ Upload Template Baru</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t('+ Upload Template Baru')}</div>
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
-              Save preset prompt + style + reference image untuk reuse
+              {t('Save preset prompt + style + reference image untuk reuse')}
             </div>
           </div>
           <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', fontSize: 13 }}>✕</button>
@@ -149,7 +151,7 @@ export default function UploadTemplateModal({ onClose, onCreated }: Props) {
 
           {/* Reference image */}
           <div>
-            <label style={labelStyle}>Reference Image (opsional)</label>
+            <label style={labelStyle}>{t('Reference Image (opsional)')}</label>
             <div
               onDragOver={e => e.preventDefault()}
               onDrop={handleDrop}
@@ -187,7 +189,7 @@ export default function UploadTemplateModal({ onClose, onCreated }: Props) {
               ) : (
                 <>
                   <div style={{ fontSize: 22, marginBottom: 6 }}>📷</div>
-                  <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>Klik atau drag image ke sini</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{t('Klik atau drag image ke sini')}</div>
                   <div style={{ fontSize: 10 }}>jpg / png / webp · max 3.5 MB</div>
                 </>
               )}
@@ -203,43 +205,43 @@ export default function UploadTemplateModal({ onClose, onCreated }: Props) {
 
           {/* Name + Description */}
           <div>
-            <label style={labelStyle}>Nama Template *</label>
+            <label style={labelStyle}>{t('Nama Template *')}</label>
             <input
               type="text" value={name} onChange={e => setName(e.target.value)}
-              placeholder='mis. "Cover Berita Diaspora WNI"'
+              placeholder={t('mis. "Cover Berita Diaspora WNI"')}
               style={inputStyle}
             />
           </div>
           <div>
-            <label style={labelStyle}>Deskripsi (opsional)</label>
+            <label style={labelStyle}>{t('Deskripsi (opsional)')}</label>
             <input
               type="text" value={description} onChange={e => setDescription(e.target.value)}
-              placeholder='Gambaran singkat kapan template ini dipakai'
+              placeholder={t('Gambaran singkat kapan template ini dipakai')}
               style={inputStyle}
             />
           </div>
 
           {/* Prompt */}
           <div>
-            <label style={labelStyle}>Prompt Template *</label>
+            <label style={labelStyle}>{t('Prompt Template *')}</label>
             <textarea
               value={prompt} onChange={e => setPrompt(e.target.value)}
-              placeholder={`Tulis prompt yang nanti dipakai. Bisa pakai placeholder dengan [KURUNG SIKU] supaya gampang di-edit:
+              placeholder={t(`Tulis prompt yang nanti dipakai. Bisa pakai placeholder dengan [KURUNG SIKU] supaya gampang di-edit:
 
 Contoh:
-"Cover BPI: WNI di [NEGARA], [DESKRIPSI EKSPRESI], natural lighting, news photography style, hyper realistic"`}
+"Cover BPI: WNI di [NEGARA], [DESKRIPSI EKSPRESI], natural lighting, news photography style, hyper realistic"`)}
               rows={5}
               style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical', lineHeight: 1.5 }}
             />
             <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4 }}>
-              💡 Pakai <code>[KURUNG SIKU]</code> untuk bagian yang user perlu isi tiap kali pakai template.
+              💡 {t('Pakai')} <code>[KURUNG SIKU]</code> {t('untuk bagian yang user perlu isi tiap kali pakai template.')}
             </div>
           </div>
 
           {/* Ratio + Style */}
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Rasio</label>
+              <label style={labelStyle}>{t('Rasio')}</label>
               <select value={ratio} onChange={e => setRatio(e.target.value)} style={selectStyle}>
                 {RATIOS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
               </select>
@@ -266,9 +268,9 @@ Contoh:
           padding: '14px 20px', borderTop: '1px solid var(--border)',
           display: 'flex', gap: 8, justifyContent: 'flex-end',
         }}>
-          <button onClick={onClose} disabled={saving} style={btnSecondary(saving)}>Batal</button>
+          <button onClick={onClose} disabled={saving} style={btnSecondary(saving)}>{t('Batal')}</button>
           <button onClick={handleSave} disabled={saving} style={btnPrimary(saving)}>
-            {saving ? 'Menyimpan...' : 'Simpan Template'}
+            {saving ? t('Menyimpan...') : t('Simpan Template')}
           </button>
         </div>
       </div>

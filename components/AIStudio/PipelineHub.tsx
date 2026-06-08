@@ -6,6 +6,7 @@ import { PipelineCard as PipelineCardType } from '@/lib/types'
 import { PIPELINE_STAGES } from '@/lib/constants'
 import PipelineCard from './PipelineCard'
 import BriefGenerator from './BriefGenerator'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const ENTITY_OPTIONS = [
   { key: 'bpi', label: 'BPI' },
@@ -19,6 +20,7 @@ const PLATFORM_OPTIONS = [
 ]
 
 export default function PipelineHub() {
+  const t = useT()
   const router = useRouter()
   const [cards, setCards] = useState<PipelineCardType[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,10 +46,10 @@ export default function PipelineHub() {
     try {
       const res = await fetch('/api/pipeline')
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal memuat pipeline')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal memuat pipeline'))
       setCards(data.cards ?? [])
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'Gagal memuat pipeline')
+      setLoadError(e instanceof Error ? e.message : t('Gagal memuat pipeline'))
     } finally {
       setLoading(false)
     }
@@ -72,7 +74,7 @@ export default function PipelineHub() {
         body: JSON.stringify({ title: newTitle, entity: newEntity, platform: newPlatform, idea_text }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal membuat konten')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal membuat konten'))
       setCards(prev => [data.card, ...prev])
       setNewTitle('')
       setNewDeskripsi('')
@@ -80,7 +82,7 @@ export default function PipelineHub() {
       setNewReferensi('')
       setShowNewModal(false)
     } catch (e) {
-      setCreateError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+      setCreateError(e instanceof Error ? e.message : t('Terjadi kesalahan'))
     } finally {
       setCreating(false)
     }
@@ -136,15 +138,15 @@ export default function PipelineHub() {
             borderRadius: 12, padding: 24, width: 400,
             display: 'flex', flexDirection: 'column', gap: 16,
           }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>Konten Baru</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{t('Konten Baru')}</div>
 
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600, display: 'block', marginBottom: 6 }}>Judul Konten</label>
+              <label style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600, display: 'block', marginBottom: 6 }}>{t('Judul Konten')}</label>
               <input
                 value={newTitle}
                 onChange={e => setNewTitle(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && createCard()}
-                placeholder="contoh: Tren fashion summer 2025..."
+                placeholder={t('contoh: Tren fashion summer 2025...')}
                 autoFocus
                 style={{ width: '100%', boxSizing: 'border-box' }}
               />
@@ -174,19 +176,19 @@ export default function PipelineHub() {
 
             <div>
               <label style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                Deskripsi Konten <span style={{ fontWeight: 400, color: 'var(--text2)', opacity: 0.6 }}>(opsional)</span>
+                {t('Deskripsi Konten')} <span style={{ fontWeight: 400, color: 'var(--text2)', opacity: 0.6 }}>{t('(opsional)')}</span>
               </label>
               <textarea
                 value={newDeskripsi}
                 onChange={e => setNewDeskripsi(e.target.value)}
-                placeholder="Jelaskan konten ini lebih detail — topik, angle, pesan utama, dll."
+                placeholder={t('Jelaskan konten ini lebih detail — topik, angle, pesan utama, dll.')}
                 rows={3}
                 style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', fontSize: 13 }}
               />
             </div>
 
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600, display: 'block', marginBottom: 8 }}>Tujuan Konten</label>
+              <label style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600, display: 'block', marginBottom: 8 }}>{t('Tujuan Konten')}</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {TUJUAN_OPTIONS.map(t => (
                   <button key={t} onClick={() => setNewTujuan(newTujuan === t ? '' : t)} style={chipStyle(newTujuan === t)}>
@@ -198,12 +200,12 @@ export default function PipelineHub() {
 
             <div>
               <label style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                Referensi <span style={{ fontWeight: 400, color: 'var(--text2)', opacity: 0.6 }}>(opsional)</span>
+                {t('Referensi')} <span style={{ fontWeight: 400, color: 'var(--text2)', opacity: 0.6 }}>{t('(opsional)')}</span>
               </label>
               <input
                 value={newReferensi}
                 onChange={e => setNewReferensi(e.target.value)}
-                placeholder="contoh: @awkarin, gaya visual foodvlog, atau link referensi"
+                placeholder={t('contoh: @awkarin, gaya visual foodvlog, atau link referensi')}
                 style={{ width: '100%', boxSizing: 'border-box' }}
               />
             </div>
@@ -219,7 +221,7 @@ export default function PipelineHub() {
                 onClick={() => { setShowNewModal(false); setCreateError(null); setNewDeskripsi(''); setNewTujuan(''); setNewReferensi('') }}
                 style={{ padding: '8px 16px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text2)', fontSize: 13, cursor: 'pointer' }}
               >
-                Batal
+                {t('Batal')}
               </button>
               <button
                 onClick={createCard}
@@ -233,7 +235,7 @@ export default function PipelineHub() {
                   cursor: creating || !newTitle.trim() ? 'not-allowed' : 'pointer',
                 }}
               >
-                {creating ? 'Membuat...' : 'Buat'}
+                {creating ? t('Membuat...') : t('Buat')}
               </button>
             </div>
           </div>
@@ -245,19 +247,19 @@ export default function PipelineHub() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ fontSize: 13, color: 'var(--text2)' }}>
-            {cards.filter(c => c.stage !== 'selesai').length} konten aktif
+            {cards.filter(c => c.stage !== 'selesai').length} {t('konten aktif')}
           </div>
           <button
             onClick={() => setShowNewModal(true)}
             style={{ padding: '8px 16px', background: '#6c63ff', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
           >
-            + Konten Baru
+            + {t('Konten Baru')}
           </button>
         </div>
 
         {/* Columns */}
         {loading ? (
-          <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat pipeline...</div>
+          <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat pipeline...')}</div>
         ) : loadError ? (
           <div style={{ padding: '12px 16px', background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 8, color: '#ff6b6b', fontSize: 13 }}>
             {loadError}
@@ -279,7 +281,7 @@ export default function PipelineHub() {
                 {/* Cards */}
                 {cardsByStage(stage.key).length === 0 ? (
                   <div style={{ border: '1px dashed var(--border)', borderRadius: 8, padding: '16px 0', textAlign: 'center', fontSize: 11, color: 'var(--text2)' }}>
-                    Kosong
+                    {t('Kosong')}
                   </div>
                 ) : (
                   cardsByStage(stage.key).map(card => (

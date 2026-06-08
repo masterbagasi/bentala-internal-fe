@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSupabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { Post } from '@/lib/types'
 
 // ── Comment room + activity feed for a single post ─────────────
@@ -95,6 +96,7 @@ function Avatar({ name, size = 30 }: { name: string; size?: number }) {
 // feed (in the modal body) and the composer (in the fixed modal footer) can be
 // rendered in separate parts of the modal while sharing one source of truth.
 export function usePostComments(post: Post | null | undefined) {
+  const t = useT()
   const [tab, setTab] = useState<'comments' | 'activity'>('comments')
   // All rows for this post (comments + logged activity), kept in one list so a
   // single realtime subscription covers both.
@@ -167,10 +169,10 @@ export function usePostComments(post: Post | null | undefined) {
   // Activity events derived from the post itself.
   const activity = useMemo<FeedEntry[]>(() => {
     if (!post) return []
-    const author = post.created_by || 'Seseorang'
+    const author = post.created_by || t('Seseorang')
     const ev: FeedEntry[] = []
     if (post.created_at) {
-      ev.push({ id: 'created', kind: 'activity', authorName: author, at: post.created_at, text: 'membuat post ini' })
+      ev.push({ id: 'created', kind: 'activity', authorName: author, at: post.created_at, text: t('membuat post ini') })
     }
     const files = [...(post.files || [])]
     if (post.video_link) files.push(post.video_link)
@@ -178,11 +180,11 @@ export function usePostComments(post: Post | null | undefined) {
     files.filter(Boolean).forEach((f, i) => {
       ev.push({
         id: `file-${i}`, kind: 'activity', authorName: author, at: post.created_at,
-        text: 'melampirkan', attach: fileName(f), url: f,
+        text: t('melampirkan'), attach: fileName(f), url: f,
       })
     })
     if ((post.status === 'published' || post.status === 'done') && post.updated_at) {
-      ev.push({ id: 'done', kind: 'activity', authorName: author, at: post.updated_at, text: 'menandai post selesai', done: true })
+      ev.push({ id: 'done', kind: 'activity', authorName: author, at: post.updated_at, text: t('menandai post selesai'), done: true })
     }
     return ev
   }, [post])
@@ -208,7 +210,7 @@ export function usePostComments(post: Post | null | undefined) {
         .map(r => ({
           id: r.id,
           kind: 'activity' as const,
-          authorName: r.author_name || r.author_email || 'Seseorang',
+          authorName: r.author_name || r.author_email || t('Seseorang'),
           at: r.created_at,
           text: r.body,
         })),
@@ -228,7 +230,7 @@ export function usePostComments(post: Post | null | undefined) {
     const body = input.trim()
     if (!body || posting || !post) return
     if (!me.email) {
-      setError('Tidak bisa mengenali akun Anda.')
+      setError(t('Tidak bisa mengenali akun Anda.'))
       return
     }
     setPosting(true)
@@ -245,7 +247,7 @@ export function usePostComments(post: Post | null | undefined) {
       setInput('')
       setTab('comments')
     } catch {
-      setError('Gagal mengirim komentar. Coba lagi.')
+      setError(t('Gagal mengirim komentar. Coba lagi.'))
     } finally {
       setPosting(false)
     }
@@ -260,21 +262,22 @@ export type PostCommentsState = ReturnType<typeof usePostComments>
 
 // Tabs + scrollable feed — goes in the modal body.
 export function PostCommentsBody({ s }: { s: PostCommentsState }) {
+  const t = useT()
   const { tab, setTab, feed, loading, commentCount } = s
   return (
     <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
       {/* Tabs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
-        <Tab label={`Komentar${commentCount ? ` (${commentCount})` : ''}`} active={tab === 'comments'} onClick={() => setTab('comments')} />
-        <Tab label="Semua Aktivitas" active={tab === 'activity'} onClick={() => setTab('activity')} />
+        <Tab label={`${t('Komentar')}${commentCount ? ` (${commentCount})` : ''}`} active={tab === 'comments'} onClick={() => setTab('comments')} />
+        <Tab label={t('Semua Aktivitas')} active={tab === 'activity'} onClick={() => setTab('activity')} />
       </div>
 
       {/* Feed — newest first */}
       {loading ? (
-        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>Memuat…</div>
+        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>{t('Memuat…')}</div>
       ) : feed.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>
-          {tab === 'comments' ? 'Belum ada komentar. Jadilah yang pertama!' : 'Belum ada aktivitas.'}
+          {tab === 'comments' ? t('Belum ada komentar. Jadilah yang pertama!') : t('Belum ada aktivitas.')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -290,6 +293,7 @@ export function PostCommentsBody({ s }: { s: PostCommentsState }) {
 // The comment composer — goes in the fixed modal footer so it's ALWAYS visible
 // at the very bottom, never scrolls with the feed.
 export function PostCommentsComposer({ s }: { s: PostCommentsState }) {
+  const t = useT()
   const { me, input, setInput, submit, posting, error } = s
   return (
     <div style={{ width: '100%', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -302,7 +306,7 @@ export function PostCommentsComposer({ s }: { s: PostCommentsState }) {
           onKeyDown={e => {
             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit()
           }}
-          placeholder="Tulis komentar… (⌘/Ctrl + Enter untuk kirim)"
+          placeholder={t('Tulis komentar… (⌘/Ctrl + Enter untuk kirim)')}
           style={{
             display: 'block',
             width: '100%', boxSizing: 'border-box', resize: 'vertical',
@@ -324,7 +328,7 @@ export function PostCommentsComposer({ s }: { s: PostCommentsState }) {
               whiteSpace: 'nowrap',
             }}
           >
-            {posting ? 'Mengirim…' : 'Kirim'}
+            {posting ? t('Mengirim…') : t('Kirim')}
           </button>
         </div>
       </div>
@@ -350,6 +354,7 @@ function Tab({ label, active, onClick }: { label: string; active: boolean; onCli
 }
 
 function FeedItem({ entry }: { entry: FeedEntry }) {
+  const t = useT()
   if (entry.kind === 'activity') {
     return (
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -381,7 +386,7 @@ function FeedItem({ entry }: { entry: FeedEntry }) {
                 <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {entry.attach}
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--accent)' }}>Buka / Download</span>
+                <span style={{ fontSize: 11, color: 'var(--accent)' }}>{t('Buka / Download')}</span>
               </span>
             </a>
           )}

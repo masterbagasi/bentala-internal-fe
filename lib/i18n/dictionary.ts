@@ -1,0 +1,87 @@
+// ── Translation dictionary (Indonesian → English) ───────────
+//
+// Keys are the Indonesian SOURCE strings exactly as they appear in
+// t('...') calls. Values are the English translations. When the
+// active language is 'en' and a key is missing here, the source
+// (Indonesian) string is shown as a graceful fallback.
+//
+// Strings that are already English in the source (e.g. "Dashboard",
+// "Home Page") need no entry — they read the same in both languages.
+//
+// Keep this sorted-ish by area to stay maintainable. New entries are
+// appended per page/feature as translation coverage grows.
+
+import { GENERATED } from './generated'
+
+// Curated, hand-checked translations. These override the auto-generated
+// ones below on key conflicts (spread order: GENERATED first, SEED last).
+const SEED: Record<string, string> = {
+  // ── Account menu / chrome ──
+  'Edit Profil': 'Edit Profile',
+  'Ubah Password': 'Change Password',
+  'Ganti Bahasa': 'Change Language',
+  'Setting Access': 'Access Settings',
+  'Keluar': 'Log Out',
+  'Ganti foto profil': 'Change profile photo',
+  'Upload gagal, coba lagi': 'Upload failed, please try again',
+  'Ukuran file maks 20MB': 'Max file size 20MB',
+
+  // ── Sidebar nav (Indonesian items only) ──
+  'Pencari Ide': 'Idea Finder',
+  'Generator Gambar': 'Image Generator',
+  'Template Gambar': 'Image Templates',
+  'Generator Audio': 'Audio Generator',
+  'Invoice & Bayar': 'Invoice & Payment',
+  'Hak Akses': 'Access Control',
+  'Cari menu': 'Search menu',
+  'Tidak ada menu yang cocok.': 'No matching menu.',
+
+  // ── Common actions / buttons ──
+  'Simpan': 'Save',
+  'Simpan Perubahan': 'Save Changes',
+  'Simpan Password': 'Save Password',
+  'Batal': 'Cancel',
+  'Tutup': 'Close',
+  'Hapus': 'Delete',
+  'Selesai': 'Done',
+  'Tambah Akun': 'Add Account',
+  'Buat Akun': 'Create Account',
+  'Atur Akses': 'Manage Access',
+  'Edit Akun': 'Edit Account',
+  'Ganti Foto': 'Change Photo',
+  'Cari akun…': 'Search account…',
+  'Pilih semua': 'Select all',
+  'Kosongkan': 'Clear',
+
+  // ── Password / profile fields ──
+  'Password baru': 'New password',
+  'Ulangi password baru': 'Repeat new password',
+  'Tampilkan password': 'Show password',
+  'Minimal 6 karakter': 'Minimum 6 characters',
+  'Ketik ulang password': 'Re-type password',
+  'Password minimal 6 karakter': 'Password must be at least 6 characters',
+  'Konfirmasi password tidak cocok': 'Password confirmation does not match',
+  'Gagal mengubah password': 'Failed to change password',
+  'Password berhasil diubah. Gunakan password baru saat login berikutnya.':
+    'Password changed successfully. Use the new password on your next login.',
+  'Nama lengkap': 'Full name',
+  'Nomor telepon': 'Phone number',
+  'Jabatan / posisi': 'Job / position',
+  'Tanggal bergabung': 'Joined date',
+  'Login terakhir': 'Last login',
+  'Link konfirmasi akan dikirim ke email baru.': 'A confirmation link will be sent to the new email.',
+  'Sesi tidak ditemukan': 'Session not found',
+
+  // ── Access control page ──
+  'Akses Menu per Akun': 'Menu Access per Account',
+  'Akun super admin tidak bisa diubah': 'The super admin account cannot be edited',
+  'Akun tidak ditemukan': 'Account not found',
+  'Email tidak valid': 'Invalid email',
+  'Email sudah terdaftar': 'Email already registered',
+  'Email sudah dipakai akun lain': 'Email is already used by another account',
+  'Super Admin': 'Super Admin',
+  'Admin': 'Admin',
+  'User': 'User',
+}
+
+export const DICT: Record<string, string> = { ...GENERATED, ...SEED }

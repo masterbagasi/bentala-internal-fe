@@ -8,9 +8,11 @@ import { INV_STATUS_LABELS } from '@/lib/constants'
 import { formatRupiah, formatDate, generateInvoiceNum } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useLogActivity } from '@/hooks/useData'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { Invoice, InvoiceStatus, Client } from '@/lib/types'
 
 export function InvoicesPage() {
+  const t = useT()
   const { invoices, clients } = useStore()
   const [showModal, setShowModal] = useState(false)
   const [editInvoice, setEditInvoice] = useState<Invoice | null>(null)
@@ -26,7 +28,7 @@ export function InvoicesPage() {
   })
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus invoice ini?')) return
+    if (!confirm(t('Hapus invoice ini?'))) return
     const supabase = getSupabase()
     await supabase.from('invoices').delete().eq('id', id)
     logActivity('Invoice dihapus')
@@ -44,10 +46,10 @@ export function InvoicesPage() {
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
         {[
-          { label: 'Pending / DP', value: formatRupiah(pending), color: '#ffc542' },
-          { label: 'Lunas',        value: formatRupiah(paid),    color: '#43d9a2' },
-          { label: 'Overdue',      value: formatRupiah(overdue), color: '#ff6b6b' },
-          { label: 'Total',        value: formatRupiah(total),   color: 'var(--text)' },
+          { label: t('Pending / DP'), value: formatRupiah(pending), color: '#ffc542' },
+          { label: t('Lunas'),        value: formatRupiah(paid),    color: '#43d9a2' },
+          { label: 'Overdue',         value: formatRupiah(overdue), color: '#ff6b6b' },
+          { label: 'Total',           value: formatRupiah(total),   color: 'var(--text)' },
         ].map(k => (
           <div key={k.label}
             style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16 }}>
@@ -59,12 +61,12 @@ export function InvoicesPage() {
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>Daftar Invoice ({invoices.length})</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t('Daftar Invoice')} ({invoices.length})</div>
         <button
           onClick={() => { setEditInvoice(null); setShowModal(true) }}
           style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
         >
-          + Invoice Baru
+          + {t('Invoice Baru')}
         </button>
       </div>
 
@@ -73,13 +75,13 @@ export function InvoicesPage() {
         <table>
           <thead>
             <tr>
-              <th>No. Invoice</th>
+              <th>{t('No. Invoice')}</th>
               <th>Client</th>
               <th>Project</th>
-              <th>Nilai</th>
-              <th>Jatuh Tempo</th>
+              <th>{t('Nilai')}</th>
+              <th>{t('Jatuh Tempo')}</th>
               <th>Status</th>
-              <th style={{ width: 160 }}>Aksi</th>
+              <th style={{ width: 160 }}>{t('Aksi')}</th>
             </tr>
           </thead>
           <tbody>
@@ -87,7 +89,7 @@ export function InvoicesPage() {
               <tr><td colSpan={7}>
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>💰</div>
-                  Belum ada invoice.
+                  {t('Belum ada invoice.')}
                 </div>
               </td></tr>
             ) : [...invoices].reverse().map(inv => (
@@ -144,6 +146,7 @@ function InvoiceModal({ open, invoice, clients, invoiceCount, onClose }: {
   invoiceCount: number
   onClose: () => void
 }) {
+  const t = useT()
   const logActivity = useLogActivity()
   const [form, setForm] = useState({
     client:  invoice?.client || '',
@@ -156,7 +159,7 @@ function InvoiceModal({ open, invoice, clients, invoiceCount, onClose }: {
   const [loading, setLoading] = useState(false)
 
   async function handleSave() {
-    if (!form.client || !form.value) { alert('Client dan nilai invoice wajib diisi!'); return }
+    if (!form.client || !form.value) { alert(t('Client dan nilai invoice wajib diisi!')); return }
     setLoading(true)
     const supabase = getSupabase()
     const num = invoice?.num || generateInvoiceNum(invoiceCount)
@@ -182,26 +185,26 @@ function InvoiceModal({ open, invoice, clients, invoiceCount, onClose }: {
   return (
     <Modal
       open={open} onClose={onClose}
-      title={invoice ? 'Edit Invoice' : 'Invoice Baru'}
-      footer={<><BtnSecondary onClick={onClose}>Batal</BtnSecondary><BtnPrimary onClick={handleSave} loading={loading}>Simpan</BtnPrimary></>}
+      title={invoice ? 'Edit Invoice' : t('Invoice Baru')}
+      footer={<><BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary><BtnPrimary onClick={handleSave} loading={loading}>{t('Simpan')}</BtnPrimary></>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FG label="Client *">
             <select value={form.client} onChange={e => setForm(f=>({...f,client:e.target.value}))}>
-              <option value="">— Pilih Client —</option>
+              <option value="">{t('— Pilih Client —')}</option>
               {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </FG>
           <FG label="Project">
-            <input type="text" value={form.project} onChange={e => setForm(f=>({...f,project:e.target.value}))} placeholder="Nama project" />
+            <input type="text" value={form.project} onChange={e => setForm(f=>({...f,project:e.target.value}))} placeholder={t('Nama project')} />
           </FG>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FG label="Nilai Invoice (Rp) *">
+          <FG label={t('Nilai Invoice (Rp) *')}>
             <input type="number" value={form.value} onChange={e => setForm(f=>({...f,value:e.target.value}))} placeholder="0" />
           </FG>
-          <FG label="Jatuh Tempo">
+          <FG label={t('Jatuh Tempo')}>
             <input type="date" value={form.due} onChange={e => setForm(f=>({...f,due:e.target.value}))} />
           </FG>
         </div>
@@ -210,8 +213,8 @@ function InvoiceModal({ open, invoice, clients, invoiceCount, onClose }: {
             {Object.entries(INV_STATUS_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </FG>
-        <FG label="Catatan">
-          <textarea value={form.notes} onChange={e => setForm(f=>({...f,notes:e.target.value}))} placeholder="Catatan..." />
+        <FG label={t('Catatan')}>
+          <textarea value={form.notes} onChange={e => setForm(f=>({...f,notes:e.target.value}))} placeholder={t('Catatan...')} />
         </FG>
       </div>
     </Modal>

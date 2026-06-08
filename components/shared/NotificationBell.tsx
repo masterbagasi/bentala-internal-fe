@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useStore } from '@/hooks/useStore'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 import type { Post } from '@/lib/types'
 
@@ -43,6 +44,7 @@ interface ActivityRow {
 const sb = () => getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
 
 export function NotificationBell() {
+  const t = useT()
   const posts = useStore(s => s.posts)
   const activity = useStore(s => s.activity)
 
@@ -167,7 +169,7 @@ export function NotificationBell() {
       out.push({
         id: r.id,
         at: r.created_at,
-        author: r.author_name || r.author_email || 'Seseorang',
+        author: r.author_name || r.author_email || t('Seseorang'),
         text: r.body,
         postTitle: post?.title,
       })
@@ -203,7 +205,7 @@ export function NotificationBell() {
         }}
         onMouseOver={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
         onMouseOut={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-        title="Notifikasi"
+        title={t('Notifikasi')}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -237,13 +239,13 @@ export function NotificationBell() {
               padding: '10px 14px', borderBottom: '1px solid var(--border)',
             }}
           >
-            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Notifikasi</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('Notifikasi')}</span>
             {unread > 0 && (
               <button
                 onClick={markAllRead}
                 style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
               >
-                Tandai semua dibaca
+                {t('Tandai semua dibaca')}
               </button>
             )}
           </div>
@@ -251,9 +253,9 @@ export function NotificationBell() {
           <div style={{ maxHeight: 380, overflowY: 'auto' }}>
             {notifs.length === 0 ? (
               <div style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--text2)', fontSize: 13, lineHeight: 1.6 }}>
-                Belum ada notifikasi.<br />
+                {t('Belum ada notifikasi.')}<br />
                 <span style={{ fontSize: 11, color: 'var(--text3)' }}>
-                  Notifikasi muncul saat Anda di-tag atau ada perubahan pada post yang men-tag Anda.
+                  {t('Notifikasi muncul saat Anda di-tag atau ada perubahan pada post yang men-tag Anda.')}
                 </span>
               </div>
             ) : (
@@ -290,7 +292,7 @@ export function NotificationBell() {
                       </div>
                       <div style={{ fontSize: 10.5, color: 'var(--text2)', marginTop: 3 }}>
                         {item.postTitle && (
-                          <span style={{ color: 'var(--text3)' }}>pada &ldquo;{item.postTitle}&rdquo; · </span>
+                          <span style={{ color: 'var(--text3)' }}>{t('pada')} &ldquo;{item.postTitle}&rdquo; · </span>
                         )}
                         {relativeTime(item.at)}
                       </div>

@@ -3,8 +3,10 @@
 import { useState, useRef } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
 import { BPIPage, BoardFilter, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export default function BsiPage() {
+  const t = useT()
   const [tab, setTab] = useState<TabKey>('list')
   const bsiRef = useRef<BPIPageHandle>(null)
   const bf = useBoardFilter('bsi')
@@ -33,7 +35,7 @@ export default function BsiPage() {
               cursor: 'pointer',
             }}
           >
-            + Tambah Post
+            {t('+ Tambah Post')}
           </button>
         }
       />

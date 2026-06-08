@@ -8,6 +8,7 @@ import { PrimaryActionButton } from '@/components/website/PageActions'
 import { FormField, inputStyle, textareaStyle } from '@/components/website/FormField'
 import { ActionButton, IconBtn, ListEmpty, ListError, ModalShell, RowCard } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 type FormState = Omit<BsiTeamMember, 'id' | 'created_at'>
 
@@ -23,6 +24,7 @@ const EMPTY: FormState = {
 }
 
 export default function TeamAdminPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiTeamMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,7 +46,7 @@ export default function TeamAdminPage() {
   useEffect(() => { load() }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus anggota tim ini?')) return
+    if (!confirm(t('Hapus anggota tim ini?'))) return
     const { error } = await supabase.from('bsi_team').delete().eq('id', id)
     if (error) { alert(error.message); return }
     setItems((xs) => xs.filter((x) => x.id !== id))
@@ -60,18 +62,18 @@ export default function TeamAdminPage() {
   }
 
   useRegisterPageAction(
-    <PrimaryActionButton onClick={() => setCreating(true)}>+ Tambah Anggota</PrimaryActionButton>,
+    <PrimaryActionButton onClick={() => setCreating(true)}>{t('+ Tambah Anggota')}</PrimaryActionButton>,
   )
 
   return (
     <>
       <div style={{ padding: 24 }}>
         {error && <ListError message={error} />}
-        <Section title="Anggota Tim">
+        <Section title={t('Anggota Tim')}>
         {loading ? (
-          <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+          <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
         ) : items.length === 0 ? (
-          <ListEmpty message="Belum ada anggota tim. Klik + Tambah Anggota." />
+          <ListEmpty message={t('Belum ada anggota tim. Klik + Tambah Anggota.')} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
             {items.map((m) => (
@@ -116,15 +118,15 @@ export default function TeamAdminPage() {
                     </div>
                   )}
                 </div>
-                <IconBtn onClick={() => setEditing(m)} title="Edit">✎</IconBtn>
+                <IconBtn onClick={() => setEditing(m)} title={t('Edit')}>✎</IconBtn>
                 <IconBtn
                   onClick={() => togglePublish(m)}
-                  title={m.is_published ? 'Sembunyikan' : 'Tampilkan'}
+                  title={m.is_published ? t('Sembunyikan') : t('Tampilkan')}
                   color={m.is_published ? 'var(--accent3)' : 'var(--text2)'}
                 >
                   {m.is_published ? '●' : '○'}
                 </IconBtn>
-                <IconBtn onClick={() => handleDelete(m.id)} title="Hapus" color="#ff6b6b">×</IconBtn>
+                <IconBtn onClick={() => handleDelete(m.id)} title={t('Hapus')} color="#ff6b6b">×</IconBtn>
               </RowCard>
             ))}
           </div>
@@ -144,6 +146,7 @@ export default function TeamAdminPage() {
 }
 
 function TeamModal({ initial, onClose, onSaved }: { initial: BsiTeamMember | null; onClose: () => void; onSaved: () => void }) {
+  const t = useT()
   const supabase = getSupabase()
   const [form, setForm] = useState<FormState>(
     initial
@@ -180,7 +183,7 @@ function TeamModal({ initial, onClose, onSaved }: { initial: BsiTeamMember | nul
 
   return (
     <ModalShell
-      title={initial ? 'Edit Anggota' : 'Tambah Anggota'}
+      title={initial ? t('Edit Anggota') : t('Tambah Anggota')}
       onClose={onClose}
       footer={
         <>
@@ -188,47 +191,47 @@ function TeamModal({ initial, onClose, onSaved }: { initial: BsiTeamMember | nul
             onClick={onClose}
             style={{ flex: 1, height: 36, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}
           >
-            Batal
+            {t('Batal')}
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
             style={{ flex: 1, height: 36, background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1 }}
           >
-            {saving ? 'Menyimpan…' : initial ? 'Simpan' : 'Tambah'}
+            {saving ? t('Menyimpan…') : initial ? t('Simpan') : t('Tambah')}
           </button>
         </>
       }
     >
       {error && <ListError message={error} />}
 
-      <FormField label="Nama" required>
+      <FormField label={t('Nama')} required>
         <input style={inputStyle} value={form.name} onChange={(e) => update('name', e.target.value)} />
       </FormField>
-      <FormField label="Jabatan" required>
+      <FormField label={t('Jabatan')} required>
         <input style={inputStyle} value={form.title} onChange={(e) => update('title', e.target.value)} />
       </FormField>
-      <FormField label="Deskripsi Peran">
+      <FormField label={t('Deskripsi Peran')}>
         <textarea style={textareaStyle} value={form.role_description} onChange={(e) => update('role_description', e.target.value)} />
       </FormField>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-        <FormField label="Inisial" required hint="2 karakter, contoh: DR">
+        <FormField label={t('Inisial')} required hint={t('2 karakter, contoh: DR')}>
           <input style={inputStyle} value={form.initials} maxLength={3} onChange={(e) => update('initials', e.target.value.toUpperCase())} />
         </FormField>
-        <FormField label="Warna Avatar">
+        <FormField label={t('Warna Avatar')}>
           <input type="color" style={{ ...inputStyle, padding: 4, height: 36 }} value={form.avatar_color} onChange={(e) => update('avatar_color', e.target.value)} />
         </FormField>
-        <FormField label="Urutan">
+        <FormField label={t('Urutan')}>
           <input type="number" style={inputStyle} value={form.sort_order} onChange={(e) => update('sort_order', Number(e.target.value) || 0)} />
         </FormField>
       </div>
-      <FormField label="Tags" hint="Pisahkan dengan koma. Contoh: Founder, Director, Strategy">
+      <FormField label={t('Tags')} hint={t('Pisahkan dengan koma. Contoh: Founder, Director, Strategy')}>
         <input style={inputStyle} value={tagsText} onChange={(e) => setTagsText(e.target.value)} />
       </FormField>
-      <FormField label="Status">
+      <FormField label={t('Status')}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer' }}>
           <input type="checkbox" checked={form.is_published} onChange={(e) => update('is_published', e.target.checked)} />
-          Tampilkan di website
+          {t('Tampilkan di website')}
         </label>
       </FormField>
     </ModalShell>

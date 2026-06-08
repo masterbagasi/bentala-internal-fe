@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { captureVideoFrame, deleteFile } from '@/lib/storage'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Props {
   /** Video URLs from which user can choose to capture a frame. */
@@ -23,6 +24,7 @@ export function VideoPosterPicker({
   onPosterChange,
   onClose,
 }: Props) {
+  const t = useT()
   const videoRef = useRef<HTMLVideoElement>(null)
   const [activeUrl, setActiveUrl] = useState(videoUrls[0] ?? '')
   const [currentTime, setCurrentTime] = useState(0)
@@ -113,9 +115,9 @@ export function VideoPosterPicker({
           }}
         >
           <div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>Pilih Frame untuk Poster</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{t('Pilih Frame untuk Poster')}</div>
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
-              Geser slider ke frame yang diinginkan, lalu klik &quot;Set sebagai Poster&quot;
+              {t('Geser slider ke frame yang diinginkan, lalu klik "Set sebagai Poster"')}
             </div>
           </div>
           <button
@@ -255,7 +257,7 @@ export function VideoPosterPicker({
               cursor: 'pointer',
             }}
           >
-            Batal
+            {t('Batal')}
           </button>
           <button
             type="button"
@@ -274,7 +276,7 @@ export function VideoPosterPicker({
               opacity: !isReady || capturing ? 0.6 : 1,
             }}
           >
-            {capturing ? 'Mengcapture…' : 'Set sebagai Poster'}
+            {capturing ? t('Mengcapture…') : t('Set sebagai Poster')}
           </button>
         </div>
       </div>

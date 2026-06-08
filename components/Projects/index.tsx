@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
@@ -11,6 +12,7 @@ import { useLogActivity } from '@/hooks/useData'
 import type { Project, ProjectType, ProjectStatus, Client } from '@/lib/types'
 
 export function ProjectsPage() {
+  const t = useT()
   const { projects, tasks, clients, projFilter, setProjFilter } = useStore()
   const [showModal, setShowModal] = useState(false)
   const [editProject, setEditProject] = useState<Project | null>(null)
@@ -19,7 +21,7 @@ export function ProjectsPage() {
   const filtered = projFilter === 'all' ? projects : projects.filter(p => p.type === projFilter)
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus project ini?')) return
+    if (!confirm(t('Hapus project ini?'))) return
     const supabase = getSupabase()
     await supabase.from('projects').delete().eq('id', id)
     logActivity('Project dihapus')
@@ -30,7 +32,7 @@ export function ProjectsPage() {
       {/* Filter + Add */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {[
-          { key: 'all', label: 'Semua' },
+          { key: 'all', label: t('Semua') },
           ...Object.entries(PROJ_TYPE).map(([k, v]) => ({ key: k, label: v })),
         ].map(f => (
           <button key={f.key}
@@ -49,7 +51,7 @@ export function ProjectsPage() {
           onClick={() => { setEditProject(null); setShowModal(true) }}
           style={{ marginLeft: 'auto', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
         >
-          + Tambah Project
+          {t('+ Tambah Project')}
         </button>
       </div>
 
@@ -58,14 +60,14 @@ export function ProjectsPage() {
         <table>
           <thead>
             <tr>
-              <th>Nama Project</th>
+              <th>{t('Nama Project')}</th>
               <th>Client</th>
-              <th>Tipe</th>
+              <th>{t('Tipe')}</th>
               <th>Team</th>
               <th>Deadline</th>
               <th>Status</th>
               <th>Progress</th>
-              <th style={{ width: 80 }}>Aksi</th>
+              <th style={{ width: 80 }}>{t('Aksi')}</th>
             </tr>
           </thead>
           <tbody>
@@ -73,7 +75,7 @@ export function ProjectsPage() {
               <tr><td colSpan={8}>
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>🗂</div>
-                  Belum ada project.
+                  {t('Belum ada project.')}
                 </div>
               </td></tr>
             ) : filtered.map(p => {
@@ -141,6 +143,7 @@ function ProjectModal({ open, project, clients, onClose }: {
   clients: Client[]
   onClose: () => void
 }) {
+  const t = useT()
   const logActivity = useLogActivity()
   const [form, setForm] = useState({
     name:        project?.name || '',
@@ -161,7 +164,7 @@ function ProjectModal({ open, project, clients, onClose }: {
   }
 
   async function handleSave() {
-    if (!form.name.trim()) { alert('Nama project wajib diisi!'); return }
+    if (!form.name.trim()) { alert(t('Nama project wajib diisi!')); return }
     setLoading(true)
     const supabase = getSupabase()
     const data = {
@@ -188,21 +191,21 @@ function ProjectModal({ open, project, clients, onClose }: {
   return (
     <Modal
       open={open} onClose={onClose}
-      title={project ? 'Edit Project' : 'Tambah Project Baru'}
-      footer={<><BtnSecondary onClick={onClose}>Batal</BtnSecondary><BtnPrimary onClick={handleSave} loading={loading}>Simpan</BtnPrimary></>}
+      title={project ? t('Edit Project') : t('Tambah Project Baru')}
+      footer={<><BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary><BtnPrimary onClick={handleSave} loading={loading}>{t('Simpan')}</BtnPrimary></>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <FG label="Nama Project *">
-          <input type="text" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} placeholder="Nama project..." />
+        <FG label={t('Nama Project *')}>
+          <input type="text" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} placeholder={t('Nama project...')} />
         </FG>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FG label="Client">
             <select value={form.client} onChange={e => setForm(f=>({...f,client:e.target.value}))}>
-              <option value="">— Internal —</option>
+              <option value="">{t('— Internal —')}</option>
               {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </FG>
-          <FG label="Tipe">
+          <FG label={t('Tipe')}>
             <select value={form.type} onChange={e => setForm(f=>({...f,type:e.target.value as ProjectType}))}>
               {Object.entries(PROJ_TYPE).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
             </select>
@@ -242,8 +245,8 @@ function ProjectModal({ open, project, clients, onClose }: {
             ))}
           </div>
         </FG>
-        <FG label="Deskripsi">
-          <textarea value={form.description} onChange={e => setForm(f=>({...f,description:e.target.value}))} placeholder="Deskripsi project..." />
+        <FG label={t('Deskripsi')}>
+          <textarea value={form.description} onChange={e => setForm(f=>({...f,description:e.target.value}))} placeholder={t('Deskripsi project...')} />
         </FG>
       </div>
     </Modal>

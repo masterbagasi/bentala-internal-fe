@@ -1,6 +1,7 @@
 'use client'
 
 import { Card, StatCard, SectionTitle, PlatformChip, fmtNum } from './ui'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export interface MiniPost { title: string; date: string; likes: number; comments: number; kind: 'reel' | 'feed' }
 export interface MiniAccount {
@@ -21,16 +22,17 @@ export interface MiniAccount {
 // Compact, real overview for accounts where Instagram doesn't expose per-post
 // insights / demographics (business accounts under ~1.000 followers).
 export function MiniAnalytics({ account }: { account: MiniAccount }) {
+  const t = useT()
   return (
     <div>
       <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
-        Data asli <strong style={{ color: 'var(--text)' }}>@{account.username}</strong> via Composio · per {account.asOf}.
+        {t('Data asli')} <strong style={{ color: 'var(--text)' }}>@{account.username}</strong> {t('via Composio · per')} {account.asOf}.
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 16 }}>
-        <StatCard label="Total Followers" value={fmtNum(account.followers)} />
+        <StatCard label={t('Total Followers')} value={fmtNum(account.followers)} />
         <StatCard
-          label="Konten"
+          label={t('Konten')}
           value={fmtNum(account.mediaCount)}
           breakdown={
             <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11.5, color: 'var(--text2)' }}>
@@ -45,18 +47,18 @@ export function MiniAnalytics({ account }: { account: MiniAccount }) {
             </div>
           }
         />
-        <StatCard label="Reach (28 hari)" value={fmtNum(account.reach28)} />
-        <StatCard label="Views (28 hari)" value={fmtNum(account.views28)} />
+        <StatCard label={t('Reach (28 hari)')} value={fmtNum(account.reach28)} />
+        <StatCard label={t('Views (28 hari)')} value={fmtNum(account.views28)} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 16 }}>
-        <StatCard label="Interaksi (28 hari)" value={fmtNum(account.interactions28)} />
-        <StatCard label="Mengikuti" value={fmtNum(account.following)} />
-        <StatCard label="Total Post" value={fmtNum(account.mediaCount)} />
+        <StatCard label={t('Interaksi (28 hari)')} value={fmtNum(account.interactions28)} />
+        <StatCard label={t('Mengikuti')} value={fmtNum(account.following)} />
+        <StatCard label={t('Total Post')} value={fmtNum(account.mediaCount)} />
       </div>
 
       <Card style={{ marginBottom: 16 }}>
-        <SectionTitle>Postingan Terbaru</SectionTitle>
+        <SectionTitle>{t('Postingan Terbaru')}</SectionTitle>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {account.posts.map((p, i) => (
             <div key={i} style={{
@@ -80,8 +82,8 @@ export function MiniAnalytics({ account }: { account: MiniAccount }) {
         padding: '12px 14px', borderRadius: 10, fontSize: 12, lineHeight: 1.6,
         background: 'var(--bg3)', color: 'var(--text3)', border: '1px solid var(--border)',
       }}>
-        Akun ini di bawah 1.000 followers, sehingga Instagram belum menyediakan <strong>reach/views per-post</strong> dan
-        <strong> demografi audiens</strong>. Metrik lengkap (seperti pada Bentala Project) otomatis tersedia setelah akun mencapai ≥1.000 followers.
+        {t('Akun ini di bawah 1.000 followers, sehingga Instagram belum menyediakan')} <strong>{t('reach/views per-post')}</strong> {t('dan')}
+        <strong> {t('demografi audiens')}</strong>. {t('Metrik lengkap (seperti pada Bentala Project) otomatis tersedia setelah akun mencapai ≥1.000 followers.')}
       </div>
     </div>
   )

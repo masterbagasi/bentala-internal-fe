@@ -14,6 +14,7 @@ import { SaveActions } from '@/components/website/PageActions'
 import { RichTextEditor } from '@/components/website/RichTextEditor'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
 import { Section, Subgroup } from '@/components/website/Section'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 type FormState = Omit<BsiHero, 'id' | 'created_at' | 'updated_at'>
 
@@ -90,6 +91,7 @@ function toInlineHtml(html: string): string {
 }
 
 export default function HeroEditorPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -203,7 +205,7 @@ export default function HeroEditorPage() {
         error.code === '42703' || /column .* does not exist/i.test(error.message)
       setError(
         isMissingColumn
-          ? `Database belum diupdate: ${error.message}. Jalankan migration "schema_hero_lead_destination.sql" di Supabase SQL Editor lalu coba simpan lagi.`
+          ? `${t('Database belum diupdate:')} ${error.message}. ${t('Jalankan migration "schema_hero_lead_destination.sql" di Supabase SQL Editor lalu coba simpan lagi.')}`
           : error.message,
       )
       setSaving(false)
@@ -221,7 +223,7 @@ export default function HeroEditorPage() {
   }
 
   function handleDiscard() {
-    if (!confirm('Batalkan semua perubahan yang belum disimpan? Form akan kembali ke versi terakhir yang tersimpan.')) {
+    if (!confirm(t('Batalkan semua perubahan yang belum disimpan? Form akan kembali ke versi terakhir yang tersimpan.'))) {
       return
     }
     setForm(savedForm)
@@ -253,7 +255,7 @@ export default function HeroEditorPage() {
   )
 
   if (loading) {
-    return <div style={{ padding: 24, color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+    return <div style={{ padding: 24, color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
   }
 
   return (
@@ -590,13 +592,14 @@ export default function HeroEditorPage() {
 // is no riskier than the public-site renderer that displays the
 // same value.
 function HeroTextPreview({ form }: { form: FormState }) {
+  const t = useT()
   const safeHeadline = useMemo(
-    () => sanitizeForRender(toInlineHtml(form.headline || 'Judul Hero')),
-    [form.headline],
+    () => sanitizeForRender(toInlineHtml(form.headline || t('Judul Hero'))),
+    [form.headline, t],
   )
   const safeSubtitle = useMemo(
-    () => sanitizeForRender(toInlineHtml(form.subtitle || 'Subtitle hero akan tampil di sini')),
-    [form.subtitle],
+    () => sanitizeForRender(toInlineHtml(form.subtitle || t('Subtitle hero akan tampil di sini'))),
+    [form.subtitle, t],
   )
 
   const previewHeadlineSize = Math.min(form.headline_font_size_px * 0.4, 56)
@@ -625,7 +628,7 @@ function HeroTextPreview({ form }: { form: FormState }) {
           fontWeight: 700,
         }}
       >
-        Live preview · sesuai tampilan public site
+        {t('Live preview · sesuai tampilan public site')}
       </div>
       <SafeRichText
         html={safeHeadline}
@@ -662,13 +665,14 @@ function HeroTextPreview({ form }: { form: FormState }) {
 }
 
 function Preview({ form }: { form: FormState }) {
+  const t = useT()
   const safeHeadline = useMemo(
-    () => sanitizeForStore(toInlineHtml(form.headline || 'Judul Hero')),
-    [form.headline],
+    () => sanitizeForStore(toInlineHtml(form.headline || t('Judul Hero'))),
+    [form.headline, t],
   )
   const safeSubtitle = useMemo(
-    () => sanitizeForStore(toInlineHtml(form.subtitle || 'Subtitle hero akan tampil di sini')),
-    [form.subtitle],
+    () => sanitizeForStore(toInlineHtml(form.subtitle || t('Subtitle hero akan tampil di sini'))),
+    [form.subtitle, t],
   )
 
   const bgStyle: React.CSSProperties =
@@ -807,6 +811,7 @@ function PosterField({
   onChange: (url: string | null) => void
   onPickFromVideo: () => void
 }) {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -851,7 +856,7 @@ function PosterField({
           color: 'var(--text2)',
         }}
       >
-        Poster (gambar sebelum video dimuat)
+        {t('Poster (gambar sebelum video dimuat)')}
       </label>
 
       {value ? (
@@ -872,9 +877,9 @@ function PosterField({
               type="button"
               onClick={() =>
                 setConfirm({
-                  title: 'Ganti poster?',
-                  message: 'Poster saat ini akan diganti dengan file baru. File lama tetap di Riwayat.',
-                  confirmLabel: 'Ganti',
+                  title: t('Ganti poster?'),
+                  message: t('Poster saat ini akan diganti dengan file baru. File lama tetap di Riwayat.'),
+                  confirmLabel: t('Ganti'),
                   tone: 'warning',
                   onConfirm: () => {
                     setConfirm(null)
@@ -885,15 +890,15 @@ function PosterField({
               disabled={uploading}
               style={posterCornerBtn('#fff')}
             >
-              {uploading ? `${progress.toFixed(0)}%` : 'Upload File'}
+              {uploading ? `${progress.toFixed(0)}%` : t('Upload File')}
             </button>
             <button
               type="button"
               onClick={() =>
                 setConfirm({
-                  title: 'Ganti poster?',
-                  message: 'Poster saat ini akan diganti dengan frame yang dipilih dari video.',
-                  confirmLabel: 'Ganti',
+                  title: t('Ganti poster?'),
+                  message: t('Poster saat ini akan diganti dengan frame yang dipilih dari video.'),
+                  confirmLabel: t('Ganti'),
                   tone: 'warning',
                   onConfirm: () => {
                     setConfirm(null)
@@ -903,15 +908,15 @@ function PosterField({
               }
               style={posterCornerBtn('#fff')}
             >
-              Dari Video
+              {t('Dari Video')}
             </button>
             <button
               type="button"
               onClick={() =>
                 setConfirm({
-                  title: 'Hapus poster?',
-                  message: 'Poster akan dilepas dari section ini. File asli tetap aman di Riwayat.',
-                  confirmLabel: 'Hapus',
+                  title: t('Hapus poster?'),
+                  message: t('Poster akan dilepas dari section ini. File asli tetap aman di Riwayat.'),
+                  confirmLabel: t('Hapus'),
                   tone: 'danger',
                   onConfirm: () => {
                     setConfirm(null)
@@ -921,7 +926,7 @@ function PosterField({
               }
               style={posterCornerBtn('#ff6b6b')}
             >
-              Hapus
+              {t('Hapus')}
             </button>
           </div>
         </div>
@@ -952,10 +957,10 @@ function PosterField({
                 }}
               />
               <div style={{ fontSize: 12, color: 'var(--text2)' }}>
-                Mengupload {progress.toFixed(0)}%
+                {t('Mengupload')} {progress.toFixed(0)}%
               </div>
               <button type="button" onClick={cancelUpload} style={cancelUploadBtn}>
-                Batalkan
+                {t('Batalkan')}
               </button>
             </div>
           ) : (
@@ -970,13 +975,13 @@ function PosterField({
                   <polyline points="17 8 12 3 7 8" />
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
-                Upload File
+                {t('Upload File')}
               </button>
               <button type="button" onClick={onPickFromVideo} style={posterOptionBtn(true)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
-                Pilih dari Video
+                {t('Pilih dari Video')}
               </button>
             </>
           )}
@@ -1045,6 +1050,7 @@ function VideoField({
   value: string | null
   onChange: (url: string | null) => void
 }) {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -1157,9 +1163,9 @@ function VideoField({
             onClick={(e) => {
               e.stopPropagation()
               setConfirm({
-                title: 'Ganti video?',
-                message: 'Video saat ini akan diganti dengan video baru. File lama tetap di Riwayat.',
-                confirmLabel: 'Ganti',
+                title: t('Ganti video?'),
+                message: t('Video saat ini akan diganti dengan video baru. File lama tetap di Riwayat.'),
+                confirmLabel: t('Ganti'),
                 tone: 'warning',
                 onConfirm: () => {
                   setConfirm(null)
@@ -1169,16 +1175,16 @@ function VideoField({
             }}
             style={rowActionBtn('var(--text)')}
           >
-            Ganti
+            {t('Ganti')}
           </button>
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation()
               setConfirm({
-                title: 'Hapus video?',
-                message: 'Video akan dilepas dari section ini. File asli tetap aman di Riwayat.',
-                confirmLabel: 'Hapus',
+                title: t('Hapus video?'),
+                message: t('Video akan dilepas dari section ini. File asli tetap aman di Riwayat.'),
+                confirmLabel: t('Hapus'),
                 tone: 'danger',
                 onConfirm: () => {
                   setConfirm(null)
@@ -1188,7 +1194,7 @@ function VideoField({
             }}
             style={rowActionBtn('#ff6b6b')}
           >
-            Hapus
+            {t('Hapus')}
           </button>
         </div>
       ) : (
@@ -1235,7 +1241,7 @@ function VideoField({
                   animation: 'spin 0.8s linear infinite',
                 }}
               />
-              <div style={{ fontSize: 12 }}>Mengupload {progress.toFixed(0)}%</div>
+              <div style={{ fontSize: 12 }}>{t('Mengupload')} {progress.toFixed(0)}%</div>
               <button
                 type="button"
                 onClick={(e) => {
@@ -1244,7 +1250,7 @@ function VideoField({
                 }}
                 style={cancelUploadBtn}
               >
-                Batalkan
+                {t('Batalkan')}
               </button>
             </>
           ) : (
@@ -1255,9 +1261,9 @@ function VideoField({
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
               <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500 }}>
-                Klik atau drag video ke sini
+                {t('Klik atau drag video ke sini')}
               </div>
-              <div style={{ fontSize: 10 }}>MP4, WebM, MOV — max 200 MB · rasio 16:9</div>
+              <div style={{ fontSize: 10 }}>{t('MP4, WebM, MOV — max 200 MB · rasio 16:9')}</div>
             </>
           )}
         </div>
@@ -1283,9 +1289,9 @@ function VideoField({
           onClose={() => setPreview(false)}
           onGanti={() => {
             setConfirm({
-              title: 'Ganti video?',
-              message: 'Video saat ini akan diganti dengan video baru. File lama tetap di Riwayat.',
-              confirmLabel: 'Ganti',
+              title: t('Ganti video?'),
+              message: t('Video saat ini akan diganti dengan video baru. File lama tetap di Riwayat.'),
+              confirmLabel: t('Ganti'),
               tone: 'warning',
               onConfirm: () => {
                 setConfirm(null)
@@ -1296,9 +1302,9 @@ function VideoField({
           }}
           onHapus={() => {
             setConfirm({
-              title: 'Hapus video?',
-              message: 'Video akan dilepas dari section ini. File asli tetap aman di Riwayat.',
-              confirmLabel: 'Hapus',
+              title: t('Hapus video?'),
+              message: t('Video akan dilepas dari section ini. File asli tetap aman di Riwayat.'),
+              confirmLabel: t('Hapus'),
               tone: 'danger',
               onConfirm: () => {
                 setConfirm(null)
@@ -1330,6 +1336,7 @@ function VideoPreviewModal({
   onGanti: () => void
   onHapus: () => void
 }) {
+  const t = useT()
   const videoRef = useRef<HTMLVideoElement>(null)
   const [playing, setPlaying] = useState(false)
 
@@ -1391,7 +1398,7 @@ function VideoPreviewModal({
           <button
             type="button"
             onClick={onClose}
-            title="Tutup"
+            title={t('Tutup')}
             style={{
               width: 28,
               height: 28,
@@ -1451,10 +1458,10 @@ function VideoPreviewModal({
 
           <div style={{ display: 'flex', gap: 6 }}>
             <button type="button" onClick={onGanti} style={previewBtn('var(--bg3)', 'var(--text)')}>
-              Ganti
+              {t('Ganti')}
             </button>
             <button type="button" onClick={onHapus} style={previewBtn('rgba(255,107,107,0.15)', '#ff6b6b')}>
-              Hapus
+              {t('Hapus')}
             </button>
           </div>
         </div>
@@ -1516,13 +1523,14 @@ function ActiveTypeButton({
   label: string
   onActivate: () => void
 }) {
+  const t = useT()
   // Both states share identical width & height. Only the inner text and
   // colors swap. This keeps the button position stable across toggles.
   return (
     <button
       type="button"
       onClick={onActivate}
-      title={isActive ? `${label} sedang aktif` : `Klik untuk aktifkan ${label}`}
+      title={isActive ? `${label} ${t('sedang aktif')}` : `${t('Klik untuk aktifkan')} ${label}`}
       style={{
         width: 130,
         height: 36,
@@ -1558,9 +1566,10 @@ function ActiveTypeButton({
 }
 
 function TypographyControls(p: TypographyProps) {
+  const t = useT()
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-      <FormField label="Warna">
+      <FormField label={t('Warna')}>
         <div style={{ display: 'flex', gap: 6 }}>
           <input
             type="color"
@@ -1586,7 +1595,7 @@ function TypographyControls(p: TypographyProps) {
         </div>
       </FormField>
 
-      <FormField label="Ukuran (px)" hint="Desktop size">
+      <FormField label={t('Ukuran (px)')} hint="Desktop size">
         <input
           type="number"
           min={10}

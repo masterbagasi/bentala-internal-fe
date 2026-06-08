@@ -4,8 +4,10 @@ import { useState, useRef, useEffect } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
 import { BPIPage, BoardFilter, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
 import { getSupabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export default function BpiPage() {
+  const t = useT()
   const [tab, setTab] = useState<TabKey>('list')
   const bpiRef = useRef<BPIPageHandle>(null)
   const bf = useBoardFilter('bpi')
@@ -46,7 +48,7 @@ export default function BpiPage() {
               cursor: 'pointer',
             }}
           >
-            + Tambah Post
+            + {t('Tambah Post')}
           </button>
         }
       />

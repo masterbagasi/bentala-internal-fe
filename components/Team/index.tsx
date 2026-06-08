@@ -1,9 +1,11 @@
 'use client'
 
 import { useStore } from '@/hooks/useStore'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { TEAM } from '@/lib/constants'
 
 export function TeamPage() {
+  const t = useT()
   const { projects, tasks, posts } = useStore()
 
   return (
@@ -80,14 +82,14 @@ export function TeamPage() {
                     </div>
                   ))}
                   {myTasks.length > 3 && (
-                    <div style={{ fontSize: 11, color: 'var(--text2)' }}>+{myTasks.length - 3} lainnya</div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)' }}>+{myTasks.length - 3} {t('lainnya')}</div>
                   )}
                 </div>
               )}
 
               {myTasks.length === 0 && (
                 <div style={{ fontSize: 12, color: 'var(--text2)', textAlign: 'center', padding: '8px 0' }}>
-                  Tidak ada task aktif 🎉
+                  {t('Tidak ada task aktif 🎉')}
                 </div>
               )}
             </div>

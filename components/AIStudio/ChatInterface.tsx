@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createSession, upsertSession, deleteHistoryItem, getHistoryByTool, formatHistoryDate, HistoryItem, Message } from '@/lib/aiHistory'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const SUGGESTED_PROMPTS = [
   'Buatkan 5 ide konten TikTok untuk brand fashion Indonesia minggu ini',
@@ -13,6 +14,7 @@ const SUGGESTED_PROMPTS = [
 ]
 
 export default function ChatInterface() {
+  const t = useT()
   const [sessions, setSessions] = useState<HistoryItem[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -129,7 +131,7 @@ export default function ChatInterface() {
             onMouseEnter={e => (e.currentTarget.style.borderColor = '#6c63ff55')}
             onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
           >
-            <span style={{ fontSize: 16 }}>✏️</span> Chat Baru
+            <span style={{ fontSize: 16 }}>✏️</span> {t('Chat Baru')}
           </button>
         </div>
 
@@ -139,7 +141,7 @@ export default function ChatInterface() {
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {sessions.length === 0 && (
-            <div style={{ padding: '12px 8px', fontSize: 12, color: 'var(--text2)', opacity: 0.6 }}>Belum ada chat</div>
+            <div style={{ padding: '12px 8px', fontSize: 12, color: 'var(--text2)', opacity: 0.6 }}>{t('Belum ada chat')}</div>
           )}
           {sessions.map(item => {
             const isActive = item.id === activeId
@@ -164,7 +166,7 @@ export default function ChatInterface() {
                     {item.title}
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--text2)', opacity: 0.7, marginTop: 1 }}>
-                    {formatHistoryDate(item.updatedAt)} · {Math.floor(msgCount / 2)} pesan
+                    {formatHistoryDate(item.updatedAt)} · {Math.floor(msgCount / 2)} {t('pesan')}
                   </div>
                 </div>
                 <button
@@ -187,9 +189,9 @@ export default function ChatInterface() {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', gap: 28 }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg, #6c63ff22, #6c63ff44)', border: '1px solid #6c63ff44', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px', fontSize: 22 }}>✦</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>Tanya apa saja</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{t('Tanya apa saja')}</div>
                 <div style={{ fontSize: 13, color: 'var(--text2)', maxWidth: 360, lineHeight: 1.6 }}>
-                  Asisten kreatif Bentala siap bantu dengan ide konten, caption, strategi, brief, atau apapun.
+                  {t('Asisten kreatif Bentala siap bantu dengan ide konten, caption, strategi, brief, atau apapun.')}
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', maxWidth: 560 }}>
@@ -235,7 +237,7 @@ export default function ChatInterface() {
               value={input}
               onChange={e => { setInput(e.target.value); autoResize() }}
               onKeyDown={handleKeyDown}
-              placeholder="Ketik pesan... (Enter kirim, Shift+Enter baris baru)"
+              placeholder={t('Ketik pesan... (Enter kirim, Shift+Enter baris baru)')}
               rows={1}
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: 14, lineHeight: 1.6, resize: 'none', fontFamily: 'inherit', padding: 0, maxHeight: 160, overflowY: 'auto' }}
             />

@@ -6,6 +6,7 @@ import type {
   BsiAbroadProduction,
   BsiTripLocation,
 } from '@/lib/website-types'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { useRegisterPageAction } from '@/components/website/PageActionsContext'
 import { PrimaryActionButton } from '@/components/website/PageActions'
 import { FormField, inputStyle } from '@/components/website/FormField'
@@ -61,6 +62,7 @@ function slugify(input: string): string {
  * on the public card opens.
  */
 export default function AbroadProductionAdminPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiAbroadProduction[]>([])
   const [loading, setLoading] = useState(true)
@@ -96,9 +98,9 @@ export default function AbroadProductionAdminPage() {
 
   async function handleDelete(item: BsiAbroadProduction) {
     setConfirm({
-      title: 'Hapus trip ini?',
-      message: `"${item.country}" akan dihapus dari section Abroad Production. Aksi ini tidak bisa dibatalkan.`,
-      confirmLabel: 'Hapus',
+      title: t('Hapus trip ini?'),
+      message: `"${item.country}" ${t('akan dihapus dari section Abroad Production. Aksi ini tidak bisa dibatalkan.')}`,
+      confirmLabel: t('Hapus'),
       tone: 'danger',
       onConfirm: async () => {
         setConfirm(null)
@@ -540,6 +542,7 @@ function TripModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const t = useT()
   const supabase = getSupabase()
   const [form, setForm] = useState<FormState>(
     initial
@@ -848,7 +851,7 @@ function TripModal({
               }}
               value={form.description ?? ''}
               onChange={(e) => update('description', e.target.value)}
-              placeholder="Tulis konteks singkat tentang negara tujuan — kondisi lokal, alasan ke sini, itinerary highlights, atau apapun yang relevan untuk visitor."
+              placeholder={t('Tulis konteks singkat tentang negara tujuan — kondisi lokal, alasan ke sini, itinerary highlights, atau apapun yang relevan untuk visitor.')}
             />
           </div>
 
@@ -1061,6 +1064,7 @@ function DestinationCard({
   onUpdate: (patch: Partial<BsiTripLocation>) => void
   onRemove: () => void
 }) {
+  const t = useT()
   const fileActions = useRef<{
     change: () => void
     remove: () => void
@@ -1106,13 +1110,13 @@ function DestinationCard({
         {location.image_url && (
           <SmallBtn
             onClick={() => fileActions.current?.change()}
-            title="Ganti file"
+            title={t('Ganti file')}
           >
-            Ganti
+            {t('Ganti')}
           </SmallBtn>
         )}
-        <SmallBtn onClick={onRemove} tone="danger" title="Hapus destination">
-          Hapus
+        <SmallBtn onClick={onRemove} tone="danger" title={t('Hapus destination')}>
+          {t('Hapus')}
         </SmallBtn>
       </div>
     </div>

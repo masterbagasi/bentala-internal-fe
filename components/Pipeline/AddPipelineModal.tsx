@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { StageData } from '@/lib/types'
 import type { PipelineStage } from '@/lib/constants'
 
@@ -18,6 +19,7 @@ function makeEmptyStageData(): StageData {
 }
 
 export function AddPipelineModal({ open, member, stages, onClose }: AddPipelineModalProps) {
+  const t = useT()
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -25,7 +27,7 @@ export function AddPipelineModal({ open, member, stages, onClose }: AddPipelineM
   function handleClose() { reset(); onClose() }
 
   async function handleSave() {
-    if (!title.trim()) { alert('Judul wajib diisi!'); return }
+    if (!title.trim()) { alert(t('Judul wajib diisi!')); return }
     setLoading(true)
 
     try {
@@ -42,14 +44,14 @@ export function AddPipelineModal({ open, member, stages, onClose }: AddPipelineM
       })
 
       if (error) {
-        alert('Gagal membuat pipeline: ' + error.message)
+        alert(t('Gagal membuat pipeline: ') + error.message)
         setLoading(false)
         return
       }
 
       handleClose()
     } catch (err) {
-      alert('Terjadi kesalahan: ' + (err instanceof Error ? err.message : 'Unknown error'))
+      alert(t('Terjadi kesalahan: ') + (err instanceof Error ? err.message : 'Unknown error'))
       setLoading(false)
     }
   }
@@ -58,22 +60,22 @@ export function AddPipelineModal({ open, member, stages, onClose }: AddPipelineM
     <Modal
       open={open}
       onClose={handleClose}
-      title="Tambah Konten Pipeline"
+      title={t('Tambah Konten Pipeline')}
       footer={
         <>
-          <BtnSecondary onClick={handleClose}>Batal</BtnSecondary>
-          <BtnPrimary onClick={handleSave} loading={loading}>Buat Pipeline</BtnPrimary>
+          <BtnSecondary onClick={handleClose}>{t('Batal')}</BtnSecondary>
+          <BtnPrimary onClick={handleSave} loading={loading}>{t('Buat Pipeline')}</BtnPrimary>
         </>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
           <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>
-            Judul Konten *
+            {t('Judul Konten *')}
           </label>
           <input
             type="text"
-            placeholder="Nama konten / campaign..."
+            placeholder={t('Nama konten / campaign...')}
             value={title}
             onChange={e => setTitle(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
@@ -84,7 +86,7 @@ export function AddPipelineModal({ open, member, stages, onClose }: AddPipelineM
         <div style={{
           background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px',
         }}>
-          <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>Pipeline akan mulai dari:</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>{t('Pipeline akan mulai dari:')}</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {stages.map((s, i) => (
               <span key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
@@ -18,6 +19,7 @@ const TASK_COLS = [
 ]
 
 export function TasksPage() {
+  const t = useT()
   const { tasks, projects, taskFilter, setTaskFilter } = useStore()
   const [showModal, setShowModal] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
@@ -34,7 +36,7 @@ export function TasksPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus task ini?')) return
+    if (!confirm(t('Hapus task ini?'))) return
     const supabase = getSupabase()
     await supabase.from('tasks').delete().eq('id', id)
     logActivity('Task dihapus')
@@ -48,7 +50,7 @@ export function TasksPage() {
           onClick={() => setTaskFilter('all')}
           style={{ padding: '5px 14px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 12, background: taskFilter === 'all' ? 'var(--accent)' : 'var(--bg2)', color: taskFilter === 'all' ? '#fff' : 'var(--text2)', borderColor: taskFilter === 'all' ? 'var(--accent)' : 'var(--border)' }}
         >
-          Semua
+          {t('Semua')}
         </button>
         {TEAM.map(m => (
           <button key={m.name}
@@ -69,7 +71,7 @@ export function TasksPage() {
           onClick={() => { setEditTask(null); setShowModal(true) }}
           style={{ marginLeft: 'auto', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
         >
-          + Tambah Task
+          + {t('Tambah Task')}
         </button>
       </div>
 
@@ -94,7 +96,7 @@ export function TasksPage() {
                 <span style={{ fontSize: 12, color: col.color, background: col.color + '22', borderRadius: 20, padding: '1px 7px' }}>{colTasks.length}</span>
               </div>
 
-              <div className="drop-hint">Drop di sini</div>
+              <div className="drop-hint">{t('Drop di sini')}</div>
 
               <div style={{ overflowY: 'auto', flex: 1 }}>
                 {colTasks.map(t => (
@@ -119,7 +121,7 @@ export function TasksPage() {
                 onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(108,99,255,0.08)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)' }}
                 onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
               >
-                <span style={{ fontSize: 15, color: 'var(--accent)' }}>+</span> Tambah task
+                <span style={{ fontSize: 15, color: 'var(--accent)' }}>+</span> {t('Tambah task')}
               </button>
             </div>
           )
@@ -208,6 +210,7 @@ function TaskModal({ open, task, projects, onClose }: {
   projects: Project[]
   onClose: () => void
 }) {
+  const t = useT()
   const logActivity = useLogActivity()
   const [form, setForm] = useState({
     title:      task?.title || '',
@@ -221,7 +224,7 @@ function TaskModal({ open, task, projects, onClose }: {
   const [loading, setLoading] = useState(false)
 
   async function handleSave() {
-    if (!form.title.trim()) { alert('Judul task wajib diisi!'); return }
+    if (!form.title.trim()) { alert(t('Judul task wajib diisi!')); return }
     setLoading(true)
     const supabase = getSupabase()
     const data = {
@@ -247,29 +250,29 @@ function TaskModal({ open, task, projects, onClose }: {
   return (
     <Modal
       open={open} onClose={onClose}
-      title={task ? 'Edit Task' : 'Tambah Task Baru'}
-      footer={<><BtnSecondary onClick={onClose}>Batal</BtnSecondary><BtnPrimary onClick={handleSave} loading={loading}>Simpan</BtnPrimary></>}
+      title={task ? t('Edit Task') : t('Tambah Task Baru')}
+      footer={<><BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary><BtnPrimary onClick={handleSave} loading={loading}>{t('Simpan')}</BtnPrimary></>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <FG label="Judul Task *">
-          <input type="text" value={form.title} onChange={e => setForm(f=>({...f,title:e.target.value}))} placeholder="Nama task..." />
+        <FG label={t('Judul Task *')}>
+          <input type="text" value={form.title} onChange={e => setForm(f=>({...f,title:e.target.value}))} placeholder={t('Nama task...')} />
         </FG>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FG label="Project">
             <select value={form.project_id} onChange={e => setForm(f=>({...f,project_id:e.target.value}))}>
-              <option value="">— Tanpa Project —</option>
+              <option value="">{t('— Tanpa Project —')}</option>
               {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </FG>
           <FG label="Assignee">
             <select value={form.assignee} onChange={e => setForm(f=>({...f,assignee:e.target.value}))}>
-              <option value="">— Tidak ada —</option>
+              <option value="">{t('— Tidak ada —')}</option>
               {TEAM.map(m => <option key={m.name} value={m.name}>{m.name} ({m.role})</option>)}
             </select>
           </FG>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <FG label="Prioritas">
+          <FG label={t('Prioritas')}>
             <select value={form.priority} onChange={e => setForm(f=>({...f,priority:e.target.value as TaskPriority}))}>
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -286,8 +289,8 @@ function TaskModal({ open, task, projects, onClose }: {
             <input type="date" value={form.due} onChange={e => setForm(f=>({...f,due:e.target.value}))} />
           </FG>
         </div>
-        <FG label="Catatan">
-          <textarea value={form.notes} onChange={e => setForm(f=>({...f,notes:e.target.value}))} placeholder="Catatan..." />
+        <FG label={t('Catatan')}>
+          <textarea value={form.notes} onChange={e => setForm(f=>({...f,notes:e.target.value}))} placeholder={t('Catatan...')} />
         </FG>
       </div>
     </Modal>

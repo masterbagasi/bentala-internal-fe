@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { PipelineCard, DesignBrief, VideoBrief, ScriptScene } from '@/lib/types'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Props {
   card: PipelineCard
@@ -13,6 +14,7 @@ type BriefTypeSelection = 'design' | 'video' | 'both'
 type ActiveTab = 'design' | 'video'
 
 export default function BriefGenerator({ card, onClose, onDone }: Props) {
+  const t = useT()
   const [briefType, setBriefType] = useState<BriefTypeSelection>('both')
   const [step, setStep] = useState<'select' | 'generating' | 'result'>('select')
   const [designBrief, setDesignBrief] = useState<DesignBrief | null>(null)
@@ -40,7 +42,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
         body: JSON.stringify({ title: card.title, entity: card.entity, platform: card.platform, types, idea_text: card.idea_text }),
       })
       const briefData = await briefRes.json()
-      if (!briefRes.ok) throw new Error(briefData.error ?? 'Gagal generate brief')
+      if (!briefRes.ok) throw new Error(briefData.error ?? t('Gagal generate brief'))
 
       const design: DesignBrief | null = briefData.design ?? null
       const video: VideoBrief | null = briefData.video ?? null
@@ -77,7 +79,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
 
       setStep('result')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+      setError(e instanceof Error ? e.message : t('Terjadi kesalahan'))
       setStep('select')
     }
   }
@@ -99,7 +101,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
           }),
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Gagal menyimpan brief design')
+        if (!res.ok) throw new Error(data.error ?? t('Gagal menyimpan brief design'))
       }
       if (videoBrief) {
         const res = await fetch('/api/pipeline/briefs', {
@@ -113,7 +115,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
           }),
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error ?? 'Gagal menyimpan brief video')
+        if (!res.ok) throw new Error(data.error ?? t('Gagal menyimpan brief video'))
       }
 
       // Advance card to brief stage
@@ -123,12 +125,12 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
         body: JSON.stringify({ id: card.id, stage: 'brief' }),
       })
       const stageData = await stageRes.json()
-      if (!stageRes.ok) throw new Error(stageData.error ?? 'Gagal update stage')
+      if (!stageRes.ok) throw new Error(stageData.error ?? t('Gagal update stage'))
 
       setPushed(true)
       onDone(stageData.card)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal kirim ke produksi')
+      setError(e instanceof Error ? e.message : t('Gagal kirim ke produksi'))
     } finally {
       setPushing(false)
     }
@@ -176,7 +178,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
           {step === 'select' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Buat brief untuk:</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>{t('Buat brief untuk:')}</div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   {(['design', 'video', 'both'] as BriefTypeSelection[]).map(t => (
                     <button key={t} onClick={() => setBriefType(t)} style={chipStyle(briefType === t)}>
@@ -205,7 +207,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
           {step === 'generating' && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, minHeight: 200 }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: '#6c63ff', animation: 'spin 0.8s linear infinite' }} />
-              <div style={{ color: 'var(--text2)', fontSize: 13 }}>AI sedang membuat brief...</div>
+              <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('AI sedang membuat brief...')}</div>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           )}
@@ -253,7 +255,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
                   </div>
 
                   <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 12 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Tipografi</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{t('Tipografi')}</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}><span style={{ color: '#6c63ff' }}>Headline:</span> {designBrief.typography.headline}</div>
                       <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.5 }}><span style={{ color: '#6c63ff' }}>Subtext:</span> {designBrief.typography.subtext}</div>
@@ -277,7 +279,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
                   </div>
 
                   <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 12 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Komposisi</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{t('Komposisi')}</div>
                     <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.6 }}>{designBrief.composition}</div>
                   </div>
                 </div>
@@ -288,7 +290,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                     <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 10, textAlign: 'center' }}>
-                      <div style={{ fontSize: 10, color: 'var(--text2)', marginBottom: 4 }}>Durasi</div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', marginBottom: 4 }}>{t('Durasi')}</div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{videoBrief.duration}</div>
                     </div>
                     <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 10, textAlign: 'center' }}>
@@ -362,7 +364,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
 
               {pushed ? (
                 <div style={{ padding: '12px 16px', background: 'rgba(67,217,162,0.1)', border: '1px solid #43d9a2', borderRadius: 8, color: '#43d9a2', fontSize: 13, fontWeight: 600 }}>
-                  ✓ Brief berhasil dikirim ke tim produksi!
+                  {`✓ ${t('Brief berhasil dikirim ke tim produksi!')}`}
                 </div>
               ) : (
                 <button
@@ -378,7 +380,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
                     alignSelf: 'flex-start',
                   }}
                 >
-                  {pushing ? 'Mengirim...' : '🚀 Kirim ke Produksi'}
+                  {pushing ? t('Mengirim...') : `🚀 ${t('Kirim ke Produksi')}`}
                 </button>
               )}
             </div>

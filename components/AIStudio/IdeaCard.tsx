@@ -1,6 +1,7 @@
 'use client'
 
 import { IdeaItem } from '@/lib/types'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Props {
   idea: IdeaItem
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function IdeaCard({ idea, onSave, onBuild }: Props) {
+  const t = useT()
   return (
     <div style={{
       background: 'var(--bg2)',
@@ -24,7 +26,7 @@ export default function IdeaCard({ idea, onSave, onBuild }: Props) {
         {idea.title}
       </div>
       <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>
-        <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Konsep: </span>
+        <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{t('Konsep: ')}</span>
         {idea.concept}
       </div>
       <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>
@@ -47,7 +49,7 @@ export default function IdeaCard({ idea, onSave, onBuild }: Props) {
             fontWeight: 600,
           }}
         >
-          {idea.saved ? '✓ Tersimpan' : 'Simpan'}
+          {idea.saved ? t('✓ Tersimpan') : t('Simpan')}
         </button>
         <button
           onClick={() => onBuild(idea)}

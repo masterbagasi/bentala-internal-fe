@@ -12,6 +12,7 @@ import { ConfirmDialog, type ConfirmRequest } from '@/components/website/Confirm
 import { VideoPosterPicker } from '@/components/website/VideoPosterPicker'
 import { FileUploader } from '@/components/website/FileUploader'
 import { Section } from '@/components/website/Section'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const CATEGORIES: BsiPortfolio['category'][] = ['video', 'photo', 'design', 'intl']
 const CATEGORY_LABELS: Record<BsiPortfolio['category'], string> = {
@@ -285,6 +286,7 @@ async function probeVideoElement(file: File): Promise<{ video: HTMLVideoElement;
 type CategoryFilter = 'all' | BsiPortfolio['category']
 
 export default function PortfolioAdminPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiPortfolio[]>([])
   const [loading, setLoading] = useState(true)
@@ -348,7 +350,7 @@ export default function PortfolioAdminPage() {
   }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus item ini?')) return
+    if (!confirm(t('Hapus item ini?'))) return
     const { error } = await supabase.from('bsi_portfolio').delete().eq('id', id)
     if (error) {
       alert(error.message)
@@ -370,7 +372,7 @@ export default function PortfolioAdminPage() {
   }
 
   useRegisterPageAction(
-    <PrimaryActionButton onClick={() => setCreating(true)}>+ Tambah Karya</PrimaryActionButton>,
+    <PrimaryActionButton onClick={() => setCreating(true)}>{t('+ Tambah Karya')}</PrimaryActionButton>,
   )
 
   // Per-category counts. 'all' is the total length so the "Semua" pill
@@ -419,10 +421,10 @@ export default function PortfolioAdminPage() {
     const ids = Array.from(selectedIds)
     if (ids.length === 0) return
     setBulkConfirm({
-      title: `Hapus ${ids.length} karya?`,
+      title: `${t('Hapus')} ${ids.length} ${t('karya?')}`,
       message:
-        'Karya yang terpilih akan dihapus dari database. File media di storage tetap tersimpan dan harus dihapus manual jika tidak terpakai.',
-      confirmLabel: `Hapus ${ids.length} karya`,
+        t('Karya yang terpilih akan dihapus dari database. File media di storage tetap tersimpan dan harus dihapus manual jika tidak terpakai.'),
+      confirmLabel: `${t('Hapus')} ${ids.length} ${t('karya')}`,
       tone: 'danger',
       onConfirm: async () => {
         setBulkConfirm(null)
@@ -459,7 +461,7 @@ export default function PortfolioAdminPage() {
             gap: 24,
           }}
         >
-          <Section title="Banner Portofolio">
+          <Section title={t('Banner Portofolio')}>
             <BannerUploader />
           </Section>
 
@@ -483,7 +485,7 @@ export default function PortfolioAdminPage() {
                 textTransform: 'uppercase',
               }}
             >
-              Karya Portofolio
+              {t('Karya Portofolio')}
             </div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               {!loading && items.length > 0 && (
@@ -496,7 +498,7 @@ export default function PortfolioAdminPage() {
                   <button
                     type="button"
                     onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                    title={selectMode ? 'Keluar mode pilih' : 'Pilih beberapa karya untuk hapus massal'}
+                    title={selectMode ? t('Keluar mode pilih') : t('Pilih beberapa karya untuk hapus massal')}
                     style={{
                       height: 32,
                       padding: '0 12px',
@@ -526,7 +528,7 @@ export default function PortfolioAdminPage() {
                         </>
                       )}
                     </svg>
-                    {selectMode ? 'Selesai' : 'Pilih'}
+                    {selectMode ? t('Selesai') : t('Pilih')}
                   </button>
                 </>
               )}
@@ -565,12 +567,12 @@ export default function PortfolioAdminPage() {
           )}
 
           {loading ? (
-            <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+            <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
           ) : items.length === 0 ? (
-            <ListEmpty message="Belum ada karya. Klik Tambah Karya untuk mulai." />
+            <ListEmpty message={t('Belum ada karya. Klik Tambah Karya untuk mulai.')} />
           ) : filteredItems.length === 0 ? (
             <ListEmpty
-              message={`Belum ada karya di kategori ${CATEGORY_LABELS[categoryFilter as BsiPortfolio['category']]}.`}
+              message={`${t('Belum ada karya di kategori')} ${CATEGORY_LABELS[categoryFilter as BsiPortfolio['category']]}.`}
             />
           ) : (
             <div
@@ -628,8 +630,9 @@ function CategoryFilterBar({
   onChange: (v: CategoryFilter) => void
   counts: Record<CategoryFilter, number>
 }) {
+  const t = useT()
   const options: { key: CategoryFilter; label: string }[] = [
-    { key: 'all', label: 'Semua' },
+    { key: 'all', label: t('Semua') },
     ...CATEGORIES.map((c) => ({ key: c, label: CATEGORY_LABELS[c] })),
   ]
 
@@ -720,6 +723,7 @@ function SelectionBar({
   onBulkDelete: () => void
   bulkDeleting: boolean
 }) {
+  const t = useT()
   const hasSelection = selectedCount > 0
   return (
     <div
@@ -751,7 +755,7 @@ function SelectionBar({
         <button
           type="button"
           onClick={onToggleAll}
-          aria-label={allFilteredSelected ? 'Unselect semua' : 'Select semua'}
+          aria-label={allFilteredSelected ? t('Unselect semua') : t('Select semua')}
           style={{
             width: 22,
             height: 22,
@@ -786,8 +790,8 @@ function SelectionBar({
         </button>
         <span onClick={onToggleAll}>
           {hasSelection
-            ? `${selectedCount} terpilih`
-            : `Pilih semua (${totalFiltered})`}
+            ? `${selectedCount} ${t('terpilih')}`
+            : `${t('Pilih semua')} (${totalFiltered})`}
         </span>
       </label>
 
@@ -808,7 +812,7 @@ function SelectionBar({
                 cursor: 'pointer',
               }}
             >
-              Batal
+              {t('Batal')}
             </button>
             <button
               type="button"
@@ -836,7 +840,7 @@ function SelectionBar({
                 <path d="M10 11v6" />
                 <path d="M14 11v6" />
               </svg>
-              {bulkDeleting ? 'Menghapus…' : `Hapus ${selectedCount}`}
+              {bulkDeleting ? t('Menghapus…') : `${t('Hapus')} ${selectedCount}`}
             </button>
           </>
         )}
@@ -862,6 +866,7 @@ function PortfolioCard({
   onDelete: () => void
   onTogglePublish: () => void
 }) {
+  const t = useT()
   const thumb = item.thumbnail_url || (item.media_type === 'image' ? item.media_url : null)
   // Highlight only meaningful while in select mode — otherwise the
   // card reads as a regular grid tile with no selection chrome.
@@ -912,7 +917,7 @@ function PortfolioCard({
               e.stopPropagation()
               onToggleSelect()
             }}
-            aria-label={selected ? 'Unselect karya' : 'Select karya'}
+            aria-label={selected ? t('Unselect karya') : t('Select karya')}
             style={{
               position: 'absolute',
               top: 8,
@@ -990,7 +995,7 @@ function PortfolioCard({
               onTogglePublish()
             }}
             disabled={selectMode}
-            title={item.is_published ? 'Sembunyikan' : 'Publikasikan'}
+            title={item.is_published ? t('Sembunyikan') : t('Publikasikan')}
             style={{
               width: 28,
               height: 28,
@@ -1014,7 +1019,7 @@ function PortfolioCard({
               onDelete()
             }}
             disabled={selectMode}
-            title="Hapus"
+            title={t('Hapus')}
             style={{
               width: 28,
               height: 28,
@@ -1044,6 +1049,7 @@ function PortfolioModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const t = useT()
   const supabase = getSupabase()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
@@ -1101,7 +1107,7 @@ function PortfolioModal({
     const isVideo = file.type.startsWith('video/')
 
     if (!isImage && !isVideo) {
-      setError('Format file tidak didukung. Gunakan gambar atau video.')
+      setError(t('Format file tidak didukung. Gunakan gambar atau video.'))
       return
     }
 
@@ -1281,7 +1287,7 @@ function PortfolioModal({
   async function handleThumbnailUpload(file: File) {
     setError(null)
     if (!file.type.startsWith('image/')) {
-      setError('Cover harus berupa gambar (JPG / PNG / WebP).')
+      setError(t('Cover harus berupa gambar (JPG / PNG / WebP).'))
       return
     }
     setThumbnailUploading(true)
@@ -1319,9 +1325,9 @@ function PortfolioModal({
 
   function requestRemove() {
     setConfirm({
-      title: 'Hapus media?',
-      message: 'Media akan dilepas dari karya ini. File asli tetap aman di storage.',
-      confirmLabel: 'Hapus',
+      title: t('Hapus media?'),
+      message: t('Media akan dilepas dari karya ini. File asli tetap aman di storage.'),
+      confirmLabel: t('Hapus'),
       tone: 'danger',
       onConfirm: () => {
         setConfirm(null)
@@ -1353,8 +1359,8 @@ function PortfolioModal({
   )
 
   const uploadingLabel = uploadStage === 'thumbnail'
-    ? 'Mengambil thumbnail…'
-    : `Mengupload ${uploadProgress.toFixed(0)}%`
+    ? t('Mengambil thumbnail…')
+    : `${t('Mengupload')} ${uploadProgress.toFixed(0)}%`
 
   const needsCoverPanel =
     !!form.media_url &&
@@ -1389,7 +1395,7 @@ function PortfolioModal({
                 fontSize: 11,
               }}
             >
-              Belum ada cover
+              {t('Belum ada cover')}
             </div>
           )}
           {thumbnailUploading && (
@@ -1417,7 +1423,7 @@ function PortfolioModal({
                   animation: 'spin 0.8s linear infinite',
                 }}
               />
-              Mengupload {thumbnailProgress.toFixed(0)}%
+              {t('Mengupload')} {thumbnailProgress.toFixed(0)}%
             </div>
           )}
         </div>
@@ -1433,7 +1439,7 @@ function PortfolioModal({
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            Upload Gambar
+            {t('Upload Gambar')}
           </button>
           <button
             type="button"
@@ -1444,16 +1450,16 @@ function PortfolioModal({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polygon points="5 3 19 12 5 21 5 3" />
             </svg>
-            Dari Video
+            {t('Dari Video')}
           </button>
           {form.thumbnail_url && (
             <button
               type="button"
               onClick={() =>
                 setConfirm({
-                  title: 'Hapus cover?',
-                  message: 'Cover akan dilepas. File asli tetap aman di storage.',
-                  confirmLabel: 'Hapus',
+                  title: t('Hapus cover?'),
+                  message: t('Cover akan dilepas. File asli tetap aman di storage.'),
+                  confirmLabel: t('Hapus'),
                   tone: 'danger',
                   onConfirm: () => {
                     setConfirm(null)
@@ -1464,7 +1470,7 @@ function PortfolioModal({
               disabled={thumbnailUploading}
               style={coverActionBtn(false, true)}
             >
-              Hapus
+              {t('Hapus')}
             </button>
           )}
         </div>
@@ -1674,8 +1680,8 @@ function PortfolioModal({
             <OverlayIconButton
               onClick={requestReplace}
               disabled={uploading}
-              title={uploading ? uploadingLabel : 'Ganti file'}
-              ariaLabel="Ganti file"
+              title={uploading ? uploadingLabel : t('Ganti file')}
+              ariaLabel={t('Ganti file')}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="23 4 23 10 17 10" />
@@ -1687,8 +1693,8 @@ function PortfolioModal({
               onClick={requestRemove}
               disabled={uploading}
               tone="danger"
-              title="Hapus file"
-              ariaLabel="Hapus file"
+              title={t('Hapus file')}
+              ariaLabel={t('Hapus file')}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="3 6 5 6 21 6" />
@@ -1882,11 +1888,11 @@ function PortfolioModal({
 
   const settingsPanel = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <FormField label="Judul" required>
+      <FormField label={t('Judul')} required>
         <input style={inputStyle} value={form.title} onChange={(e) => update('title', e.target.value)} />
       </FormField>
 
-      <FormField label="Kategori" required>
+      <FormField label={t('Kategori')} required>
         <CategoryMultiSelect
           selected={resolveCategories(form)}
           onToggle={(cat) => {
@@ -1910,7 +1916,7 @@ function PortfolioModal({
         />
       </FormField>
 
-      <FormField label="Tag" required>
+      <FormField label={t('Tag')} required>
         <input style={inputStyle} value={form.tag} onChange={(e) => update('tag', e.target.value)} />
       </FormField>
 
@@ -1923,7 +1929,7 @@ function PortfolioModal({
 
   return (
     <ModalShell
-      title={initial ? 'Edit Karya' : 'Tambah Karya'}
+      title={initial ? t('Edit Karya') : t('Tambah Karya')}
       onClose={onClose}
       headerExtra={headerStatus}
       maxWidth={920}
@@ -1943,7 +1949,7 @@ function PortfolioModal({
               cursor: 'pointer',
             }}
           >
-            Batal
+            {t('Batal')}
           </button>
           {(() => {
             // Disable save when: a request is in-flight (saving),
@@ -1952,11 +1958,11 @@ function PortfolioModal({
             const titleMissing = !form.title.trim()
             const disabled = saving || uploading || !form.media_url || titleMissing
             const reason = titleMissing
-              ? 'Isi judul karya dulu'
+              ? t('Isi judul karya dulu')
               : !form.media_url
-              ? 'Upload media dulu'
+              ? t('Upload media dulu')
               : uploading
-              ? 'Tunggu upload selesai'
+              ? t('Tunggu upload selesai')
               : undefined
             return (
               <button
@@ -1976,7 +1982,7 @@ function PortfolioModal({
                   opacity: disabled ? 0.5 : 1,
                 }}
               >
-                {saving ? 'Menyimpan…' : initial ? 'Simpan Perubahan' : 'Tambah'}
+                {saving ? t('Menyimpan…') : initial ? t('Simpan Perubahan') : t('Tambah')}
               </button>
             )
           })()}
@@ -2170,11 +2176,12 @@ function OverlayIconButton({
 }
 
 function ActiveToggleButton({ active, onClick }: { active: boolean; onClick: () => void }) {
+  const t = useT()
   return (
     <button
       type="button"
       onClick={onClick}
-      title={active ? 'Klik untuk men-non-aktifkan' : 'Klik untuk mengaktifkan'}
+      title={active ? t('Klik untuk men-non-aktifkan') : t('Klik untuk mengaktifkan')}
       style={{
         width: 110,
         height: 28,

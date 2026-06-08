@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
 import { BPI_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
@@ -30,6 +31,7 @@ interface BPIPageProps {
 
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
   function BPIPage({ entity, currentUser = 'Naufal', activeTab, filters }, ref) {
+    const t = useT()
     const { posts } = useStore()
     const [showPostModal, setShowPostModal] = useState(false)
     const [editPostId, setEditPostId] = useState<string | null>(null)
@@ -58,7 +60,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     useImperativeHandle(ref, () => ({ openEdit }))
 
     async function handleDelete(id: string) {
-      if (!confirm('Hapus post ini?')) return
+      if (!confirm(t('Hapus post ini?'))) return
       const supabase = getSupabase()
       await supabase.from('posts').delete().eq('id', id)
       logActivity('Post dihapus')
@@ -116,19 +118,20 @@ function ListView({
   onDelete: (id: string) => void
   onPreview: (id: string) => void
 }) {
+  const t = useT()
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
       <table>
         <thead>
           <tr>
             <th style={{ width: 28 }}></th>
-            <th>Judul</th>
-            <th>Platform</th>
-            <th>Tanggal</th>
-            <th>Status</th>
-            <th>PIC</th>
-            <th>Caption</th>
-            <th style={{ width: 80 }}>Aksi</th>
+            <th>{t('Judul')}</th>
+            <th>{t('Platform')}</th>
+            <th>{t('Tanggal')}</th>
+            <th>{t('Status')}</th>
+            <th>{t('PIC')}</th>
+            <th>{t('Caption')}</th>
+            <th style={{ width: 80 }}>{t('Aksi')}</th>
           </tr>
         </thead>
         <tbody>
@@ -137,7 +140,7 @@ function ListView({
               <td colSpan={8}>
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-                  Belum ada post. Klik "+ Tambah Post" untuk mulai.
+                  {t('Belum ada post. Klik "+ Tambah Post" untuk mulai.')}
                 </div>
               </td>
             </tr>
@@ -199,6 +202,7 @@ function KanbanBoard({
   onCardClick: (id: string) => void
 }) {
   // When statuses are filtered, only show those columns.
+  const t = useT()
   const cols = statusFilter.length ? BPI_STATUS_COLS.filter(c => statusFilter.includes(c.key)) : BPI_STATUS_COLS
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
@@ -271,7 +275,7 @@ function KanbanBoard({
               }}>
                 {colPosts.length}
               </span>
-              {isLocked && <span title="Kamu tidak bisa drag ke kolom ini" style={{ fontSize: 13, opacity: 0.5 }}>🔒</span>}
+              {isLocked && <span title={t('Kamu tidak bisa drag ke kolom ini')} style={{ fontSize: 13, opacity: 0.5 }}>🔒</span>}
             </div>
 
             <div style={{ overflowY: 'auto', flex: 1, minHeight: 60 }}>
@@ -303,7 +307,7 @@ function KanbanBoard({
               onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
             >
               <span style={{ fontSize: 15, color: 'var(--accent)', lineHeight: 1 }}>+</span>
-              Tambah post
+              {t('Tambah post')}
             </button>
           </div>
         )
@@ -365,11 +369,12 @@ function KanbanCard({
 
 // ── Files Tab ──
 function FilesTab({ posts }: { posts: Post[] }) {
+  const t = useT()
   const withFiles = posts.filter(p => p.video_link || p.design_link || p.video_file_url || p.design_file_url)
   return (
     <div>
       <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
-        {withFiles.length} post dengan lampiran file
+        {withFiles.length} {t('post dengan lampiran file')}
       </div>
       {withFiles.map(p => (
         <div key={p.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', marginBottom: 8 }}>
@@ -391,7 +396,7 @@ function FilesTab({ posts }: { posts: Post[] }) {
       {withFiles.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
-          Belum ada post dengan file terlampir.
+          {t('Belum ada post dengan file terlampir.')}
         </div>
       )}
     </div>
@@ -460,6 +465,7 @@ export function BoardFilter({ filters, setFilters, accounts, months }: {
   accounts: { email: string; name: string }[]
   months: string[]
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const count =
     filters.platforms.length + filters.contentTypes.length + filters.tagged.length +
@@ -479,7 +485,7 @@ export function BoardFilter({ filters, setFilters, accounts, months }: {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
         </svg>
-        Filter{count ? ` (${count})` : ''}
+        {t('Filter')}{count ? ` (${count})` : ''}
       </button>
       {open && (
         <FilterPopup filters={filters} setFilters={setFilters} accounts={accounts} months={months} onClose={() => setOpen(false)} />
@@ -526,6 +532,7 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
   months: string[]
   onClose: () => void
 }) {
+  const t = useT()
   const monthLabel = (ym: string) => {
     const [y, m] = ym.split('-')
     return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })
@@ -540,30 +547,30 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
         padding: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Filter</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t('Filter')}</span>
           <button
             onClick={() => setFilters(EMPTY_FILTERS)}
             style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
-            Reset
+            {t('Reset')}
           </button>
         </div>
 
-        <FilterSection label="Sosial Media">
+        <FilterSection label={t('Sosial Media')}>
           {POST_PLATFORMS.map(p => (
             <FilterChip key={p.key} label={p.label} active={filters.platforms.includes(p.key)}
               onClick={() => setFilters(f => ({ ...f, platforms: toggle(f.platforms, p.key) }))} />
           ))}
         </FilterSection>
 
-        <FilterSection label="Jenis Konten">
+        <FilterSection label={t('Jenis Konten')}>
           {[{ key: 'video', label: 'Video' }, { key: 'design', label: 'Design' }].map(c => (
             <FilterChip key={c.key} label={c.label} active={filters.contentTypes.includes(c.key)}
               onClick={() => setFilters(f => ({ ...f, contentTypes: toggle(f.contentTypes, c.key) }))} />
           ))}
         </FilterSection>
 
-        <FilterSection label="Tag Akun">
+        <FilterSection label={t('Tag Akun')}>
           {accounts.length === 0 ? (
             <span style={{ fontSize: 12, color: 'var(--text2)' }}>—</span>
           ) : accounts.map(a => (
@@ -572,14 +579,14 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
           ))}
         </FilterSection>
 
-        <FilterSection label="Ratio">
+        <FilterSection label={t('Ratio')}>
           {POST_RATIOS.map(r => (
             <FilterChip key={r.key} label={r.label} active={filters.ratios.includes(r.key)}
               onClick={() => setFilters(f => ({ ...f, ratios: toggle(f.ratios, r.key) }))} />
           ))}
         </FilterSection>
 
-        <FilterSection label="Bulan Posting">
+        <FilterSection label={t('Bulan Posting')}>
           {months.length === 0 ? (
             <span style={{ fontSize: 12, color: 'var(--text2)' }}>—</span>
           ) : months.map(ym => (
@@ -588,7 +595,7 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
           ))}
         </FilterSection>
 
-        <FilterSection label="Status">
+        <FilterSection label={t('Status')}>
           {BPI_STATUS_COLS.map(s => (
             <FilterChip key={s.key} label={s.label} active={filters.statuses.includes(s.key)}
               onClick={() => setFilters(f => ({ ...f, statuses: toggle(f.statuses, s.key) }))} />

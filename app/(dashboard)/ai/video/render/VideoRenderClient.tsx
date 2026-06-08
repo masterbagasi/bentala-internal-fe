@@ -2,6 +2,7 @@
 
 import { Player } from '@remotion/player'
 import { useMemo, useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { StorylineVideo, defaultStoryline, type StorylineProps, type StorylineScene } from '@/remotion/compositions/StorylineVideo'
 
 const FPS = 30
@@ -59,6 +60,7 @@ function toSeconds(t: string): number {
 }
 
 export default function VideoRenderClient() {
+  const t = useT()
   const [props, setProps] = useState<StorylineProps>(defaultStoryline)
   const [importJson, setImportJson] = useState('')
   const [importError, setImportError] = useState<string | null>(null)
@@ -76,10 +78,10 @@ export default function VideoRenderClient() {
     try {
       const parsed = JSON.parse(importJson) as ApiStorylineResponse
       const next = parseStorylineApiToProps(parsed, props.title || 'Storyline')
-      if (!next) throw new Error('JSON tidak punya `scenes` array yang valid')
+      if (!next) throw new Error(t('JSON tidak punya `scenes` array yang valid'))
       setProps(next)
     } catch (e) {
-      setImportError(e instanceof Error ? e.message : 'Gagal parse JSON')
+      setImportError(e instanceof Error ? e.message : t('Gagal parse JSON'))
     }
   }
 
@@ -102,13 +104,13 @@ export default function VideoRenderClient() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? `Render gagal (${res.status})`)
+        throw new Error(data.error ?? t('Render gagal ({status})').replace('{status}', String(res.status)))
       }
       const data = await res.json()
-      if (!data.url) throw new Error('Render selesai tapi tidak ada URL output')
+      if (!data.url) throw new Error(t('Render selesai tapi tidak ada URL output'))
       setDownloadUrl(data.url)
     } catch (e) {
-      setRenderError(e instanceof Error ? e.message : 'Render gagal')
+      setRenderError(e instanceof Error ? e.message : t('Render gagal'))
     } finally {
       setRendering(false)
     }
@@ -145,7 +147,7 @@ export default function VideoRenderClient() {
           }}>
             <strong style={{ color: 'var(--text)' }}>Format:</strong> 1080×1920 (9:16) · {FPS}fps · {props.scenes.length} scene · {Math.round(totalFrames / FPS)}s total
             <br />
-            <strong style={{ color: 'var(--text)' }}>CLI alternatif:</strong> <code>npm run remotion:render</code> untuk render lokal pakai default props.
+            <strong style={{ color: 'var(--text)' }}>{t('CLI alternatif:')}</strong> <code>npm run remotion:render</code> {t('untuk render lokal pakai default props.')}
           </div>
         </div>
 
@@ -153,7 +155,7 @@ export default function VideoRenderClient() {
         <aside style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Title */}
           <div>
-            <label style={labelStyle}>Judul</label>
+            <label style={labelStyle}>{t('Judul')}</label>
             <input
               type="text"
               value={props.title}
@@ -164,17 +166,17 @@ export default function VideoRenderClient() {
 
           {/* Import storyline JSON */}
           <div>
-            <label style={labelStyle}>Import Storyline JSON</label>
+            <label style={labelStyle}>{t('Import Storyline JSON')}</label>
             <textarea
               value={importJson}
               onChange={e => setImportJson(e.target.value)}
-              placeholder="Tempel output dari /api/ai/storyline di sini"
+              placeholder={t('Tempel output dari /api/ai/storyline di sini')}
               rows={6}
               style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11, resize: 'vertical' }}
             />
             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-              <button onClick={handleImport} style={btnStyle(false, true)}>Import</button>
-              <button onClick={handleResetDemo} style={btnStyle(false)}>Reset demo</button>
+              <button onClick={handleImport} style={btnStyle(false, true)}>{t('Import')}</button>
+              <button onClick={handleResetDemo} style={btnStyle(false)}>{t('Reset demo')}</button>
             </div>
             {importError && (
               <div style={{ marginTop: 6, fontSize: 11, color: '#ff7575' }}>{importError}</div>
@@ -187,10 +189,10 @@ export default function VideoRenderClient() {
             background: 'var(--bg2)', border: '1px solid var(--border)',
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-              Render MP4
+              {t('Render MP4')}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 10 }}>
-              Server-side render pakai @remotion/renderer (headless Chrome). Bisa ambil 30-90 detik tergantung durasi.
+              {t('Server-side render pakai @remotion/renderer (headless Chrome). Bisa ambil 30-90 detik tergantung durasi.')}
             </div>
             <button
               onClick={handleRender}
@@ -203,7 +205,7 @@ export default function VideoRenderClient() {
                 opacity: rendering ? 0.6 : 1,
               }}
             >
-              {rendering ? 'Rendering... (jangan close tab)' : '⬇ Render & Download MP4'}
+              {rendering ? t('Rendering... (jangan close tab)') : t('⬇ Render & Download MP4')}
             </button>
             {renderError && (
               <div style={{ marginTop: 8, padding: '7px 10px', borderRadius: 6, background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.25)', color: '#ff7575', fontSize: 11 }}>
@@ -220,7 +222,7 @@ export default function VideoRenderClient() {
                   color: '#43d9a2', fontSize: 11, textAlign: 'center', textDecoration: 'none', fontWeight: 700,
                 }}
               >
-                ✓ Selesai — klik untuk download
+                {t('✓ Selesai — klik untuk download')}
               </a>
             )}
           </div>

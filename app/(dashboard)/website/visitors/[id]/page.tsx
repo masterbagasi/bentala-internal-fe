@@ -7,6 +7,7 @@ import { getSupabase } from '@/lib/supabase'
 import type { BsiVisitor, BsiSession, BsiPageview, BsiEvent, BsiLead } from '@/lib/website-types'
 import { PageShell } from '@/components/shared/PageShell'
 import { ListEmpty, ListError } from '@/components/website/SimpleList'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface TimelineItem {
   kind: 'session_start' | 'pageview' | 'event'
@@ -16,6 +17,7 @@ interface TimelineItem {
 }
 
 export default function VisitorDetailPage() {
+  const t = useT()
   const params = useParams<{ id: string }>()
   const visitorId = decodeURIComponent(params.id)
   const supabase = getSupabase()
@@ -82,40 +84,40 @@ export default function VisitorDetailPage() {
         {error && <ListError message={error} />}
 
         {loading ? (
-          <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+          <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
         ) : !visitor ? (
-          <ListEmpty message="Visitor tidak ditemukan." />
+          <ListEmpty message={t('Visitor tidak ditemukan.')} />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 320px) minmax(0, 1fr)', gap: 16 }}>
             {/* Left: visitor info */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <Card>
-                <CardTitle>Info Visitor</CardTitle>
-                <Row label="Visitor ID">
+                <CardTitle>{t('Info Visitor')}</CardTitle>
+                <Row label={t('Visitor ID')}>
                   <code style={{ fontSize: 11, color: 'var(--accent)', wordBreak: 'break-all' }}>{visitor.visitor_id}</code>
                 </Row>
-                <Row label="Status">
+                <Row label={t('Status')}>
                   {visitor.is_lead ? (
                     <span style={{ padding: '2px 8px', background: 'rgba(67,217,162,0.15)', color: '#43d9a2', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>
                       LEAD
                     </span>
                   ) : (
-                    'Visitor'
+                    t('Visitor')
                   )}
                 </Row>
-                <Row label="Pertama Datang">{formatDate(visitor.first_seen_at)}</Row>
-                <Row label="Terakhir Aktif">{formatDate(visitor.last_seen_at)}</Row>
-                <Row label="Total Sesi">{visitor.total_sessions}</Row>
-                <Row label="Total Pageviews">{visitor.total_pageviews}</Row>
-                <Row label="Total Events">{visitor.total_events}</Row>
+                <Row label={t('Pertama Datang')}>{formatDate(visitor.first_seen_at)}</Row>
+                <Row label={t('Terakhir Aktif')}>{formatDate(visitor.last_seen_at)}</Row>
+                <Row label={t('Total Sesi')}>{visitor.total_sessions}</Row>
+                <Row label={t('Total Pageviews')}>{visitor.total_pageviews}</Row>
+                <Row label={t('Total Events')}>{visitor.total_events}</Row>
               </Card>
 
               <Card>
-                <CardTitle>Perangkat</CardTitle>
-                <Row label="Tipe">{visitor.device_type ?? '—'}</Row>
+                <CardTitle>{t('Perangkat')}</CardTitle>
+                <Row label={t('Tipe')}>{visitor.device_type ?? '—'}</Row>
                 <Row label="OS">{visitor.os ?? '—'}</Row>
                 <Row label="Browser">{visitor.browser ?? '—'}</Row>
-                <Row label="Lokasi">{[visitor.city, visitor.country].filter(Boolean).join(', ') || '—'}</Row>
+                <Row label={t('Lokasi')}>{[visitor.city, visitor.country].filter(Boolean).join(', ') || '—'}</Row>
                 {visitor.user_agent && (
                   <Row label="User Agent">
                     <span style={{ fontSize: 10, color: 'var(--text2)', wordBreak: 'break-all' }}>{visitor.user_agent}</span>
@@ -126,23 +128,23 @@ export default function VisitorDetailPage() {
               {lead && (
                 <Card>
                   <CardTitle>Lead</CardTitle>
-                  <Row label="Nama">{lead.full_name}</Row>
+                  <Row label={t('Nama')}>{lead.full_name}</Row>
                   <Row label="Brand">{lead.brand_name}</Row>
-                  <Row label="Kontak">
+                  <Row label={t('Kontak')}>
                     {lead.contact_type}: {lead.contact_value}
                   </Row>
                   <Row label="Project">{lead.project_type}</Row>
-                  {lead.notes && <Row label="Catatan">{lead.notes}</Row>}
+                  {lead.notes && <Row label={t('Catatan')}>{lead.notes}</Row>}
                   <Link href={`/website/leads`} style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>
-                    Buka di Leads →
+                    {t('Buka di Leads →')}
                   </Link>
                 </Card>
               )}
 
               <Card>
-                <CardTitle>Sesi ({sessions.length})</CardTitle>
+                <CardTitle>{t('Sesi')} ({sessions.length})</CardTitle>
                 {sessions.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>Belum ada sesi.</div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>{t('Belum ada sesi.')}</div>
                 ) : (
                   sessions.slice(0, 10).map((s) => (
                     <div key={s.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 11 }}>
@@ -168,7 +170,7 @@ export default function VisitorDetailPage() {
             <Card>
               <CardTitle>Timeline ({timeline.length})</CardTitle>
               {timeline.length === 0 ? (
-                <ListEmpty message="Belum ada aktivitas." />
+                <ListEmpty message={t('Belum ada aktivitas.')} />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {timeline.map((item, idx) => (
@@ -185,8 +187,9 @@ export default function VisitorDetailPage() {
 }
 
 function TimelineRow({ item, isLast }: { item: TimelineItem; isLast: boolean }) {
+  const t = useT()
   const config: Record<TimelineItem['kind'], { icon: string; color: string; bg: string; label: string }> = {
-    session_start: { icon: '▶', color: '#ffc542', bg: 'rgba(255,197,66,0.15)', label: 'Sesi dimulai' },
+    session_start: { icon: '▶', color: '#ffc542', bg: 'rgba(255,197,66,0.15)', label: t('Sesi dimulai') },
     pageview: { icon: '👁', color: '#00d4ff', bg: 'rgba(0,212,255,0.15)', label: 'View' },
     event: { icon: '⚡', color: '#6c63ff', bg: 'rgba(108,99,255,0.15)', label: 'Event' },
   }

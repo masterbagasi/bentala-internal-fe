@@ -8,10 +8,12 @@ import { PageShell } from '@/components/shared/PageShell'
 import { ListEmpty, ListError } from '@/components/website/SimpleList'
 import { inputStyle } from '@/components/website/FormField'
 import { Section } from '@/components/website/Section'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 type Filter = 'all' | 'leads' | 'today' | '7d'
 
 export default function VisitorsPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiVisitor[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,10 +58,10 @@ export default function VisitorsPage() {
         {error && <ListError message={error} />}
 
         <Section
-          title="Daftar Visitor"
+          title={t('Daftar Visitor')}
           action={
             <input
-              placeholder="Cari visitor ID atau user agent…"
+              placeholder={t('Cari visitor ID atau user agent…')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ ...inputStyle, maxWidth: 300 }}
@@ -67,30 +69,30 @@ export default function VisitorsPage() {
           }
         >
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <FilterChip label="Semua" active={filter === 'all'} onClick={() => setFilter('all')} />
-            <FilterChip label="Hari Ini" active={filter === 'today'} onClick={() => setFilter('today')} />
-            <FilterChip label="7 Hari" active={filter === '7d'} onClick={() => setFilter('7d')} />
+            <FilterChip label={t('Semua')} active={filter === 'all'} onClick={() => setFilter('all')} />
+            <FilterChip label={t('Hari Ini')} active={filter === 'today'} onClick={() => setFilter('today')} />
+            <FilterChip label={t('7 Hari')} active={filter === '7d'} onClick={() => setFilter('7d')} />
             <FilterChip label="Leads" active={filter === 'leads'} onClick={() => setFilter('leads')} accent="#43d9a2" />
           </div>
 
           {loading ? (
-            <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+            <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
           ) : filtered.length === 0 ? (
-            <ListEmpty message={items.length === 0 ? 'Belum ada pengunjung.' : 'Tidak ada hasil untuk pencarian ini.'} />
+            <ListEmpty message={items.length === 0 ? t('Belum ada pengunjung.') : t('Tidak ada hasil untuk pencarian ini.')} />
           ) : (
             <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: 'var(--bg3)', borderBottom: '1px solid var(--border)' }}>
                   <Th>Visitor</Th>
-                  <Th>Perangkat</Th>
-                  <Th>Lokasi</Th>
-                  <Th align="right">Sesi</Th>
+                  <Th>{t('Perangkat')}</Th>
+                  <Th>{t('Lokasi')}</Th>
+                  <Th align="right">{t('Sesi')}</Th>
                   <Th align="right">Pageviews</Th>
                   <Th align="right">Events</Th>
-                  <Th>Status</Th>
-                  <Th>Pertama</Th>
-                  <Th>Terakhir</Th>
+                  <Th>{t('Status')}</Th>
+                  <Th>{t('Pertama')}</Th>
+                  <Th>{t('Terakhir')}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -128,7 +130,7 @@ export default function VisitorsPage() {
                           LEAD
                         </span>
                       ) : (
-                        <span style={{ color: 'var(--text2)' }}>visitor</span>
+                        <span style={{ color: 'var(--text2)' }}>{t('visitor')}</span>
                       )}
                     </Td>
                     <Td>{relativeTime(v.first_seen_at)}</Td>

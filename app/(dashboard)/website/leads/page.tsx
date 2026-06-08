@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { BsiLead } from '@/lib/website-types'
 import { PageShell } from '@/components/shared/PageShell'
 import { ListEmpty, ListError } from '@/components/website/SimpleList'
@@ -26,6 +27,7 @@ const STATUS_COLORS: Record<BsiLead['status'], string> = {
 const STATUS_OPTIONS: BsiLead['status'][] = ['new', 'contacted', 'qualified', 'closed', 'spam']
 
 export default function LeadsAdminPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiLead[]>([])
   const [loading, setLoading] = useState(true)
@@ -75,7 +77,7 @@ export default function LeadsAdminPage() {
         {error && <ListError message={error} />}
 
         <Section
-          title="Daftar Lead"
+          title={t('Daftar Lead')}
           action={
             <div style={{ minWidth: 200, maxWidth: 320 }}>
               <SearchInput value={query} onChange={setQuery} />
@@ -84,7 +86,7 @@ export default function LeadsAdminPage() {
         >
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <FilterChip
-              label="Semua"
+              label={t('Semua')}
               count={items.length}
               active={filter === 'all'}
               onClick={() => setFilter('all')}
@@ -103,14 +105,14 @@ export default function LeadsAdminPage() {
 
           {loading ? (
             <div style={{ color: 'var(--text2)', fontSize: 13, padding: 24, textAlign: 'center' }}>
-              Memuat…
+              {t('Memuat…')}
             </div>
           ) : filtered.length === 0 ? (
             <ListEmpty
               message={
                 items.length === 0
-                  ? 'Belum ada lead.'
-                  : 'Tidak ada lead yang cocok dengan filter / pencarian.'
+                  ? t('Belum ada lead.')
+                  : t('Tidak ada lead yang cocok dengan filter / pencarian.')
               }
             />
           ) : (
@@ -187,6 +189,7 @@ function FilterChip({
 }
 
 function SearchInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useT()
   return (
     <div
       style={{
@@ -216,7 +219,7 @@ function SearchInput({ value, onChange }: { value: string; onChange: (v: string)
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Cari nama, brand, kontak…"
+        placeholder={t('Cari nama, brand, kontak…')}
         style={{
           width: '100%',
           height: 30,
@@ -239,7 +242,7 @@ function SearchInput({ value, onChange }: { value: string; onChange: (v: string)
         <button
           type="button"
           onClick={() => onChange('')}
-          aria-label="Hapus pencarian"
+          aria-label={t('Hapus pencarian')}
           style={{
             position: 'absolute',
             right: 6,
@@ -272,6 +275,7 @@ function LeadCard({
   lead: BsiLead
   onUpdateStatus: (s: BsiLead['status']) => void
 }) {
+  const t = useT()
   const [expanded, setExpanded] = useState(false)
   const [hovered, setHovered] = useState(false)
   const submittedAt = new Date(lead.submitted_at)
@@ -392,7 +396,7 @@ function LeadCard({
             </span>
             {lead.notes && (
               <span
-                title="Ada catatan project"
+                title={t('Ada catatan project')}
                 style={{
                   flexShrink: 0,
                   display: 'inline-flex',
@@ -452,7 +456,7 @@ function LeadCard({
             href={primaryHref}
             target="_blank"
             rel="noopener noreferrer"
-            title={`Buka di ${primaryLabel}`}
+            title={`${t('Buka di')} ${primaryLabel}`}
             style={{
               height: 32,
               width: 32,
@@ -493,8 +497,8 @@ function LeadCard({
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              aria-label={expanded ? 'Tutup detail' : 'Lihat detail'}
-              title={expanded ? 'Tutup detail' : 'Lihat detail'}
+              aria-label={expanded ? t('Tutup detail') : t('Lihat detail')}
+              title={expanded ? t('Tutup detail') : t('Lihat detail')}
               style={{
                 height: 32,
                 width: 32,
@@ -542,7 +546,7 @@ function LeadCard({
         >
           {lead.notes && (
             <div>
-              <SectionLabel>Catatan Project</SectionLabel>
+              <SectionLabel>{t('Catatan Project')}</SectionLabel>
               <div
                 style={{
                   fontSize: 12.5,
@@ -598,7 +602,7 @@ function LeadCard({
                 textDecoration: 'none',
               }}
             >
-              {lead.contact_type === 'whatsapp' ? 'Buka WhatsApp' : 'Kirim Email'}
+              {lead.contact_type === 'whatsapp' ? t('Buka WhatsApp') : t('Kirim Email')}
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="7" y1="17" x2="17" y2="7" />
                 <polyline points="7 7 17 7 17 17" />
@@ -795,6 +799,7 @@ function MetaItem({ label, value, mono = false }: { label: string; value: string
 }
 
 function CopyButton({ value }: { value: string }) {
+  const t = useT()
   const [copied, setCopied] = useState(false)
   return (
     <button
@@ -829,7 +834,7 @@ function CopyButton({ value }: { value: string }) {
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          Disalin
+          {t('Disalin')}
         </>
       ) : (
         <>
@@ -837,7 +842,7 @@ function CopyButton({ value }: { value: string }) {
             <rect x="9" y="9" width="13" height="13" rx="2" />
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
-          Salin Kontak
+          {t('Salin Kontak')}
         </>
       )}
     </button>

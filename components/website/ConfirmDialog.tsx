@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export type ConfirmTone = 'danger' | 'warning' | 'info'
 
@@ -31,6 +32,7 @@ const TONE_COLOR: Record<ConfirmTone, string> = {
  * (z-index 200) so an existing gallery / preview modal stays open behind.
  */
 export function ConfirmDialog({ request, onCancel, busy = false }: Props) {
+  const t = useT()
   const tone = request.tone ?? 'danger'
   const accent = TONE_COLOR[tone]
 
@@ -116,7 +118,7 @@ export function ConfirmDialog({ request, onCancel, busy = false }: Props) {
               opacity: busy ? 0.6 : 1,
             }}
           >
-            {request.cancelLabel ?? 'Batal'}
+            {request.cancelLabel ?? t('Batal')}
           </button>
           <button
             type="button"
@@ -135,7 +137,7 @@ export function ConfirmDialog({ request, onCancel, busy = false }: Props) {
               opacity: busy ? 0.7 : 1,
             }}
           >
-            {busy ? 'Memproses…' : request.confirmLabel ?? 'Lanjut'}
+            {busy ? t('Memproses…') : request.confirmLabel ?? t('Lanjut')}
           </button>
         </div>
       </div>

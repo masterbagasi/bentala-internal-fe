@@ -10,6 +10,7 @@ import { ConfirmDialog, type ConfirmRequest } from '@/components/website/Confirm
 import { Section } from '@/components/website/Section'
 import { useRegisterPageAction } from '@/components/website/PageActionsContext'
 import { PrimaryActionButton } from '@/components/website/PageActions'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // Default values for newly-inserted rows so the admin doesn't see
 // a wall of nulls in the form. Public site already coalesces nulls
@@ -36,6 +37,7 @@ type Draft = Pick<
 > & { name: string }
 
 export default function ServicesAdminPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiService[]>([])
   const [loading, setLoading] = useState(true)
@@ -79,7 +81,7 @@ export default function ServicesAdminPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus layanan ini?')) return
+    if (!confirm(t('Hapus layanan ini?'))) return
     const { error } = await supabase.from('bsi_services').delete().eq('id', id)
     if (error) {
       alert(error.message)
@@ -108,11 +110,11 @@ export default function ServicesAdminPage() {
   function requestTogglePublish(item: BsiService) {
     const next = !item.is_published
     setConfirmReq({
-      title: next ? 'Aktifkan service?' : 'Nonaktifkan service?',
+      title: next ? t('Aktifkan service?') : t('Nonaktifkan service?'),
       message: next
-        ? `Service "${item.name}" akan ditampilkan kembali di halaman utama.`
-        : `Service "${item.name}" akan disembunyikan dari halaman utama. Data tetap aman dan bisa diaktifkan kembali kapan saja.`,
-      confirmLabel: next ? 'Aktifkan' : 'Nonaktifkan',
+        ? `${t('Service')} "${item.name}" ${t('akan ditampilkan kembali di halaman utama.')}`
+        : `${t('Service')} "${item.name}" ${t('akan disembunyikan dari halaman utama. Data tetap aman dan bisa diaktifkan kembali kapan saja.')}`,
+      confirmLabel: next ? t('Aktifkan') : t('Nonaktifkan'),
       tone: next ? 'info' : 'warning',
       onConfirm: () => {
         setConfirmReq(null)
@@ -160,7 +162,7 @@ export default function ServicesAdminPage() {
           error.code === '42703' || /column .* does not exist/i.test(error.message)
         alert(
           isMissingColumn
-            ? `Database belum diupdate: ${error.message}. Jalankan migration "schema_services_richer.sql" di Supabase SQL Editor.`
+            ? `${t('Database belum diupdate:')} ${error.message}. ${t('Jalankan migration "schema_services_richer.sql" di Supabase SQL Editor.')}`
             : error.message,
         )
         return
@@ -242,18 +244,18 @@ export default function ServicesAdminPage() {
   // Social Links. Click opens the edit modal in create mode WITHOUT
   // touching the database; the row is only inserted on Save.
   useRegisterPageAction(
-    <PrimaryActionButton onClick={handleAdd}>+ Tambah Layanan</PrimaryActionButton>,
+    <PrimaryActionButton onClick={handleAdd}>{t('+ Tambah Layanan')}</PrimaryActionButton>,
   )
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
       {error && <ListError message={error} />}
 
-      <Section title="Daftar Layanan">
+      <Section title={t('Daftar Layanan')}>
         {loading ? (
-          <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+          <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
         ) : items.length === 0 ? (
-          <ListEmpty message="Belum ada layanan." />
+          <ListEmpty message={t('Belum ada layanan.')} />
         ) : (
           <div
             style={{
@@ -366,6 +368,7 @@ function ServiceCard({
   onTogglePublish: () => void
   onDelete: () => void
 }) {
+  const t = useT()
   const isVideo = service.media_type === 'video'
   return (
     <div
@@ -421,7 +424,7 @@ function ServiceCard({
               letterSpacing: '0.04em',
             }}
           >
-            Belum ada media
+            {t('Belum ada media')}
           </div>
         )}
         {service.media_url && isVideo && (
@@ -468,7 +471,7 @@ function ServiceCard({
           }}
           title={service.name}
         >
-          {service.name || '(Tanpa nama)'}
+          {service.name || t('(Tanpa nama)')}
         </div>
         {service.description ? (
           <div
@@ -486,7 +489,7 @@ function ServiceCard({
           </div>
         ) : (
           <div style={{ fontSize: 11, color: 'var(--text2)', fontStyle: 'italic' }}>
-            Belum ada deskripsi
+            {t('Belum ada deskripsi')}
           </div>
         )}
       </div>
@@ -509,7 +512,7 @@ function ServiceCard({
             fontWeight: 500,
           }}
         >
-          {service.is_published ? '● Aktif' : '○ Tersembunyi'}
+          {service.is_published ? t('● Aktif') : t('○ Tersembunyi')}
         </span>
         <div style={{ display: 'flex', gap: 6 }}>
           <IconBtn
@@ -517,7 +520,7 @@ function ServiceCard({
               e.stopPropagation()
               onTogglePublish()
             }}
-            title={service.is_published ? 'Sembunyikan' : 'Tampilkan'}
+            title={service.is_published ? t('Sembunyikan') : t('Tampilkan')}
             color={service.is_published ? 'var(--accent3)' : 'var(--text2)'}
           >
             {service.is_published ? '●' : '○'}
@@ -527,7 +530,7 @@ function ServiceCard({
               e.stopPropagation()
               onDelete()
             }}
-            title="Hapus"
+            title={t('Hapus')}
             color="#ff6b6b"
           >
             ×
@@ -569,6 +572,7 @@ function EditModal({
   /** Optional — omitted in create mode where there's no row yet. */
   onTogglePublish?: () => void
 }) {
+  const t = useT()
   return (
     <div
       onClick={onClose}
@@ -610,7 +614,7 @@ function EditModal({
           }}
         >
           <div style={{ fontSize: 14, fontWeight: 600 }}>
-            {isCreating ? 'Tambah Service' : 'Edit Service'}
+            {isCreating ? t('Tambah Service') : t('Edit Service')}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* Active / inactive toggle — only meaningful for an
@@ -624,8 +628,8 @@ function EditModal({
               onClick={onTogglePublish}
               title={
                 item.is_published
-                  ? 'Service aktif — klik untuk nonaktifkan'
-                  : 'Service nonaktif — klik untuk aktifkan'
+                  ? t('Service aktif — klik untuk nonaktifkan')
+                  : t('Service nonaktif — klik untuk aktifkan')
               }
               style={{
                 height: 28,
@@ -656,13 +660,13 @@ function EditModal({
                   flexShrink: 0,
                 }}
               />
-              {item.is_published ? 'Aktif' : 'Nonaktif'}
+              {item.is_published ? t('Aktif') : t('Nonaktif')}
             </button>
             )}
             <button
               type="button"
               onClick={onClose}
-              title="Tutup"
+              title={t('Tutup')}
               style={{
                 width: 28,
                 height: 28,
@@ -739,7 +743,7 @@ function EditModal({
               gap: 14,
             }}
           >
-            <FormField label="Nama Service">
+            <FormField label={t('Nama Service')}>
               <input
                 style={inputStyle}
                 value={fieldValue(item, 'name')}
@@ -747,12 +751,12 @@ function EditModal({
               />
             </FormField>
 
-            <FormField label="Deskripsi">
+            <FormField label={t('Deskripsi')}>
               <textarea
                 style={{ ...textareaStyle, minHeight: 100 }}
                 value={fieldValue(item, 'description') ?? ''}
                 onChange={(e) => patchDraft({ description: e.target.value })}
-                placeholder="Deskripsi panjang yang muncul di bawah nama service…"
+                placeholder={t('Deskripsi panjang yang muncul di bawah nama service…')}
               />
             </FormField>
 
@@ -760,7 +764,7 @@ function EditModal({
                 popup (managed by the public site) — no URL needed
                 from the admin. We only ask for the label. */}
             <FormField
-              label="CTA — Label (otomatis buka popup Start Collaboration)"
+              label={t('CTA — Label (otomatis buka popup Start Collaboration)')}
             >
               <input
                 style={inputStyle}
@@ -821,14 +825,14 @@ function EditModal({
               cursor: 'pointer',
             }}
           >
-            Batal
+            {t('Batal')}
           </button>
           <ActionButton variant="primary" onClick={onSave} disabled={!isDirty || saving}>
             {saving
-              ? 'Menyimpan…'
+              ? t('Menyimpan…')
               : isCreating
-                ? 'Tambah Service'
-                : 'Simpan perubahan'}
+                ? t('Tambah Service')
+                : t('Simpan perubahan')}
           </ActionButton>
         </div>
       </div>

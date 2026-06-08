@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface ProviderStatus {
   provider: string
@@ -112,6 +113,7 @@ const MENU_CARDS: MenuCard[] = [
 type Tab = 'features' | 'providers'
 
 export default function AISettingsClient() {
+  const t = useT()
   const [tab, setTab] = useState<Tab>('features')
   const [features, setFeatures] = useState<FeatureStatus[]>([])
   const [providers, setProviders] = useState<ProviderStatus[]>([])
@@ -125,11 +127,11 @@ export default function AISettingsClient() {
     try {
       const res = await fetch('/api/settings/features')
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Gagal load settings')
+      if (!res.ok) throw new Error(data.error || t('Gagal load settings'))
       setFeatures(data.features ?? [])
       setProviders(data.providers ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal load settings')
+      setError(e instanceof Error ? e.message : t('Gagal load settings'))
     } finally {
       setLoading(false)
     }
@@ -156,7 +158,7 @@ export default function AISettingsClient() {
         borderBottom: '1px solid var(--border)',
       }}>
         <TabButton active={tab === 'features'} onClick={() => setTab('features')}>
-          Fitur AI
+          {t('Fitur AI')}
         </TabButton>
         <TabButton active={tab === 'providers'} onClick={() => setTab('providers')}>
           API Keys
@@ -166,7 +168,7 @@ export default function AISettingsClient() {
       {/* Loading / error states */}
       {loading && (
         <div style={{ padding: 60, textAlign: 'center', color: 'var(--text2)', fontSize: 13 }}>
-          Memuat settings...
+          {t('Memuat settings...')}
         </div>
       )}
 
@@ -175,17 +177,17 @@ export default function AISettingsClient() {
           padding: 20, borderRadius: 12,
           background: 'rgba(255,80,80,0.06)', border: '1px solid rgba(255,80,80,0.22)',
         }}>
-          <div style={{ fontWeight: 700, marginBottom: 6, color: '#ff7575', fontSize: 13 }}>Gagal load settings</div>
+          <div style={{ fontWeight: 700, marginBottom: 6, color: '#ff7575', fontSize: 13 }}>{t('Gagal load settings')}</div>
           <div style={{ fontSize: 12, color: 'var(--text2)' }}>{error}</div>
           <div style={{ fontSize: 11, marginTop: 10, color: 'var(--text2)' }}>
-            Pastikan tabel <code>ai_settings</code> + <code>feature_settings</code> sudah dibuat.
-            Jalankan SQL di <code>docs/sql/ai-settings.sql</code> via Supabase SQL Editor.
+            {t('Pastikan tabel')} <code>ai_settings</code> + <code>feature_settings</code> {t('sudah dibuat.')}
+            {' '}{t('Jalankan SQL di')} <code>docs/sql/ai-settings.sql</code> {t('via Supabase SQL Editor.')}
           </div>
           <button onClick={refetch} style={{
             marginTop: 12, height: 30, padding: '0 14px', borderRadius: 8,
             background: 'var(--bg3)', border: '1px solid var(--border)',
             color: 'var(--text)', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-          }}>Coba lagi</button>
+          }}>{t('Coba lagi')}</button>
         </div>
       )}
 
@@ -251,12 +253,13 @@ function MenuCardView({
   features: FeatureStatus[]
   onOpen: () => void
 }) {
+  const t = useT()
   const allKeysSet = features.length > 0 && features.every(f => f.apiKeySet)
   const status: { label: string; color: string; bg: string; border: string } = features.length === 0
-    ? { label: 'Belum siap', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: 'rgba(148,163,184,0.25)' }
+    ? { label: t('Belum siap'), color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: 'rgba(148,163,184,0.25)' }
     : allKeysSet
-      ? { label: '✓ Siap', color: '#43d9a2', bg: 'rgba(67,217,162,0.1)', border: 'rgba(67,217,162,0.28)' }
-      : { label: '⚠ Key kosong', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.28)' }
+      ? { label: t('✓ Siap'), color: '#43d9a2', bg: 'rgba(67,217,162,0.1)', border: 'rgba(67,217,162,0.28)' }
+      : { label: t('⚠ Key kosong'), color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.28)' }
 
   return (
     <button
@@ -302,10 +305,10 @@ function MenuCardView({
       {/* Title + description */}
       <div>
         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-          {card.title}
+          {t(card.title)}
         </div>
         <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>
-          {card.description}
+          {t(card.description)}
         </div>
       </div>
 
@@ -319,7 +322,7 @@ function MenuCardView({
           letterSpacing: '0.04em',
         }}>{status.label}</span>
         <span style={{ fontSize: 11, color: 'var(--text2)' }}>
-          {features.length} {features.length === 1 ? 'fitur' : 'fitur'}
+          {features.length} {features.length === 1 ? t('fitur') : t('fitur')}
         </span>
       </div>
     </button>
@@ -392,6 +395,7 @@ function ConfigureModal({
   onChange: () => void
   onJumpToProviders: () => void
 }) {
+  const t = useT()
   return (
     <div
       onClick={onClose}
@@ -427,8 +431,8 @@ function ConfigureModal({
             <CardIllustration kind={menu.illustration} color={menu.color} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{menu.title}</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, lineHeight: 1.4 }}>{menu.description}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t(menu.title)}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, lineHeight: 1.4 }}>{t(menu.description)}</div>
           </div>
           <button
             onClick={onClose}
@@ -447,12 +451,12 @@ function ConfigureModal({
             fontSize: 10, fontWeight: 700, color: 'var(--text2)',
             textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12,
           }}>
-            Sub-fitur ({features.length})
+            {t('Sub-fitur')} ({features.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {features.length === 0 && (
               <div style={{ padding: 16, color: 'var(--text2)', fontSize: 12 }}>
-                Tidak ada sub-fitur untuk menu ini.
+                {t('Tidak ada sub-fitur untuk menu ini.')}
               </div>
             )}
             {features.map(f => (
@@ -479,6 +483,7 @@ function FeatureConfigBlock({
   onChange: () => void
   onJumpToProviders: () => void
 }) {
+  const t = useT()
   const [providerInput, setProviderInput] = useState(feature.provider)
   const [modelInput, setModelInput] = useState(feature.model ?? '')
   const [saving, setSaving] = useState(false)
@@ -500,13 +505,13 @@ function FeatureConfigBlock({
         body: JSON.stringify({ provider: providerInput, model: modelInput.trim() || null }),
       })
       const data = await res.json() as { ok?: boolean; error?: string; persisted?: 'database' | 'file'; note?: string }
-      if (!res.ok) throw new Error(data.error || 'Gagal menyimpan')
+      if (!res.ok) throw new Error(data.error || t('Gagal menyimpan'))
       if (data.note) setOpNote(data.note)
       setSavedFlash(true)
       setTimeout(() => setSavedFlash(false), 2500)
       onChange()
     } catch (e) {
-      setOpError(e instanceof Error ? e.message : 'Gagal menyimpan')
+      setOpError(e instanceof Error ? e.message : t('Gagal menyimpan'))
     } finally {
       setSaving(false)
     }
@@ -530,13 +535,13 @@ function FeatureConfigBlock({
             background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.28)',
             padding: '3px 8px', borderRadius: 999, letterSpacing: '0.04em', textTransform: 'uppercase',
             flexShrink: 0, whiteSpace: 'nowrap',
-          }}>Key kosong</span>
+          }}>{t('Key kosong')}</span>
         )}
       </div>
 
       {/* Provider dropdown */}
       <div style={{ marginBottom: 10 }}>
-        <label style={labelStyle}>Provider AI</label>
+        <label style={labelStyle}>{t('Provider AI')}</label>
         <div style={{ position: 'relative' }}>
           <select
             value={providerInput}
@@ -558,13 +563,13 @@ function FeatureConfigBlock({
             }}
           >
             {/* Compatible providers — actually wired up to this feature's route. */}
-            <optgroup label="✓ Cocok untuk fitur ini">
+            <optgroup label={t('✓ Cocok untuk fitur ini')}>
               {feature.supportedProviders.map(p => {
                 const ps = providerIndex[p]
                 const ready = ps && (ps.hasDbKey || ps.hasEnvKey)
                 return (
                   <option key={p} value={p}>
-                    {ps?.label ?? p} {ready ? '— ✓ siap' : '— key kosong'}
+                    {ps?.label ?? p} {ready ? t('— ✓ siap') : t('— key kosong')}
                   </option>
                 )
               })}
@@ -578,14 +583,14 @@ function FeatureConfigBlock({
               )
               if (others.length === 0) return null
               return (
-                <optgroup label="✗ Tidak support fitur ini">
+                <optgroup label={t('✗ Tidak support fitur ini')}>
                   {others.map(p => {
                     const ready = p.hasDbKey || p.hasEnvKey
                     const capability = PROVIDER_CAPABILITY[p.provider] ?? 'specialized'
                     return (
                       <option key={p.provider} value={p.provider} disabled>
                         {p.label} — {capability}
-                        {ready ? ' (terhubung)' : ' (belum terhubung)'}
+                        {ready ? t(' (terhubung)') : t(' (belum terhubung)')}
                       </option>
                     )
                   })}
@@ -604,23 +609,23 @@ function FeatureConfigBlock({
         </div>
         <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4, lineHeight: 1.45 }}>
           {feature.supportedProviders.length === 1
-            ? 'Fitur ini hanya support 1 provider (provider lain disabled karena fungsinya beda).'
-            : `Provider abu-abu = kapabilitasnya tidak match. Cek kanan tiap nama (mis. "image only") untuk tahu kenapa.`
+            ? t('Fitur ini hanya support 1 provider (provider lain disabled karena fungsinya beda).')
+            : t('Provider abu-abu = kapabilitasnya tidak match. Cek kanan tiap nama (mis. "image only") untuk tahu kenapa.')
           }
         </div>
       </div>
 
       {/* Model */}
       <div style={{ marginBottom: 10 }}>
-        <label style={labelStyle}>Model (opsional)</label>
+        <label style={labelStyle}>{t('Model (opsional)')}</label>
         <input
           type="text" value={modelInput}
           onChange={e => setModelInput(e.target.value)}
-          placeholder={feature.defaultModel ?? 'kosongkan untuk default'}
+          placeholder={feature.defaultModel ?? t('kosongkan untuk default')}
           style={inputStyle}
         />
         <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 3 }}>
-          Default: <code>{feature.defaultModel ?? '(provider default)'}</code>
+          {t('Default:')} <code>{feature.defaultModel ?? '(provider default)'}</code>
         </div>
       </div>
 
@@ -633,13 +638,13 @@ function FeatureConfigBlock({
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap',
         }}>
           <span>
-            API key <strong style={{ color: 'var(--text)' }}>{providerStatus.label}</strong>:
-            {' '}{providerStatus.hasDbKey ? '✓ DB' : providerStatus.hasEnvKey ? '✓ env' : '✗ kosong'}
+            {t('API key')} <strong style={{ color: 'var(--text)' }}>{providerStatus.label}</strong>:
+            {' '}{providerStatus.hasDbKey ? '✓ DB' : providerStatus.hasEnvKey ? '✓ env' : t('✗ kosong')}
           </span>
           <button onClick={onJumpToProviders} style={{
             background: 'transparent', border: 'none', color: 'var(--accent)',
             fontWeight: 700, fontSize: 11, cursor: 'pointer', padding: 0,
-          }}>Kelola key →</button>
+          }}>{t('Kelola key →')}</button>
         </div>
       )}
 
@@ -652,16 +657,16 @@ function FeatureConfigBlock({
           background: 'rgba(67,217,162,0.08)', border: '1px solid rgba(67,217,162,0.25)',
           lineHeight: 1.5,
         }}>
-          ✓ Tersimpan. {opNote}
+          {t('✓ Tersimpan.')} {opNote}
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button onClick={handleSave} disabled={saving || !dirty} style={btnPrimaryStyle(saving || !dirty)}>
-          {saving ? 'Menyimpan...' : 'Simpan'}
+          {saving ? t('Menyimpan...') : t('Simpan')}
         </button>
         {savedFlash && !opNote && (
-          <span style={{ fontSize: 11, color: '#43d9a2', fontWeight: 700 }}>✓ Tersimpan</span>
+          <span style={{ fontSize: 11, color: '#43d9a2', fontWeight: 700 }}>{t('✓ Tersimpan')}</span>
         )}
       </div>
     </div>
@@ -670,6 +675,7 @@ function FeatureConfigBlock({
 
 // ─── Providers tab ────────────────────────────────────────────────────────────
 function ProvidersView({ providers, onChange }: { providers: ProviderStatus[]; onChange: () => void }) {
+  const t = useT()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{
@@ -677,8 +683,8 @@ function ProvidersView({ providers, onChange }: { providers: ProviderStatus[]; o
         background: 'rgba(108,99,255,0.05)', border: '1px solid rgba(108,99,255,0.2)',
         fontSize: 12, color: 'var(--text2)', lineHeight: 1.5,
       }}>
-        <strong style={{ color: 'var(--text)' }}>API Keys per Provider.</strong>{' '}
-        Key disimpan sekali per provider — semua fitur yang pakai provider tersebut otomatis ikut. Kalau key DB kosong, fallback ke env var.
+        <strong style={{ color: 'var(--text)' }}>{t('API Keys per Provider.')}</strong>{' '}
+        {t('Key disimpan sekali per provider — semua fitur yang pakai provider tersebut otomatis ikut. Kalau key DB kosong, fallback ke env var.')}
       </div>
       {providers.map(p => (
         <ProviderCard key={p.provider} status={p} onChange={onChange} />
@@ -732,6 +738,7 @@ const PROVIDER_HINTS: Record<string, { dashboard: string; format: string; tip?: 
 }
 
 function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: () => void }) {
+  const t = useT()
   const [editing, setEditing] = useState(false)
   const [keyInput, setKeyInput] = useState('')
   const [modelInput, setModelInput] = useState(status.model ?? '')
@@ -767,7 +774,7 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
         body: JSON.stringify(body),
       })
       const data = await res.json() as { ok?: boolean; error?: string; persisted?: 'database' | 'env'; note?: string }
-      if (!res.ok) throw new Error(data.error || 'Gagal menyimpan')
+      if (!res.ok) throw new Error(data.error || t('Gagal menyimpan'))
       setEditing(false)
       setKeyInput('')
       if (data.note) setOpNote(data.note)
@@ -779,7 +786,7 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
         await runTest()
       }
     } catch (e) {
-      setOpError(e instanceof Error ? e.message : 'Gagal menyimpan')
+      setOpError(e instanceof Error ? e.message : t('Gagal menyimpan'))
     } finally {
       setSaving(false)
     }
@@ -792,11 +799,11 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
       const res = await fetch(`/api/settings/ai/${status.provider}/test`, { method: 'POST' })
       const data = await res.json()
       if (data.status === 'failed') {
-        setOpError(`Test gagal: ${data.message}`)
+        setOpError(`${t('Test gagal:')} ${data.message}`)
       }
       onChange()
     } catch (e) {
-      setOpError(e instanceof Error ? e.message : 'Gagal melakukan test')
+      setOpError(e instanceof Error ? e.message : t('Gagal melakukan test'))
     } finally {
       setTesting(false)
     }
@@ -806,19 +813,19 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
 
   // Connection status: combines source (key set anywhere?) + last test result.
   const connectionStatus: { label: string; color: string; bg: string; border: string } = (() => {
-    if (!hasKey) return { label: '○ Belum terhubung', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: 'rgba(148,163,184,0.25)' }
-    if (isBroken) return { label: '✗ Test gagal', color: '#ff7575', bg: 'rgba(255,82,82,0.1)', border: 'rgba(255,82,82,0.28)' }
-    if (isHealthy) return { label: '✓ Terhubung', color: '#43d9a2', bg: 'rgba(67,217,162,0.1)', border: 'rgba(67,217,162,0.28)' }
-    return { label: '◐ Key set, belum di-test', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.28)' }
+    if (!hasKey) return { label: t('○ Belum terhubung'), color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: 'rgba(148,163,184,0.25)' }
+    if (isBroken) return { label: t('✗ Test gagal'), color: '#ff7575', bg: 'rgba(255,82,82,0.1)', border: 'rgba(255,82,82,0.28)' }
+    if (isHealthy) return { label: t('✓ Terhubung'), color: '#43d9a2', bg: 'rgba(67,217,162,0.1)', border: 'rgba(67,217,162,0.28)' }
+    return { label: t('◐ Key set, belum di-test'), color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.28)' }
   })()
 
   const sourceBadge: { label: string; color: string; bg: string } = (() => {
     if (status.source === 'database') return { label: 'DB', color: '#43d9a2', bg: 'rgba(67,217,162,0.1)' }
     if (status.source === 'env') return { label: '.env.local', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' }
-    return { label: 'Kosong', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' }
+    return { label: t('Kosong'), color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' }
   })()
 
-  const primaryLabel = editing ? 'Batal' : hasKey ? 'Update key' : '+ Connect'
+  const primaryLabel = editing ? t('Batal') : hasKey ? t('Update key') : '+ Connect'
 
   return (
     <div style={{
@@ -854,7 +861,7 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
         <div style={{ display: 'flex', gap: 6 }}>
           {hasKey && (
             <button onClick={handleTest} disabled={testing} style={btnStyle(testing)}>
-              {testing ? 'Testing...' : '↻ Test'}
+              {testing ? t('Testing...') : '↻ Test'}
             </button>
           )}
           <button onClick={() => { setEditing(e => !e); setOpError(null); setOpNote(null); setKeyInput('') }} style={btnStyle(false, true)}>
@@ -870,7 +877,7 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
           border: `1px solid ${status.lastTestStatus === 'ok' ? 'rgba(67,217,162,0.25)' : 'rgba(255,82,82,0.25)'}`,
           color: status.lastTestStatus === 'ok' ? '#43d9a2' : '#ff7575',
         }}>
-          <strong>{status.lastTestStatus === 'ok' ? '✓ Test OK' : '✗ Test gagal'}</strong>
+          <strong>{status.lastTestStatus === 'ok' ? t('✓ Test OK') : t('✗ Test gagal')}</strong>
           {status.lastTestedAt && <span style={{ opacity: 0.7, marginLeft: 6 }}>{new Date(status.lastTestedAt).toLocaleString('id-ID')}</span>}
           {status.lastTestMessage && <div style={{ fontFamily: 'monospace', fontSize: 10, marginTop: 2 }}>{status.lastTestMessage}</div>}
         </div>
@@ -890,13 +897,13 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
               fontSize: 11, color: 'var(--text2)', lineHeight: 1.5,
             }}>
               <div style={{ marginBottom: 4 }}>
-                <strong style={{ color: 'var(--text)' }}>Cara dapat key:</strong>{' '}
+                <strong style={{ color: 'var(--text)' }}>{t('Cara dapat key:')}</strong>{' '}
                 <a href={hint.dashboard} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 700 }}>
                   {hint.dashboard.replace(/^https?:\/\//, '')}
                 </a>
               </div>
               <div>
-                <strong style={{ color: 'var(--text)' }}>Format:</strong>{' '}
+                <strong style={{ color: 'var(--text)' }}>{t('Format:')}</strong>{' '}
                 <code style={{ fontSize: 10 }}>{hint.format}</code>
               </div>
               {hint.tip && (
@@ -913,7 +920,7 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
                 type={showKey ? 'text' : 'password'}
                 value={keyInput}
                 onChange={e => setKeyInput(e.target.value)}
-                placeholder={hint?.format ?? (status.hasDbKey ? '••• key tersimpan — kosongkan untuk biarkan, isi untuk ganti' : 'Tempel API key')}
+                placeholder={hint?.format ?? (status.hasDbKey ? t('••• key tersimpan — kosongkan untuk biarkan, isi untuk ganti') : t('Tempel API key'))}
                 style={inputStyle}
                 autoComplete="off" spellCheck={false}
               />
@@ -922,15 +929,15 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
               </button>
             </div>
             <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 3 }}>
-              Ketik <code>(remove)</code> untuk hapus key.
+              {t('Ketik')} <code>(remove)</code> {t('untuk hapus key.')}
             </div>
           </div>
 
           <div>
-            <label style={labelStyle}>Model default (opsional)</label>
+            <label style={labelStyle}>{t('Model default (opsional)')}</label>
             <input
               type="text" value={modelInput} onChange={e => setModelInput(e.target.value)}
-              placeholder="kosongkan untuk default"
+              placeholder={t('kosongkan untuk default')}
               style={inputStyle}
             />
           </div>
@@ -945,14 +952,14 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <button onClick={handleSave} disabled={saving || testing} style={btnPrimaryStyle(saving || testing)}>
               {saving
-                ? 'Menyimpan...'
+                ? t('Menyimpan...')
                 : testing
-                  ? 'Testing...'
+                  ? t('Testing...')
                   : keyInput.trim().length > 0
                     ? '⚡ Connect & Test'
-                    : 'Simpan'}
+                    : t('Simpan')}
             </button>
-            <button onClick={() => { setEditing(false); setKeyInput(''); setOpError(null); setOpNote(null) }} style={btnStyle(saving || testing)}>Batal</button>
+            <button onClick={() => { setEditing(false); setKeyInput(''); setOpError(null); setOpNote(null) }} style={btnStyle(saving || testing)}>{t('Batal')}</button>
           </div>
         </div>
       )}
@@ -964,7 +971,7 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
           padding: '7px 10px', borderRadius: 6,
           background: 'rgba(67,217,162,0.08)', border: '1px solid rgba(67,217,162,0.25)',
         }}>
-          ✓ Tersimpan. {opNote}
+          {t('✓ Tersimpan.')} {opNote}
         </div>
       )}
     </div>

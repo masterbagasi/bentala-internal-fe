@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
 import { AccountsView } from '@/components/Social/AccountsView'
 import { NotConnected } from '@/components/Social/NotConnected'
@@ -34,6 +35,7 @@ const STUDIO: MiniAccount = {
 }
 
 export default function Page() {
+  const t = useT()
   const [tab, setTab] = useState<TabKey>('accounts')
   return (
     <>
@@ -46,7 +48,7 @@ export default function Page() {
       <div className="flex-1 overflow-y-auto min-h-0" style={{ padding: 24 }}>
         {tab === 'accounts' && <AccountsView brand="bsi" />}
         {tab === 'analytics' && <MiniAnalytics account={STUDIO} />}
-        {tab === 'reports' && <NotConnected brandLabel="Bentala Studio" feature="Laporan" />}
+        {tab === 'reports' && <NotConnected brandLabel="Bentala Studio" feature={t('Laporan')} />}
         {tab === 'plan' && <NotConnected brandLabel="Bentala Studio" feature="Content plan" />}
       </div>
     </>

@@ -1,6 +1,7 @@
 'use client'
 
 import DOMPurify from 'isomorphic-dompurify'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { PublicViewportSimulator } from './PublicViewportSimulator'
 
 type Variant = 'principles' | 'cta'
@@ -23,6 +24,7 @@ interface Props {
  * admin window width.
  */
 export function HeadlinePreview({ source, variant = 'principles', label }: Props) {
+  const t = useT()
   const safeHtml = source && source.trim() ? buildSafeHtml(source) : ''
   const preset = PRESETS[variant]
 
@@ -74,7 +76,7 @@ export function HeadlinePreview({ source, variant = 'principles', label }: Props
               fontStyle: 'italic',
             }}
           >
-            (kosong — isi field di atas untuk melihat preview)
+            {t('(kosong — isi field di atas untuk melihat preview)')}
           </div>
         )}
       </div>

@@ -7,6 +7,7 @@ import {
   COLOR, FONT_STACK,
   formatCountry, type ContentCategoryKey,
 } from '@/components/AIStudio/Designs/designConstants'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // Direct-draw fallback using Canvas 2D — used by Download button to produce
 // the final PNG without going through html-to-image. The visible preview still
@@ -336,6 +337,7 @@ const TEXT_COLOR_PRESETS: { value: string; label: string }[] = [
 ]
 
 export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) {
+  const t = useT()
   // Active canvas dimensions based on format
   const isReels = format === 'reels'
   const canvasW = IG_FEED_COVER.width
@@ -401,7 +403,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
   function handleFile(file: File | null | undefined) {
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      alert('File harus image (jpg/png/webp)')
+      alert(t('File harus image (jpg/png/webp)'))
       return
     }
     // Revoke previous blob URL to prevent memory leak
@@ -524,7 +526,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
       a.click()
       document.body.removeChild(a)
     } catch (e) {
-      setRenderError(e instanceof Error ? e.message : 'Gagal render')
+      setRenderError(e instanceof Error ? e.message : t('Gagal render'))
     } finally {
       setRendering(false)
     }
@@ -564,7 +566,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
             </div>
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
               {isReels ? 'IG Reels 1080×1920 (9:16)' : 'IG Feed 1080×1350 (4:5)'}
-              {' — '}isi field, preview live, klik download
+              {' — '}{t('isi field, preview live, klik download')}
             </div>
           </div>
           <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', fontSize: 13 }}>✕</button>
@@ -576,7 +578,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
           <div style={{ padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14, borderRight: '1px solid var(--border)' }}>
             {/* Image upload */}
             <div>
-              <label style={labelStyle}>Foto Background</label>
+              <label style={labelStyle}>{t('Foto Background')}</label>
               <div
                 onDragOver={e => e.preventDefault()}
                 onDrop={handleDrop}
@@ -605,7 +607,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
                 ) : (
                   <>
                     <div style={{ fontSize: 22, marginBottom: 4 }}>📷</div>
-                    <div style={{ fontWeight: 600, color: 'var(--text)' }}>Klik atau drag image</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text)' }}>{t('Klik atau drag image')}</div>
                     <div style={{ fontSize: 10, marginTop: 2 }}>jpg / png / webp</div>
                   </>
                 )}
@@ -622,7 +624,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap',
               }}>
                 <span>
-                  💡 <strong style={{ color: 'var(--text)' }}>Drag</strong> foto di preview untuk geser, <strong style={{ color: 'var(--text)' }}>scroll</strong> untuk zoom.
+                  💡 <strong style={{ color: 'var(--text)' }}>{t('Drag')}</strong> {t('foto di preview untuk geser,')} <strong style={{ color: 'var(--text)' }}>{t('scroll')}</strong> {t('untuk zoom.')}
                 </span>
                 <button
                   onClick={() => { setImagePosX(50); setImagePosY(35); setImageScale(1.0) }}
@@ -631,7 +633,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
                     background: 'var(--bg3)', border: '1px solid var(--border)',
                     padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
                   }}
-                >Reset posisi</button>
+                >{t('Reset posisi')}</button>
               </div>
             )}
 
@@ -641,18 +643,18 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
               <div style={{ display: 'flex', gap: 6 }}>
                 <input
                   type="text" value={sourcePrimary} onChange={e => setSourcePrimary(e.target.value)}
-                  placeholder="mis. Bule Santun"
+                  placeholder={t('mis. Bule Santun')}
                   style={{ ...inputStyle, flex: 2 }}
                 />
                 <select value={sourcePlatform} onChange={e => setSourcePlatform(e.target.value)} style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}>
-                  {SOURCE_PLATFORMS.map(p => <option key={p} value={p}>{p || '— Platform —'}</option>)}
+                  {SOURCE_PLATFORMS.map(p => <option key={p} value={p}>{p || t('— Platform —')}</option>)}
                 </select>
               </div>
             </div>
 
             {/* Category */}
             <div>
-              <label style={labelStyle}>Kategori Konten</label>
+              <label style={labelStyle}>{t('Kategori Konten')}</label>
               <select value={category} onChange={e => setCategory(e.target.value as ContentCategoryKey)} style={{ ...inputStyle, cursor: 'pointer' }}>
                 {(Object.keys(CATEGORY_LABEL_FOR_DESIGN) as ContentCategoryKey[]).map(k => (
                   <option key={k} value={k}>{CATEGORY_LABEL_FOR_DESIGN[k]}</option>
@@ -662,10 +664,10 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
 
             {/* Country */}
             <div>
-              <label style={labelStyle}>Negara</label>
+              <label style={labelStyle}>{t('Negara')}</label>
               <input
                 type="text" value={country} onChange={e => setCountry(e.target.value)}
-                list="bentala-country-list" placeholder="mis. Singapura"
+                list="bentala-country-list" placeholder={t('mis. Singapura')}
                 style={inputStyle}
               />
               <datalist id="bentala-country-list">
@@ -692,8 +694,8 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
                 }}
               />
               <div style={{ fontSize: 10, color: 'var(--text2)', marginTop: 4, lineHeight: 1.5 }}>
-                💡 Tekan Enter untuk pindah baris. Tiap baris max ~23 char. Total 55-70 char.
-                {' · '}<span style={{ fontFamily: 'monospace' }}>{headlineLines.length} baris</span>
+                💡 {t('Tekan Enter untuk pindah baris. Tiap baris max ~23 char. Total 55-70 char.')}
+                {' · '}<span style={{ fontFamily: 'monospace' }}>{headlineLines.length} {t('baris')}</span>
               </div>
             </div>
 
@@ -717,7 +719,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
 
             {/* Shape color — 3 preset Bentala palette + transparent option */}
             <div>
-              <label style={labelStyle}>Shape Color (kotak bawah)</label>
+              <label style={labelStyle}>{t('Shape Color (kotak bawah)')}</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {SHAPE_PRESETS.map(p => {
                   const active = shapeColor.toLowerCase() === p.bg.toLowerCase()
@@ -761,7 +763,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
                           }} />
                         )}
                       </span>
-                      {p.label}
+                      {t(p.label)}
                     </button>
                   )
                 })}
@@ -775,7 +777,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
                 when shapeColor is 'transparent' (foto background) and the
                 user needs to flip text color for contrast. */}
             <div>
-              <label style={labelStyle}>Text Color (kategori + headline)</label>
+              <label style={labelStyle}>{t('Text Color (kategori + headline)')}</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {TEXT_COLOR_PRESETS.map(p => {
                   const active = shapeTextColor.toLowerCase() === p.value.toLowerCase()
@@ -797,7 +799,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
                         background: p.value,
                         border: p.value.toLowerCase() === '#ffffff' ? '1px solid var(--border)' : 'none',
                       }} />
-                      {p.label}
+                      {t(p.label)}
                     </button>
                   )
                 })}
@@ -828,7 +830,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
                 href={downloadUrl} download={`bentala-${isReels ? 'reels' : 'cover'}-${canvasW * RENDER_SCALE}x${canvasH * RENDER_SCALE}-${Date.now()}.png`}
                 style={{ padding: '10px 14px', borderRadius: 7, background: 'rgba(67,217,162,0.08)', border: '1px solid rgba(67,217,162,0.28)', color: '#43d9a2', fontSize: 11, textAlign: 'center', textDecoration: 'none', fontWeight: 700 }}
               >
-                ✓ PNG ready — klik untuk download lagi
+                ✓ {t('PNG ready — klik untuk download lagi')}
               </a>
             )}
           </div>
@@ -844,7 +846,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
               </div>
               <button
                 onClick={() => setPreviewOpen(true)}
-                title="Preview besar"
+                title={t('Preview besar')}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 4,
                   padding: '4px 10px', borderRadius: 6,
@@ -910,8 +912,8 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
             </div>
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 10, lineHeight: 1.5 }}>
               {imageFile
-                ? `💡 Drag foto untuk geser, scroll untuk zoom. Hasil download HD ${canvasW * RENDER_SCALE}×${canvasH * RENDER_SCALE} (3× resolusi).`
-                : `💡 Upload foto dulu untuk bisa geser/zoom. Hasil download HD ${canvasW * RENDER_SCALE}×${canvasH * RENDER_SCALE}.`}
+                ? `💡 ${t('Drag foto untuk geser, scroll untuk zoom. Hasil download HD')} ${canvasW * RENDER_SCALE}×${canvasH * RENDER_SCALE} ${t('(3× resolusi).')}`
+                : `💡 ${t('Upload foto dulu untuk bisa geser/zoom. Hasil download HD')} ${canvasW * RENDER_SCALE}×${canvasH * RENDER_SCALE}.`}
             </div>
           </div>
         </div>
@@ -984,7 +986,7 @@ export default function BentalaCoverEditor({ onClose, format = 'feed' }: Props) 
             }}>
               {canvasW} × {canvasH} ·
               {' '}render {Math.round(previewScale * 100)}% ·
-              {' '}klik luar atau ESC untuk tutup
+              {' '}{t('klik luar atau ESC untuk tutup')}
             </div>
           </div>
         </div>

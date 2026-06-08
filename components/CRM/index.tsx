@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
@@ -10,6 +11,7 @@ import { useLogActivity } from '@/hooks/useData'
 import type { Client, ClientStage } from '@/lib/types'
 
 export function CRMPage() {
+  const t = useT()
   const { clients, crmFilter, setCrmFilter } = useStore()
   const [showModal, setShowModal] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
@@ -23,7 +25,7 @@ export function CRMPage() {
   const filtered = crmFilter === 'all' ? clients : clients.filter(c => c.stage === crmFilter)
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus client ini?')) return
+    if (!confirm(t('Hapus client ini?'))) return
     const supabase = getSupabase()
     await supabase.from('clients').delete().eq('id', id)
     logActivity('Client dihapus')
@@ -44,7 +46,7 @@ export function CRMPage() {
           onClick={() => setCrmFilter('all')}
           style={{ padding: '5px 14px', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', fontSize: 12, background: crmFilter === 'all' ? 'var(--accent)' : 'var(--bg2)', color: crmFilter === 'all' ? '#fff' : 'var(--text2)', borderColor: crmFilter === 'all' ? 'var(--accent)' : 'var(--border)' }}
         >
-          Semua
+          {t('Semua')}
         </button>
         {CRM_STAGES.map(s => (
           <button key={s.key}
@@ -58,7 +60,7 @@ export function CRMPage() {
           onClick={() => openModal()}
           style={{ marginLeft: 'auto', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
         >
-          + Tambah Client
+          {t('+ Tambah Client')}
         </button>
       </div>
 
@@ -125,7 +127,7 @@ export function CRMPage() {
                 onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = stage.color; (e.currentTarget as HTMLElement).style.color = stage.color }}
                 onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
               >
-                + Tambah
+                {t('+ Tambah')}
               </button>
             </div>
           )
@@ -145,6 +147,7 @@ export function CRMPage() {
 
 // ── Client Modal ──
 function ClientModal({ open, client, onClose }: { open: boolean; client: Client | null; onClose: () => void }) {
+  const t = useT()
   const logActivity = useLogActivity()
   const [form, setForm] = useState({
     name: client?.name || '',
@@ -159,7 +162,7 @@ function ClientModal({ open, client, onClose }: { open: boolean; client: Client 
   const [loading, setLoading] = useState(false)
 
   async function handleSave() {
-    if (!form.name.trim()) { alert('Nama client wajib diisi!'); return }
+    if (!form.name.trim()) { alert(t('Nama client wajib diisi!')); return }
     setLoading(true)
     const supabase = getSupabase()
     const data = {
@@ -186,41 +189,41 @@ function ClientModal({ open, client, onClose }: { open: boolean; client: Client 
   return (
     <Modal
       open={open} onClose={onClose}
-      title={client ? 'Edit Client' : 'Tambah Client Baru'}
-      footer={<><BtnSecondary onClick={onClose}>Batal</BtnSecondary><BtnPrimary onClick={handleSave} loading={loading}>Simpan</BtnPrimary></>}
+      title={client ? 'Edit Client' : t('Tambah Client Baru')}
+      footer={<><BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary><BtnPrimary onClick={handleSave} loading={loading}>{t('Simpan')}</BtnPrimary></>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <FG label="Nama Client / Brand *">
+        <FG label={t('Nama Client / Brand *')}>
           <input type="text" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} placeholder="PT. ..." />
         </FG>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FG label="PIC Client">
-            <input type="text" value={form.pic} onChange={e => setForm(f=>({...f,pic:e.target.value}))} placeholder="Nama PIC" />
+          <FG label={t('PIC Client')}>
+            <input type="text" value={form.pic} onChange={e => setForm(f=>({...f,pic:e.target.value}))} placeholder={t('Nama PIC')} />
           </FG>
-          <FG label="Kontak (WA/Email)">
+          <FG label={t('Kontak (WA/Email)')}>
             <input type="text" value={form.contact} onChange={e => setForm(f=>({...f,contact:e.target.value}))} placeholder="+62..." />
           </FG>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FG label="Stage">
             <select value={form.stage} onChange={e => setForm(f=>({...f,stage:e.target.value as ClientStage}))}>
-              <option value="lead">Lead / Prospek</option>
-              <option value="pitch">Pitching / Proposal</option>
-              <option value="close">Closed / Deal</option>
+              <option value="lead">{t('Lead / Prospek')}</option>
+              <option value="pitch">{t('Pitching / Proposal')}</option>
+              <option value="close">{t('Closed / Deal')}</option>
               <option value="invoice">Invoice</option>
               <option value="inactive">Inactive</option>
             </select>
           </FG>
-          <FG label="Nilai Deal (Rp)">
+          <FG label={t('Nilai Deal (Rp)')}>
             <input type="number" value={form.value} onChange={e => setForm(f=>({...f,value:e.target.value}))} placeholder="0" />
           </FG>
         </div>
-        <FG label="Jenis Layanan">
+        <FG label={t('Jenis Layanan')}>
           <select value={form.service} onChange={e => setForm(f=>({...f,service:e.target.value}))}>
             {SERVICE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </FG>
-        <FG label="PIC Internal">
+        <FG label={t('PIC Internal')}>
           <select value={form.internal} onChange={e => setForm(f=>({...f,internal:e.target.value}))}>
             <option value="Dandi">Dandi (CEO)</option>
             <option value="Naufal">Naufal (CCO)</option>
@@ -228,8 +231,8 @@ function ClientModal({ open, client, onClose }: { open: boolean; client: Client 
             <option value="Faizal">Faizal (COO)</option>
           </select>
         </FG>
-        <FG label="Catatan">
-          <textarea value={form.notes} onChange={e => setForm(f=>({...f,notes:e.target.value}))} placeholder="Catatan terkait client..." />
+        <FG label={t('Catatan')}>
+          <textarea value={form.notes} onChange={e => setForm(f=>({...f,notes:e.target.value}))} placeholder={t('Catatan terkait client...')} />
         </FG>
       </div>
     </Modal>

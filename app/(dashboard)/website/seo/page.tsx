@@ -7,8 +7,9 @@ import { PageShell } from '@/components/shared/PageShell'
 import { FormField, inputStyle, textareaStyle } from '@/components/website/FormField'
 import { ActionButton, IconBtn, ListEmpty, ListError, ModalShell, RowCard } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
-const SUGGESTED_PAGES = ['/', '/about', '/portfolio', '/news', '/contact']
+const SUGGESTED_PAGES =['/', '/about', '/portfolio', '/news', '/contact']
 
 type FormState = Omit<BsiSeo, 'id' | 'updated_at'>
 
@@ -20,6 +21,7 @@ const EMPTY: FormState = {
 }
 
 export default function SeoAdminPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiSeo[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,7 +39,7 @@ export default function SeoAdminPage() {
   useEffect(() => { load() }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus entry SEO ini?')) return
+    if (!confirm(t('Hapus entry SEO ini?'))) return
     const { error } = await supabase.from('bsi_seo').delete().eq('id', id)
     if (error) { alert(error.message); return }
     setItems((xs) => xs.filter((x) => x.id !== id))
@@ -46,15 +48,15 @@ export default function SeoAdminPage() {
   return (
     <PageShell
       title="SEO"
-      action={<ActionButton variant="primary" onClick={() => setCreating(true)}>+ Tambah Halaman</ActionButton>}
+      action={<ActionButton variant="primary" onClick={() => setCreating(true)}>+ {t('Tambah Halaman')}</ActionButton>}
     >
       <div style={{ padding: 24 }}>
         {error && <ListError message={error} />}
-        <Section title="Halaman SEO">
+        <Section title={t('Halaman SEO')}>
         {loading ? (
-          <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+          <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
         ) : items.length === 0 ? (
-          <ListEmpty message="Belum ada konfigurasi SEO." />
+          <ListEmpty message={t('Belum ada konfigurasi SEO.')} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {items.map((s) => (
@@ -87,7 +89,7 @@ export default function SeoAdminPage() {
                   </div>
                 </div>
                 <IconBtn onClick={() => setEditing(s)} title="Edit">✎</IconBtn>
-                <IconBtn onClick={() => handleDelete(s.id)} title="Hapus" color="#ff6b6b">×</IconBtn>
+                <IconBtn onClick={() => handleDelete(s.id)} title={t('Hapus')} color="#ff6b6b">×</IconBtn>
               </RowCard>
             ))}
           </div>
@@ -118,6 +120,7 @@ function SeoModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const t = useT()
   const supabase = getSupabase()
   const [form, setForm] = useState<FormState>(
     initial
@@ -151,18 +154,18 @@ function SeoModal({
 
   return (
     <ModalShell
-      title={initial ? `Edit SEO — ${initial.page}` : 'Tambah Konfigurasi SEO'}
+      title={initial ? `${t('Edit SEO')} — ${initial.page}` : t('Tambah Konfigurasi SEO')}
       onClose={onClose}
       footer={
         <>
-          <button onClick={onClose} style={{ flex: 1, height: 36, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Batal</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, height: 36, background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1 }}>{saving ? 'Menyimpan…' : initial ? 'Simpan' : 'Tambah'}</button>
+          <button onClick={onClose} style={{ flex: 1, height: 36, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>{t('Batal')}</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 1, height: 36, background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1 }}>{saving ? t('Menyimpan…') : initial ? t('Simpan') : t('Tambah')}</button>
         </>
       }
     >
       {error && <ListError message={error} />}
 
-      <FormField label="Halaman" required hint="Path tanpa domain. Contoh: / atau /about">
+      <FormField label={t('Halaman')} required hint={t('Path tanpa domain. Contoh: / atau /about')}>
         <input
           style={inputStyle}
           value={form.page}
@@ -180,7 +183,7 @@ function SeoModal({
       <FormField
         label="Meta Title"
         required
-        hint={`${titleLen}/60 karakter${titleLen > 60 ? ' — terlalu panjang!' : ''}`}
+        hint={`${titleLen}/60 ${t('karakter')}${titleLen > 60 ? ` — ${t('terlalu panjang!')}` : ''}`}
       >
         <input style={inputStyle} value={form.meta_title} onChange={(e) => update('meta_title', e.target.value)} />
       </FormField>
@@ -188,7 +191,7 @@ function SeoModal({
       <FormField
         label="Meta Description"
         required
-        hint={`${descLen}/160 karakter${descLen > 160 ? ' — terlalu panjang!' : ''}`}
+        hint={`${descLen}/160 ${t('karakter')}${descLen > 160 ? ` — ${t('terlalu panjang!')}` : ''}`}
       >
         <textarea
           style={textareaStyle}
@@ -198,7 +201,7 @@ function SeoModal({
         />
       </FormField>
 
-      <FormField label="OG Image URL" hint="Gambar untuk preview saat di-share di sosial media (1200×630 ideal)">
+      <FormField label="OG Image URL" hint={t('Gambar untuk preview saat di-share di sosial media (1200×630 ideal)')}>
         <input
           style={inputStyle}
           value={form.og_image_url ?? ''}

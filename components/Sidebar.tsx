@@ -7,6 +7,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { AccountButton } from '@/components/shared/AccountButton'
 import { isEffectiveSuperAdmin, normaliseSections, ALL_SECTION_IDS, sectionForPath } from '@/lib/access'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -275,6 +276,7 @@ function SidebarLogo({ isExpanded }: { isExpanded: boolean }) {
 
 export function Sidebar() {
   const pathname = usePathname()
+  const t = useT()
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [isExpanded, setIsExpanded] = useState(true)
   const [query, setQuery] = useState('')
@@ -634,8 +636,8 @@ export function Sidebar() {
               type="search"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search"
-              aria-label="Cari menu"
+              placeholder={t('Search')}
+              aria-label={t('Cari menu')}
               style={{
                 flex: 1,
                 minWidth: 0,
@@ -706,7 +708,7 @@ export function Sidebar() {
                           transition: 'max-width 0.22s ease, opacity 0.15s ease',
                         }}
                       >
-                        {sec.label || sec.fullLabel}
+                        {t(sec.label || sec.fullLabel || '')}
                       </span>
                     )}
                   </span>
@@ -765,7 +767,7 @@ export function Sidebar() {
               textAlign: 'center',
             }}
           >
-            Tidak ada menu yang cocok.
+            {t('Tidak ada menu yang cocok.')}
           </div>
         )}
       </div>
@@ -858,6 +860,7 @@ function NavLink({
   isExpanded: boolean
   active: boolean
 }) {
+  const t = useT()
   const color = item.color ?? COLOR.blue
   return (
     <Link
@@ -900,7 +903,7 @@ function NavLink({
           letterSpacing: '0.005em',
         }}
       >
-        {item.label}
+        {t(item.label)}
       </span>
     </Link>
   )
@@ -919,6 +922,7 @@ function Subgroup({
   collapsed: Record<string, boolean>
   toggleSection: (id: string) => void
 }) {
+  const t = useT()
   const hasActiveChild = subgroupHasActive(group.items, isActive)
   const userCollapsedKey = `subgroup:${group.id}`
   const isCollapsed = collapsed[userCollapsedKey] === true && !hasActiveChild
@@ -959,7 +963,7 @@ function Subgroup({
             color: 'var(--text2)',
           }}
         >
-          {group.label}
+          {t(group.label)}
         </span>
         <span
           style={{

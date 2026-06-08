@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { migrateFromLocalStorage } from '@/lib/migrate'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export default function MigratePage() {
+  const t = useT()
   const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [result, setResult] = useState<Awaited<ReturnType<typeof migrateFromLocalStorage>> | null>(null)
 
@@ -23,13 +25,13 @@ export default function MigratePage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ maxWidth: 560, width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 32 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>🔄 Migrasi Data</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>🔄 {t('Migrasi Data')}</h1>
         <p style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 24, lineHeight: 1.6 }}>
-          Tool ini membaca data dari <code style={{ background: 'var(--bg3)', padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace' }}>localStorage</code>{' '}
-          aplikasi HTML lama dan menguploadnya ke Supabase.
+          {t('Tool ini membaca data dari')} <code style={{ background: 'var(--bg3)', padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace' }}>localStorage</code>{' '}
+          {t('aplikasi HTML lama dan menguploadnya ke Supabase.')}
         </p>
         <p style={{ fontSize: 13, color: '#ffc542', background: '#2a1f1044', border: '1px solid #ffc54244', borderRadius: 8, padding: '10px 14px', marginBottom: 24 }}>
-          ⚠️ <strong>Jalankan hanya sekali.</strong> Pastikan kamu membuka halaman ini di browser yang sama tempat aplikasi HTML lama dipakai (agar localStorage tersedia).
+          ⚠️ <strong>{t('Jalankan hanya sekali.')}</strong> {t('Pastikan kamu membuka halaman ini di browser yang sama tempat aplikasi HTML lama dipakai (agar localStorage tersedia).')}
         </p>
 
         <button
@@ -42,13 +44,13 @@ export default function MigratePage() {
             marginBottom: 20,
           }}
         >
-          {status === 'running' ? '⏳ Sedang migrasi...' : '🚀 Mulai Migrasi'}
+          {status === 'running' ? `⏳ ${t('Sedang migrasi...')}` : `🚀 ${t('Mulai Migrasi')}`}
         </button>
 
         {result && (
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
-              {status === 'done' ? '✅ Migrasi berhasil!' : '⚠️ Migrasi selesai dengan error:'}
+              {status === 'done' ? `✅ ${t('Migrasi berhasil!')}` : `⚠️ ${t('Migrasi selesai dengan error:')}`}
             </div>
             <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 16, fontSize: 13 }}>
               {[
@@ -76,8 +78,8 @@ export default function MigratePage() {
         )}
 
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text2)' }}>
-          Setelah migrasi selesai, kamu bisa kembali ke{' '}
-          <a href="/" style={{ color: 'var(--accent)', textDecoration: 'none' }}>halaman utama</a>.
+          {t('Setelah migrasi selesai, kamu bisa kembali ke')}{' '}
+          <a href="/" style={{ color: 'var(--accent)', textDecoration: 'none' }}>{t('halaman utama')}</a>.
         </div>
       </div>
     </div>

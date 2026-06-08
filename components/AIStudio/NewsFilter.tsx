@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/LanguageProvider'
+
 type FilterType = 'all' | 'international' | 'indonesia' | 'social'
 
 interface Props {
@@ -16,6 +18,7 @@ const FILTERS: { key: FilterType; label: string }[] = [
 ]
 
 export default function NewsFilter({ active, onChange, counts }: Props) {
+  const t = useT()
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
       {FILTERS.map(f => (
@@ -34,7 +37,7 @@ export default function NewsFilter({ active, onChange, counts }: Props) {
             fontWeight: active === f.key ? 600 : 400,
           }}
         >
-          {f.label} {counts[f.key] > 0 && <span style={{ opacity: 0.7 }}>({counts[f.key]})</span>}
+          {t(f.label)} {counts[f.key] > 0 && <span style={{ opacity: 0.7 }}>({counts[f.key]})</span>}
         </button>
       ))}
     </div>

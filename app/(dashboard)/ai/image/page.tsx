@@ -9,10 +9,12 @@ import {
   STYLE_OPTIONS, RATIO_OPTIONS,
   type ProviderBadge, fetchAiImageProviderBadge,
 } from '@/lib/image-page-shared'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // Simple text-to-image generator. Templates moved to /ai/templates.
 
 export default function ImagePage() {
+  const t = useT()
   const [showHistory, setShowHistory] = useState(false)
   const [deskripsi, setDeskripsi] = useState('')
   const [style, setStyle] = useState('fashion editorial photography')
@@ -73,7 +75,7 @@ Output HANYA JSON ini tanpa teks lain:
         mjString = parsed.midjourney
       } catch (chatErr) {
         const reason = chatErr instanceof Error ? chatErr.message : 'unknown'
-        setNotice(`⚠ Prompt enhancement skip (${reason.slice(0, 100)}). Pakai deskripsi mentah.`)
+        setNotice(`⚠ Prompt enhancement skip (${reason.slice(0, 100)}). ${t('Pakai deskripsi mentah.')}`)
         imagePrompt = `${deskripsi.trim()}, ${style}, hyper realistic, highly detailed, 8k resolution`
         mjString = `${deskripsi.trim()}, ${style} ${selectedRatio.mj} --v 6 --style raw`
       }
@@ -103,7 +105,7 @@ Output HANYA JSON ini tanpa teks lain:
         },
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+      setError(e instanceof Error ? e.message : t('Terjadi kesalahan'))
     } finally {
       setLoading(false)
     }
@@ -131,11 +133,11 @@ Output HANYA JSON ini tanpa teks lain:
       {showHistory && <AIHistoryPanel tool="image" onRestore={handleRestore} onClose={() => setShowHistory(false)} />}
 
       <PageShell
-        title="Generator Gambar AI"
+        title={t('Generator Gambar AI')}
         action={
           <>
             <Link href="/ai/templates" style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)', fontSize: 13, cursor: 'pointer', textDecoration: 'none' }}>
-              📚 Template Gambar
+              📚 {t('Template Gambar')}
             </Link>
             <button onClick={() => setShowHistory(true)} style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>
               🕐 History
@@ -155,16 +157,16 @@ Output HANYA JSON ini tanpa teks lain:
             <>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{providerBadge.label}</span>
               {providerBadge.hasKey ? (
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#43d9a2', background: 'rgba(67,217,162,0.1)', border: '1px solid rgba(67,217,162,0.28)', padding: '2px 8px', borderRadius: 999 }}>✓ TERHUBUNG</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#43d9a2', background: 'rgba(67,217,162,0.1)', border: '1px solid rgba(67,217,162,0.28)', padding: '2px 8px', borderRadius: 999 }}>✓ {t('TERHUBUNG')}</span>
               ) : (
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.28)', padding: '2px 8px', borderRadius: 999 }}>⚠ KEY KOSONG</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.28)', padding: '2px 8px', borderRadius: 999 }}>⚠ {t('KEY KOSONG')}</span>
               )}
             </>
           ) : (
-            <span style={{ fontSize: 12, color: 'var(--text2)' }}>memuat konfigurasi...</span>
+            <span style={{ fontSize: 12, color: 'var(--text2)' }}>{t('memuat konfigurasi...')}</span>
           )}
           <Link href="/settings/ai" style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--accent)', textDecoration: 'none' }}>
-            Atur di AI Integrations →
+            {t('Atur di AI Integrations →')}
           </Link>
         </div>
 
@@ -172,17 +174,17 @@ Output HANYA JSON ini tanpa teks lain:
           {/* Description */}
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 8 }}>
-              Deskripsikan gambar yang kamu inginkan
+              {t('Deskripsikan gambar yang kamu inginkan')}
             </label>
             <textarea
               value={deskripsi}
               onChange={e => setDeskripsi(e.target.value)}
-              placeholder="contoh: foto model wanita Indonesia memakai batik modern di kafe estetik, pencahayaan natural dari jendela, suasana hangat..."
+              placeholder={t('contoh: foto model wanita Indonesia memakai batik modern di kafe estetik, pencahayaan natural dari jendela, suasana hangat...')}
               rows={5}
               style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', fontSize: 14, lineHeight: 1.6 }}
             />
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 6, lineHeight: 1.5 }}>
-              💡 Mau pakai template yang sudah disiapkan? Buka <Link href="/ai/templates" style={{ color: 'var(--accent)', fontWeight: 600 }}>Template Gambar →</Link>
+              💡 {t('Mau pakai template yang sudah disiapkan? Buka')} <Link href="/ai/templates" style={{ color: 'var(--accent)', fontWeight: 600 }}>{t('Template Gambar →')}</Link>
             </div>
           </div>
 
@@ -198,7 +200,7 @@ Output HANYA JSON ini tanpa teks lain:
 
           {/* Ratio */}
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 10 }}>Rasio</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 10 }}>{t('Rasio')}</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {RATIO_OPTIONS.map(r => (
                 <button key={r.key} onClick={() => setRatio(r.key)} style={chipStyle(ratio === r.key)}>{r.label}</button>
@@ -214,10 +216,10 @@ Output HANYA JSON ini tanpa teks lain:
               borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap',
             }}>
               <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5 }}>
-                Provider <strong style={{ color: 'var(--text)' }}>{providerBadge?.label ?? 'gambar'}</strong> belum punya API key. Atur di AI Integrations dulu.
+                {t('Provider')} <strong style={{ color: 'var(--text)' }}>{providerBadge?.label ?? t('gambar')}</strong> {t('belum punya API key. Atur di AI Integrations dulu.')}
               </div>
               <Link href="/settings/ai" style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', textDecoration: 'none' }}>
-                Buka AI Integrations →
+                {t('Buka AI Integrations →')}
               </Link>
             </div>
           ) : (
@@ -231,7 +233,7 @@ Output HANYA JSON ini tanpa teks lain:
                 fontSize: 14, fontWeight: 700, cursor: !deskripsi.trim() || loading ? 'not-allowed' : 'pointer',
               }}
             >
-              {loading ? `Generating via ${providerBadge?.label ?? 'AI'}...` : '✦ Generate Gambar'}
+              {loading ? `Generating via ${providerBadge?.label ?? 'AI'}...` : `✦ ${t('Generate Gambar')}`}
             </button>
           )}
 
@@ -247,16 +249,16 @@ Output HANYA JSON ini tanpa teks lain:
             return (
               <div style={{ padding: '12px 14px', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.28)', borderRadius: 8, color: '#ff6b6b', fontSize: 12, lineHeight: 1.5 }}>
                 <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                  {isCreditError ? `⚠ ${providerName} credit habis` : '✗ Generate gagal'}
+                  {isCreditError ? `⚠ ${providerName} ${t('credit habis')}` : `✗ ${t('Generate gagal')}`}
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,107,107,0.8)', wordBreak: 'break-word' }}>{error}</div>
                 <div style={{ marginTop: 10, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                   <Link href="/settings/ai" style={{ padding: '6px 12px', borderRadius: 6, background: 'var(--accent)', color: '#fff', fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
-                    Ganti provider di AI Integrations →
+                    {t('Ganti provider di AI Integrations →')}
                   </Link>
                   {isCreditError && topupUrl && (
                     <a href={topupUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
-                      atau top-up credit {providerName} →
+                      {t('atau top-up credit')} {providerName} →
                     </a>
                   )}
                 </div>
@@ -274,8 +276,8 @@ Output HANYA JSON ini tanpa teks lain:
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
               <div style={{ textAlign: 'center', color: 'var(--text2)', fontSize: 13 }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>🎨</div>
-                <div>{providerBadge?.label ?? 'AI'} sedang menggambar...</div>
-                <div style={{ fontSize: 11, marginTop: 4, opacity: 0.6 }}>Biasanya 20–45 detik</div>
+                <div>{providerBadge?.label ?? 'AI'} {t('sedang menggambar...')}</div>
+                <div style={{ fontSize: 11, marginTop: 4, opacity: 0.6 }}>{t('Biasanya 20–45 detik')}</div>
               </div>
             </div>
           )}
@@ -292,7 +294,7 @@ Output HANYA JSON ini tanpa teks lain:
                 rel="noopener noreferrer"
                 style={{ padding: '10px 16px', borderRadius: 8, background: '#43d9a2', color: '#000', fontSize: 13, fontWeight: 700, textAlign: 'center', textDecoration: 'none', display: 'block' }}
               >
-                ↓ Download Gambar
+                ↓ {t('Download Gambar')}
               </a>
             </div>
           )}

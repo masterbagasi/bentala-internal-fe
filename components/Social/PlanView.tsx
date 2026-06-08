@@ -4,6 +4,7 @@ import { SUBJECTS, PLAN_ITEMS, AI_RECOMMENDATIONS, PLATFORM_META } from './mock'
 import { Card, PlatformChip, SectionTitle } from './ui'
 import { SocialFilterChip } from './AnalyticsView'
 import { SocialFilterButton, SocialFilterLabel } from './FilterButton'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const DOW = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
 // June 2026 starts on a Monday (1 Jun 2026 = Monday) → offset 0
@@ -11,6 +12,7 @@ const FIRST_OFFSET = 0
 const DAYS_IN_MONTH = 30
 
 export function PlanView() {
+  const t = useT()
   const byDay = new Map<number, typeof PLAN_ITEMS[number]>()
   PLAN_ITEMS.forEach(p => byDay.set(p.day, p))
 
@@ -30,14 +32,14 @@ export function PlanView() {
             borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
           }}
         >
-          Buat Plan dengan AI
+          {t('Buat Plan dengan AI')}
         </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
         {/* Calendar */}
         <Card>
-          <SectionTitle>Kalender Konten — Juni 2026</SectionTitle>
+          <SectionTitle>{t('Kalender Konten — Juni 2026')}</SectionTitle>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
             {DOW.map(d => (
               <div key={d} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textAlign: 'center', padding: '4px 0' }}>
@@ -76,7 +78,7 @@ export function PlanView() {
 
         {/* AI recommendations */}
         <Card>
-          <SectionTitle>Rekomendasi AI</SectionTitle>
+          <SectionTitle>{t('Rekomendasi AI')}</SectionTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {AI_RECOMMENDATIONS.map((rec, i) => (
               <div key={i} style={{ display: 'flex', gap: 10 }}>
@@ -99,7 +101,7 @@ export function PlanView() {
               background: 'var(--bg3)', color: 'var(--text3)', border: '1px solid var(--border)',
             }}
           >
-            Rekomendasi & kalender ini akan dibuat AI dari data performa live pada fase implementasi.
+            {t('Rekomendasi & kalender ini akan dibuat AI dari data performa live pada fase implementasi.')}
           </div>
         </Card>
       </div>
@@ -112,10 +114,11 @@ export function SocialPlanFilterButton({ subjectId, setSubjectId }: {
   subjectId: string
   setSubjectId: (id: string) => void
 }) {
+  const t = useT()
   const count = subjectId !== SUBJECTS[0].id ? 1 : 0
   return (
     <SocialFilterButton count={count}>
-      <SocialFilterLabel>Akun</SocialFilterLabel>
+      <SocialFilterLabel>{t('Akun')}</SocialFilterLabel>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {SUBJECTS.map(s => (
           <SocialFilterChip key={s.id} label={s.name} active={subjectId === s.id} onClick={() => setSubjectId(s.id)} />

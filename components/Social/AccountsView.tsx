@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { PLATFORM_META, type Platform, type ConnStatus, type SubjectType, type Connection } from './mock'
 import { Card, PlatformChip, StatusDot, SubjectTypeBadge, fmtNum } from './ui'
 
@@ -21,6 +22,7 @@ const PLATFORM_KEYS = Object.keys(PLATFORM_META) as Platform[]
 const STATUS_KEYS: ConnStatus[] = ['connected', 'pending', 'public', 'error']
 
 export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
+  const t = useT()
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
@@ -53,7 +55,7 @@ export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
   }, [brand, load])
 
   async function removeAccount(id: string) {
-    if (!confirm('Hapus akun ini?')) return
+    if (!confirm(t('Hapus akun ini?'))) return
     setAccounts(prev => prev.filter(a => a.id !== id)) // optimistic
     await sb().from('social_accounts').delete().eq('id', id)
   }
@@ -62,8 +64,8 @@ export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18, gap: 12 }}>
         <p style={{ fontSize: 13, color: 'var(--text2)', margin: 0 }}>
-          Akun socmed untuk <strong style={{ color: 'var(--text)' }}>{brand === 'bpi' ? 'Bentala Project' : 'Bentala Studio'}</strong>.
-          Akun <strong style={{ color: 'var(--text)' }}>Owned</strong> milik sendiri/klien; <strong style={{ color: 'var(--text)' }}>Prospect</strong> hanya data publik.
+          {t('Akun socmed untuk')} <strong style={{ color: 'var(--text)' }}>{brand === 'bpi' ? 'Bentala Project' : 'Bentala Studio'}</strong>.
+          {' '}{t('Akun')} <strong style={{ color: 'var(--text)' }}>Owned</strong> {t('milik sendiri/klien;')} <strong style={{ color: 'var(--text)' }}>Prospect</strong> {t('hanya data publik.')}
         </p>
         <button
           onClick={() => setAdding(true)}
@@ -72,16 +74,16 @@ export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
             borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
           }}
         >
-          + Tambah Akun
+          + {t('Tambah Akun')}
         </button>
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Memuat akun…</div>
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{t('Memuat akun…')}</div>
       ) : accounts.length === 0 ? (
         <Card style={{ padding: 40, textAlign: 'center' }}>
-          <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 6 }}>Belum ada akun socmed</div>
-          <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>Klik <strong>+ Tambah Akun</strong> untuk menambahkan akun pertama brand ini.</div>
+          <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 6 }}>{t('Belum ada akun socmed')}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>{t('Klik')} <strong>+ {t('Tambah Akun')}</strong> {t('untuk menambahkan akun pertama brand ini.')}</div>
         </Card>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -93,13 +95,13 @@ export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
                 </div>
                 <div>
                   <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text)' }}>{acc.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>{acc.connections.length} platform terhubung</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>{acc.connections.length} {t('platform terhubung')}</div>
                 </div>
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <SubjectTypeBadge type={acc.type} />
                   <button
                     onClick={() => removeAccount(acc.id)}
-                    title="Hapus akun"
+                    title={t('Hapus akun')}
                     style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text3)', borderRadius: 8, padding: '5px 8px', fontSize: 12, cursor: 'pointer' }}
                   >
                     🗑
@@ -108,7 +110,7 @@ export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
               </div>
 
               {acc.connections.length === 0 ? (
-                <div style={{ padding: '14px 18px', fontSize: 12.5, color: 'var(--text3)' }}>Belum ada platform.</div>
+                <div style={{ padding: '14px 18px', fontSize: 12.5, color: 'var(--text3)' }}>{t('Belum ada platform.')}</div>
               ) : (
                 acc.connections.map((c, i) => (
                   <div key={`${c.platform}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px', borderBottom: i < acc.connections.length - 1 ? '1px solid var(--border)' : 'none' }}>
@@ -135,6 +137,7 @@ export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
 interface DraftConn { platform: Platform; handle: string; followers: string; status: ConnStatus }
 
 function AddAccountModal({ brand, onClose, onSaved }: { brand: 'bpi' | 'bsi'; onClose: () => void; onSaved: () => void }) {
+  const t = useT()
   const [name, setName] = useState('')
   const [type, setType] = useState<SubjectType>('owned')
   const [conns, setConns] = useState<DraftConn[]>([{ platform: 'instagram', handle: '', followers: '', status: 'connected' }])
@@ -145,7 +148,7 @@ function AddAccountModal({ brand, onClose, onSaved }: { brand: 'bpi' | 'bsi'; on
   }
 
   async function save() {
-    if (!name.trim()) { alert('Nama akun wajib diisi!'); return }
+    if (!name.trim()) { alert(t('Nama akun wajib diisi!')); return }
     setSaving(true)
     const connections: Connection[] = conns
       .filter(c => c.handle.trim() || c.followers.trim())
@@ -170,16 +173,16 @@ function AddAccountModal({ brand, onClose, onSaved }: { brand: 'bpi' | 'bsi'; on
         background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 22, boxShadow: '0 16px 48px rgba(0,0,0,0.55)',
       }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>
-          Tambah Akun — {brand === 'bpi' ? 'Bentala Project' : 'Bentala Studio'}
+          {t('Tambah Akun')} — {brand === 'bpi' ? 'Bentala Project' : 'Bentala Studio'}
         </div>
 
         <div style={{ marginBottom: 14 }}>
-          <label style={label}>Nama Akun</label>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="mis. Bentala Project Indonesia" style={inputStyle} autoFocus />
+          <label style={label}>{t('Nama Akun')}</label>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={t('mis. Bentala Project Indonesia')} style={inputStyle} autoFocus />
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <label style={label}>Tipe</label>
+          <label style={label}>{t('Tipe')}</label>
           <div style={{ display: 'flex', gap: 8 }}>
             {(['owned', 'prospect'] as SubjectType[]).map(t => (
               <button key={t} onClick={() => setType(t)} style={{
@@ -206,7 +209,7 @@ function AddAccountModal({ brand, onClose, onSaved }: { brand: 'bpi' | 'bsi'; on
                   {STATUS_KEYS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 {conns.length > 1 && (
-                  <button onClick={() => setConns(prev => prev.filter((_, idx) => idx !== i))} title="Hapus platform"
+                  <button onClick={() => setConns(prev => prev.filter((_, idx) => idx !== i))} title={t('Hapus platform')}
                     style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text3)', borderRadius: 8, padding: '7px 9px', cursor: 'pointer' }}>×</button>
                 )}
               </div>
@@ -215,13 +218,13 @@ function AddAccountModal({ brand, onClose, onSaved }: { brand: 'bpi' | 'bsi'; on
         </div>
         <button onClick={() => setConns(prev => [...prev, { platform: 'tiktok', handle: '', followers: '', status: 'connected' }])}
           style={{ background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text2)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5, cursor: 'pointer', marginBottom: 18 }}>
-          + Tambah platform
+          + {t('Tambah platform')}
         </button>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} disabled={saving} style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>Batal</button>
+          <button onClick={onClose} disabled={saving} style={{ background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>{t('Batal')}</button>
           <button onClick={save} disabled={saving} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 9, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-            {saving ? 'Menyimpan…' : 'Simpan'}
+            {saving ? t('Menyimpan…') : t('Simpan')}
           </button>
         </div>
       </div>

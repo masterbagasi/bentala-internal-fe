@@ -5,6 +5,7 @@
 // months, Custom), and a Custom calendar with range selection + Apply/Cancel.
 
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export const PICKER_TODAY = '2026-06-05'
 export const DATA_START = '2026-01-01'
@@ -127,6 +128,7 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
 function CustomCalendar({ value, onApply, onCancel }: {
   value: DateRange; onApply: (r: DateRange) => void; onCancel: () => void
 }) {
+  const t = useT()
   const init = new Date(value.to + 'T00:00:00')
   const [viewY, setViewY] = useState(init.getFullYear())
   const [viewM, setViewM] = useState(init.getMonth())
@@ -188,7 +190,7 @@ function CustomCalendar({ value, onApply, onCancel }: {
           style={dateField}
         />
       </div>
-      <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 8 }}>Format: DD-MM-YYYY (tanggal-bulan-tahun)</div>
+      <div style={{ fontSize: 10.5, color: 'var(--text3)', marginBottom: 8 }}>{t('Format: DD-MM-YYYY (tanggal-bulan-tahun)')}</div>
       <div style={{ fontSize: 12.5, color: 'var(--text2)', marginBottom: 10 }}>{selectedCount} days selected</div>
 
       {/* nav — click month to pick month, click year to pick year */}
@@ -205,9 +207,9 @@ function CustomCalendar({ value, onApply, onCancel }: {
               <Caret />
             </button>
           ) : picking === 'month' ? (
-            <button onClick={() => setPicking('year')} style={labelBtn}>Pilih bulan · {viewY} <Caret up /></button>
+            <button onClick={() => setPicking('year')} style={labelBtn}>{t('Pilih bulan')} · {viewY} <Caret up /></button>
           ) : (
-            <button onClick={() => setPicking('none')} style={labelBtn}>Pilih tahun <Caret up /></button>
+            <button onClick={() => setPicking('none')} style={labelBtn}>{t('Pilih tahun')} <Caret up /></button>
           )}
         </div>
         <button
@@ -399,6 +401,7 @@ export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal
   onChange: (iso: string) => void
   placeholder?: string
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [picking, setPicking] = useState<'none' | 'month' | 'year'>('none')
   const ref = useRef<HTMLDivElement>(null)
@@ -442,7 +445,7 @@ export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal
         }}
       >
         <span style={{ flex: 1, textAlign: 'left', fontSize: 14, color: value ? 'var(--text)' : 'var(--text3)' }}>
-          {value ? display : placeholder}
+          {value ? display : t(placeholder)}
         </span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
           style={{ color: 'var(--text2)', flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>
@@ -464,9 +467,9 @@ export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal
                     <Caret />
                   </button>
                 ) : picking === 'month' ? (
-                  <button onClick={() => setPicking('year')} style={labelBtn}>Pilih bulan · {viewY} <Caret up /></button>
+                  <button onClick={() => setPicking('year')} style={labelBtn}>{t('Pilih bulan')} · {viewY} <Caret up /></button>
                 ) : (
-                  <button onClick={() => setPicking('none')} style={labelBtn}>Pilih tahun <Caret up /></button>
+                  <button onClick={() => setPicking('none')} style={labelBtn}>{t('Pilih tahun')} <Caret up /></button>
                 )}
               </div>
               <button onClick={() => picking === 'none' ? move(1) : picking === 'month' ? setViewY(viewY + 1) : null}

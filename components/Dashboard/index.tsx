@@ -1,6 +1,7 @@
 'use client'
 
 import { useStore } from '@/hooks/useStore'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { Project, Task } from '@/lib/types'
 import { formatRupiah, formatDate, timeAgo } from '@/lib/utils'
 import { TEAM, CRM_STAGES, PROJ_TYPE } from '@/lib/constants'
@@ -11,6 +12,7 @@ import { Chart, registerables } from 'chart.js'
 Chart.register(...registerables)
 
 export function DashboardContent() {
+  const t = useT()
   const { posts, clients, invoices, projects, tasks, activity, dateRange } = useStore()
 
   // Filter by date range
@@ -39,10 +41,10 @@ export function DashboardContent() {
 
   // KPI cards
   const kpis = [
-    { label: 'Active Projects',     value: activeProjects.length, color: 'var(--accent)',  border: 'var(--accent)',  sub: 'Total project berjalan' },
-    { label: 'Active Clients',      value: activeClients.length,  color: 'var(--accent3)', border: 'var(--accent3)', sub: 'Client aktif' },
-    { label: 'Revenue Pipeline',    value: formatRupiah(revenuePipeline), color: 'var(--accent4)', border: 'var(--accent4)', sub: 'Total deal pipeline', isRp: true },
-    { label: 'Tasks This Week',     value: weekTasks.length,      color: 'var(--text)',    border: 'var(--border)',  sub: 'Task aktif tim' },
+    { label: 'Active Projects',     value: activeProjects.length, color: 'var(--accent)',  border: 'var(--accent)',  sub: t('Total project berjalan') },
+    { label: 'Active Clients',      value: activeClients.length,  color: 'var(--accent3)', border: 'var(--accent3)', sub: t('Client aktif') },
+    { label: 'Revenue Pipeline',    value: formatRupiah(revenuePipeline), color: 'var(--accent4)', border: 'var(--accent4)', sub: t('Total deal pipeline'), isRp: true },
+    { label: 'Tasks This Week',     value: weekTasks.length,      color: 'var(--text)',    border: 'var(--border)',  sub: t('Task aktif tim') },
     { label: 'Bentala Project Post',value: bpiPosts.length,       color: 'var(--text)',    border: 'var(--border)',  sub: 'IG + TikTok' },
     { label: 'Bentala Studio Post', value: bsiPosts.length,       color: 'var(--text)',    border: 'var(--border)',  sub: 'IG' },
   ]
@@ -115,7 +117,7 @@ export function DashboardContent() {
           })}
           {projects.length === 0 && (
             <div style={{ fontSize: 12, color: 'var(--text2)', textAlign: 'center', padding: '20px 0' }}>
-              Belum ada project
+              {t('Belum ada project')}
             </div>
           )}
         </div>
@@ -127,7 +129,7 @@ export function DashboardContent() {
         <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 18 }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 14 }}>Recent Activity</div>
           {activity.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'var(--text2)', textAlign: 'center', padding: '20px 0' }}>Belum ada aktivitas</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', textAlign: 'center', padding: '20px 0' }}>{t('Belum ada aktivitas')}</div>
           ) : activity.slice(0, 8).map(a => (
             <div key={a.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0, marginTop: 5 }} />
@@ -153,6 +155,7 @@ function UpcomingDeadlines({ projects, tasks }: {
   projects: Project[]
   tasks: Task[]
 }) {
+  const t = useT()
   const now = new Date()
   const in14 = new Date(now.getTime() + 14 * 86400000)
 
@@ -170,7 +173,7 @@ function UpcomingDeadlines({ projects, tasks }: {
 
   if (!items.length) {
     return <div style={{ fontSize: 12, color: 'var(--text2)', textAlign: 'center', padding: '20px 0' }}>
-      Tidak ada deadline dalam 14 hari ke depan 🎉
+      {t('Tidak ada deadline dalam 14 hari ke depan 🎉')}
     </div>
   }
 

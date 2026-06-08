@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export function ListEmpty({ message }: { message: string }) {
   return (
@@ -106,6 +107,7 @@ export function ModalShell({
    *  otherwise leave a large empty gap on tall viewports. */
   minHeight?: string
 }) {
+  const t = useT()
   return (
     <div
       onClick={onClose}
@@ -174,7 +176,7 @@ export function ModalShell({
             {headerExtra}
             <button
               onClick={onClose}
-              aria-label="Tutup"
+              aria-label={t('Tutup')}
               style={{
                 width: 30,
                 height: 30,

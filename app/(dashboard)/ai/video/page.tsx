@@ -4,6 +4,7 @@ import { useState } from 'react'
 import AIHistoryPanel from '@/components/AIStudio/AIHistoryPanel'
 import { addHistoryItem, HistoryItem } from '@/lib/aiHistory'
 import { PageShell } from '@/components/shared/PageShell'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const PLATFORM_OPTIONS = [
   { key: 'tiktok', label: 'TikTok' },
@@ -44,6 +45,7 @@ interface VideoScript {
 }
 
 export default function VideoPage() {
+  const t = useT()
   const [judul, setJudul] = useState('')
   const [platform, setPlatform] = useState('tiktok')
   const [duration, setDuration] = useState('30 detik')
@@ -96,14 +98,14 @@ Buat 4-6 scene sesuai durasi. Dialog harus natural dan engaging dalam Bahasa Ind
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal generate script')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal generate script'))
 
       const cleaned = data.content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
       const parsed = JSON.parse(cleaned)
       setResult(parsed)
       addHistoryItem({ tool: 'video', title: judul.trim().slice(0, 60), data: { judul: judul.trim(), platform, duration, tone, result: parsed } })
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+      setError(e instanceof Error ? e.message : t('Terjadi kesalahan'))
     } finally {
       setLoading(false)
     }
@@ -135,7 +137,7 @@ Buat 4-6 scene sesuai durasi. Dialog harus natural dan engaging dalam Bahasa Ind
     <>
     {showHistory && <AIHistoryPanel tool="video" onRestore={handleRestore} onClose={() => setShowHistory(false)} />}
     <PageShell
-      title="Generator Script Video"
+      title={t('Generator Script Video')}
       action={
         <button onClick={() => setShowHistory(true)} style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>
           🕐 History
@@ -146,12 +148,12 @@ Buat 4-6 scene sesuai durasi. Dialog harus natural dan engaging dalam Bahasa Ind
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 8 }}>Judul / Topik Konten</label>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 8 }}>{t('Judul / Topik Konten')}</label>
           <input
             value={judul}
             onChange={e => setJudul(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && generate()}
-            placeholder="contoh: 3 tren fashion Indonesia 2025 yang wajib dicoba"
+            placeholder={t('contoh: 3 tren fashion Indonesia 2025 yang wajib dicoba')}
             style={{ width: '100%', boxSizing: 'border-box', fontSize: 14 }}
           />
         </div>
@@ -166,7 +168,7 @@ Buat 4-6 scene sesuai durasi. Dialog harus natural dan engaging dalam Bahasa Ind
         </div>
 
         <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 10 }}>Durasi</label>
+          <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 10 }}>{t('Durasi')}</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {DURATION_OPTIONS.map(d => (
               <button key={d.key} onClick={() => setDuration(d.key)} style={chipStyle(duration === d.key)}>{d.label}</button>
@@ -206,7 +208,7 @@ Buat 4-6 scene sesuai durasi. Dialog harus natural dan engaging dalam Bahasa Ind
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.3s ease' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               {[
-                { label: 'Durasi', value: result.duration },
+                { label: t('Durasi'), value: result.duration },
                 { label: 'Format', value: result.format },
                 { label: 'Tone', value: result.tone },
               ].map(item => (
@@ -223,7 +225,7 @@ Buat 4-6 scene sesuai durasi. Dialog harus natural dan engaging dalam Bahasa Ind
             </div>
 
             <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
-              <div style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Gaya Editing</div>
+              <div style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{t('Gaya Editing')}</div>
               <div style={{ fontSize: 13, color: 'var(--text)' }}>{result.editing_style}</div>
             </div>
 

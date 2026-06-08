@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { AudioScript } from '@/lib/types'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const DURASI_OPTIONS = [
   { key: '15 detik', label: '15 dtk' },
@@ -65,6 +66,7 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export default function AudioStudio() {
+  const t = useT()
   const [mode, setMode] = useState<'topic' | 'script'>('topic')
   const [topik, setTopik] = useState('')
   const [scriptRaw, setScriptRaw] = useState('')
@@ -92,10 +94,10 @@ export default function AudioStudio() {
         body: JSON.stringify({ mode, topik, script: scriptRaw, durasi, styleNarasi, bahasa }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal generate script audio')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal generate script audio'))
       setResult(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+      setError(e instanceof Error ? e.message : t('Terjadi kesalahan'))
     } finally {
       setLoading(false)
     }
@@ -110,8 +112,8 @@ export default function AudioStudio() {
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Mode</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             {[
-              { key: 'topic' as const, label: '🎙 Dari Topik' },
-              { key: 'script' as const, label: '📝 Paste Script' },
+              { key: 'topic' as const, label: t('🎙 Dari Topik') },
+              { key: 'script' as const, label: t('📝 Paste Script') },
             ].map(m => (
               <button key={m.key} onClick={() => setMode(m.key)}
                 style={{
@@ -129,22 +131,22 @@ export default function AudioStudio() {
         {/* Input */}
         {mode === 'topic' ? (
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>Topik</label>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>{t('Topik')}</label>
             <input
               value={topik}
               onChange={e => setTopik(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && generate()}
-              placeholder="contoh: tips perawatan kulit malam hari..."
+              placeholder={t('contoh: tips perawatan kulit malam hari...')}
               style={{ width: '100%', boxSizing: 'border-box', fontSize: 13 }}
             />
           </div>
         ) : (
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>Script Mentah</label>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>{t('Script Mentah')}</label>
             <textarea
               value={scriptRaw}
               onChange={e => setScriptRaw(e.target.value)}
-              placeholder="Paste script mentah kamu di sini, AI akan memolesnya menjadi narasi siap rekam..."
+              placeholder={t('Paste script mentah kamu di sini, AI akan memolesnya menjadi narasi siap rekam...')}
               rows={5}
               style={{ width: '100%', boxSizing: 'border-box', fontSize: 13, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
             />
@@ -153,7 +155,7 @@ export default function AudioStudio() {
 
         {/* Durasi */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Target Durasi</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>{t('Target Durasi')}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {DURASI_OPTIONS.map(d => (
               <button key={d.key} onClick={() => setDurasi(d.key)} style={chip(durasi === d.key)}>{d.label}</button>
@@ -163,7 +165,7 @@ export default function AudioStudio() {
 
         {/* Style */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Style Narasi</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>{t('Style Narasi')}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {STYLE_OPTIONS.map(s => (
               <button key={s.key} onClick={() => setStyleNarasi(s.key)} style={chip(styleNarasi === s.key, '#43d9a2')}>{s.label}</button>
@@ -173,7 +175,7 @@ export default function AudioStudio() {
 
         {/* Bahasa */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Bahasa</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>{t('Bahasa')}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {BAHASA_OPTIONS.map(b => (
               <button key={b.key} onClick={() => setBahasa(b.key)} style={chip(bahasa === b.key, '#f59e0b')}>{b.label}</button>
@@ -208,7 +210,7 @@ export default function AudioStudio() {
         {loading && (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: 'var(--text2)', fontSize: 13 }}>
             <div style={{ width: 32, height: 32, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            Membuat script narasi...
+            {t('Membuat script narasi...')}
           </div>
         )}
 
@@ -216,8 +218,8 @@ export default function AudioStudio() {
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, color: 'var(--text2)' }}>
             <div style={{ fontSize: 40, opacity: 0.3 }}>🎙</div>
             <div style={{ fontSize: 14, textAlign: 'center', lineHeight: 1.6 }}>
-              Masukkan topik atau paste script mentahmu<br />
-              <span style={{ fontSize: 12 }}>AI akan membuat narasi siap rekam + panduan timing</span>
+              {t('Masukkan topik atau paste script mentahmu')}<br />
+              <span style={{ fontSize: 12 }}>{t('AI akan membuat narasi siap rekam + panduan timing')}</span>
             </div>
           </div>
         )}
@@ -229,8 +231,8 @@ export default function AudioStudio() {
               <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginBottom: 12, lineHeight: 1.3 }}>{result.judul}</div>
               <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                 {[
-                  { icon: '⏱', label: 'Estimasi', val: result.estimated_duration },
-                  { icon: '🎭', label: 'Karakter Suara', val: result.voice_character },
+                  { icon: '⏱', label: t('Estimasi'), val: result.estimated_duration },
+                  { icon: '🎭', label: t('Karakter Suara'), val: result.voice_character },
                   { icon: '🎵', label: 'BGM', val: result.recommended_bgm },
                 ].map(x => (
                   <div key={x.label}>
@@ -244,7 +246,7 @@ export default function AudioStudio() {
             {/* Full script narasi */}
             <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1 }}>Script Narasi Lengkap</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1 }}>{t('Script Narasi Lengkap')}</div>
                 <CopyButton text={result.script_narasi} />
               </div>
               <pre style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
@@ -254,7 +256,7 @@ export default function AudioStudio() {
 
             {/* Timing guide */}
             <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 20px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14 }}>Panduan Timing</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14 }}>{t('Panduan Timing')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {result.timing_guide.map((section, i) => {
                   const color = SECTION_COLORS[section.section] ?? '#8b8fa8'
@@ -286,7 +288,7 @@ export default function AudioStudio() {
 
             {/* Recording tips */}
             <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '18px 20px' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>Tips Rekaman</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>{t('Tips Rekaman')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {result.recording_tips.map((tip, i) => (
                   <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
@@ -304,7 +306,7 @@ export default function AudioStudio() {
                 <span style={{ padding: '2px 8px', borderRadius: 4, background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', fontSize: 10, fontWeight: 700 }}>COMING SOON</span>
               </div>
               <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 12 }}>
-                Hubungkan ElevenLabs API key kamu untuk generate audio langsung dari script ini. BYOK (Bring Your Own Key) — token tidak disimpan di server.
+                {t('Hubungkan ElevenLabs API key kamu untuk generate audio langsung dari script ini. BYOK (Bring Your Own Key) — token tidak disimpan di server.')}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input

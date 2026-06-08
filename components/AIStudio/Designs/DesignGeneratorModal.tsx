@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import JSZip from 'jszip'
 import type { NewsItem } from '@/lib/types'
 import type { ArticlePreview, BPIContent } from '@/lib/types-design'
@@ -74,6 +75,7 @@ export function DesignGeneratorModal({
   article?: ArticlePreview | null
   content: BPIContent
 }) {
+  const t = useT()
   const [selectedFormat, setSelectedFormat] = useState<FormatOption['key'] | null>(null)
   const [logoColor, setLogoColor] = useState<'black' | 'white'>('black')
   const [sourceColor, setSourceColor] = useState<'black' | 'white'>('black')
@@ -235,13 +237,13 @@ export function DesignGeneratorModal({
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal generate carousel')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal generate carousel'))
       if (!Array.isArray(data.slides) || data.slides.length === 0) {
         throw new Error('No slides returned')
       }
       setCarouselSlides(data.slides)
     } catch (e) {
-      setCarouselGenError(e instanceof Error ? e.message : 'Gagal generate carousel')
+      setCarouselGenError(e instanceof Error ? e.message : t('Gagal generate carousel'))
     } finally {
       setCarouselGenLoading(false)
     }
@@ -345,7 +347,7 @@ export function DesignGeneratorModal({
     const slide = carouselSlides[idx]
     const variants = SLIDE_VARIANTS[slide.type]
     if (variants.length <= 1) {
-      setRefreshError('Slide ini hanya punya 1 design')
+      setRefreshError(t('Slide ini hanya punya 1 design'))
       return
     }
     const current = slideVariants[idx] ?? 0
@@ -359,7 +361,7 @@ export function DesignGeneratorModal({
       await new Promise(resolve => setTimeout(resolve, 250))
       await renderSingleSlide(idx, SLIDE_W, SLIDE_H)
     } catch (e) {
-      setRefreshError(e instanceof Error ? e.message : 'Gagal render variant baru')
+      setRefreshError(e instanceof Error ? e.message : t('Gagal render variant baru'))
     } finally {
       setRefreshingIdx(null)
     }
@@ -447,7 +449,7 @@ export function DesignGeneratorModal({
                 ✦ Generate Design
               </div>
               <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
-                {selectedFormat ? 'Render preview · klik download saat siap' : 'Pilih format design untuk konten ini'}
+                {selectedFormat ? t('Render preview · klik download saat siap') : t('Pilih format design untuk konten ini')}
               </div>
             </div>
             <button
@@ -515,7 +517,7 @@ export function DesignGeneratorModal({
                   border: '1px solid var(--border)',
                   boxShadow: '0 16px 48px -16px rgba(0,0,0,0.6)',
                 }}>
-                  {single.state === 'rendering' && <SpinnerOverlay label="Rendering design..." />}
+                  {single.state === 'rendering' && <SpinnerOverlay label={t('Rendering design...')} />}
                   {single.state === 'ready' && single.dataUrl && (
                     <img src={single.dataUrl} alt="Generated cover"
                       style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
@@ -526,7 +528,7 @@ export function DesignGeneratorModal({
                 </div>
 
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <SecondaryButton onClick={handleBackToPicker}>← Pilih format lain</SecondaryButton>
+                  <SecondaryButton onClick={handleBackToPicker}>← {t('Pilih format lain')}</SecondaryButton>
                   <PrimaryButton disabled={single.state !== 'ready'} onClick={handleDownloadSingle}>
                     ⬇ Download PNG
                   </PrimaryButton>
@@ -550,7 +552,7 @@ export function DesignGeneratorModal({
                     <ErrorOverlay error={carouselGenError} onRetry={generateCarouselContent} />
                   )}
                   {carouselSlides && !slideImagesReady && multi.state === 'idle' && (
-                    <SpinnerOverlay label={`Mencari gambar per slide... (${Object.keys(slideImages).length}/${carouselSlides.length})`} />
+                    <SpinnerOverlay label={`${t('Mencari gambar per slide...')} (${Object.keys(slideImages).length}/${carouselSlides.length})`} />
                   )}
                   {carouselSlides && multi.state === 'rendering' && (
                     <SpinnerOverlay label={`Rendering slide ${multi.progress.current}/${multi.progress.total}...`} />
@@ -604,7 +606,7 @@ export function DesignGeneratorModal({
                 )}
 
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <SecondaryButton onClick={handleBackToPicker}>← Pilih format lain</SecondaryButton>
+                  <SecondaryButton onClick={handleBackToPicker}>← {t('Pilih format lain')}</SecondaryButton>
                   {carouselReady && (() => {
                     const slide = carouselSlides?.[previewIdx]
                     const variantCount = slide ? SLIDE_VARIANTS[slide.type].length : 0
@@ -617,16 +619,16 @@ export function DesignGeneratorModal({
                           disabled={refreshingIdx !== null || variantCount <= 1}
                         >
                           {refreshingIdx === previewIdx
-                            ? '↻ Mengganti design...'
+                            ? `↻ ${t('Mengganti design...')}`
                             : variantCount > 1
-                              ? `↻ Coba design lain (${currentVariant + 1}/${variantCount}: ${variantLabel})`
-                              : '↻ Hanya 1 design'}
+                              ? `↻ ${t('Coba design lain')} (${currentVariant + 1}/${variantCount}: ${variantLabel})`
+                              : `↻ ${t('Hanya 1 design')}`}
                         </SecondaryButton>
                         <SecondaryButton onClick={handleDownloadCarouselSlide}>
-                          ⬇ Download slide ini
+                          ⬇ {t('Download slide ini')}
                         </SecondaryButton>
                         <PrimaryButton onClick={handleDownloadCarouselZip}>
-                          ⬇ Download semua (ZIP)
+                          ⬇ {t('Download semua (ZIP)')}
                         </PrimaryButton>
                       </>
                     )
@@ -745,6 +747,7 @@ function SpinnerOverlay({ label }: { label: string }) {
 }
 
 function ErrorOverlay({ error, onRetry }: { error: string | null; onRetry: () => void }) {
+  const t = useT()
   return (
     <div style={{
       position: 'absolute', inset: 0, display: 'flex',
@@ -753,14 +756,14 @@ function ErrorOverlay({ error, onRetry }: { error: string | null; onRetry: () =>
       color: '#ff6b6b', fontSize: 12,
     }}>
       <div style={{ fontSize: 20 }}>⚠</div>
-      Render gagal: {error}
+      {t('Render gagal:')} {error}
       <button onClick={onRetry} style={{
         marginTop: 8, padding: '6px 12px',
         background: 'var(--accent)', color: '#fff',
         border: 'none', borderRadius: 6, cursor: 'pointer',
         fontSize: 11, fontWeight: 600,
       }}>
-        Coba lagi
+        {t('Coba lagi')}
       </button>
     </div>
   )

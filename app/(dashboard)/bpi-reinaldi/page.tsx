@@ -4,8 +4,10 @@ import { useState, useRef } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
 import { WorkspacePage, type WorkspacePageHandle } from '@/components/WorkSpace'
 import BriefInbox from '@/components/AIStudio/BriefInbox'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export default function ReinaldPage() {
+  const t = useT()
   const wsRef = useRef<WorkspacePageHandle>(null)
   const [tab, setTab] = useState<TabKey>('list')
 
@@ -21,7 +23,7 @@ export default function ReinaldPage() {
             onClick={() => wsRef.current?.openAdd()}
             style={{ height: 32, padding: '0 14px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
           >
-            + Tambah Pekerjaan
+            + {t('Tambah Pekerjaan')}
           </button>
         ) : undefined}
       />

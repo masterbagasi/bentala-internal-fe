@@ -9,6 +9,7 @@ import type {
 import { FormField, inputStyle, textareaStyle } from '@/components/website/FormField'
 import { Section } from '@/components/website/Section'
 import { ListError } from '@/components/website/SimpleList'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface DraftState {
   description: string
@@ -30,6 +31,7 @@ const EMPTY_DRAFT: DraftState = { description: '', items: [] }
  *     the visitor clicks the title.
  */
 export function AbroadTermsSection() {
+  const t = useT()
   const supabase = getSupabase()
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT)
   const [original, setOriginal] = useState<DraftState>(EMPTY_DRAFT)
@@ -100,7 +102,7 @@ export function AbroadTermsSection() {
         error.code === '42703' || /column .* does not exist/i.test(error.message)
       setError(
         isMissingColumn
-          ? `Database belum diupdate: ${error.message}. Jalankan migration "migration_abroad_settings_structured_terms.sql" di Supabase SQL Editor.`
+          ? `${t('Database belum diupdate')}: ${error.message}. ${t('Jalankan migration "migration_abroad_settings_structured_terms.sql" di Supabase SQL Editor.')}`
           : error.message,
       )
       return
@@ -162,18 +164,18 @@ export function AbroadTermsSection() {
             transition: 'opacity 0.15s',
           }}
         >
-          {saving ? 'Menyimpan…' : 'Simpan T&C'}
+          {saving ? t('Menyimpan…') : t('Simpan T&C')}
         </button>
       }
     >
       {error && <ListError message={error} />}
       {loading ? (
-        <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+        <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           {/* Universal description — left-column intro paragraph on
               the public site. Optional. */}
-          <FormField label="Deskripsi Section (opsional)">
+          <FormField label={t('Deskripsi Section (opsional)')}>
             <textarea
               style={{
                 ...textareaStyle,
@@ -186,7 +188,7 @@ export function AbroadTermsSection() {
               onChange={(e) =>
                 setDraft((d) => ({ ...d, description: e.target.value }))
               }
-              placeholder="Kami percaya kerja sama yang baik dimulai dari pemahaman yang jelas…"
+              placeholder={t('Kami percaya kerja sama yang baik dimulai dari pemahaman yang jelas…')}
             />
           </FormField>
 
@@ -210,7 +212,7 @@ export function AbroadTermsSection() {
                   fontWeight: 600,
                 }}
               >
-                Klausul / Item T&C
+                {t('Klausul / Item T&C')}
               </label>
               <button
                 type="button"
@@ -226,7 +228,7 @@ export function AbroadTermsSection() {
                   cursor: 'pointer',
                 }}
               >
-                + Tambah Klausul
+                {t('+ Tambah Klausul')}
               </button>
             </div>
 
@@ -242,8 +244,8 @@ export function AbroadTermsSection() {
                   textAlign: 'center',
                 }}
               >
-                Belum ada klausul. Klik <strong>+ Tambah Klausul</strong>{' '}
-                untuk membuat list T&C pertama.
+                {t('Belum ada klausul. Klik')} <strong>{t('+ Tambah Klausul')}</strong>{' '}
+                {t('untuk membuat list T&C pertama.')}
               </div>
             ) : (
               <ol
@@ -278,7 +280,7 @@ export function AbroadTermsSection() {
                 color: 'var(--accent3, #43d9a2)',
               }}
             >
-              ● Tersimpan {savedAt.toLocaleTimeString('id-ID')}
+              ● {t('Tersimpan')} {savedAt.toLocaleTimeString('id-ID')}
             </div>
           )}
         </div>
@@ -307,6 +309,7 @@ function ClauseRow({
   onMove: (dir: -1 | 1) => void
   onRemove: () => void
 }) {
+  const t = useT()
   const num = String(index + 1).padStart(2, '0')
   return (
     <li
@@ -341,7 +344,7 @@ function ClauseRow({
           style={{ ...inputStyle, fontWeight: 600 }}
           value={item.title}
           onChange={(e) => onChange({ title: e.target.value })}
-          placeholder="Judul klausul (mis. Booking & Down Payment)"
+          placeholder={t('Judul klausul (mis. Booking & Down Payment)')}
         />
         <textarea
           style={{
@@ -353,26 +356,26 @@ function ClauseRow({
           }}
           value={item.body}
           onChange={(e) => onChange({ body: e.target.value })}
-          placeholder="Isi lengkap klausul — muncul di popup saat visitor klik judul di public site."
+          placeholder={t('Isi lengkap klausul — muncul di popup saat visitor klik judul di public site.')}
         />
         <div style={{ display: 'flex', gap: 6 }}>
           <FooterBtn
             onClick={() => onMove(-1)}
             disabled={index === 0}
-            title="Naik"
+            title={t('Naik')}
           >
             ↑
           </FooterBtn>
           <FooterBtn
             onClick={() => onMove(1)}
             disabled={index === total - 1}
-            title="Turun"
+            title={t('Turun')}
           >
             ↓
           </FooterBtn>
           <span style={{ flex: 1 }} />
-          <FooterBtn onClick={onRemove} tone="danger" title="Hapus">
-            Hapus
+          <FooterBtn onClick={onRemove} tone="danger" title={t('Hapus')}>
+            {t('Hapus')}
           </FooterBtn>
         </div>
       </div>

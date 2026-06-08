@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { uploadFileResumable, uploadFileWithProgress } from '@/lib/storage'
 import { UploadProgressList, type UploadEntry } from './UploadProgressList'
 import { ConfirmDialog, type ConfirmRequest } from './ConfirmDialog'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 type AcceptKind = 'image' | 'video' | 'image+video' | 'all'
 
@@ -69,6 +70,7 @@ export function FileUploader({
   hideActions = false,
   actionsRef,
 }: Props) {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -194,10 +196,10 @@ export function FileUploader({
     actionsRef.current = {
       change: () => {
         setConfirm({
-          title: 'Ganti file?',
+          title: t('Ganti file?'),
           message:
-            'File yang sekarang akan diganti dengan file baru. File lama tetap di Riwayat.',
-          confirmLabel: 'Ganti',
+            t('File yang sekarang akan diganti dengan file baru. File lama tetap di Riwayat.'),
+          confirmLabel: t('Ganti'),
           tone: 'warning',
           onConfirm: () => {
             setConfirm(null)
@@ -207,10 +209,10 @@ export function FileUploader({
       },
       remove: () => {
         setConfirm({
-          title: 'Hapus file?',
+          title: t('Hapus file?'),
           message:
-            'File akan dilepas dari section ini. File asli tetap aman di Riwayat.',
-          confirmLabel: 'Hapus',
+            t('File akan dilepas dari section ini. File asli tetap aman di Riwayat.'),
+          confirmLabel: t('Hapus'),
           tone: 'danger',
           onConfirm: () => {
             setConfirm(null)
@@ -322,9 +324,9 @@ export function FileUploader({
               onClick={(e) => {
                 e.stopPropagation()
                 setConfirm({
-                  title: 'Ganti file?',
-                  message: 'File yang sekarang akan diganti dengan file baru. File lama tetap di Riwayat.',
-                  confirmLabel: 'Ganti',
+                  title: t('Ganti file?'),
+                  message: t('File yang sekarang akan diganti dengan file baru. File lama tetap di Riwayat.'),
+                  confirmLabel: t('Ganti'),
                   tone: 'warning',
                   onConfirm: () => {
                     setConfirm(null)
@@ -345,16 +347,16 @@ export function FileUploader({
                 opacity: uploading ? 0.6 : 1,
               }}
             >
-              {uploading ? '…' : 'Ganti'}
+              {uploading ? '…' : t('Ganti')}
             </button>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
                 setConfirm({
-                  title: 'Hapus file?',
-                  message: 'File akan dilepas dari section ini. File asli tetap aman di Riwayat.',
-                  confirmLabel: 'Hapus',
+                  title: t('Hapus file?'),
+                  message: t('File akan dilepas dari section ini. File asli tetap aman di Riwayat.'),
+                  confirmLabel: t('Hapus'),
                   tone: 'danger',
                   onConfirm: () => {
                     setConfirm(null)
@@ -374,7 +376,7 @@ export function FileUploader({
                 cursor: 'pointer',
               }}
             >
-              Hapus
+              {t('Hapus')}
             </button>
           </div>
         </div>
@@ -442,9 +444,9 @@ export function FileUploader({
               type="button"
               onClick={() =>
                 setConfirm({
-                  title: 'Ganti file?',
-                  message: 'File yang sekarang akan diganti dengan file baru. File lama tetap di Riwayat.',
-                  confirmLabel: 'Ganti',
+                  title: t('Ganti file?'),
+                  message: t('File yang sekarang akan diganti dengan file baru. File lama tetap di Riwayat.'),
+                  confirmLabel: t('Ganti'),
                   tone: 'warning',
                   onConfirm: () => {
                     setConfirm(null)
@@ -477,15 +479,15 @@ export function FileUploader({
                 ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text2)'
               }}
             >
-              {uploading ? 'Mengganti…' : 'Ganti'}
+              {uploading ? t('Mengganti…') : t('Ganti')}
             </button>
             <button
               type="button"
               onClick={() =>
                 setConfirm({
-                  title: 'Hapus file?',
-                  message: 'File akan dilepas dari section ini. File asli tetap aman di Riwayat.',
-                  confirmLabel: 'Hapus',
+                  title: t('Hapus file?'),
+                  message: t('File akan dilepas dari section ini. File asli tetap aman di Riwayat.'),
+                  confirmLabel: t('Hapus'),
                   tone: 'danger',
                   onConfirm: () => {
                     setConfirm(null)
@@ -514,7 +516,7 @@ export function FileUploader({
                 ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255, 107, 107, 0.35)'
               }}
             >
-              Hapus
+              {t('Hapus')}
             </button>
           </div>
           )}
@@ -566,7 +568,7 @@ export function FileUploader({
                   animation: 'spin 0.8s linear infinite',
                 }}
               />
-              <div style={{ fontSize: 12 }}>Mengupload…</div>
+              <div style={{ fontSize: 12 }}>{t('Mengupload…')}</div>
               <button
                 type="button"
                 onClick={(e) => {
@@ -589,7 +591,7 @@ export function FileUploader({
                   cursor: 'pointer',
                 }}
               >
-                Batalkan
+                {t('Batalkan')}
               </button>
             </>
           ) : (
@@ -709,7 +711,7 @@ export function FileUploader({
               <button
                 type="button"
                 onClick={() => setPreview(false)}
-                title="Tutup"
+                title={t('Tutup')}
                 style={{
                   width: 28,
                   height: 28,
@@ -767,10 +769,10 @@ export function FileUploader({
                 type="button"
                 onClick={() =>
                   setConfirm({
-                    title: 'Ganti file?',
+                    title: t('Ganti file?'),
                     message:
-                      'File yang sekarang akan diganti dengan file baru. File lama tetap di Riwayat.',
-                    confirmLabel: 'Ganti',
+                      t('File yang sekarang akan diganti dengan file baru. File lama tetap di Riwayat.'),
+                    confirmLabel: t('Ganti'),
                     tone: 'warning',
                     onConfirm: () => {
                       setConfirm(null)
@@ -793,16 +795,16 @@ export function FileUploader({
                   opacity: uploading ? 0.6 : 1,
                 }}
               >
-                Ganti
+                {t('Ganti')}
               </button>
               <button
                 type="button"
                 onClick={() =>
                   setConfirm({
-                    title: 'Hapus file?',
+                    title: t('Hapus file?'),
                     message:
-                      'File akan dilepas dari section ini. File asli tetap aman di Riwayat.',
-                    confirmLabel: 'Hapus',
+                      t('File akan dilepas dari section ini. File asli tetap aman di Riwayat.'),
+                    confirmLabel: t('Hapus'),
                     tone: 'danger',
                     onConfirm: () => {
                       setConfirm(null)
@@ -823,7 +825,7 @@ export function FileUploader({
                   cursor: 'pointer',
                 }}
               >
-                Hapus
+                {t('Hapus')}
               </button>
             </div>
           </div>
@@ -853,6 +855,7 @@ export function MultiFileUploader({
   label,
   hint,
 }: MultiProps) {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -1050,7 +1053,7 @@ export function MultiFileUploader({
                   type="button"
                   onClick={() => move(idx, -1)}
                   disabled={idx === 0}
-                  title="Naik"
+                  title={t('Naik')}
                   style={iconBtnStyle}
                 >
                   ↑
@@ -1059,7 +1062,7 @@ export function MultiFileUploader({
                   type="button"
                   onClick={() => move(idx, 1)}
                   disabled={idx === value.length - 1}
-                  title="Turun"
+                  title={t('Turun')}
                   style={iconBtnStyle}
                 >
                   ↓
@@ -1067,7 +1070,7 @@ export function MultiFileUploader({
                 <button
                   type="button"
                   onClick={() => handleRemove(idx)}
-                  title="Hapus"
+                  title={t('Hapus')}
                   style={{ ...iconBtnStyle, color: '#ff6b6b' }}
                 >
                   ×
@@ -1093,7 +1096,7 @@ export function MultiFileUploader({
           cursor: uploading ? 'wait' : 'pointer',
         }}
       >
-        {uploading ? 'Mengupload…' : '+ Tambah File'}
+        {uploading ? t('Mengupload…') : t('+ Tambah File')}
       </button>
 
       <input

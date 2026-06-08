@@ -11,6 +11,7 @@ import { uploadFileResumable, deleteFile } from '@/lib/storage'
 import { TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { Post, StageData } from '@/lib/types'
 
 interface WSEditModalProps {
@@ -37,6 +38,7 @@ interface LocalFile {
 }
 
 export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps) {
+  const t = useT()
   const { posts, upsertPost } = useStore()
   const logActivity = useLogActivity()
   const post = posts.find(p => p.id === postId)
@@ -188,7 +190,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       delete uploadsRef.current[lf.id]
       setFiles(prev => prev.filter(f => f.id !== lf.id))
       const err = e as { message?: string }
-      alert(`Gagal mengupload "${lf.name}": ${err?.message || 'Coba lagi.'}`)
+      alert(`${t('Gagal mengupload')} "${lf.name}": ${err?.message || t('Coba lagi.')}`)
     }
   }
 
@@ -213,7 +215,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       setLink('')
       logFileActivity(`telah menambahkan tautan ${url}`)
     } catch (e) {
-      alert('Gagal menambah link: ' + ((e as { message?: string })?.message || 'Coba lagi.'))
+      alert(t('Gagal menambah link:') + ' ' + ((e as { message?: string })?.message || t('Coba lagi.')))
     }
   }
 
@@ -242,7 +244,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       const err = e as { message?: string; error?: string }
       const msg = err?.message || err?.error || (typeof e === 'string' ? e : JSON.stringify(e))
       console.error('[WSEditModal] save failed:', e)
-      alert('Gagal menyimpan: ' + msg)
+      alert(t('Gagal menyimpan:') + ' ' + msg)
     }
   }
 
@@ -270,7 +272,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
   // Permanently delete an already-saved file: remove its DB row + storage object.
   async function deleteSavedFile(lf: LocalFile) {
     if (!post) return
-    if (!window.confirm(`Hapus "${lf.name}"?`)) return
+    if (!window.confirm(`${t('Hapus')} "${lf.name}"?`)) return
     try {
       if (lf.postLinkField) {
         // Legacy link stored on the post itself — clear that column.
@@ -288,7 +290,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
       logFileActivity(`telah menghapus ${kind} ${lf.name}`)
     } catch (e) {
       const err = e as { message?: string }
-      alert('Gagal menghapus: ' + (err?.message || 'Coba lagi.'))
+      alert(t('Gagal menghapus:') + ' ' + (err?.message || t('Coba lagi.')))
     }
   }
 
@@ -315,9 +317,9 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
     })
 
     if (error) {
-      alert('Gagal membuat pipeline item. Coba lagi.')
+      alert(t('Gagal membuat pipeline item. Coba lagi.'))
     } else {
-      alert(`Pipeline item dibuat untuk "${post!.title}"`)
+      alert(`${t('Pipeline item dibuat untuk')} "${post!.title}"`)
     }
   }
 
@@ -406,11 +408,11 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
                   cursor: 'pointer', fontSize: 12, color: 'var(--accent)', fontWeight: 500,
                 }}
               >
-                📌 Buat Pipeline Item
+                📌 {t('Buat Pipeline Item')}
               </button>
             )}
-            <BtnSecondary onClick={onClose}>Batal</BtnSecondary>
-            <BtnPrimary onClick={handleSave} loading={saving}>Simpan</BtnPrimary>
+            <BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary>
+            <BtnPrimary onClick={handleSave} loading={saving}>{t('Simpan')}</BtnPrimary>
           </div>
         </div>
       }
@@ -423,7 +425,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
             borderRadius: 8, padding: '8px 12px', marginBottom: 12,
             fontSize: 12, color: '#a78bfa', display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            🔁 Post ini sedang dalam proses revisi
+            🔁 {t('Post ini sedang dalam proses revisi')}
           </div>
         )}
 
@@ -431,7 +433,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
 
         {/* Meta grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          <InfoRow label="Tanggal Post">{formatDate(post.date)}</InfoRow>
+          <InfoRow label={t('Tanggal Post')}>{formatDate(post.date)}</InfoRow>
           <InfoRow label="Platform">
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
               {(post.platforms || []).map(pl => <PlatformIcon key={pl} platform={pl} size={20} />)}
@@ -439,10 +441,10 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
             </div>
           </InfoRow>
           <InfoRow label="Entity">{post.entity?.toUpperCase() || '—'}</InfoRow>
-          <InfoRow label="Dibuat oleh">{post.created_by || '—'}</InfoRow>
-          <InfoRow label="Jenis Konten">{(post.content_types || []).join(', ') || '—'}</InfoRow>
+          <InfoRow label={t('Dibuat oleh')}>{post.created_by || '—'}</InfoRow>
+          <InfoRow label={t('Jenis Konten')}>{(post.content_types || []).join(', ') || '—'}</InfoRow>
           <InfoRow label="Ratio">{post.ratio || '—'}</InfoRow>
-          <InfoRow label="Tag">
+          <InfoRow label={t('Tag')}>
             {(() => {
               const tags = (post.tagged || []).filter(m => m.includes('@') || accounts.some(a => a.name === m))
               if (!tags.length) return '—'
@@ -468,7 +470,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         {post.brief && <DetailBlock label="Brief">{post.brief}</DetailBlock>}
         {post.caption && <DetailBlock label="Caption">{post.caption}</DetailBlock>}
         {post.hashtags && <DetailBlock label="Hashtags" accent>{post.hashtags}</DetailBlock>}
-        {post.notes && <DetailBlock label="Catatan">{post.notes}</DetailBlock>}
+        {post.notes && <DetailBlock label={t('Catatan')}>{post.notes}</DetailBlock>}
       </div>
 
       {/* Update Task section */}
@@ -482,7 +484,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
 
       {/* Files — single unified section (video + design merged) */}
       <FileSection
-        title="📎 File Lampiran"
+        title={`📎 ${t('File Lampiran')}`}
         tab={fileTab}
         onTabChange={setFileTab}
         link={link}
@@ -494,8 +496,8 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
         onPreview={setPreviewFile}
         onAddLink={addLink}
         accept="*/*"
-        linkPlaceholder="https://drive.google.com/... atau https://figma.com/..."
-        uploadHint="Video, gambar, PDF, dan lainnya"
+        linkPlaceholder={`https://drive.google.com/... ${t('atau')} https://figma.com/...`}
+        uploadHint={t('Video, gambar, PDF, dan lainnya')}
       />
 
       {/* Comment room + activity — same as Bentala Project / Studio
@@ -614,10 +616,11 @@ function fileKind(f: { type?: string; name?: string }): 'image' | 'video' | 'pdf
 }
 
 function FilePreviewBody({ file }: { file: LocalFile }) {
+  const t = useT()
   const url = file.storageUrl || file.url || ''
   const kind = fileKind(file)
   if (!url) {
-    return <div style={{ color: 'var(--text2)', fontSize: 13 }}>File tidak tersedia.</div>
+    return <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('File tidak tersedia.')}</div>
   }
   if (kind === 'image') {
     // eslint-disable-next-line @next/next/no-img-element
@@ -633,10 +636,10 @@ function FilePreviewBody({ file }: { file: LocalFile }) {
     <div style={{ textAlign: 'center', padding: 24 }}>
       <div style={{ fontSize: 40, marginBottom: 10 }}>{getFileIcon(file.type, file.name)}</div>
       <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
-        Preview tidak tersedia untuk tipe file ini.
+        {t('Preview tidak tersedia untuk tipe file ini.')}
       </div>
       <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: 13, textDecoration: 'none' }}>
-        ⬇ Download / Buka
+        ⬇ {t('Download / Buka')}
       </a>
     </div>
   )
@@ -662,6 +665,7 @@ function FileSection({
   linkPlaceholder: string
   uploadHint: string
 }) {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
 
   return (
@@ -706,7 +710,7 @@ function FileSection({
               cursor: link.trim() ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap',
             }}
           >
-            + Tambah
+            + {t('Tambah')}
           </button>
         </div>
       ) : (
@@ -737,7 +741,7 @@ function FileSection({
               <polyline points="17 8 12 3 7 8"/>
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>Drop file di sini atau <span style={{ color: 'var(--accent)' }}>browse</span></div>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>{t('Drop file di sini atau')} <span style={{ color: 'var(--accent)' }}>browse</span></div>
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>{uploadHint}</div>
           </div>
         </div>
@@ -758,6 +762,7 @@ function FileSection({
 
 // Grid card (matches the BPI/BSI preview): thumbnail + name + actions.
 function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; onRemove: () => void; onDelete: () => void; onPreview: () => void }) {
+  const t = useT()
   const isLink = file.type === 'link'
   const isImage = !isLink && !!file.url && file.type.startsWith('image/')
   const canPreview = !isLink && !!(file.storageUrl || file.url) && fileKind(file) !== 'other'
@@ -802,7 +807,7 @@ function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; on
           <div style={{ height: 4, background: 'var(--border)', borderRadius: 20, overflow: 'hidden' }}>
             <div style={{ height: '100%', borderRadius: 20, background: 'linear-gradient(90deg, var(--accent), #a78bfa)', width: `${file.progress ?? 0}%`, transition: 'width 0.2s ease' }} />
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>Mengupload… {file.progress ?? 0}%</div>
+          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>{t('Mengupload…')} {file.progress ?? 0}%</div>
         </div>
       )}
 
@@ -810,7 +815,7 @@ function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; on
       {!uploading && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--text2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {isLink ? 'Tautan' : file.status === 'saved' ? formatFileSize(file.size) : 'Klik Simpan'}
+            {isLink ? t('Tautan') : file.status === 'saved' ? formatFileSize(file.size) : t('Klik Simpan')}
           </span>
           {file.status === 'saved' ? (
             <>
@@ -821,7 +826,7 @@ function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; on
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
-                  title={isLink ? 'Buka tautan' : 'Download'}
+                  title={isLink ? t('Buka tautan') : 'Download'}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, color: 'var(--text2)', flexShrink: 0 }}
                   onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
                   onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
@@ -831,7 +836,7 @@ function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; on
               )}
               <button
                 onClick={e => { e.stopPropagation(); onDelete() }}
-                title="Hapus"
+                title={t('Hapus')}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', flexShrink: 0 }}
                 onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
                 onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
@@ -842,7 +847,7 @@ function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; on
           ) : (
             <button
               onClick={e => { e.stopPropagation(); onRemove() }}
-              title="Hapus dari daftar"
+              title={t('Hapus dari daftar')}
               style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', width: 26, height: 26, borderRadius: 6, fontSize: 14, lineHeight: 1, flexShrink: 0 }}
               onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
               onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}

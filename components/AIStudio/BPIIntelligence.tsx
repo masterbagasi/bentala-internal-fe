@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import DOMPurify from 'isomorphic-dompurify'
 import type { NewsItem, NewsCategory } from '@/lib/types'
 import { DesignGeneratorModal } from './Designs/DesignGeneratorModal'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 type FilterType = 'all' | NewsCategory
 
@@ -229,6 +230,7 @@ interface ArticlePreview {
 }
 
 function VideoPreview({ item }: { item: NewsItem }) {
+  const t = useT()
   const [failed, setFailed] = useState(false)
   const primary = `https://www.youtube-nocookie.com/embed/${item.video_id}?rel=0&modestbranding=1`
 
@@ -256,8 +258,8 @@ function VideoPreview({ item }: { item: NewsItem }) {
               style={{ width: '80%', maxWidth: 360, borderRadius: 10, opacity: 0.65 }}
             />
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, maxWidth: 320 }}>
-              Video ini tidak mengizinkan pemutaran di luar YouTube.<br />
-              Klik tombol di bawah untuk menonton langsung.
+              {t('Video ini tidak mengizinkan pemutaran di luar YouTube.')}<br />
+              {t('Klik tombol di bawah untuk menonton langsung.')}
             </div>
             <a
               href={`https://www.youtube.com/watch?v=${item.video_id}`}
@@ -271,7 +273,7 @@ function VideoPreview({ item }: { item: NewsItem }) {
                 boxShadow: '0 6px 18px rgba(229,62,62,0.35)',
               }}
             >
-              ▶ Tonton di YouTube
+              ▶ {t('Tonton di YouTube')}
             </a>
           </div>
         ) : (
@@ -298,6 +300,7 @@ function ArticlePreviewBody({
   loading: boolean
   error: string | null
 }) {
+  const t = useT()
   // Sanitize extracted HTML before rendering. Server already strips scripts/iframes,
   // DOMPurify here is defense-in-depth against XSS from untrusted news HTML.
   const safeHtml = useMemo(() => {
@@ -365,7 +368,7 @@ function ArticlePreviewBody({
 
         {!loading && error && (
           <div className="reader-error">
-            <div className="reader-error-title">Preview tidak tersedia</div>
+            <div className="reader-error-title">{t('Preview tidak tersedia')}</div>
             {item.summary && (
               <div className="reader-error-summary">
                 {item.summary.replace(/&nbsp;/g, ' ').replace(/ /g, ' ')}
@@ -377,7 +380,7 @@ function ArticlePreviewBody({
               rel="noopener noreferrer"
               className="reader-error-link"
             >
-              Baca artikel lengkap →
+              {t('Baca artikel lengkap →')}
             </a>
           </div>
         )}
@@ -385,7 +388,7 @@ function ArticlePreviewBody({
         {!loading && !error && article && (
           <div
             className="reader-body"
-            dangerouslySetInnerHTML={{ __html: safeHtml || '<p class="empty">Konten tidak dapat diekstrak dari halaman ini.</p>' }}
+            dangerouslySetInnerHTML={{ __html: safeHtml || `<p class="empty">${t('Konten tidak dapat diekstrak dari halaman ini.')}</p>` }}
           />
         )}
       </article>
@@ -736,6 +739,7 @@ function PreviewPanel({
   onAnalyze: (item: NewsItem, article: ArticlePreview | null) => void
   onClose: () => void
 }) {
+  const t = useT()
   const isVideo = Boolean(item.video_id)
   const [article, setArticle] = useState<ArticlePreview | null>(null)
   const [articleLoading, setArticleLoading] = useState(false)
@@ -757,10 +761,10 @@ function PreviewPanel({
           setArticle(data)
         }
       })
-      .catch(() => { if (!cancelled) setArticleError('Gagal memuat artikel') })
+      .catch(() => { if (!cancelled) setArticleError(t('Gagal memuat artikel')) })
       .finally(() => { if (!cancelled) setArticleLoading(false) })
     return () => { cancelled = true }
-  }, [item.id, item.url, isVideo])
+  }, [item.id, item.url, isVideo, t])
 
   const externalHref = article?.final_url ?? item.url
 
@@ -798,13 +802,13 @@ function PreviewPanel({
             opacity: isAnalyzing ? 0.7 : 1,
           }}
         >
-          {isAnalyzing ? 'Membuat konten…' : isAnalyzed ? '✓ Konten Dibuat' : '✦ Buat Konten dengan AI'}
+          {isAnalyzing ? t('Membuat konten…') : isAnalyzed ? t('✓ Konten Dibuat') : t('✦ Buat Konten dengan AI')}
         </button>
         <a
           href={externalHref}
           target="_blank"
           rel="noopener noreferrer"
-          title="Buka di tab baru"
+          title={t('Buka di tab baru')}
           style={{
             width: 28, height: 28, borderRadius: '50%',
             background: 'var(--bg3)', border: '1px solid var(--border)',
@@ -817,7 +821,7 @@ function PreviewPanel({
         </a>
         <button
           onClick={onClose}
-          title="Tutup"
+          title={t('Tutup')}
           style={{
             width: 28, height: 28, borderRadius: '50%',
             background: 'var(--bg3)', border: '1px solid var(--border)',
@@ -850,6 +854,7 @@ function ContentCategoryBlock({
   categoryKey: ContentCategoryKey | null
   reason: string | null
 }) {
+  const t = useT()
   if (!categoryKey) return null
   const meta = CONTENT_CATEGORIES[categoryKey]
 
@@ -874,7 +879,7 @@ function ContentCategoryBlock({
         textTransform: 'uppercase', letterSpacing: '0.16em',
         marginBottom: 8,
       }}>
-        Kategori Konten
+        {t('Kategori Konten')}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: reason ? 8 : 0 }}>
@@ -927,6 +932,7 @@ function HeadlineBlock({
   copied: boolean
   onCopy: () => void
 }) {
+  const t = useT()
   const accentColor = '#f59e0b'
   const MAX_LINE = 23
   const safeLines = lines.length === 3 ? lines : [...lines, '', '', ''].slice(0, 3)
@@ -975,7 +981,7 @@ function HeadlineBlock({
             transition: 'all 0.15s',
           }}
         >
-          {copied ? '✓ Tersalin' : '⧉ Copy'}
+          {copied ? t('✓ Tersalin') : '⧉ Copy'}
         </button>
       </div>
 
@@ -1046,9 +1052,10 @@ function HashtagBlock({
   copied: boolean
   onCopy: () => void
 }) {
+  const t = useT()
   const accentColor = '#43d9a2'
   // parts order is fixed: [brand, tagline, category, country, audience]
-  const labels = ['Brand', 'Tagline', 'Kategori', 'Negara', 'Audiens']
+  const labels = ['Brand', 'Tagline', t('Kategori'), t('Negara'), t('Audiens')]
   const safeParts = parts.length === 5 ? parts : full.split(/\s+/).filter(Boolean)
 
   return (
@@ -1072,7 +1079,7 @@ function HashtagBlock({
           fontSize: 10, fontWeight: 700, color: accentColor,
           textTransform: 'uppercase', letterSpacing: '0.12em', flex: 1,
         }}>
-          Hashtags · 5 tag baku
+          {t('Hashtags · 5 tag baku')}
         </span>
         <button
           onClick={onCopy}
@@ -1085,7 +1092,7 @@ function HashtagBlock({
             transition: 'all 0.15s',
           }}
         >
-          {copied ? '✓ Tersalin' : '⧉ Copy'}
+          {copied ? t('✓ Tersalin') : '⧉ Copy'}
         </button>
       </div>
 
@@ -1131,6 +1138,7 @@ function ContentBlock({
   multiline?: boolean
   hashtag?: boolean
 }) {
+  const t = useT()
   const fontSize = size === 'lg' ? 13 : size === 'sm' ? 12 : 14
 
   return (
@@ -1158,7 +1166,7 @@ function ContentBlock({
         </span>
         <button
           onClick={onCopy}
-          title="Salin ke clipboard"
+          title={t('Salin ke clipboard')}
           style={{
             padding: '3px 9px', borderRadius: 12,
             background: copied ? accentColor : 'transparent',
@@ -1169,7 +1177,7 @@ function ContentBlock({
             display: 'inline-flex', alignItems: 'center', gap: 4,
           }}
         >
-          {copied ? '✓ Tersalin' : '⧉ Copy'}
+          {copied ? t('✓ Tersalin') : '⧉ Copy'}
         </button>
       </div>
 
@@ -1190,6 +1198,7 @@ function ContentBlock({
 }
 
 export default function BPIIntelligence() {
+  const t = useT()
   const [news, setNews] = useState<NewsItem[]>([])
   const [filter, setFilter] = useState<FilterType>('all')
   const [previewItem, setPreviewItem] = useState<NewsItem | null>(null)
@@ -1238,7 +1247,7 @@ export default function BPIIntelligence() {
         all = [...all, ...newsResult.value.items]
         if (newsResult.value.cached_at) latestTs = Math.max(latestTs, newsResult.value.cached_at)
       } else if (newsResult.status === 'rejected') {
-        setLoadError('Gagal memuat berita. Coba refresh.')
+        setLoadError(t('Gagal memuat berita. Coba refresh.'))
       }
 
       if (ytResult.status === 'fulfilled' && ytResult.value.items) {
@@ -1254,11 +1263,11 @@ export default function BPIIntelligence() {
       all.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime())
       setNews(all)
     } catch {
-      setLoadError('Gagal memuat berita. Coba refresh.')
+      setLoadError(t('Gagal memuat berita. Coba refresh.'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const handleRefresh = () => { void loadNews(true) }
   useEffect(() => { void loadNews() }, [loadNews])
@@ -1318,13 +1327,13 @@ export default function BPIIntelligence() {
       const data = await res.json()
       // Drop response if a newer request superseded this one
       if (myReqId !== contentRequestIdRef.current) return
-      if (!res.ok) throw new Error(data.error ?? 'Gagal membuat konten')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal membuat konten'))
       setContent(data.content ?? null)
       setHeadlineMeta(data.headline_meta ?? null)
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') return
       if (myReqId !== contentRequestIdRef.current) return
-      setAnalyzeError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+      setAnalyzeError(e instanceof Error ? e.message : t('Terjadi kesalahan'))
     } finally {
       if (myReqId === contentRequestIdRef.current) {
         setAnalyzing(false)
@@ -1342,13 +1351,13 @@ export default function BPIIntelligence() {
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ minWidth: 0 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Koneksi Indonesia ke Dunia</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{t('Koneksi Indonesia ke Dunia')}</span>
               {!loading && (
-                <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 8 }}>{news.length} konten</span>
+                <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 8 }}>{news.length} {t('konten')}</span>
               )}
               {cachedAt && !loading && (
                 <span style={{ fontSize: 10, color: 'var(--text2)', marginLeft: 6, opacity: 0.6 }}>
-                  · diperbarui {timeAgo(new Date(cachedAt).toISOString())}
+                  · {t('diperbarui')} {timeAgo(new Date(cachedAt).toISOString())}
                 </span>
               )}
             </div>
@@ -1401,7 +1410,7 @@ export default function BPIIntelligence() {
           {loading ? (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text2)', fontSize: 13 }}>
               <div style={{ width: 24, height: 24, border: '2px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-              Mengambil berita terbaru...
+              {t('Mengambil berita terbaru...')}
             </div>
           ) : loadError ? (
             <div style={{ padding: '12px 16px', background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 8, color: '#ff6b6b', fontSize: 13 }}>
@@ -1410,9 +1419,9 @@ export default function BPIIntelligence() {
           ) : counts.video === 0 && filter === 'video' && !youtubeReady ? (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center', padding: 24, color: 'var(--text2)' }}>
               <div style={{ fontSize: 32, opacity: 0.3 }}>▶</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>YouTube API belum dikonfigurasi</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('YouTube API belum dikonfigurasi')}</div>
               <div style={{ fontSize: 12, lineHeight: 1.7, maxWidth: 280 }}>
-                Tambahkan <code style={{ background: 'var(--bg3)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>YOUTUBE_API_KEY</code> ke file <code style={{ background: 'var(--bg3)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>.env.local</code> untuk mengaktifkan konten video langsung dari YouTube.
+                {t('Tambahkan')} <code style={{ background: 'var(--bg3)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>YOUTUBE_API_KEY</code> {t('ke file')} <code style={{ background: 'var(--bg3)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>.env.local</code> {t('untuk mengaktifkan konten video langsung dari YouTube.')}
               </div>
               <a
                 href="https://console.cloud.google.com/apis/library/youtube.googleapis.com"
@@ -1420,7 +1429,7 @@ export default function BPIIntelligence() {
                 rel="noopener noreferrer"
                 style={{ fontSize: 11, color: '#e53e3e', fontWeight: 600, textDecoration: 'none' }}
               >
-                Buka Google Cloud Console →
+                {t('Buka Google Cloud Console →')}
               </a>
             </div>
           ) : filtered.length === 0 ? (
@@ -1430,19 +1439,19 @@ export default function BPIIntelligence() {
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', opacity: 0.5 }}>
                 {filter === 'internasional'
-                  ? 'Tidak ada liputan Indonesia hari ini'
-                  : 'Belum ada konten di kategori ini'}
+                  ? t('Tidak ada liputan Indonesia hari ini')
+                  : t('Belum ada konten di kategori ini')}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.6, maxWidth: 240, opacity: 0.7 }}>
                 {filter === 'internasional'
-                  ? 'BBC & Al Jazeera sedang tidak memuat artikel tentang Indonesia. Coba refresh beberapa saat lagi.'
-                  : 'Coba tekan Refresh untuk memuat ulang berita terbaru.'}
+                  ? t('BBC & Al Jazeera sedang tidak memuat artikel tentang Indonesia. Coba refresh beberapa saat lagi.')
+                  : t('Coba tekan Refresh untuk memuat ulang berita terbaru.')}
               </div>
               <button
                 onClick={handleRefresh}
                 style={{ marginTop: 4, fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
               >
-                ↻ Refresh sekarang
+                ↻ {t('Refresh sekarang')}
               </button>
             </div>
           ) : (
@@ -1477,9 +1486,9 @@ export default function BPIIntelligence() {
 
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>✦ Konten BPI</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>✦ {t('Konten BPI')}</div>
           <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
-            Headline · Caption · Hashtags siap-pakai
+            {t('Headline · Caption · Hashtags siap-pakai')}
           </div>
         </div>
 
@@ -1488,7 +1497,7 @@ export default function BPIIntelligence() {
           {analyzedItem && (
             <button
               onClick={() => setPreviewItem(analyzedItem)}
-              title="Buka preview artikel"
+              title={t('Buka preview artikel')}
               className="source-card"
               style={{
                 padding: '10px 14px', background: 'var(--bg3)', borderRadius: 8,
@@ -1500,7 +1509,7 @@ export default function BPIIntelligence() {
               }}
             >
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1 }}>
-                Sumber berita
+                {t('Sumber berita')}
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                 <span style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }}>{CAT_META[analyzedItem.category].icon}</span>
@@ -1521,11 +1530,11 @@ export default function BPIIntelligence() {
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, textAlign: 'center', color: 'var(--text2)' }}>
               <div style={{ fontSize: 32, opacity: 0.25 }}>✦</div>
               <div style={{ fontSize: 13, lineHeight: 1.7 }}>
-                Klik artikel untuk preview<br />
-                lalu tekan <strong style={{ color: 'var(--text)' }}>✦ Buat Konten dengan AI</strong>
+                {t('Klik artikel untuk preview')}<br />
+                {t('lalu tekan')} <strong style={{ color: 'var(--text)' }}>✦ {t('Buat Konten dengan AI')}</strong>
               </div>
               <div style={{ fontSize: 11, lineHeight: 1.6, maxWidth: 260 }}>
-                AI akan menghasilkan headline, caption, dan hashtag siap-posting untuk akun BPI
+                {t('AI akan menghasilkan headline, caption, dan hashtag siap-posting untuk akun BPI')}
               </div>
             </div>
           )}
@@ -1533,7 +1542,7 @@ export default function BPIIntelligence() {
           {analyzing && (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: 'var(--text2)', fontSize: 13 }}>
               <div style={{ width: 24, height: 24, border: '2px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-              Membuat konten…
+              {t('Membuat konten…')}
             </div>
           )}
 
@@ -1585,7 +1594,7 @@ export default function BPIIntelligence() {
                   transition: 'all 0.15s',
                 }}
               >
-                {copiedField === 'all' ? '✓ Tersalin — siap dipaste' : '⧉ Copy Caption + Hashtags'}
+                {copiedField === 'all' ? t('✓ Tersalin — siap dipaste') : '⧉ Copy Caption + Hashtags'}
               </button>
 
               <button

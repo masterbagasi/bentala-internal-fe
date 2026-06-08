@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { deleteFilesBatch, formatBytes, listFiles, type StoredFile } from '@/lib/storage'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 type FilterKind = 'all' | 'image' | 'video'
 
@@ -28,6 +29,7 @@ export function MediaGallery({
   onSelect,
   onClose,
 }: Props) {
+  const t = useT()
   const [files, setFiles] = useState<StoredFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -111,18 +113,18 @@ export function MediaGallery({
     setPendingDelete(null)
 
     if (batchError) {
-      showToast('error', `Gagal hapus: ${batchError}`)
+      showToast('error', `${t('Gagal hapus')}: ${batchError}`)
     } else if (removedSet.size === targets.length) {
       showToast(
         'success',
         targets.length === 1
-          ? `File "${targets[0].name}" berhasil dihapus`
-          : `${targets.length} file berhasil dihapus`,
+          ? `${t('File')} "${targets[0].name}" ${t('berhasil dihapus')}`
+          : `${targets.length} ${t('file berhasil dihapus')}`,
       )
     } else {
       showToast(
         'error',
-        `${removedSet.size} dari ${targets.length} terhapus, sebagian gagal`,
+        `${removedSet.size} ${t('dari')} ${targets.length} ${t('terhapus, sebagian gagal')}`,
       )
     }
     // Modal stays open intentionally.
@@ -184,14 +186,14 @@ export function MediaGallery({
         >
           <div>
             <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-              {filter === 'image' ? 'Riwayat Gambar' : filter === 'video' ? 'Riwayat Video' : 'Riwayat Media'}
+              {filter === 'image' ? t('Riwayat Gambar') : filter === 'video' ? t('Riwayat Video') : t('Riwayat Media')}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>
               {filter === 'image'
-                ? 'Hanya gambar yang pernah Anda upload · klik untuk pilih ulang'
+                ? t('Hanya gambar yang pernah Anda upload · klik untuk pilih ulang')
                 : filter === 'video'
-                ? 'Hanya video yang pernah Anda upload · klik untuk pilih ulang'
-                : 'File yang pernah Anda upload · klik untuk pilih ulang'}
+                ? t('Hanya video yang pernah Anda upload · klik untuk pilih ulang')
+                : t('File yang pernah Anda upload · klik untuk pilih ulang')}
             </div>
           </div>
           <button
@@ -328,7 +330,7 @@ export function MediaGallery({
           )}
 
           {loading ? (
-            <div style={{ color: 'var(--text2)', fontSize: 13, textAlign: 'center', padding: 24 }}>Memuat…</div>
+            <div style={{ color: 'var(--text2)', fontSize: 13, textAlign: 'center', padding: 24 }}>{t('Memuat…')}</div>
           ) : filtered.length === 0 ? (
             <div
               style={{
@@ -341,10 +343,10 @@ export function MediaGallery({
               }}
             >
               {filter === 'image'
-                ? 'Belum ada gambar yang pernah di-upload.'
+                ? t('Belum ada gambar yang pernah di-upload.')
                 : filter === 'video'
-                ? 'Belum ada video yang pernah di-upload.'
-                : 'Belum ada file yang pernah di-upload di section ini.'}
+                ? t('Belum ada video yang pernah di-upload.')
+                : t('Belum ada file yang pernah di-upload di section ini.')}
             </div>
           ) : (
             <>
@@ -399,14 +401,14 @@ export function MediaGallery({
                       }}
                       style={{ width: 16, height: 16, cursor: 'pointer' }}
                     />
-                    Pilih Semua{' '}
+                    {t('Pilih Semua')}{' '}
                     <span style={{ color: 'var(--text2)' }}>
                       ({selected.size}/{filtered.length})
                     </span>
                   </label>
                 ) : (
                   <span style={{ fontSize: 12, color: 'var(--text2)' }}>
-                    {filtered.length} file
+                    {filtered.length} {t('file')}
                   </span>
                 )}
 
@@ -436,7 +438,7 @@ export function MediaGallery({
                         <polyline points="3 6 5 6 21 6" />
                         <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
                       </svg>
-                      Hapus ({selected.size})
+                      {t('Hapus')} ({selected.size})
                     </button>
                   )}
                   <button
@@ -458,7 +460,7 @@ export function MediaGallery({
                       justifyContent: 'center',
                     }}
                   >
-                    {selectMode ? 'Batalkan' : 'Pilih'}
+                    {selectMode ? t('Batalkan') : t('Pilih')}
                   </button>
                 </div>
               </div>
@@ -556,7 +558,7 @@ export function MediaGallery({
                           textTransform: 'uppercase',
                         }}
                       >
-                        Sedang dipakai
+                        {t('Sedang dipakai')}
                       </div>
                     )}
 
@@ -587,7 +589,7 @@ export function MediaGallery({
                         e.stopPropagation()
                         requestDelete([file])
                       }}
-                      title="Hapus dari storage"
+                      title={t('Hapus dari storage')}
                       style={{
                         position: 'absolute',
                         bottom: 6,
@@ -706,17 +708,17 @@ export function MediaGallery({
                 </svg>
               </div>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
-                Hapus {pendingDelete.length} file?
+                {t('Hapus')} {pendingDelete.length} {t('file?')}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, marginBottom: 16 }}>
                 {pendingDelete.length === 1 ? (
                   <>
-                    File <strong style={{ color: 'var(--text)' }}>{pendingDelete[0].name}</strong> akan
-                    dihapus permanen dari storage. Tidak bisa di-undo.
+                    {t('File')} <strong style={{ color: 'var(--text)' }}>{pendingDelete[0].name}</strong>{' '}
+                    {t('akan dihapus permanen dari storage. Tidak bisa di-undo.')}
                   </>
                 ) : (
                   <>
-                    {pendingDelete.length} file akan dihapus permanen dari storage. Tidak bisa di-undo.
+                    {pendingDelete.length} {t('file akan dihapus permanen dari storage. Tidak bisa di-undo.')}
                   </>
                 )}
               </div>
@@ -737,7 +739,7 @@ export function MediaGallery({
                     opacity: deleting ? 0.6 : 1,
                   }}
                 >
-                  Batal
+                  {t('Batal')}
                 </button>
                 <button
                   type="button"
@@ -756,7 +758,7 @@ export function MediaGallery({
                     opacity: deleting ? 0.7 : 1,
                   }}
                 >
-                  {deleting ? 'Menghapus…' : 'Hapus'}
+                  {deleting ? t('Menghapus…') : t('Hapus')}
                 </button>
               </div>
             </div>

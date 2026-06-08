@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const TOOLS = [
   {
@@ -60,6 +61,7 @@ const TOOLS = [
 ]
 
 function ToolCard({ tool }: { tool: typeof TOOLS[0] }) {
+  const t = useT()
   return (
     <Link href={tool.href} style={{ textDecoration: 'none' }}>
       <div
@@ -94,8 +96,8 @@ function ToolCard({ tool }: { tool: typeof TOOLS[0] }) {
           <div style={{ fontSize: 18, color: tool.color, opacity: 0.5 }}>→</div>
         </div>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{tool.label}</div>
-          <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>{tool.desc}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{t(tool.label)}</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.6 }}>{t(tool.desc)}</div>
         </div>
       </div>
     </Link>
@@ -103,6 +105,7 @@ function ToolCard({ tool }: { tool: typeof TOOLS[0] }) {
 }
 
 export default function AIStudioHub() {
+  const t = useT()
   return (
     <div style={{ padding: '32px 28px', maxWidth: 900, margin: '0 auto' }}>
       <div style={{ marginBottom: 32 }}>
@@ -111,7 +114,7 @@ export default function AIStudioHub() {
           <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)', margin: 0 }}>AI Studio</h1>
         </div>
         <p style={{ fontSize: 14, color: 'var(--text2)', margin: 0, paddingLeft: 52 }}>
-          Suite alat kreatif berbasis AI untuk tim Bentala
+          {t('Suite alat kreatif berbasis AI untuk tim Bentala')}
         </p>
       </div>
 

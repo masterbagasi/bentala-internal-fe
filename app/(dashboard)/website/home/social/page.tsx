@@ -8,6 +8,7 @@ import { PrimaryActionButton } from '@/components/website/PageActions'
 import { FormField, inputStyle } from '@/components/website/FormField'
 import { ActionButton, IconBtn, ListEmpty, ListError, ModalShell, RowCard } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const PLATFORM_LABELS: Record<BsiSocialLink['platform'], string> = {
   ig: 'Instagram',
@@ -77,6 +78,7 @@ const EMPTY: FormState = {
 }
 
 export default function SocialAdminPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiSocialLink[]>([])
   const [loading, setLoading] = useState(true)
@@ -97,7 +99,7 @@ export default function SocialAdminPage() {
   useEffect(() => { load() }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus link ini?')) return
+    if (!confirm(t('Hapus link ini?'))) return
     const { error } = await supabase.from('bsi_social_links').delete().eq('id', id)
     if (error) { alert(error.message); return }
     setItems((xs) => xs.filter((x) => x.id !== id))
@@ -113,7 +115,7 @@ export default function SocialAdminPage() {
   }
 
   useRegisterPageAction(
-    <PrimaryActionButton onClick={() => setCreating(true)}>+ Tambah Link</PrimaryActionButton>,
+    <PrimaryActionButton onClick={() => setCreating(true)}>{t('+ Tambah Link')}</PrimaryActionButton>,
   )
 
   return (
@@ -122,9 +124,9 @@ export default function SocialAdminPage() {
         {error && <ListError message={error} />}
         <Section title="Social Links">
           {loading ? (
-            <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+            <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
           ) : items.length === 0 ? (
-            <ListEmpty message="Belum ada social link." />
+            <ListEmpty message={t('Belum ada social link.')} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
               {items.map((s) => (
@@ -151,10 +153,10 @@ export default function SocialAdminPage() {
                     <div style={{ fontSize: 11, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.url}</div>
                   </div>
                   <IconBtn onClick={() => setEditing(s)} title="Edit">✎</IconBtn>
-                  <IconBtn onClick={() => togglePublish(s)} title={s.is_published ? 'Sembunyikan' : 'Tampilkan'} color={s.is_published ? 'var(--accent3)' : 'var(--text2)'}>
+                  <IconBtn onClick={() => togglePublish(s)} title={s.is_published ? t('Sembunyikan') : t('Tampilkan')} color={s.is_published ? 'var(--accent3)' : 'var(--text2)'}>
                     {s.is_published ? '●' : '○'}
                   </IconBtn>
-                  <IconBtn onClick={() => handleDelete(s.id)} title="Hapus" color="#ff6b6b">×</IconBtn>
+                  <IconBtn onClick={() => handleDelete(s.id)} title={t('Hapus')} color="#ff6b6b">×</IconBtn>
                 </RowCard>
               ))}
             </div>
@@ -174,6 +176,7 @@ export default function SocialAdminPage() {
 }
 
 function SocialModal({ initial, onClose, onSaved }: { initial: BsiSocialLink | null; onClose: () => void; onSaved: () => void }) {
+  const t = useT()
   const supabase = getSupabase()
   const [form, setForm] = useState<FormState>(
     initial
@@ -198,12 +201,12 @@ function SocialModal({ initial, onClose, onSaved }: { initial: BsiSocialLink | n
 
   return (
     <ModalShell
-      title={initial ? 'Edit Link' : 'Tambah Link'}
+      title={initial ? t('Edit Link') : t('Tambah Link')}
       onClose={onClose}
       footer={
         <>
-          <button onClick={onClose} style={{ flex: 1, height: 36, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Batal</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, height: 36, background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1 }}>{saving ? 'Menyimpan…' : initial ? 'Simpan' : 'Tambah'}</button>
+          <button onClick={onClose} style={{ flex: 1, height: 36, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>{t('Batal')}</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 1, height: 36, background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1 }}>{saving ? t('Menyimpan…') : initial ? t('Simpan') : t('Tambah')}</button>
         </>
       }
     >
@@ -220,16 +223,16 @@ function SocialModal({ initial, onClose, onSaved }: { initial: BsiSocialLink | n
           <option value="whatsapp">WhatsApp</option>
         </select>
       </FormField>
-      <FormField label="Handle" required hint="Contoh: @bentalastudio atau +6281234567890">
+      <FormField label="Handle" required hint={t('Contoh: @bentalastudio atau +6281234567890')}>
         <input style={inputStyle} value={form.handle} onChange={(e) => update('handle', e.target.value)} />
       </FormField>
-      <FormField label="URL" required hint="Link tujuan saat di-klik">
+      <FormField label="URL" required hint={t('Link tujuan saat di-klik')}>
         <input style={inputStyle} value={form.url} onChange={(e) => update('url', e.target.value)} placeholder="https://..." />
       </FormField>
       <FormField label="Status">
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', cursor: 'pointer' }}>
           <input type="checkbox" checked={form.is_published} onChange={(e) => update('is_published', e.target.checked)} />
-          Tampilkan di website
+          {t('Tampilkan di website')}
         </label>
       </FormField>
     </ModalShell>

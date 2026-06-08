@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { useEditor, EditorContent, Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyle, FontSize } from '@tiptap/extension-text-style'
@@ -328,6 +329,7 @@ function Toolbar({
   editor: Editor | null
   stickyMarkRef: React.MutableRefObject<Record<string, string | null> | null>
 }) {
+  const t = useT()
   if (!editor) {
     return <div style={{ height: 40, padding: 8, borderBottom: '1px solid var(--border)' }} />
   }
@@ -492,7 +494,7 @@ function Toolbar({
       />
 
       <Dropdown
-        label={`Spacing baris: ${LINE_HEIGHTS.find((h) => h.value === currentLineHeight)?.label ?? 'default'}`}
+        label={`${t('Spacing baris')}: ${LINE_HEIGHTS.find((h) => h.value === currentLineHeight)?.label ?? 'default'}`}
         items={LINE_HEIGHTS.map((h) => ({
           label: h.label,
           onSelect: () =>
@@ -697,6 +699,7 @@ function ColorPicker({
   onSelect: (color: string) => void
   onClear: () => void
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -715,7 +718,7 @@ function ColorPicker({
         type="button"
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setOpen((v) => !v)}
-        title="Warna teks"
+        title={t('Warna teks')}
         style={{
           height: 28,
           padding: '0 8px',
@@ -767,6 +770,7 @@ function ColorPickerPanel({
   onSelect: (color: string) => void
   onClear: () => void
 }) {
+  const t = useT()
   const [hexInput, setHexInput] = useState(toHexString(currentColor))
 
   useEffect(() => {
@@ -881,7 +885,7 @@ function ColorPickerPanel({
         </button>
       </div>
       <div style={{ fontSize: 10, color: 'var(--text2)', opacity: 0.6, marginTop: 4 }}>
-        Format: #RRGGBB atau #RGB
+        {t('Format: #RRGGBB atau #RGB')}
       </div>
 
       <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--text2)', textTransform: 'uppercase', marginTop: 12, marginBottom: 6 }}>
@@ -921,7 +925,7 @@ function ColorPickerPanel({
           cursor: 'pointer',
         }}
       >
-        Reset warna
+        {t('Reset warna')}
       </button>
     </div>
   )

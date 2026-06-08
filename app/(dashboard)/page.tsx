@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PageShell } from '@/components/shared/PageShell'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { TEAM, CRM_STAGES } from '@/lib/constants'
 import { formatRupiah, timeAgo } from '@/lib/utils'
@@ -238,6 +239,7 @@ interface WebsiteStats {
 }
 
 function WebsiteTab() {
+  const t = useT()
   const supabase = getSupabase()
   const [stats, setStats] = useState<WebsiteStats | null>(null)
   const [tableMissing, setTableMissing] = useState(false)
@@ -308,14 +310,14 @@ function WebsiteTab() {
 
   if (tableMissing) {
     return (
-      <Panel title="Analytics belum aktif">
+      <Panel title={t('Analytics belum aktif')}>
         <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, margin: 0 }}>
-          Tabel <code style={{ background: 'var(--bg3)', padding: '2px 6px', borderRadius: 4 }}>bsi_visitors</code>{' '}
-          belum ada di Supabase. Jalankan{' '}
+          {t('Tabel')} <code style={{ background: 'var(--bg3)', padding: '2px 6px', borderRadius: 4 }}>bsi_visitors</code>{' '}
+          {t('belum ada di Supabase. Jalankan')}{' '}
           <code style={{ background: 'var(--bg3)', padding: '2px 6px', borderRadius: 4 }}>
             supabase/migration_analytics.sql
           </code>{' '}
-          di SQL Editor lalu refresh.
+          {t('di SQL Editor lalu refresh.')}
         </p>
       </Panel>
     )
@@ -325,31 +327,31 @@ function WebsiteTab() {
     <>
       <KpiGrid>
         <KpiCard
-          label="Visitor Hari Ini"
+          label={t('Visitor Hari Ini')}
           value={stats?.visitorsToday ?? '…'}
-          sub="Unique visitor (24 jam terakhir)"
+          sub={t('Unique visitor (24 jam terakhir)')}
           accent="var(--accent)"
         />
         <KpiCard
-          label="Visitor 7 Hari"
+          label={t('Visitor 7 Hari')}
           value={stats?.visitors7d ?? '…'}
-          sub="Rolling 7 hari terakhir"
+          sub={t('Rolling 7 hari terakhir')}
         />
         <KpiCard
-          label="Pageview Hari Ini"
+          label={t('Pageview Hari Ini')}
           value={stats?.pageviewsToday ?? '…'}
-          sub="Total page view"
+          sub={t('Total page view')}
         />
         <KpiCard
-          label="Lead Hari Ini"
+          label={t('Lead Hari Ini')}
           value={stats?.leadsToday ?? '…'}
-          sub="Form submission masuk"
+          sub={t('Form submission masuk')}
           accent="var(--accent3)"
         />
       </KpiGrid>
 
       <TwoCol>
-        <Panel title="Halaman Teratas (7 hari)">
+        <Panel title={t('Halaman Teratas (7 hari)')}>
           {stats && stats.topPages.length > 0 ? (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {stats.topPages.map((p) => (
@@ -371,14 +373,14 @@ function WebsiteTab() {
             </ul>
           ) : (
             <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)' }}>
-              Belum ada data pageview.
+              {t('Belum ada data pageview.')}
             </p>
           )}
         </Panel>
 
         <Panel title="Quick Actions">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <QuickLink href="/website/visitors" label="Lihat semua visitor" hint="Detailed visitor list" />
+            <QuickLink href="/website/visitors" label={t('Lihat semua visitor')} hint="Detailed visitor list" />
             <QuickLink href="/website/home" label="Edit Home Page" hint="Hero, services, portfolio" />
             <QuickLink href="/website/about" label="Edit About Page" hint="Story, values, team" />
             <QuickLink href="/website/news" label="Manage News Feed" hint="Instagram + TikTok posts" />
@@ -394,6 +396,7 @@ function WebsiteTab() {
 // ─── BPI / BSI content tab (shared) ─────────────────────────────
 
 function PostsTab({ entity, label }: { entity: 'bpi' | 'bsi'; label: string }) {
+  const t = useT()
   const { posts } = useStore()
   const entityPosts = useMemo(
     () => posts.filter((p) => p.entity === entity),
@@ -431,16 +434,16 @@ function PostsTab({ entity, label }: { entity: 'bpi' | 'bsi'; label: string }) {
   return (
     <>
       <KpiGrid>
-        <KpiCard label="Bulan Ini" value={thisMonth.length} sub="Post terjadwal" accent="var(--accent)" />
-        <KpiCard label="Bulan Lalu" value={lastMonth.length} sub="Perbandingan" />
-        <KpiCard label="Ready to Post" value={ready.length} sub="Siap dipublish" accent="var(--accent3)" />
-        <KpiCard label="In Production" value={scheduled.length} sub="Masih digarap" />
-        <KpiCard label="Trend MoM" value={trend} sub="vs bulan lalu" />
+        <KpiCard label={t('Bulan Ini')} value={thisMonth.length} sub={t('Post terjadwal')} accent="var(--accent)" />
+        <KpiCard label={t('Bulan Lalu')} value={lastMonth.length} sub={t('Perbandingan')} />
+        <KpiCard label="Ready to Post" value={ready.length} sub={t('Siap dipublish')} accent="var(--accent3)" />
+        <KpiCard label="In Production" value={scheduled.length} sub={t('Masih digarap')} />
+        <KpiCard label="Trend MoM" value={trend} sub={t('vs bulan lalu')} />
       </KpiGrid>
 
       <TwoCol>
         <Panel
-          title="Post Terbaru"
+          title={t('Post Terbaru')}
           action={
             <span
               style={{
@@ -490,15 +493,15 @@ function PostsTab({ entity, label }: { entity: 'bpi' | 'bsi'; label: string }) {
             </ul>
           ) : (
             <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)' }}>
-              Belum ada post untuk {label}.
+              {t('Belum ada post untuk')} {label}.
             </p>
           )}
         </Panel>
 
         <Panel title="Quick Actions">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <QuickLink href={detailHref} label="Manage Content" hint={`Kelola post ${label}`} />
-            <QuickLink href={calendarHref} label="Content Calendar" hint="Jadwal post per tanggal" />
+            <QuickLink href={detailHref} label="Manage Content" hint={`${t('Kelola post')} ${label}`} />
+            <QuickLink href={calendarHref} label="Content Calendar" hint={t('Jadwal post per tanggal')} />
           </div>
         </Panel>
       </TwoCol>
@@ -509,6 +512,7 @@ function PostsTab({ entity, label }: { entity: 'bpi' | 'bsi'; label: string }) {
 // ─── Client tab ────────────────────────────────────────────────
 
 function ClientTab() {
+  const t = useT()
   const { clients, invoices } = useStore()
 
   const totalLeads = clients.length
@@ -529,7 +533,7 @@ function ClientTab() {
         <KpiCard label="Active Pipeline" value={active.length} sub="Lead + Pitch + Close" accent="var(--accent)" />
         <KpiCard label="Revenue Pipeline" value={formatRupiah(pipeline)} sub="Total deal value" accent="var(--accent4)" />
         <KpiCard label="Paid Revenue" value={formatRupiah(paidTotal)} sub={`${paidInvoices.length} invoice`} accent="var(--accent3)" />
-        <KpiCard label="Outstanding Invoice" value={unpaidInvoices.length} sub="Belum dibayar" />
+        <KpiCard label="Outstanding Invoice" value={unpaidInvoices.length} sub={t('Belum dibayar')} />
       </KpiGrid>
 
       <TwoCol>
@@ -567,7 +571,7 @@ function ClientTab() {
           </div>
         </Panel>
 
-        <Panel title="Lead Terbaru">
+        <Panel title={t('Lead Terbaru')}>
           {recent.length > 0 ? (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {recent.map((c) => (
@@ -591,7 +595,7 @@ function ClientTab() {
               ))}
             </ul>
           ) : (
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)' }}>Belum ada lead.</p>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)' }}>{t('Belum ada lead.')}</p>
           )}
         </Panel>
       </TwoCol>
@@ -605,9 +609,9 @@ function ClientTab() {
               gap: 8,
             }}
           >
-            <QuickLink href="/website/leads" label="Website Leads" hint="Lead masuk dari form" />
-            <QuickLink href="/clients" label="CRM Pipeline" hint="Kanban kanban deal" />
-            <QuickLink href="/invoices" label="Invoice & Bayar" hint="Status pembayaran" />
+            <QuickLink href="/website/leads" label="Website Leads" hint={t('Lead masuk dari form')} />
+            <QuickLink href="/clients" label="CRM Pipeline" hint={t('Kanban kanban deal')} />
+            <QuickLink href="/invoices" label={t('Invoice & Bayar')} hint={t('Status pembayaran')} />
           </div>
         </Panel>
       </div>
@@ -618,6 +622,7 @@ function ClientTab() {
 // ─── Projects tab ──────────────────────────────────────────────
 
 function ProjectsTab() {
+  const t = useT()
   const { projects, tasks } = useStore()
 
   const active = projects.filter((p) => p.status === 'active')
@@ -636,15 +641,15 @@ function ProjectsTab() {
   return (
     <>
       <KpiGrid>
-        <KpiCard label="Active Projects" value={active.length} sub="Sedang berjalan" accent="var(--accent)" />
-        <KpiCard label="Completed" value={completed.length} sub="Sudah selesai" accent="var(--accent3)" />
-        <KpiCard label="Task Minggu Ini" value={weekTasks.length} sub="Semua tim" />
-        <KpiCard label="In Progress" value={inProgress.length} sub="Sedang dikerjakan" />
-        <KpiCard label="Overdue" value={overdue.length} sub="Lewat deadline" accent={overdue.length > 0 ? '#ff6b6b' : undefined} />
+        <KpiCard label="Active Projects" value={active.length} sub={t('Sedang berjalan')} accent="var(--accent)" />
+        <KpiCard label="Completed" value={completed.length} sub={t('Sudah selesai')} accent="var(--accent3)" />
+        <KpiCard label={t('Task Minggu Ini')} value={weekTasks.length} sub={t('Semua tim')} />
+        <KpiCard label="In Progress" value={inProgress.length} sub={t('Sedang dikerjakan')} />
+        <KpiCard label="Overdue" value={overdue.length} sub={t('Lewat deadline')} accent={overdue.length > 0 ? '#ff6b6b' : undefined} />
       </KpiGrid>
 
       <TwoCol>
-        <Panel title="Task Terbaru">
+        <Panel title={t('Task Terbaru')}>
           {recentTasks.length > 0 ? (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {recentTasks.map((t) => (
@@ -671,14 +676,14 @@ function ProjectsTab() {
               ))}
             </ul>
           ) : (
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)' }}>Belum ada task.</p>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)' }}>{t('Belum ada task.')}</p>
           )}
         </Panel>
 
         <Panel title="Quick Actions">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <QuickLink href="/projects" label="All Projects" hint="Semua project aktif" />
-            <QuickLink href="/tasks" label="Task Board" hint="Kanban task" />
+            <QuickLink href="/projects" label="All Projects" hint={t('Semua project aktif')} />
+            <QuickLink href="/tasks" label="Task Board" hint={t('Kanban task')} />
             <QuickLink href="/pipeline/vp" label="Video Pipeline" hint="Video production workflow" />
             <QuickLink href="/pipeline/ds" label="Design Pipeline" hint="Design studio workflow" />
           </div>
@@ -691,6 +696,7 @@ function ProjectsTab() {
 // ─── Team tab ──────────────────────────────────────────────────
 
 function TeamTab() {
+  const t = useT()
   const { activity, tasks } = useStore()
   const recentActivity = activity.slice(0, 8)
 
@@ -702,17 +708,17 @@ function TeamTab() {
   return (
     <>
       <KpiGrid>
-        <KpiCard label="Total Team" value={TEAM.length} sub="Anggota aktif" />
+        <KpiCard label="Total Team" value={TEAM.length} sub={t('Anggota aktif')} />
         <KpiCard
           label="Total Open Tasks"
           value={tasks.filter((t) => t.status !== 'done').length}
-          sub="Semua assignee"
+          sub={t('Semua assignee')}
         />
-        <KpiCard label="Activity Hari Ini" value={recentActivity.length} sub="8 terbaru" accent="var(--accent)" />
+        <KpiCard label={t('Activity Hari Ini')} value={recentActivity.length} sub={t('8 terbaru')} accent="var(--accent)" />
       </KpiGrid>
 
       <TwoCol>
-        <Panel title="Workload per Anggota">
+        <Panel title={t('Workload per Anggota')}>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {tasksByMember.map(({ member, count }) => (
               <li
@@ -764,7 +770,7 @@ function TeamTab() {
           </ul>
         </Panel>
 
-        <Panel title="Aktivitas Tim">
+        <Panel title={t('Aktivitas Tim')}>
           {recentActivity.length > 0 ? (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {recentActivity.map((a) => (
@@ -786,7 +792,7 @@ function TeamTab() {
             </ul>
           ) : (
             <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)' }}>
-              Belum ada aktivitas tim tercatat.
+              {t('Belum ada aktivitas tim tercatat.')}
             </p>
           )}
         </Panel>
@@ -795,8 +801,8 @@ function TeamTab() {
       <div style={{ marginTop: 16 }}>
         <Panel title="Quick Actions">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360 }}>
-            <QuickLink href="/team" label="Team & Roles" hint="Manage anggota tim" />
-            <QuickLink href="/tasks" label="Task Board" hint="Lihat semua task" />
+            <QuickLink href="/team" label="Team & Roles" hint={t('Manage anggota tim')} />
+            <QuickLink href="/tasks" label="Task Board" hint={t('Lihat semua task')} />
           </div>
         </Panel>
       </div>

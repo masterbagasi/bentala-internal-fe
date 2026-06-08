@@ -4,6 +4,7 @@
 // Preview-only; mock data from ./mock.
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { Card, SectionTitle } from './ui'
 import {
   OVERVIEW, VIEWS_BY_TYPE, INTERACTIONS_BY_TYPE, AUDIENCE, ACTIVE_HOURS,
@@ -64,6 +65,7 @@ export function OverviewStats(props: {
   views?: number; reach?: number; interactions?: number
   likes?: number; comments?: number; saves?: number; shares?: number
 } = {}) {
+  const t = useT()
   const n = (v: number) => v.toLocaleString('id-ID')
   const views = props.views ?? OVERVIEW.views
   const reach = props.reach ?? OVERVIEW.accountsReached
@@ -76,11 +78,11 @@ export function OverviewStats(props: {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 16 }}>
       <BigStat label="Views" value={n(views)} sub={`${n(reach)} accounts reached`} />
       <BigStat label="Net followers" value={(OVERVIEW.netFollowers > 0 ? '+' : '') + OVERVIEW.netFollowers}
-        sub={`+${OVERVIEW.follows} follows · -${OVERVIEW.unfollows} unfollows · 28 hari`}
+        sub={`+${OVERVIEW.follows} follows · -${OVERVIEW.unfollows} unfollows · ${t('28 hari')}`}
         negative={OVERVIEW.netFollowers < 0} />
       <BigStat label="Interactions" value={n(interactions)}
-        sub={`${n(likes)} likes · ${n(comments)} komentar · ${n(saves)} saves`} />
-      <BigStat label="Shares" value={n(shares)} sub="periode terpilih" />
+        sub={`${n(likes)} likes · ${n(comments)} ${t('komentar')} · ${n(saves)} saves`} />
+      <BigStat label="Shares" value={n(shares)} sub={t('periode terpilih')} />
     </div>
   )
 }
@@ -95,11 +97,12 @@ function BigStat({ label, value, sub, negative }: { label: string; value: string
 }
 
 export function ContentTypeViews() {
+  const t = useT()
   const max = Math.max(...VIEWS_BY_TYPE.map(r => r.total), 1)
   return (
     <Card style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-        <SectionTitle>Views per Tipe Konten</SectionTitle>
+        <SectionTitle>{t('Views per Tipe Konten')}</SectionTitle>
         <span style={{ fontSize: 13, color: 'var(--text2)' }}>Accounts reached <strong style={{ color: 'var(--text)' }}>{OVERVIEW.accountsReached.toLocaleString('id-ID')}</strong></span>
       </div>
       <Legend />
@@ -116,16 +119,17 @@ const INTERACTION_TABS = ['Semua', 'Likes', 'Komentar', 'Share', 'Repost'] as co
 const INTERACTION_MULT: Record<string, number> = { Semua: 1, Likes: 0.62, Komentar: 0.24, Share: 0.18, Repost: 0.14 }
 
 export function InteractionsByType() {
+  const t = useT()
   const [tab, setTab] = useState<typeof INTERACTION_TABS[number]>('Semua')
   const mult = INTERACTION_MULT[tab]
   const rows = INTERACTIONS_BY_TYPE.map(r => ({ ...r, total: Math.round(r.total * mult) }))
   const max = Math.max(...rows.map(r => r.total), 1)
   return (
     <Card style={{ marginBottom: 16 }}>
-      <SectionTitle>Interaksi per Tipe Konten</SectionTitle>
+      <SectionTitle>{t('Interaksi per Tipe Konten')}</SectionTitle>
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-        {INTERACTION_TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)} style={pill(tab === t)}>{t}</button>
+        {INTERACTION_TABS.map(tab2 => (
+          <button key={tab2} onClick={() => setTab(tab2)} style={pill(tab === tab2)}>{t(tab2)}</button>
         ))}
       </div>
       <Legend />
@@ -139,6 +143,7 @@ export function InteractionsByType() {
 }
 
 export function ProfileActivity() {
+  const t = useT()
   const items = [
     { label: 'Profile visits', value: OVERVIEW.profileVisits },
     { label: 'External link taps', value: OVERVIEW.externalLinkTaps },
@@ -146,7 +151,7 @@ export function ProfileActivity() {
   ]
   return (
     <Card style={{ marginBottom: 16 }}>
-      <SectionTitle>Aktivitas Profil</SectionTitle>
+      <SectionTitle>{t('Aktivitas Profil')}</SectionTitle>
       {items.map((it, i) => (
         <div key={it.label} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -177,11 +182,12 @@ export function GenderSection() {
 }
 
 export function AgeSection() {
+  const t = useT()
   const rows = AUDIENCE.ageRange
   const max = Math.max(...rows.map(r => r.women + r.men), 1)
   return (
     <Card style={{ marginBottom: 16 }}>
-      <SectionTitle>Rentang Usia</SectionTitle>
+      <SectionTitle>{t('Rentang Usia')}</SectionTitle>
       <div style={{ display: 'flex', gap: 16, marginBottom: 14, fontSize: 12, color: 'var(--text2)' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Dot c={PINK} /> Women</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Dot c={PINK_LIGHT} /> Men</span>
@@ -202,15 +208,16 @@ export function AgeSection() {
 }
 
 export function LocationsSection() {
+  const t = useT()
   const [tab, setTab] = useState<'countries' | 'cities'>('countries')
   const rows: LocationRow[] = tab === 'countries' ? AUDIENCE.countries : AUDIENCE.cities
   const max = Math.max(...rows.map(r => r.pct), 1)
   return (
     <Card style={{ marginBottom: 16 }}>
-      <SectionTitle>Lokasi Teratas</SectionTitle>
+      <SectionTitle>{t('Lokasi Teratas')}</SectionTitle>
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        <button onClick={() => setTab('countries')} style={pill(tab === 'countries')}>Negara</button>
-        <button onClick={() => setTab('cities')} style={pill(tab === 'cities')}>Kota</button>
+        <button onClick={() => setTab('countries')} style={pill(tab === 'countries')}>{t('Negara')}</button>
+        <button onClick={() => setTab('cities')} style={pill(tab === 'cities')}>{t('Kota')}</button>
       </div>
       {rows.map(r => (
         <Row key={r.name} label={r.name} value={pct1(r.pct)}>
@@ -223,12 +230,13 @@ export function LocationsSection() {
 
 const DAYS = ['Su', 'M', 'Tu', 'W', 'Th', 'F', 'Sa']
 export function ActiveTimesSection() {
+  const t = useT()
   const [day, setDay] = useState('Su')
   const bars = AUDIENCE.activeTimes[day] ?? []
   const max = Math.max(...bars, 1)
   return (
     <Card style={{ marginBottom: 16 }}>
-      <SectionTitle>Waktu Aktif Follower</SectionTitle>
+      <SectionTitle>{t('Waktu Aktif Follower')}</SectionTitle>
       <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
         {DAYS.map(d => (
           <button key={d} onClick={() => setDay(d)} style={dayPill(day === d)}>{d}</button>
@@ -247,7 +255,7 @@ export function ActiveTimesSection() {
         ))}
       </div>
       <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 10 }}>Waktu terbaik</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 10 }}>{t('Waktu terbaik')}</div>
         {AUDIENCE.topTimes.map(t => (
           <div key={t.day} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 13 }}>
             <span style={{ color: 'var(--text2)' }}>{t.day}</span>

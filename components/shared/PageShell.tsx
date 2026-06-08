@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ReactNode } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // ── Tab descriptors ─────────────────────────────────────────
 //
@@ -59,6 +60,7 @@ interface Props {
  *  - Body:      flex-1 overflow-y-auto, scrolls within the page card
  */
 export function PageShell({ title, backHref, action, tabs, children }: Props) {
+  const t = useT()
   const pathname = usePathname()
   const hasTabs = !!tabs && tabs.items.length > 0
 
@@ -90,7 +92,7 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
             {backHref && (
               <Link
                 href={backHref}
-                aria-label="Kembali"
+                aria-label={t('Kembali')}
                 style={{
                   width: 28,
                   height: 28,

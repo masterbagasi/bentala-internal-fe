@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { IdeaItem, ContentBrief, Storyline } from '@/lib/types'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const PLATFORMS = ['TikTok', 'Instagram Reels', 'Instagram Feed', 'YouTube Shorts', 'YouTube', 'LinkedIn']
 const FORMATS = ['Short Video', 'Long Video', 'Carousel/Slide', 'Story', 'Talking Head', 'GRWM', 'Tutorial', 'Vlog']
@@ -15,6 +16,7 @@ const SCENE_COLORS: Record<string, string> = {
 type Tab = 'ideas' | 'brief' | 'storyline' | 'caption'
 
 export default function IdeaExplorer() {
+  const t = useT()
   const [topik, setTopik] = useState('')
   const [platform, setPlatform] = useState('TikTok')
   const [format, setFormat] = useState('Short Video')
@@ -61,10 +63,10 @@ export default function IdeaExplorer() {
         body: JSON.stringify({ keyword: topik, platform, format, tone, targetAudiens, referensiAkun: referensiList }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal generate ide')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal generate ide'))
       setIdeas(data.ideas ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+      setError(e instanceof Error ? e.message : t('Terjadi kesalahan'))
     } finally {
       setLoading(false)
     }
@@ -81,10 +83,10 @@ export default function IdeaExplorer() {
         body: JSON.stringify({ idea, platform, format, tone, targetAudiens }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal generate brief')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal generate brief'))
       setBrief(data)
     } catch (e) {
-      setBriefError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+      setBriefError(e instanceof Error ? e.message : t('Terjadi kesalahan'))
     } finally {
       setBriefLoading(false)
     }
@@ -101,10 +103,10 @@ export default function IdeaExplorer() {
         body: JSON.stringify({ idea, platform, format, tone }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal generate storyline')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal generate storyline'))
       setStoryline(data)
     } catch (e) {
-      setStorylineError(e instanceof Error ? e.message : 'Terjadi kesalahan')
+      setStorylineError(e instanceof Error ? e.message : t('Terjadi kesalahan'))
     } finally {
       setStorylineLoading(false)
     }
@@ -157,13 +159,13 @@ export default function IdeaExplorer() {
       }}>
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>
-            Topik / Niche *
+            {t('Topik / Niche *')}
           </label>
           <input
             value={topik}
             onChange={e => setTopik(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && generateIdeas()}
-            placeholder="contoh: fashion muslimah, healthy lifestyle, fintech..."
+            placeholder={t('contoh: fashion muslimah, healthy lifestyle, fintech...')}
             style={{ width: '100%', boxSizing: 'border-box', fontSize: 14 }}
           />
         </div>
@@ -181,7 +183,7 @@ export default function IdeaExplorer() {
 
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>
-            Format Konten
+            {t('Format Konten')}
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {FORMATS.map(f => (
@@ -192,7 +194,7 @@ export default function IdeaExplorer() {
 
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>
-            Tone / Gaya
+            {t('Tone / Gaya')}
           </label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {TONES.map(t => (
@@ -203,12 +205,12 @@ export default function IdeaExplorer() {
 
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>
-            Target Audiens <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 400, textTransform: 'none' }}>(opsional)</span>
+            {t('Target Audiens')} <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 400, textTransform: 'none' }}>{t('(opsional)')}</span>
           </label>
           <textarea
             value={targetAudiens}
             onChange={e => setTargetAudiens(e.target.value)}
-            placeholder="Contoh: perempuan 18-25 tahun, tertarik fashion & lifestyle, tinggal di kota besar..."
+            placeholder={t('Contoh: perempuan 18-25 tahun, tertarik fashion & lifestyle, tinggal di kota besar...')}
             rows={3}
             style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', fontSize: 13 }}
           />
@@ -216,14 +218,14 @@ export default function IdeaExplorer() {
 
         <div>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 8 }}>
-            Referensi Akun <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 400, textTransform: 'none' }}>(opsional)</span>
+            {t('Referensi Akun')} <span style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 400, textTransform: 'none' }}>{t('(opsional)')}</span>
           </label>
           <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
             <input
               value={referensiInput}
               onChange={e => setReferensiInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addReferensi() } }}
-              placeholder="@username atau nama kreator"
+              placeholder={t('@username atau nama kreator')}
               style={{ flex: 1, fontSize: 13 }}
             />
             <button
@@ -263,7 +265,7 @@ export default function IdeaExplorer() {
             transition: 'all 0.15s',
           }}
         >
-          {loading ? '⟳ Generating...' : '✦ Generate Ide'}
+          {loading ? '⟳ Generating...' : t('✦ Generate Ide')}
         </button>
       </div>
 
@@ -273,7 +275,7 @@ export default function IdeaExplorer() {
         {/* Tabs */}
         <div style={{ borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 20px', flexShrink: 0, gap: 0 }}>
           {[
-            { key: 'ideas' as Tab, label: '💡 Ide', count: ideas.length },
+            { key: 'ideas' as Tab, label: t('💡 Ide'), count: ideas.length },
             { key: 'brief' as Tab, label: '📋 Brief', locked: !selectedIdea },
             { key: 'storyline' as Tab, label: '🎬 Storyline', locked: !selectedIdea },
             { key: 'caption' as Tab, label: '📝 Caption', locked: !selectedIdea },
@@ -311,14 +313,14 @@ export default function IdeaExplorer() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60%', gap: 14, color: 'var(--text2)' }}>
                   <div style={{ fontSize: 48, opacity: 0.3 }}>💡</div>
                   <div style={{ fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.6 }}>
-                    Isi form di kiri dan klik <strong style={{ color: 'var(--text)' }}>Generate Ide</strong> untuk mendapatkan 6 angle konten yang relevan
+                    {t('Isi form di kiri dan klik')} <strong style={{ color: 'var(--text)' }}>{t('Generate Ide')}</strong> {t('untuk mendapatkan 6 angle konten yang relevan')}
                   </div>
                 </div>
               )}
               {loading && (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60%', gap: 14, color: 'var(--text2)' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #6c63ff', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
-                  <div style={{ fontSize: 13 }}>Claude sedang brainstorm ide...</div>
+                  <div style={{ fontSize: 13 }}>{t('Claude sedang brainstorm ide...')}</div>
                 </div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
@@ -339,9 +341,9 @@ export default function IdeaExplorer() {
                     >
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                         <span style={{ fontSize: 10, fontWeight: 700, color: '#6c63ff', background: '#6c63ff18', padding: '2px 8px', borderRadius: 10, flexShrink: 0 }}>
-                          Ide {i + 1}
+                          {t('Ide')} {i + 1}
                         </span>
-                        {isSelected && <span style={{ fontSize: 10, color: '#43d9a2', fontWeight: 700 }}>✓ Dipilih</span>}
+                        {isSelected && <span style={{ fontSize: 10, color: '#43d9a2', fontWeight: 700 }}>{t('✓ Dipilih')}</span>}
                       </div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4 }}>{idea.title}</div>
                       <div style={{ fontSize: 12, color: '#f59e0b', lineHeight: 1.5, fontStyle: 'italic' }}>
@@ -388,10 +390,10 @@ export default function IdeaExplorer() {
           {/* ── BRIEF TAB ── */}
           {activeTab === 'brief' && selectedIdea && (
             <>
-              {briefLoading && <LoadingState label="Membuat content brief detail..." />}
+              {briefLoading && <LoadingState label={t('Membuat content brief detail...')} />}
               {briefError && <ErrorBox msg={briefError} onRetry={() => generateBrief(selectedIdea)} />}
               {!briefLoading && !briefError && !brief && (
-                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)', fontSize: 13 }}>Memuat brief...</div>
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)', fontSize: 13 }}>{t('Memuat brief...')}</div>
               )}
               {brief && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 720, animation: 'slideUp 0.2s ease' }}>
@@ -404,7 +406,7 @@ export default function IdeaExplorer() {
                     {[
                       { label: 'Platform', value: brief.platform },
                       { label: 'Format', value: brief.format },
-                      { label: 'Target Audiens', value: brief.target_audiens },
+                      { label: t('Target Audiens'), value: brief.target_audiens },
                       { label: 'Talent', value: brief.talent },
                     ].map(item => (
                       <BriefCard key={item.label} label={item.label} value={item.value} />
@@ -425,7 +427,7 @@ export default function IdeaExplorer() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Properti</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>{t('Properti')}</div>
                       {brief.properti?.map((p, i) => (
                         <div key={i} style={{ fontSize: 12, color: 'var(--text)', marginBottom: 4 }}>• {p}</div>
                       ))}
@@ -434,8 +436,8 @@ export default function IdeaExplorer() {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <BriefSection label="Referensi Gaya" value={brief.referensi_gaya} accent="#f59e0b" />
-                    <BriefSection label="Catatan Produksi" value={brief.notes} accent="#8b8fa8" />
+                    <BriefSection label={t('Referensi Gaya')} value={brief.referensi_gaya} accent="#f59e0b" />
+                    <BriefSection label={t('Catatan Produksi')} value={brief.notes} accent="#8b8fa8" />
                   </div>
                 </div>
               )}
@@ -445,18 +447,18 @@ export default function IdeaExplorer() {
           {/* ── STORYLINE TAB ── */}
           {activeTab === 'storyline' && selectedIdea && (
             <>
-              {storylineLoading && <LoadingState label="Membuat storyline scene-by-scene..." />}
+              {storylineLoading && <LoadingState label={t('Membuat storyline scene-by-scene...')} />}
               {storylineError && <ErrorBox msg={storylineError} onRetry={() => generateStoryline(selectedIdea)} />}
               {!storylineLoading && !storylineError && !storyline && (
-                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)', fontSize: 13 }}>Memuat storyline...</div>
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)', fontSize: 13 }}>{t('Memuat storyline...')}</div>
               )}
               {storyline && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 760, animation: 'slideUp 0.2s ease' }}>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     {[
-                      { label: 'Total Durasi', value: storyline.total_durasi },
+                      { label: t('Total Durasi'), value: storyline.total_durasi },
                       { label: 'Format', value: storyline.format },
-                      { label: 'Jumlah Scene', value: `${storyline.scenes?.length} scene` },
+                      { label: t('Jumlah Scene'), value: `${storyline.scenes?.length} scene` },
                     ].map(item => (
                       <div key={item.label} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px' }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3 }}>{item.label}</div>
@@ -480,8 +482,8 @@ export default function IdeaExplorer() {
                             <SceneField label="🎵 BGM / Sound" value={scene.bgm} />
                           </div>
                           <div>
-                            <SceneField label="🎤 Dialog / Narasi" value={scene.dialog} highlight />
-                            <SceneField label="🎭 Arahan" value={scene.direction} />
+                            <SceneField label={t('🎤 Dialog / Narasi')} value={scene.dialog} highlight />
+                            <SceneField label={t('🎭 Arahan')} value={scene.direction} />
                           </div>
                         </div>
                       </div>
@@ -497,7 +499,7 @@ export default function IdeaExplorer() {
             <div style={{ maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16, animation: 'slideUp 0.2s ease' }}>
               <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1 }}>Hook Pembuka</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1 }}>{t('Hook Pembuka')}</div>
                 </div>
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#f59e0b', lineHeight: 1.6, fontStyle: 'italic' }}>
                   "{selectedIdea.hook}"
@@ -527,13 +529,13 @@ export default function IdeaExplorer() {
                   }}
                   style={{ flex: 1, padding: '10px', background: '#6c63ff', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                 >
-                  ✍️ Polish di Content Builder
+                  {t('✍️ Polish di Content Builder')}
                 </button>
               </div>
               <div style={{ background: '#f472b618', border: '1px solid #f472b633', borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#f472b6', marginBottom: 8 }}>💡 Tips Caption</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#f472b6', marginBottom: 8 }}>{t('💡 Tips Caption')}</div>
                 <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
-                  Gunakan hook di baris pertama untuk 3 baris awal yang terlihat sebelum "lihat selengkapnya". Tambahkan emoji sesuai tone, 5-10 hashtag campuran besar dan niche, dan CTA yang jelas di akhir.
+                  {t('Gunakan hook di baris pertama untuk 3 baris awal yang terlihat sebelum "lihat selengkapnya". Tambahkan emoji sesuai tone, 5-10 hashtag campuran besar dan niche, dan CTA yang jelas di akhir.')}
                 </div>
               </div>
             </div>
@@ -559,11 +561,12 @@ function LoadingState({ label }: { label: string }) {
 }
 
 function ErrorBox({ msg, onRetry }: { msg: string; onRetry: () => void }) {
+  const t = useT()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 480 }}>
       <div style={{ padding: '10px 14px', background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 8, color: '#ff6b6b', fontSize: 13 }}>{msg}</div>
       <button onClick={onRetry} style={{ padding: '8px 16px', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 12, cursor: 'pointer', alignSelf: 'flex-start' }}>
-        Coba lagi
+        {t('Coba lagi')}
       </button>
     </div>
   )

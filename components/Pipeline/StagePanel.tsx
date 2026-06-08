@@ -6,6 +6,7 @@ import { useStore } from '@/hooks/useStore'
 import { StageCard } from './StageCard'
 import type { PipelineItem, StageData } from '@/lib/types'
 import type { PipelineStage } from '@/lib/constants'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface StagePanelProps {
   item: PipelineItem
@@ -13,6 +14,7 @@ interface StagePanelProps {
 }
 
 export function StagePanel({ item, stages }: StagePanelProps) {
+  const t = useT()
   const { upsertPipelineItem } = useStore()
   const [saving, setSaving] = useState(false)
 
@@ -73,19 +75,19 @@ export function StagePanel({ item, stages }: StagePanelProps) {
                   fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
                   background: '#6c63ff22', color: '#6c63ff', textTransform: 'uppercase',
                 }}>
-                  dari BPI/BSI
+                  {t('dari BPI/BSI')}
                 </span>
               )}
               {currentStageDef && (
                 <span style={{ fontSize: 12, color: 'var(--text2)' }}>
-                  Stage saat ini:
+                  {t('Stage saat ini:')}
                   <span style={{ color: currentStageDef.color, fontWeight: 600, marginLeft: 4 }}>
                     {currentStageDef.label}
                   </span>
                 </span>
               )}
               {saving && (
-                <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 'auto' }}>Menyimpan...</span>
+                <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 'auto' }}>{t('Menyimpan...')}</span>
               )}
             </div>
           </div>
@@ -98,7 +100,7 @@ export function StagePanel({ item, stages }: StagePanelProps) {
           return (
             <div style={{ marginTop: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text2)', marginBottom: 5 }}>
-                <span>{doneCount} dari {stages.length} stage selesai</span>
+                <span>{doneCount} {t('dari')} {stages.length} {t('stage selesai')}</span>
                 <span>{pct}%</span>
               </div>
               <div style={{ height: 5, background: 'var(--bg3)', borderRadius: 10, overflow: 'hidden' }}>

@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 const BTN_HEIGHT = 32
 
@@ -99,8 +100,9 @@ export function SaveActions({
   savedAt,
   onSave,
   onDiscard,
-  saveLabel = 'Simpan',
+  saveLabel,
 }: SaveActionsProps) {
+  const t = useT()
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
       {isDirty ? (
@@ -119,22 +121,22 @@ export function SaveActions({
           }}
         >
           <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 3, background: '#ffc542' }} />
-          Belum disimpan
+          {t('Belum disimpan')}
         </span>
       ) : savedAt ? (
         <span style={{ fontSize: 11, color: 'var(--accent3)' }}>
-          Tersimpan {savedAt.toLocaleTimeString('id-ID')}
+          {t('Tersimpan')} {savedAt.toLocaleTimeString('id-ID')}
         </span>
       ) : null}
 
       {isDirty && onDiscard && (
         <SecondaryActionButton onClick={onDiscard} disabled={saving}>
-          Batalkan
+          {t('Batalkan')}
         </SecondaryActionButton>
       )}
 
       <PrimaryActionButton onClick={onSave} disabled={saving || !isDirty}>
-        {saving ? 'Menyimpan…' : saveLabel}
+        {saving ? t('Menyimpan…') : saveLabel ?? t('Simpan')}
       </PrimaryActionButton>
     </div>
   )

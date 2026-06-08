@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { useStore } from '@/hooks/useStore'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { NotificationBell } from '@/components/shared/NotificationBell'
 
 // ── Date range presets ──
@@ -114,6 +115,7 @@ export function PageHeader({
   action,
   tabsRight,
 }: PageHeaderProps) {
+  const t = useT()
   const { dateRange, setDateRange } = useStore()
   const [dateOpen, setDateOpen] = useState(false)
 
@@ -229,7 +231,7 @@ export function PageHeader({
                 >
                   <div style={{ padding: '8px 4px' }}>
                     <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text2)', padding: '0 12px 8px' }}>
-                      Periode
+                      {t('Periode')}
                     </div>
                     {PRESETS.map(p => (
                       <button

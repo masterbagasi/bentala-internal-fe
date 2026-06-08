@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Modal, BtnSecondary } from '@/components/shared/Modal'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
 import { deleteFile } from '@/lib/storage'
@@ -20,6 +21,7 @@ interface PostPreviewModalProps {
 }
 
 export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewModalProps) {
+  const t = useT()
   const { posts, upsertPost } = useStore()
   const post = posts.find(p => p.id === postId)
   // Hooks must run before any early return (rules of hooks).
@@ -91,7 +93,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
     setSavingStatus(true)
     const { error } = await getSupabase().from('posts').update({ status: statusDraft }).eq('id', post!.id)
     setSavingStatus(false)
-    if (error) { alert('Gagal mengubah status: ' + error.message); return }
+    if (error) { alert(t('Gagal mengubah status: ') + error.message); return }
     upsertPost({ ...post!, status: statusDraft } as Post) // reflect on the board
     // Log to the post's activity feed.
     if (comments.me.email) {
@@ -138,7 +140,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
   for (const f of extraFiles) addAttach(f.url, { kind: 'row', rowId: f.id }, undefined, f.name)
 
   async function deleteAttachment(att: { url: string; label: string; src: AttachSrc }) {
-    if (!post || !window.confirm(`Hapus "${att.label}"?`)) return
+    if (!post || !window.confirm(t('Hapus "{label}"?').replace('{label}', att.label))) return
     const sb = getSupabase() as unknown as { from: (t: string) => any }
     try {
       if (att.src.kind === 'row') {
@@ -158,7 +160,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         upsertPost({ ...post, [field]: '' } as Post)
       }
     } catch (e) {
-      alert('Gagal menghapus: ' + ((e as { message?: string })?.message || 'Coba lagi.'))
+      alert(t('Gagal menghapus: ') + ((e as { message?: string })?.message || t('Coba lagi.')))
     }
   }
 
@@ -168,7 +170,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
       open={open}
       onClose={onClose}
       wide
-      title="Detail Post"
+      title={t('Detail Post')}
       headerRight={
         <>
           <button
@@ -228,15 +230,15 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
                 disabled={savingStatus}
                 style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', cursor: savingStatus ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600, opacity: savingStatus ? 0.7 : 1 }}
               >
-                {savingStatus ? 'Menyimpan…' : 'Simpan Status'}
+                {savingStatus ? t('Menyimpan…') : t('Simpan Status')}
               </button>
             )}
-            <BtnSecondary onClick={onClose}>Tutup</BtnSecondary>
+            <BtnSecondary onClick={onClose}>{t('Tutup')}</BtnSecondary>
             <button
               onClick={() => { onClose(); onEdit(post.id) }}
               style={{ background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
             >
-              Edit Post
+              {t('Edit Post')}
             </button>
           </div>
         </div>
@@ -248,19 +250,19 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
 
       {/* Meta grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
-        <MetaItem label="Tanggal Post" value={formatDate(post.date)} />
-        <MetaItem label="Platform" value={
+        <MetaItem label={t('Tanggal Post')} value={formatDate(post.date)} />
+        <MetaItem label={t('Platform')} value={
           (post.platforms || []).length ? (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               {(post.platforms || []).map(pl => <PlatformIcon key={pl} platform={pl} size={20} />)}
             </div>
           ) : '—'
         } />
-        <MetaItem label="Entity" value={post.entity?.toUpperCase() || '—'} />
-        <MetaItem label="Dibuat oleh" value={post.created_by || '—'} />
-        <MetaItem label="Jenis Konten" value={(post.content_types || []).join(', ') || '—'} />
-        <MetaItem label="Ratio" value={post.ratio || '—'} />
-        <MetaItem label="Tag" value={(() => {
+        <MetaItem label={t('Entity')} value={post.entity?.toUpperCase() || '—'} />
+        <MetaItem label={t('Dibuat oleh')} value={post.created_by || '—'} />
+        <MetaItem label={t('Jenis Konten')} value={(post.content_types || []).join(', ') || '—'} />
+        <MetaItem label={t('Ratio')} value={post.ratio || '—'} />
+        <MetaItem label={t('Tag')} value={(() => {
           // Only show tags that are real accounts (by email, or — for legacy
           // name tags — by matching an account name). Stale dummy-name tags
           // left over from before the email-based Tag Akun are dropped, so the
@@ -296,7 +298,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
           background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
           whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0,
         }}>
-          {post.brief || 'Belum ada brief.'}
+          {post.brief || t('Belum ada brief.')}
         </pre>
       </div>
 
@@ -333,7 +335,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
       {post.notes && (
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
-            Catatan
+            {t('Catatan')}
           </div>
           <div style={{ fontSize: 13, color: 'var(--text)', background: 'var(--bg3)', borderRadius: 8, padding: '10px 14px' }}>
             {post.notes}
@@ -346,7 +348,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
       {attachments.length > 0 && (
         <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
-            Lampiran File
+            {t('Lampiran File')}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, alignItems: 'start' }}>
             {attachments.map(a => (
@@ -439,8 +441,9 @@ function previewKind(url: string): 'image' | 'video' | 'pdf' | 'other' {
 }
 
 function AttachPreviewBody({ url, label }: { url: string; label: string }) {
+  const t = useT()
   if (!isSafeHttpUrl(url)) {
-    return <div style={{ textAlign: 'center', padding: 24, fontSize: 13, color: 'var(--text2)' }}>File tidak tersedia.</div>
+    return <div style={{ textAlign: 'center', padding: 24, fontSize: 13, color: 'var(--text2)' }}>{t('File tidak tersedia.')}</div>
   }
   const kind = previewKind(url)
   if (kind === 'image') {
@@ -455,8 +458,8 @@ function AttachPreviewBody({ url, label }: { url: string; label: string }) {
   }
   return (
     <div style={{ textAlign: 'center', padding: 24, fontSize: 13, color: 'var(--text2)' }}>
-      Preview tidak tersedia.{' '}
-      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>Buka di tab baru</a>
+      {t('Preview tidak tersedia.')}{' '}
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{t('Buka di tab baru')}</a>
     </div>
   )
 }
@@ -478,6 +481,7 @@ function MetaItem({ label, value }: { label: string; value: React.ReactNode }) {
 // Compact grid card: thumbnail (image) or big icon, filename below. Clicking
 // opens the in-app preview popup (or a new tab for non-previewable links).
 function AttachCard({ icon, label, url, onOpen, onDelete }: { icon: string; label: string; url: string; onOpen: () => void; onDelete: () => void }) {
+  const t = useT()
   const thumbSrc = safeImageSrc(url)
   return (
     <div
@@ -523,7 +527,7 @@ function AttachCard({ icon, label, url, onOpen, onDelete }: { icon: string; labe
         )}
         <button
           onClick={e => { e.stopPropagation(); onDelete() }}
-          title="Hapus"
+          title={t('Hapus')}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', flexShrink: 0 }}
           onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
           onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}

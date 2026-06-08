@@ -1,5 +1,7 @@
 'use client'
 
+import { useT } from '@/lib/i18n/LanguageProvider'
+
 /**
  * Universal status pill used across the abroad-production admin tab
  * (trip cards + service category cards). Solid near-opaque dark
@@ -14,6 +16,7 @@
  * `position: relative`.
  */
 export function StatusPill({ isPublished }: { isPublished: boolean }) {
+  const t = useT()
   const accent = '#43d9a2'
   return (
     <span
@@ -63,7 +66,7 @@ export function StatusPill({ isPublished }: { isPublished: boolean }) {
           flexShrink: 0,
         }}
       />
-      {isPublished ? 'Aktif' : 'Hidden'}
+      {isPublished ? t('Aktif') : 'Hidden'}
     </span>
   )
 }

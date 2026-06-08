@@ -13,6 +13,7 @@ import {
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
 import { Section } from '@/components/website/Section'
 import { StatusPill } from './StatusPill'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // Defaults applied to a brand-new row so the admin sees sensible
 // values instead of nulls. The public site already coalesces, but
@@ -60,6 +61,7 @@ type Draft = Pick<
  * CRUD: grid of cards, click-to-edit modal, publish toggle, delete.
  */
 export default function AbroadServicesSection() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiAbroadService[]>([])
   const [loading, setLoading] = useState(true)
@@ -92,7 +94,7 @@ export default function AbroadServicesSection() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus service ini?')) return
+    if (!confirm(t('Hapus service ini?'))) return
     const { error } = await supabase
       .from('bsi_abroad_services')
       .delete()
@@ -124,11 +126,11 @@ export default function AbroadServicesSection() {
   function requestTogglePublish(item: BsiAbroadService) {
     const next = !item.is_published
     setConfirmReq({
-      title: next ? 'Aktifkan service?' : 'Nonaktifkan service?',
+      title: next ? t('Aktifkan service?') : t('Nonaktifkan service?'),
       message: next
-        ? `Service "${item.title}" akan ditampilkan kembali di halaman detail abroad production.`
-        : `Service "${item.title}" akan disembunyikan dari halaman detail. Data tetap aman dan bisa diaktifkan kembali kapan saja.`,
-      confirmLabel: next ? 'Aktifkan' : 'Nonaktifkan',
+        ? `${t('Service')} "${item.title}" ${t('akan ditampilkan kembali di halaman detail abroad production.')}`
+        : `${t('Service')} "${item.title}" ${t('akan disembunyikan dari halaman detail. Data tetap aman dan bisa diaktifkan kembali kapan saja.')}`,
+      confirmLabel: next ? t('Aktifkan') : t('Nonaktifkan'),
       tone: next ? 'info' : 'warning',
       onConfirm: () => {
         setConfirmReq(null)
@@ -175,7 +177,7 @@ export default function AbroadServicesSection() {
           error.code === '42703' || /column .* does not exist/i.test(error.message)
         alert(
           isMissingColumn
-            ? `Database belum diupdate: ${error.message}. Jalankan migration "migration_abroad_services.sql" di Supabase SQL Editor.`
+            ? `${t('Database belum diupdate:')} ${error.message}. ${t('Jalankan migration "migration_abroad_services.sql" di Supabase SQL Editor.')}`
             : error.message,
         )
         return
@@ -248,7 +250,7 @@ export default function AbroadServicesSection() {
       {error && <ListError message={error} />}
 
       <Section
-        title="Service Categories (halaman detail)"
+        title={t('Service Categories (halaman detail)')}
         action={
           <button
             type="button"
@@ -265,14 +267,14 @@ export default function AbroadServicesSection() {
               cursor: 'pointer',
             }}
           >
-            + Tambah Service
+            {t('+ Tambah Service')}
           </button>
         }
       >
         {loading ? (
-          <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+          <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
         ) : items.length === 0 ? (
-          <ListEmpty message="Belum ada service. Klik + Tambah Service untuk membuat list pertama." />
+          <ListEmpty message={t('Belum ada service. Klik + Tambah Service untuk membuat list pertama.')} />
         ) : (
           <div
             style={{
@@ -384,6 +386,7 @@ function ServiceCard({
   onTogglePublish: () => void
   onDelete: () => void
 }) {
+  const t = useT()
   const [hovered, setHovered] = useState(false)
   const isVideo = service.preview_type === 'video'
 
@@ -571,7 +574,7 @@ function ServiceCard({
             overflow: 'hidden',
           }}
         >
-          {service.description || 'Belum ada deskripsi untuk service ini.'}
+          {service.description || t('Belum ada deskripsi untuk service ini.')}
         </p>
 
         <div
@@ -688,6 +691,7 @@ function EditModal({
   onSave: () => void
   onTogglePublish?: () => void
 }) {
+  const t = useT()
   return (
     <div
       onClick={onClose}
@@ -728,7 +732,7 @@ function EditModal({
           }}
         >
           <div style={{ fontSize: 14, fontWeight: 600 }}>
-            {isCreating ? 'Tambah Service' : 'Edit Service'}
+            {isCreating ? t('Tambah Service') : t('Edit Service')}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {onTogglePublish && (
@@ -737,8 +741,8 @@ function EditModal({
                 onClick={onTogglePublish}
                 title={
                   item.is_published
-                    ? 'Service aktif — klik untuk nonaktifkan'
-                    : 'Service nonaktif — klik untuk aktifkan'
+                    ? t('Service aktif — klik untuk nonaktifkan')
+                    : t('Service nonaktif — klik untuk aktifkan')
                 }
                 style={{
                   height: 28,
@@ -773,13 +777,13 @@ function EditModal({
                     flexShrink: 0,
                   }}
                 />
-                {item.is_published ? 'Aktif' : 'Nonaktif'}
+                {item.is_published ? t('Aktif') : t('Nonaktif')}
               </button>
             )}
             <button
               type="button"
               onClick={onClose}
-              title="Tutup"
+              title={t('Tutup')}
               style={{
                 width: 28,
                 height: 28,
@@ -820,7 +824,7 @@ function EditModal({
               gap: 12,
             }}
           >
-            <FormField label="Preview (Video / Image)">
+            <FormField label={t('Preview (Video / Image)')}>
               <FileUploader
                 value={fieldValue(item, 'preview_url')}
                 onChange={(url) => {
@@ -842,7 +846,7 @@ function EditModal({
                 The FileUploader above reflects the same `preview_url`
                 value, so the preview thumbnail + Ganti/Hapus controls
                 stay in sync whichever way the URL was set. */}
-            <FormField label="Atau paste URL">
+            <FormField label={t('Atau paste URL')}>
               <input
                 type="url"
                 style={inputStyle}
@@ -869,7 +873,7 @@ function EditModal({
               gap: 14,
             }}
           >
-            <FormField label="Judul Service">
+            <FormField label={t('Judul Service')}>
               <input
                 style={inputStyle}
                 value={fieldValue(item, 'title')}
@@ -878,12 +882,12 @@ function EditModal({
               />
             </FormField>
 
-            <FormField label="Deskripsi">
+            <FormField label={t('Deskripsi')}>
               <textarea
                 style={{ ...textareaStyle, minHeight: 110 }}
                 value={fieldValue(item, 'description') ?? ''}
                 onChange={(e) => patchDraft({ description: e.target.value })}
-                placeholder="Body copy yang muncul di card sticker dan panel preview…"
+                placeholder={t('Body copy yang muncul di card sticker dan panel preview…')}
               />
             </FormField>
           </div>
@@ -912,7 +916,7 @@ function EditModal({
               cursor: 'pointer',
             }}
           >
-            Batal
+            {t('Batal')}
           </button>
           <ListActionButton
             variant="primary"
@@ -920,10 +924,10 @@ function EditModal({
             disabled={!isDirty || saving}
           >
             {saving
-              ? 'Menyimpan…'
+              ? t('Menyimpan…')
               : isCreating
-                ? 'Tambah Service'
-                : 'Simpan perubahan'}
+                ? t('Tambah Service')
+                : t('Simpan perubahan')}
           </ListActionButton>
         </div>
       </div>

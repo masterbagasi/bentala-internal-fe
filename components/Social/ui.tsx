@@ -4,8 +4,10 @@
 // Match the app's design vocabulary (CSS vars, radius 12-14, hairline border).
 
 import { PLATFORM_META, type Platform, type ConnStatus } from './mock'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export function PreviewBanner() {
+  const t = useT()
   return (
     <div
       style={{
@@ -16,7 +18,7 @@ export function PreviewBanner() {
       }}
     >
       <span style={{ fontSize: 14, lineHeight: 1 }}>●</span>
-      <span>Preview — data masih dummy. Belum tersambung ke Composio/Supabase.</span>
+      <span>{t('Preview — data masih dummy. Belum tersambung ke Composio/Supabase.')}</span>
     </div>
   )
 }

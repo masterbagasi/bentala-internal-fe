@@ -2,12 +2,14 @@
 
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // Dead-end for a logged-in account that has not been granted any menu section.
 // Reachable while authenticated (middleware never gates it) so access-less
 // accounts land here instead of bouncing in a redirect loop.
 export default function NoAccessPage() {
   const router = useRouter()
+  const t = useT()
 
   async function logout() {
     await getSupabase().auth.signOut()
@@ -56,11 +58,10 @@ export default function NoAccessPage() {
           </svg>
         </div>
         <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>
-          Belum ada akses
+          {t('Belum ada akses')}
         </div>
         <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 24 }}>
-          Akun Anda belum diberi akses ke menu apa pun. Silakan hubungi admin
-          untuk meminta hak akses.
+          {t('Akun Anda belum diberi akses ke menu apa pun. Silakan hubungi admin untuk meminta hak akses.')}
         </div>
         <button
           onClick={logout}
@@ -75,7 +76,7 @@ export default function NoAccessPage() {
             cursor: 'pointer',
           }}
         >
-          Keluar
+          {t('Keluar')}
         </button>
       </div>
     </div>

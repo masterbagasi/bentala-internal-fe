@@ -12,6 +12,7 @@ import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { ContentCalendar } from '@/components/BSI/Calendar'
 import { useLogActivity } from '@/hooks/useData'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { Post } from '@/lib/types'
 
 interface WorkspacePageProps {
@@ -34,6 +35,7 @@ function wsColKey(status: string): string {
 
 export const WorkspacePage = forwardRef<WorkspacePageHandle, WorkspacePageProps>(
   function WorkspacePage({ member, memberKey }, ref) {
+  const t = useT()
   const { posts } = useStore()
   const [tab, setTab] = useState<WsTab>('list')
   const [platformFilter, setPlatformFilter] = useState<string>('all')
@@ -94,7 +96,7 @@ export const WorkspacePage = forwardRef<WorkspacePageHandle, WorkspacePageProps>
         {(tab === 'list' || tab === 'board') && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 24px', borderBottom: '2px solid var(--border)' }}>
             {[
-              { key: 'all', label: 'Semua' },
+              { key: 'all', label: t('Semua') },
               { key: 'ig', label: 'Instagram' },
               { key: 'tiktok', label: 'TikTok' },
             ].map(f => (
@@ -168,18 +170,19 @@ function WSListView({ posts, member, onRowClick }: {
   member: string
   onRowClick: (id: string) => void
 }) {
+  const t = useT()
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
       <table>
         <thead>
           <tr>
-            <th>Judul</th>
-            <th>Jenis</th>
+            <th>{t('Judul')}</th>
+            <th>{t('Jenis')}</th>
             <th>Entity</th>
             <th>Platform</th>
-            <th>Tanggal</th>
+            <th>{t('Tanggal')}</th>
             <th>Status</th>
-            <th>Catatan</th>
+            <th>{t('Catatan')}</th>
           </tr>
         </thead>
         <tbody>
@@ -187,7 +190,7 @@ function WSListView({ posts, member, onRowClick }: {
             <tr><td colSpan={7}>
               <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-                Tidak ada post yang ditugaskan ke kamu.
+                {t('Tidak ada post yang ditugaskan ke kamu.')}
               </div>
             </td></tr>
           ) : posts.slice().sort(byPostDateAsc).map(p => {
@@ -265,6 +268,7 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
   member: string
   onCardClick: (id: string) => void
 }) {
+  const t = useT()
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const logActivity = useLogActivity()
@@ -333,7 +337,7 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
               <span style={{ fontSize: 12, color: col.color, background: col.color + '22', borderRadius: 20, padding: '1px 7px', fontWeight: 500 }}>
                 {colPosts.length}
               </span>
-              {col.key === 'revisi' && <span title="Hanya BPI yang bisa memindahkan ke Revisi" style={{ fontSize: 13, opacity: 0.5 }}>🔒</span>}
+              {col.key === 'revisi' && <span title={t('Hanya BPI yang bisa memindahkan ke Revisi')} style={{ fontSize: 13, opacity: 0.5 }}>🔒</span>}
             </div>
 
             <div style={{ overflowY: 'auto', flex: 1, minHeight: 60 }}>
@@ -494,6 +498,7 @@ function WSSummary({ stats, posts, member, color }: {
   member: string
   color: string
 }) {
+  const t = useT()
   const total = posts.length
   const done = (stats.done || 0) + (stats.published || 0) + (stats.ready || 0)
 
@@ -515,7 +520,7 @@ function WSSummary({ stats, posts, member, color }: {
       {/* Progress */}
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: 18, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
-          <span>Progress keseluruhan</span>
+          <span>{t('Progress keseluruhan')}</span>
           <span style={{ color: 'var(--text2)' }}>{total ? Math.round(done / total * 100) : 0}%</span>
         </div>
         <div style={{ background: 'var(--bg3)', borderRadius: 10, height: 8, overflow: 'hidden' }}>
@@ -527,7 +532,7 @@ function WSSummary({ stats, posts, member, color }: {
           }} />
         </div>
         <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 6 }}>
-          {done} dari {total} task selesai
+          {done} {t('dari')} {total} {t('task selesai')}
         </div>
       </div>
     </div>
@@ -540,6 +545,7 @@ function WSAddModal({ open, member, onClose }: {
   member: string
   onClose: () => void
 }) {
+  const t = useT()
   const logActivity = useLogActivity()
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
@@ -562,7 +568,7 @@ function WSAddModal({ open, member, onClose }: {
   }
 
   async function handleSave() {
-    if (!title.trim()) { alert('Judul pekerjaan wajib diisi!'); return }
+    if (!title.trim()) { alert(t('Judul pekerjaan wajib diisi!')); return }
     setLoading(true)
     const supabase = getSupabase()
     await supabase.from('posts').insert({
@@ -590,21 +596,21 @@ function WSAddModal({ open, member, onClose }: {
     <Modal
       open={open}
       onClose={handleClose}
-      title="Tambah Pekerjaan"
+      title={t('Tambah Pekerjaan')}
       footer={
         <>
-          <BtnSecondary onClick={handleClose}>Batal</BtnSecondary>
-          <BtnPrimary onClick={handleSave} loading={loading}>Simpan</BtnPrimary>
+          <BtnSecondary onClick={handleClose}>{t('Batal')}</BtnSecondary>
+          <BtnPrimary onClick={handleSave} loading={loading}>{t('Simpan')}</BtnPrimary>
         </>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Title */}
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>Judul Pekerjaan *</label>
+          <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>{t('Judul Pekerjaan')} *</label>
           <input
             type="text"
-            placeholder="Nama pekerjaan..."
+            placeholder={t('Nama pekerjaan...')}
             value={title}
             onChange={e => setTitle(e.target.value)}
             autoFocus
@@ -614,7 +620,7 @@ function WSAddModal({ open, member, onClose }: {
         {/* Date + Status */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>Tanggal</label>
+            <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>{t('Tanggal')}</label>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} />
           </div>
           <div>
@@ -629,7 +635,7 @@ function WSAddModal({ open, member, onClose }: {
 
         {/* Content type chips */}
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>Jenis Konten</label>
+          <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>{t('Jenis Konten')}</label>
           <div style={{ display: 'flex', gap: 8 }}>
             {[
               { key: 'video', label: '🎬 Video', color: '#6c63ff' },
@@ -671,10 +677,10 @@ function WSAddModal({ open, member, onClose }: {
 
         {/* Notes */}
         <div>
-          <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>Catatan</label>
+          <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>{t('Catatan')}</label>
           <textarea
             rows={3}
-            placeholder="Catatan tambahan..."
+            placeholder={t('Catatan tambahan...')}
             value={notes}
             onChange={e => setNotes(e.target.value)}
             style={{ fontFamily: 'inherit', resize: 'vertical' }}

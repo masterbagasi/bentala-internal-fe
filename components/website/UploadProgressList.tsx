@@ -1,6 +1,7 @@
 'use client'
 
 import { formatBytes } from '@/lib/storage'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export type UploadStatus = 'queued' | 'uploading' | 'done' | 'done-leaving' | 'error'
 
@@ -68,6 +69,7 @@ function UploadRow({
   onDismiss?: (id: string) => void
   onRetry?: (id: string, file: File) => void
 }) {
+  const t = useT()
   const isImage = entry.type.startsWith('image/')
   const isVideo = entry.type.startsWith('video/')
   const percent = entry.size > 0 ? Math.min(100, (entry.loaded / entry.size) * 100) : 0
@@ -161,9 +163,9 @@ function UploadRow({
           }}
         >
           {isError ? (
-            <span style={{ color: '#ff6b6b' }}>{entry.error || 'Gagal upload'}</span>
+            <span style={{ color: '#ff6b6b' }}>{entry.error || t('Gagal upload')}</span>
           ) : isDone ? (
-            <span style={{ color: '#43d9a2' }}>Selesai</span>
+            <span style={{ color: '#43d9a2' }}>{t('Selesai')}</span>
           ) : (
             <>
               <span>{percent.toFixed(0)}% done</span>
@@ -180,7 +182,7 @@ function UploadRow({
           <button
             type="button"
             onClick={() => onRetry(entry.id, entry.file!)}
-            title="Coba upload lagi"
+            title={t('Coba upload lagi')}
             style={{
               height: 26,
               padding: '0 10px',
@@ -200,7 +202,7 @@ function UploadRow({
               <polyline points="23 4 23 10 17 10" />
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
-            Coba lagi
+            {t('Coba lagi')}
           </button>
         )}
         {(isActive && onCancel) || (isError && onDismiss) ? (
@@ -210,7 +212,7 @@ function UploadRow({
               if (isActive && onCancel) onCancel(entry.id)
               else if (isError && onDismiss) onDismiss(entry.id)
             }}
-            title={isActive ? 'Batalkan upload' : 'Hapus'}
+            title={isActive ? t('Batalkan upload') : t('Hapus')}
             style={{
               width: 24,
               height: 24,

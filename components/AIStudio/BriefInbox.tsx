@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ProductionBrief, DesignBrief, VideoBrief, ScriptScene } from '@/lib/types'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface Props {
   type: 'design' | 'video'
@@ -26,6 +27,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 }
 
 export default function BriefInbox({ type }: Props) {
+  const t = useT()
   const [briefs, setBriefs] = useState<ProductionBrief[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -38,14 +40,14 @@ export default function BriefInbox({ type }: Props) {
     try {
       const res = await fetch(`/api/pipeline/briefs?type=${type}`)
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Gagal memuat brief')
+      if (!res.ok) throw new Error(data.error ?? t('Gagal memuat brief'))
       setBriefs(data.briefs ?? [])
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'Gagal memuat brief')
+      setLoadError(e instanceof Error ? e.message : t('Gagal memuat brief'))
     } finally {
       setLoading(false)
     }
-  }, [type])
+  }, [type, t])
 
   useEffect(() => { loadBriefs() }, [loadBriefs])
 
@@ -71,7 +73,7 @@ export default function BriefInbox({ type }: Props) {
   }
 
   if (loading) {
-    return <div style={{ padding: 24, color: 'var(--text2)', fontSize: 13 }}>Memuat brief...</div>
+    return <div style={{ padding: 24, color: 'var(--text2)', fontSize: 13 }}>{t('Memuat brief...')}</div>
   }
 
   if (loadError) {
@@ -87,7 +89,7 @@ export default function BriefInbox({ type }: Props) {
   if (briefs.length === 0) {
     return (
       <div style={{ padding: 48, textAlign: 'center', color: 'var(--text2)', fontSize: 13 }}>
-        Belum ada brief {type === 'design' ? 'design' : 'video'} masuk
+        {type === 'design' ? t('Belum ada brief design masuk') : t('Belum ada brief video masuk')}
       </div>
     )
   }
@@ -136,7 +138,7 @@ export default function BriefInbox({ type }: Props) {
                   onClick={() => setExpanded(isExpanded ? null : brief.id)}
                   style={{ fontSize: 11, color: '#6c63ff', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
-                  {isExpanded ? 'Tutup' : 'Lihat Brief'}
+                  {isExpanded ? t('Tutup') : t('Lihat Brief')}
                 </button>
               </div>
             </div>
@@ -169,7 +171,7 @@ export default function BriefInbox({ type }: Props) {
                       </div>
                     </div>
                     <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 10 }}>
-                      <div style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Tipografi</div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{t('Tipografi')}</div>
                       <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.7 }}>
                         <span style={{ color: '#6c63ff' }}>Headline:</span> {designContent.typography.headline}<br />
                         <span style={{ color: '#6c63ff' }}>Subtext:</span> {designContent.typography.subtext}<br />
@@ -184,7 +186,7 @@ export default function BriefInbox({ type }: Props) {
                       <div style={{ fontSize: 11, color: '#43d9a2', lineHeight: 1.6, fontStyle: 'italic', wordBreak: 'break-word' }}>{designContent.midjourney_prompt}</div>
                     </div>
                     <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 10 }}>
-                      <div style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Komposisi</div>
+                      <div style={{ fontSize: 10, color: 'var(--text2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{t('Komposisi')}</div>
                       <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.6 }}>{designContent.composition}</div>
                     </div>
                   </>
@@ -195,7 +197,7 @@ export default function BriefInbox({ type }: Props) {
                   <>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                       {[
-                        { label: 'Durasi', value: videoContent.duration },
+                        { label: t('Durasi'), value: videoContent.duration },
                         { label: 'Format', value: videoContent.format },
                         { label: 'Tone', value: videoContent.tone },
                       ].map(item => (
@@ -260,7 +262,7 @@ export default function BriefInbox({ type }: Props) {
                       alignSelf: 'flex-start',
                     }}
                   >
-                    {updating === brief.id ? 'Memperbarui...' : '✓ Tandai Selesai'}
+                    {updating === brief.id ? t('Memperbarui...') : `✓ ${t('Tandai Selesai')}`}
                   </button>
                 )}
               </div>

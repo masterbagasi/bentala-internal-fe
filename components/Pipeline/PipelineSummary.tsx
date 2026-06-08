@@ -1,5 +1,6 @@
 'use client'
 
+import { useT } from '@/lib/i18n/LanguageProvider'
 import type { PipelineItem } from '@/lib/types'
 import type { PipelineStage } from '@/lib/constants'
 
@@ -16,6 +17,7 @@ function msToHours(ms: number) {
 }
 
 export function PipelineSummary({ items, stages, member }: PipelineSummaryProps) {
+  const t = useT()
   const total = items.length
   const completed = items.filter(item => item.stages_data[stages[stages.length - 1].key]?.status === 'done').length
   const inProgress = items.filter(item => {
@@ -44,9 +46,9 @@ export function PipelineSummary({ items, stages, member }: PipelineSummaryProps)
       {/* Top stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px,1fr))', gap: 12, marginBottom: 24 }}>
         {[
-          { label: 'Total Konten', value: total, color: 'var(--text)' },
-          { label: 'Sedang Berjalan', value: inProgress, color: '#ffc542' },
-          { label: 'Selesai', value: completed, color: '#43d9a2' },
+          { label: t('Total Konten'), value: total, color: 'var(--text)' },
+          { label: t('Sedang Berjalan'), value: inProgress, color: '#ffc542' },
+          { label: t('Selesai'), value: completed, color: '#43d9a2' },
           { label: 'Completion Rate', value: `${completionRate}%`, color: 'var(--accent)' },
         ].map(stat => (
           <div key={stat.label} style={{
@@ -63,7 +65,7 @@ export function PipelineSummary({ items, stages, member }: PipelineSummaryProps)
       {/* Per-stage breakdown */}
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 24 }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600 }}>
-          Breakdown per Stage
+          {t('Breakdown per Stage')}
         </div>
         {stageStats.map(s => (
           <div key={s.key} style={{
@@ -76,15 +78,15 @@ export function PipelineSummary({ items, stages, member }: PipelineSummaryProps)
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 700, color: s.color }}>{s.inStage}</div>
-              <div style={{ fontSize: 10, color: 'var(--text2)' }}>aktif</div>
+              <div style={{ fontSize: 10, color: 'var(--text2)' }}>{t('aktif')}</div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#43d9a2' }}>{s.doneInStage}</div>
-              <div style={{ fontSize: 10, color: 'var(--text2)' }}>selesai</div>
+              <div style={{ fontSize: 10, color: 'var(--text2)' }}>{t('selesai')}</div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{s.avgTime ?? '—'}</div>
-              <div style={{ fontSize: 10, color: 'var(--text2)' }}>rata-rata</div>
+              <div style={{ fontSize: 10, color: 'var(--text2)' }}>{t('rata-rata')}</div>
             </div>
           </div>
         ))}

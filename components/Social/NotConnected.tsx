@@ -1,10 +1,12 @@
 'use client'
 
 import { Card } from './ui'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 /** Shown for a brand whose social account isn't connected to a live data source
  *  yet, so we don't display another account's data. */
 export function NotConnected({ brandLabel, feature }: { brandLabel: string; feature: string }) {
+  const t = useT()
   return (
     <Card style={{ padding: 48, textAlign: 'center', maxWidth: 560, margin: '24px auto' }}>
       <div style={{
@@ -18,15 +20,13 @@ export function NotConnected({ brandLabel, feature }: { brandLabel: string; feat
         </svg>
       </div>
       <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
-        {feature} belum tersedia untuk {brandLabel}
+        {feature} {t('belum tersedia untuk')} {brandLabel}
       </div>
       <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.7 }}>
-        Akun socmed {brandLabel} belum tersambung ke sumber data live, jadi belum ada metrik
-        asli untuk ditampilkan. Data analitik asli baru tersedia setelah akunnya
-        di-connect via Composio.
+        {t('Akun socmed')} {brandLabel} {t('belum tersambung ke sumber data live, jadi belum ada metrik asli untuk ditampilkan. Data analitik asli baru tersedia setelah akunnya di-connect via Composio.')}
       </div>
       <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 14 }}>
-        Sambungkan akun di tab <strong style={{ color: 'var(--text2)' }}>Accounts</strong>, lalu aktifkan live-sync (Composio API key).
+        {t('Sambungkan akun di tab')} <strong style={{ color: 'var(--text2)' }}>Accounts</strong>, {t('lalu aktifkan live-sync (Composio API key).')}
       </div>
     </Card>
   )

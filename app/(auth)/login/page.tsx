@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // Same fallback the Sidebar uses — keeps the login page from rendering
 // a broken image if `bsi_hero.logo_url` is null/empty on first install.
 const FALLBACK_LOGO_SRC = '/logo%20bentala.png'
 
 export default function LoginPage() {
+  const t = useT()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -41,7 +43,7 @@ export default function LoginPage() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
-    if (!email || !password) { setError('Email dan password wajib diisi.'); return }
+    if (!email || !password) { setError(t('Email dan password wajib diisi.')); return }
 
     setLoading(true)
     setError('')
@@ -51,7 +53,7 @@ export default function LoginPage() {
 
     if (authError) {
       setError(authError.message === 'Invalid login credentials'
-        ? 'Email atau password salah.'
+        ? t('Email atau password salah.')
         : authError.message)
       setLoading(false)
       return
@@ -109,8 +111,8 @@ export default function LoginPage() {
             />
           )}
           <div style={{ minWidth: 0 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#e8eaf6', margin: '0 0 4px', lineHeight: 1.15 }}>Selamat datang</h1>
-            <p style={{ fontSize: 13, color: '#8b8fa8', margin: 0, lineHeight: 1.3 }}>Masuk ke akun tim kamu</p>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#e8eaf6', margin: '0 0 4px', lineHeight: 1.15 }}>{t('Selamat datang')}</h1>
+            <p style={{ fontSize: 13, color: '#8b8fa8', margin: 0, lineHeight: 1.3 }}>{t('Masuk ke akun tim kamu')}</p>
           </div>
         </div>
 
@@ -171,7 +173,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
-                aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                aria-label={showPassword ? t('Sembunyikan password') : t('Tampilkan password')}
                 tabIndex={-1}
                 style={{
                   position: 'absolute',
@@ -253,15 +255,15 @@ export default function LoginPage() {
                   animation: 'spin 0.7s linear infinite',
                   display: 'inline-block', flexShrink: 0,
                 }} />
-                Masuk...
+                {t('Masuk...')}
               </>
-            ) : 'Masuk'}
+            ) : t('Masuk')}
           </button>
         </form>
 
         <p style={{ textAlign: 'center', fontSize: 12, color: '#8b8fa8', marginTop: 24, marginBottom: 0 }}>
-          Butuh akses?{' '}
-          <span style={{ color: '#6c63ff', cursor: 'pointer', fontWeight: 600 }}>Hubungi admin</span>
+          {t('Butuh akses?')}{' '}
+          <span style={{ color: '#6c63ff', cursor: 'pointer', fontWeight: 600 }}>{t('Hubungi admin')}</span>
         </p>
       </div>
 

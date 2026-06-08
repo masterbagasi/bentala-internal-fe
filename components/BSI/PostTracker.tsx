@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
@@ -15,6 +16,7 @@ interface PostTrackerProps {
 }
 
 export function PostTracker({ entity }: PostTrackerProps) {
+  const t = useT()
   const { posts } = useStore()
   const [filter, setFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
@@ -29,7 +31,7 @@ export function PostTracker({ entity }: PostTrackerProps) {
   })
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus post ini?')) return
+    if (!confirm(t('Hapus post ini?'))) return
     const supabase = getSupabase()
     await supabase.from('posts').delete().eq('id', id)
     logActivity('Post dihapus')
@@ -41,7 +43,7 @@ export function PostTracker({ entity }: PostTrackerProps) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           {[
-            { key: 'all', label: 'Semua' },
+            { key: 'all', label: t('Semua') },
             { key: 'ig', label: 'Instagram' },
             { key: 'tiktok', label: 'TikTok' },
           ].map(f => (
@@ -64,7 +66,7 @@ export function PostTracker({ entity }: PostTrackerProps) {
           onClick={() => { setEditId(null); setShowModal(true) }}
           style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
         >
-          + Tambah Post
+          + {t('Tambah Post')}
         </button>
       </div>
 
@@ -73,12 +75,12 @@ export function PostTracker({ entity }: PostTrackerProps) {
         <table>
           <thead>
             <tr>
-              <th>Judul</th>
+              <th>{t('Judul')}</th>
               <th>Platform</th>
-              <th>Tanggal</th>
+              <th>{t('Tanggal')}</th>
               <th>Status</th>
               <th>PIC</th>
-              <th style={{ width: 80 }}>Aksi</th>
+              <th style={{ width: 80 }}>{t('Aksi')}</th>
             </tr>
           </thead>
           <tbody>
@@ -86,7 +88,7 @@ export function PostTracker({ entity }: PostTrackerProps) {
               <tr><td colSpan={6}>
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📷</div>
-                  Belum ada post. Klik "+ Tambah Post" untuk mulai.
+                  {t('Belum ada post. Klik "+ Tambah Post" untuk mulai.')}
                 </div>
               </td></tr>
             ) : filtered.map(p => (
@@ -108,7 +110,7 @@ export function PostTracker({ entity }: PostTrackerProps) {
                   <button
                     onClick={() => { setEditId(p.id); setShowModal(true) }}
                     style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: 'var(--text)', marginRight: 4 }}
-                  >Edit</button>
+                  >{t('Edit')}</button>
                   <button
                     onClick={() => handleDelete(p.id)}
                     style={{ background: 'var(--accent2)', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: '#fff' }}

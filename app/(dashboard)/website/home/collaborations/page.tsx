@@ -5,6 +5,7 @@ import DOMPurify from 'isomorphic-dompurify'
 import { getSupabase } from '@/lib/supabase'
 import { uploadFileWithProgress } from '@/lib/storage'
 import type { BsiCollaboration } from '@/lib/website-types'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { useRegisterPageAction } from '@/components/website/PageActionsContext'
 import { PrimaryActionButton } from '@/components/website/PageActions'
 import { FormField, inputStyle } from '@/components/website/FormField'
@@ -153,6 +154,7 @@ function sanitizeSvg(svg: string): string {
 }
 
 export default function CollaborationsAdminPage() {
+  const t = useT()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiCollaboration[]>([])
   const [loading, setLoading] = useState(true)
@@ -174,7 +176,7 @@ export default function CollaborationsAdminPage() {
   useEffect(() => { load() }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus brand ini?')) return
+    if (!confirm(t('Hapus brand ini?'))) return
     const { error } = await supabase.from('bsi_collaborations').delete().eq('id', id)
     if (error) { alert(error.message); return }
     setItems((xs) => xs.filter((x) => x.id !== id))
@@ -190,7 +192,7 @@ export default function CollaborationsAdminPage() {
   }
 
   useRegisterPageAction(
-    <PrimaryActionButton onClick={() => setCreating(true)}>+ Tambah Brand</PrimaryActionButton>,
+    <PrimaryActionButton onClick={() => setCreating(true)}>{t('+ Tambah Brand')}</PrimaryActionButton>,
   )
 
   return (
@@ -199,9 +201,9 @@ export default function CollaborationsAdminPage() {
         {error && <ListError message={error} />}
         <Section title="Brand Partners">
           {loading ? (
-            <div style={{ color: 'var(--text2)', fontSize: 13 }}>Memuat…</div>
+            <div style={{ color: 'var(--text2)', fontSize: 13 }}>{t('Memuat…')}</div>
           ) : items.length === 0 ? (
-            <ListEmpty message="Belum ada brand partner." />
+            <ListEmpty message={t('Belum ada brand partner.')} />
           ) : (
             <div
               style={{
@@ -247,6 +249,7 @@ function BrandCard({
   onTogglePublish: () => void
   onDelete: () => void
 }) {
+  const t = useT()
   const safeSvg = useMemo(() => sanitizeSvg(item.logo_svg), [item.logo_svg])
   const rasterUrl = useMemo(() => extractRasterUrl(item.logo_svg), [item.logo_svg])
   return (
@@ -311,10 +314,10 @@ function BrandCard({
         >
           Edit
         </button>
-        <IconBtn onClick={onTogglePublish} title={item.is_published ? 'Sembunyikan' : 'Tampilkan'} color={item.is_published ? 'var(--accent3)' : 'var(--text2)'}>
+        <IconBtn onClick={onTogglePublish} title={item.is_published ? t('Sembunyikan') : t('Tampilkan')} color={item.is_published ? 'var(--accent3)' : 'var(--text2)'}>
           {item.is_published ? '●' : '○'}
         </IconBtn>
-        <IconBtn onClick={onDelete} title="Hapus" color="#ff6b6b">×</IconBtn>
+        <IconBtn onClick={onDelete} title={t('Hapus')} color="#ff6b6b">×</IconBtn>
       </div>
     </div>
   )
@@ -339,6 +342,7 @@ function rasterUrlToSvgMarkup(url: string): string {
 }
 
 function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollaboration | null; onClose: () => void; onSaved: () => void }) {
+  const t = useT()
   const supabase = getSupabase()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState<FormState>(
@@ -372,7 +376,7 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
       /\.(png|jpe?g)$/i.test(file.name)
 
     if (!isRaster) {
-      setError('Format file tidak didukung. Gunakan PNG atau JPG.')
+      setError(t('Format file tidak didukung. Gunakan PNG atau JPG.'))
       return
     }
 
@@ -399,9 +403,9 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
 
   function requestReplaceLogo() {
     setConfirm({
-      title: 'Ganti logo?',
-      message: 'Logo yang sekarang akan diganti dengan file baru. File lama tetap di storage.',
-      confirmLabel: 'Ganti',
+      title: t('Ganti logo?'),
+      message: t('Logo yang sekarang akan diganti dengan file baru. File lama tetap di storage.'),
+      confirmLabel: t('Ganti'),
       tone: 'warning',
       onConfirm: () => {
         setConfirm(null)
@@ -412,9 +416,9 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
 
   function requestRemoveLogo() {
     setConfirm({
-      title: 'Hapus logo?',
-      message: 'Logo akan dilepas dari brand ini. File asli tetap aman di storage.',
-      confirmLabel: 'Hapus',
+      title: t('Hapus logo?'),
+      message: t('Logo akan dilepas dari brand ini. File asli tetap aman di storage.'),
+      confirmLabel: t('Hapus'),
       tone: 'danger',
       onConfirm: () => {
         setConfirm(null)
@@ -444,19 +448,19 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
 
   return (
     <ModalShell
-      title={initial ? 'Edit Brand' : 'Tambah Brand'}
+      title={initial ? t('Edit Brand') : t('Tambah Brand')}
       onClose={onClose}
       headerExtra={headerStatus}
       footer={
         <>
-          <button onClick={onClose} style={{ flex: 1, height: 36, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>Batal</button>
-          <button onClick={handleSave} disabled={saving} style={{ flex: 1, height: 36, background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1 }}>{saving ? 'Menyimpan…' : initial ? 'Simpan' : 'Tambah'}</button>
+          <button onClick={onClose} style={{ flex: 1, height: 36, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, cursor: 'pointer' }}>{t('Batal')}</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 1, height: 36, background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1 }}>{saving ? t('Menyimpan…') : initial ? t('Simpan') : t('Tambah')}</button>
         </>
       }
     >
       {error && <ListError message={error} />}
 
-      <FormField label="Nama Brand" required>
+      <FormField label={t('Nama Brand')} required>
         <input style={inputStyle} value={form.brand_name} onChange={(e) => update('brand_name', e.target.value)} />
       </FormField>
 
@@ -522,7 +526,7 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
                   gap: 6,
                 }}
               >
-                {uploading ? `Mengupload ${uploadProgress.toFixed(0)}%` : 'Ganti'}
+                {uploading ? `${t('Mengupload')} ${uploadProgress.toFixed(0)}%` : t('Ganti')}
               </button>
               <button
                 type="button"
@@ -540,7 +544,7 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
                   cursor: uploading ? 'wait' : 'pointer',
                 }}
               >
-                Hapus
+                {t('Hapus')}
               </button>
             </div>
           </div>
@@ -576,7 +580,7 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
                     animation: 'spin 0.8s linear infinite',
                   }}
                 />
-                <span>Mengupload {uploadProgress.toFixed(0)}%</span>
+                <span>{t('Mengupload')} {uploadProgress.toFixed(0)}%</span>
               </>
             ) : (
               <>
@@ -585,7 +589,7 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
                   <polyline points="17 8 12 3 7 8" />
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
-                <span style={{ color: 'var(--text)', fontWeight: 500 }}>Klik untuk upload</span>
+                <span style={{ color: 'var(--text)', fontWeight: 500 }}>{t('Klik untuk upload')}</span>
                 <span style={{ fontSize: 11 }}>PNG · JPG (max 200 MB)</span>
               </>
             )}
@@ -605,7 +609,7 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
       </FormField>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <FormField label="Tint Color" hint="Otomatis dari warna dominan logo. Bisa diubah manual.">
+        <FormField label="Tint Color" hint={t('Otomatis dari warna dominan logo. Bisa diubah manual.')}>
           <input
             type="color"
             style={{ ...inputStyle, padding: 4, height: 36 }}
@@ -613,7 +617,7 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
             onChange={(e) => update('tint_color', e.target.value)}
           />
         </FormField>
-        <FormField label="Urutan">
+        <FormField label={t('Urutan')}>
           <input
             type="number"
             style={inputStyle}
@@ -633,11 +637,12 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
 }
 
 function ActiveToggleButton({ active, onClick }: { active: boolean; onClick: () => void }) {
+  const t = useT()
   return (
     <button
       type="button"
       onClick={onClick}
-      title={active ? 'Klik untuk men-non-aktifkan' : 'Klik untuk mengaktifkan'}
+      title={active ? t('Klik untuk men-non-aktifkan') : t('Klik untuk mengaktifkan')}
       style={{
         width: 110,
         height: 28,
@@ -667,7 +672,7 @@ function ActiveToggleButton({ active, onClick }: { active: boolean; onClick: () 
           transition: 'background 0.15s',
         }}
       />
-      {active ? 'Active' : 'Non Active'}
+      {active ? 'Active' : t('Non Active')}
     </button>
   )
 }

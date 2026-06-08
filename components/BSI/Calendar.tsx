@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { PostModal } from '@/components/BPI/PostModal'
@@ -196,6 +197,7 @@ function MonthPanel({
   onDayClick: (e: React.MouseEvent, dateStr: string) => void
   onPostClick: (e: React.MouseEvent, id: string) => void
 }) {
+  const t = useT()
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const prevDays = new Date(year, month, 0).getDate()
@@ -278,7 +280,7 @@ function MonthPanel({
                 </div>
               ))}
               {dayPosts.length > 3 && (
-                <div style={{ fontSize: 10, color: 'var(--text2)' }}>+{dayPosts.length - 3} lagi</div>
+                <div style={{ fontSize: 10, color: 'var(--text2)' }}>+{dayPosts.length - 3} {t('lagi')}</div>
               )}
             </div>
           )
@@ -301,6 +303,7 @@ function DayPopup({
   onPostClick: (id: string, e: React.MouseEvent) => void
   onAddPost: () => void
 }) {
+  const t = useT()
   const [d, m, yr] = date.split('-').map(Number)
   const fmtDate = `${d} ${['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][m]} ${yr}`
 
@@ -326,7 +329,7 @@ function DayPopup({
 
       {posts.length === 0 ? (
         <div style={{ fontSize: 12, color: 'var(--text2)', textAlign: 'center', padding: '8px 0 4px' }}>
-          Tidak ada post di hari ini
+          {t('Tidak ada post di hari ini')}
         </div>
       ) : posts.map(p => (
         <div
@@ -347,7 +350,7 @@ function DayPopup({
         onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = '#fff' }}
         onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(108,99,255,0.12)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
       >
-        + Tambah Post
+        + {t('Tambah Post')}
       </button>
     </div>
   )

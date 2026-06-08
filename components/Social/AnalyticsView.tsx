@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chart, registerables } from 'chart.js'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import {
   SUBJECTS, WEEKS, PLATFORM_TRENDS, followersAsOf,
   CONTENT_POSTS, PLATFORM_META, FORMAT_LABEL, type ContentPost, type Platform,
@@ -49,6 +50,7 @@ export function AnalyticsView({
   range?: DateRange
   setRange?: (r: DateRange) => void
 } = {}) {
+  const t = useT()
   // Account + platform can be controlled by the page (filter in the top bar) or
   // managed internally (standalone page → inline filter button).
   const controlled = subjectIdProp !== undefined
@@ -250,10 +252,10 @@ export function AnalyticsView({
               <StatCard
                 label={platform === 'all' ? 'Total Followers' : 'Followers'}
                 value={fmtNum(followersForFilter)}
-                delta={realFollowers && followersGain !== 0 ? `${followersGain > 0 ? '+' : ''}${followersGain.toLocaleString('id-ID')} (periode)` : undefined}
+                delta={realFollowers && followersGain !== 0 ? `${followersGain > 0 ? '+' : ''}${followersGain.toLocaleString('id-ID')} ${t('(periode)')}` : undefined}
                 deltaUp={followersGain >= 0}
               />
-              <StatCard label="Konten (periode)" value={kontenCount.toLocaleString('id-ID')}
+              <StatCard label={t('Konten (periode)')} value={kontenCount.toLocaleString('id-ID')}
                 breakdown={
                   <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 11.5, color: 'var(--text2)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -277,7 +279,7 @@ export function AnalyticsView({
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
               <Card>
-                <SectionTitle>Pertumbuhan Followers</SectionTitle>
+                <SectionTitle>{t('Pertumbuhan Followers')}</SectionTitle>
                 <div style={{ height: 200 }}>{series ? <canvas ref={followerRef} /> : <EmptyChart />}</div>
               </Card>
               <Card>
@@ -305,29 +307,29 @@ export function AnalyticsView({
         {view === 'content' && (
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-              <SectionTitle>Performa Konten</SectionTitle>
+              <SectionTitle>{t('Performa Konten')}</SectionTitle>
               {/* Video / Photo filter */}
               <div style={{ display: 'flex', gap: 6 }}>
                 {([['all', 'Semua'], ['video', 'Video'], ['photo', 'Photo']] as const).map(([key, lbl]) => (
-                  <button key={key} onClick={() => setContentType(key)} style={typePill(contentType === key)}>{lbl}</button>
+                  <button key={key} onClick={() => setContentType(key)} style={typePill(contentType === key)}>{t(lbl)}</button>
                 ))}
               </div>
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 12, color: 'var(--text3)' }}>Urutkan:</span>
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t('Urutkan:')}</span>
                 <select value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)} style={{ ...selectStyle, minWidth: 0, padding: '6px 10px' }}>
-                  <option value="date">Terbaru</option>
-                  <option value="reach">Reach tertinggi</option>
-                  <option value="engagement">Engagement tertinggi</option>
+                  <option value="date">{t('Terbaru')}</option>
+                  <option value="reach">{t('Reach tertinggi')}</option>
+                  <option value="engagement">{t('Engagement tertinggi')}</option>
                 </select>
               </div>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
-              {contentFiltered.length} konten
-              {contentType !== 'all' && <> · {contentType === 'video' ? 'Video' : 'Photo/Design'}</>}
+              {contentFiltered.length} {t('konten')}
+              {contentType !== 'all' && <> · {contentType === 'video' ? 'Video' : t('Photo/Design')}</>}
             </div>
             {contentFiltered.length === 0 ? (
               <div style={{ padding: '36px 0', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
-                Tidak ada konten untuk filter ini.
+                {t('Tidak ada konten untuk filter ini.')}
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
@@ -360,6 +362,7 @@ function SocialAnalyticsFilter({ subjectId, onSubject, platform, onPlatform, ava
   availablePlatforms: Platform[]
   onClose: () => void
 }) {
+  const t = useT()
   return (
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={onClose} />
@@ -368,7 +371,7 @@ function SocialAnalyticsFilter({ subjectId, onSubject, platform, onPlatform, ava
         background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
         padding: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
       }}>
-        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>Akun</div>
+        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>{t('Akun')}</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
           {SUBJECTS.map(s => (
             <SocialFilterChip key={s.id} label={s.name} active={subjectId === s.id} onClick={() => onSubject(s.id)} />
@@ -376,7 +379,7 @@ function SocialAnalyticsFilter({ subjectId, onSubject, platform, onPlatform, ava
         </div>
         <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>Platform</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          <SocialFilterChip label="Semua" active={platform === 'all'} onClick={() => onPlatform('all')} />
+          <SocialFilterChip label={t('Semua')} active={platform === 'all'} onClick={() => onPlatform('all')} />
           {availablePlatforms.map(p => (
             <SocialFilterChip key={p} label={PLATFORM_META[p].label} active={platform === p} onClick={() => onPlatform(p)} />
           ))}
@@ -445,14 +448,16 @@ export function SocialFilterChip({ label, active, onClick }: { label: string; ac
 }
 
 function EmptyChart() {
+  const t = useT()
   return (
     <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 12.5 }}>
-      Belum ada data tren untuk platform ini.
+      {t('Belum ada data tren untuk platform ini.')}
     </div>
   )
 }
 
 function ContentCard({ post }: { post: ContentPost }) {
+  const t = useT()
   const m = PLATFORM_META[post.platform]
   // Preview cover: explicit cover, else a deterministic placeholder standing in
   // for the resolved frame (video) / first slide (design).
@@ -497,7 +502,7 @@ function ContentCard({ post }: { post: ContentPost }) {
         {/* engagement breakdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 12, paddingTop: 11, borderTop: '1px solid var(--border)' }}>
           <IconStat icon={<HeartIcon />} value={fmtNum(post.likes)} title="Likes" />
-          <IconStat icon={<CommentIcon />} value={fmtNum(post.comments)} title="Komentar" />
+          <IconStat icon={<CommentIcon />} value={fmtNum(post.comments)} title={t('Komentar')} />
           <IconStat icon={<ShareIcon2 />} value={fmtNum(post.shares)} title="Share" />
         </div>
       </div>
