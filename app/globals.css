@@ -112,7 +112,7 @@
   --text: #FFFFFF;
   --text2: rgba(255, 255, 255, 0.65);   /* labels, secondary copy */
   --text3: rgba(255, 255, 255, 0.45);   /* tertiary / hints */
-  --sidebar-w: 260px;
+  --sidebar-w: 288px;
   --sidebar-collapsed: 68px;
   --font-sans: 'Open Sauce One', 'Open Sauce Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }

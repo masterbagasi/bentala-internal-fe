@@ -702,7 +702,7 @@ export function Sidebar() {
                           fontWeight: 600,
                           color: 'var(--text2)',
                           whiteSpace: 'nowrap',
-                          maxWidth: isExpanded ? 140 : 0,
+                          maxWidth: isExpanded ? 190 : 0,
                           opacity: isExpanded ? 1 : 0,
                           overflow: 'hidden',
                           transition: 'max-width 0.22s ease, opacity 0.15s ease',
