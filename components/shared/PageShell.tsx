@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ReactNode } from 'react'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { NotificationBell } from '@/components/shared/NotificationBell'
 
 // ── Tab descriptors ─────────────────────────────────────────
 //
@@ -127,11 +128,10 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
             </span>
           </div>
 
-          {action && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              {action}
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {action}
+            <NotificationBell />
+          </div>
         </div>
 
         {/* Tabs row */}

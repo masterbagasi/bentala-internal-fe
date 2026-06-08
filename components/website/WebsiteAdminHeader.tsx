@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { NotificationBell } from '@/components/shared/NotificationBell'
 
 interface Props {
   title: string
@@ -58,7 +59,10 @@ export function WebsiteAdminHeader({ title, action }: Props) {
           {title}
         </span>
       </div>
-      {action && <div>{action}</div>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {action}
+        <NotificationBell />
+      </div>
     </div>
   )
 }
