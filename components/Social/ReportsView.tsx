@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { SUBJECTS, REPORT_NARRATIVE } from './mock'
+import { SUBJECTS, CONNECTED_SUBJECTS, REPORT_NARRATIVE } from './mock'
 import { Card, StatCard, SectionTitle, fmtNum } from './ui'
 import { SocialFilterChip } from './AnalyticsView'
 import { SocialFilterButton, SocialFilterLabel } from './FilterButton'
@@ -99,7 +99,7 @@ export function SocialReportsFilterButton({ subjectId, setSubjectId, period, set
     <SocialFilterButton count={count}>
       <SocialFilterLabel>{t('Akun')}</SocialFilterLabel>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-        {SUBJECTS.map(s => (
+        {CONNECTED_SUBJECTS.map(s => (
           <SocialFilterChip key={s.id} label={s.name} active={subjectId === s.id} onClick={() => setSubjectId(s.id)} />
         ))}
       </div>

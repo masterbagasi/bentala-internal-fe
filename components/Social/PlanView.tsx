@@ -1,6 +1,6 @@
 'use client'
 
-import { SUBJECTS, PLAN_ITEMS, AI_RECOMMENDATIONS, PLATFORM_META } from './mock'
+import { SUBJECTS, CONNECTED_SUBJECTS, PLAN_ITEMS, AI_RECOMMENDATIONS, PLATFORM_META } from './mock'
 import { Card, PlatformChip, SectionTitle } from './ui'
 import { SocialFilterChip } from './AnalyticsView'
 import { SocialFilterButton, SocialFilterLabel } from './FilterButton'
@@ -120,7 +120,7 @@ export function SocialPlanFilterButton({ subjectId, setSubjectId }: {
     <SocialFilterButton count={count}>
       <SocialFilterLabel>{t('Akun')}</SocialFilterLabel>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {SUBJECTS.map(s => (
+        {CONNECTED_SUBJECTS.map(s => (
           <SocialFilterChip key={s.id} label={s.name} active={subjectId === s.id} onClick={() => setSubjectId(s.id)} />
         ))}
       </div>

@@ -32,6 +32,7 @@ export interface Post {
   files: string[]         // uploaded attachment URLs (any file type)
   created_at: string
   updated_at: string
+  deleted_at?: string | null  // soft-delete timestamp; null/absent = active
 }
 
 export type ClientStage = 'lead' | 'pitch' | 'close' | 'invoice' | 'inactive'

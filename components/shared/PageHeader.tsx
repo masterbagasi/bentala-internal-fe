@@ -1,20 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { format } from 'date-fns'
 import { useStore } from '@/hooks/useStore'
-import { useT } from '@/lib/i18n/LanguageProvider'
 import { NotificationBell } from '@/components/shared/NotificationBell'
-
-// ── Date range presets ──
-const PRESETS = [
-  { label: 'Hari Ini',  days: 0 },
-  { label: '7 Hari',   days: 7 },
-  { label: 'Bulan Ini', days: -1 },
-  { label: '30 Hari',  days: 30 },
-  { label: '90 Hari',  days: 90 },
-  { label: 'Tahun Ini', days: -2 },
-]
+import { DateRangePicker } from '@/components/Social/DateRangePicker'
 
 // ── Tab icons ──
 const TAB_ICONS: Record<string, React.ReactNode> = {
@@ -103,9 +91,6 @@ interface PageHeaderProps {
   tabsRight?: React.ReactNode
 }
 
-// ── Shared button height constant ──
-const BTN_H = 32 // px — all buttons use this height
-
 export function PageHeader({
   title,
   showDateFilter = false,
@@ -115,28 +100,7 @@ export function PageHeader({
   action,
   tabsRight,
 }: PageHeaderProps) {
-  const t = useT()
   const { dateRange, setDateRange } = useStore()
-  const [dateOpen, setDateOpen] = useState(false)
-
-  function applyPreset(preset: (typeof PRESETS)[0]) {
-    const now = new Date()
-    let from: Date, to: Date
-    if (preset.days === -1) {
-      from = new Date(now.getFullYear(), now.getMonth(), 1)
-      to   = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    } else if (preset.days === -2) {
-      from = new Date(now.getFullYear(), 0, 1)
-      to   = new Date(now.getFullYear(), 11, 31)
-    } else if (preset.days === 0) {
-      from = to = now
-    } else {
-      from = new Date(now.getTime() - preset.days * 86400000)
-      to   = now
-    }
-    setDateRange({ from: format(from, 'yyyy-MM-dd'), to: format(to, 'yyyy-MM-dd'), label: preset.label })
-    setDateOpen(false)
-  }
 
   const hasTabs = tabs && tabs.length > 0
 
@@ -180,90 +144,9 @@ export function PageHeader({
             anchored top-right like PageTabs does, so every page
             in the dashboard has the same affordance position. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Date filter */}
+          {/* Date filter — rich range picker (same as Social analytics) */}
           {showDateFilter && (
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setDateOpen(o => !o)}
-                style={{
-                  height: BTN_H,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '0 12px',
-                  borderRadius: 8,
-                  background: 'var(--bg3)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text)',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-                onMouseOver={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                onMouseOut={e => (e.currentTarget.style.borderColor = 'var(--border)')}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
-                  <rect x="3" y="4" width="18" height="18" rx="2"/>
-                  <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-                  <line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-                <span>{dateRange.label}</span>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2.5">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </button>
-
-              {dateOpen && (
-                <div
-                  className="animate-slide-up"
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: 'calc(100% + 4px)',
-                    width: 200,
-                    background: 'var(--bg2)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 10,
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                    overflow: 'hidden',
-                    zIndex: 999,
-                  }}
-                >
-                  <div style={{ padding: '8px 4px' }}>
-                    <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text2)', padding: '0 12px 8px' }}>
-                      {t('Periode')}
-                    </div>
-                    {PRESETS.map(p => (
-                      <button
-                        key={p.label}
-                        onClick={() => applyPreset(p)}
-                        style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '7px 12px',
-                          borderRadius: 6,
-                          border: 'none',
-                          background: dateRange.label === p.label ? 'rgba(108,99,255,0.15)' : 'transparent',
-                          color: dateRange.label === p.label ? 'var(--accent)' : 'var(--text)',
-                          fontSize: 13,
-                          cursor: 'pointer',
-                        }}
-                        onMouseOver={e => {
-                          if (dateRange.label !== p.label)
-                            (e.currentTarget as HTMLElement).style.background = 'var(--bg3)'
-                        }}
-                        onMouseOut={e => {
-                          if (dateRange.label !== p.label)
-                            (e.currentTarget as HTMLElement).style.background = 'transparent'
-                        }}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
           )}
 
           {/* User-supplied action — always in top-right title row,

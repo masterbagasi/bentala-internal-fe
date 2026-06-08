@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
 import { BPIPage, BoardFilter, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
+import { PostHistoryButton } from '@/components/shared/PostHistory'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 
@@ -32,7 +33,12 @@ export default function BpiPage() {
         activeTab={tab}
         onTabChange={setTab}
         showDateFilter={tab === 'analytics'}
-        tabsRight={tab !== 'analytics' ? <BoardFilter filters={bf.filters} setFilters={bf.setFilters} accounts={bf.accounts} months={bf.months} /> : undefined}
+        tabsRight={tab !== 'analytics' ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <PostHistoryButton scope={{ entity: 'bpi' }} />
+            <BoardFilter filters={bf.filters} setFilters={bf.setFilters} accounts={bf.accounts} months={bf.months} />
+          </div>
+        ) : undefined}
         action={
           <button
             onClick={() => bpiRef.current?.openEdit()}

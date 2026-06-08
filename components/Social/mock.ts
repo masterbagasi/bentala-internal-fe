@@ -66,6 +66,14 @@ export const SUBJECTS: Subject[] = [
   },
 ]
 
+// Only accounts that are active and logged in — i.e. have at least one
+// connection with status 'connected'. Used for the account pickers so the
+// filters never offer accounts that aren't actually signed in (e.g. prospect
+// accounts scraped from public data, or pending/errored connections).
+export const CONNECTED_SUBJECTS = SUBJECTS.filter(s =>
+  s.connections.some(c => c.status === 'connected'),
+)
+
 // REAL cumulative follower count at end of each day (@bentalaprojectindonesia,
 // reconstructed from the daily follower_count series via Composio 2026-06-05).
 // Used so the Followers figure reflects the selected date range.

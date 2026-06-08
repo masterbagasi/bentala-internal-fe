@@ -29,7 +29,7 @@ export function useData() {
         { data: tasks },
         { data: activity },
       ] = await Promise.all([
-        supabase.from('posts').select('*').order('created_at', { ascending: false }),
+        supabase.from('posts').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
         supabase.from('clients').select('*').order('created_at', { ascending: false }),
         supabase.from('invoices').select('*').order('created_at', { ascending: false }),
         supabase.from('projects').select('*').order('created_at', { ascending: false }),

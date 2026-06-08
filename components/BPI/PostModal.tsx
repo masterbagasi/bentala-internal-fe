@@ -16,7 +16,7 @@ interface PostModalProps {
   open: boolean
   onClose: () => void
   editId: string | null
-  entity: 'bpi' | 'bsi'
+  entity: 'bpi' | 'bsi' | 'ws'
 }
 
 type Platform = (typeof POST_PLATFORMS)[number]['key']

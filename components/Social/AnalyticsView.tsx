@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chart, registerables } from 'chart.js'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import {
-  SUBJECTS, WEEKS, PLATFORM_TRENDS, followersAsOf,
+  SUBJECTS, CONNECTED_SUBJECTS, WEEKS, PLATFORM_TRENDS, followersAsOf,
   CONTENT_POSTS, PLATFORM_META, FORMAT_LABEL, type ContentPost, type Platform,
 } from './mock'
 import { POSTS_META } from './postLog'
@@ -373,7 +373,7 @@ function SocialAnalyticsFilter({ subjectId, onSubject, platform, onPlatform, ava
       }}>
         <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>{t('Akun')}</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-          {SUBJECTS.map(s => (
+          {CONNECTED_SUBJECTS.map(s => (
             <SocialFilterChip key={s.id} label={s.name} active={subjectId === s.id} onClick={() => onSubject(s.id)} />
           ))}
         </div>

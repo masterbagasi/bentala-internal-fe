@@ -10,6 +10,7 @@ import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/Stat
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { PostModal } from './PostModal'
 import { PostPreviewModal } from './PostPreviewModal'
+import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
 import { ContentCalendar } from '@/components/BSI/Calendar'
 import dynamic from 'next/dynamic'
 const BPIAnalytics = dynamic(() => import('./Analytics').then(m => ({ default: m.BPIAnalytics })), { ssr: false })
@@ -23,23 +24,30 @@ export interface BPIPageHandle {
 }
 
 interface BPIPageProps {
-  entity: 'bpi' | 'bsi'
+  entity: 'bpi' | 'bsi' | 'ws'
+  /** Workspace pages scope by assigned PIC across entities instead of by entity. */
+  picScope?: string
+  /** Calendar entity key (e.g. 'ws-fz') when different from `entity`. */
+  calEntity?: string
   currentUser?: string
   activeTab: BPITabType
   filters: PostFilters
 }
 
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
-  function BPIPage({ entity, currentUser = 'Naufal', activeTab, filters }, ref) {
+  function BPIPage({ entity, picScope, calEntity, currentUser = 'Naufal', activeTab, filters }, ref) {
     const t = useT()
-    const { posts } = useStore()
+    const { posts, removePost } = useStore()
     const [showPostModal, setShowPostModal] = useState(false)
     const [editPostId, setEditPostId] = useState<string | null>(null)
     const [previewPostId, setPreviewPostId] = useState<string | null>(null)
+    const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null)
+    const [confirmBusy, setConfirmBusy] = useState(false)
     const logActivity = useLogActivity()
 
     const filtered = posts.filter(p => {
-      if (p.entity !== entity) return false
+      // Scope: by assigned PIC (workspace) or by entity (boards).
+      if (picScope ? !(p.pics || []).includes(picScope) : p.entity !== entity) return false
       if (filters.platforms.length && !filters.platforms.some(x => ((p.platforms || []) as string[]).includes(x))) return false
       if (filters.contentTypes.length && !filters.contentTypes.some(x => (p.content_types || []).includes(x))) return false
       if (filters.tagged.length && !filters.tagged.some(x => (p.tagged || []).includes(x))) return false
@@ -59,11 +67,27 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
 
     useImperativeHandle(ref, () => ({ openEdit }))
 
-    async function handleDelete(id: string) {
-      if (!confirm(t('Hapus post ini?'))) return
-      const supabase = getSupabase()
-      await supabase.from('posts').delete().eq('id', id)
-      logActivity('Post dihapus')
+    function handleDelete(id: string) {
+      setConfirmReq({
+        title: t('Hapus Post'),
+        message: t('Post ini akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.'),
+        confirmLabel: t('Hapus'),
+        tone: 'danger',
+        onConfirm: async () => {
+          setConfirmBusy(true)
+          try {
+            const supabase = getSupabase()
+            // Soft delete — keeps the row so it can be restored from History.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (supabase as any).from('posts').update({ deleted_at: new Date().toISOString() }).eq('id', id)
+            removePost(id) // optimistic; realtime UPDATE confirms
+            logActivity('Post dihapus')
+          } finally {
+            setConfirmBusy(false)
+            setConfirmReq(null)
+          }
+        },
+      })
     }
 
     return (
@@ -79,12 +103,17 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               currentUser={currentUser}
               statusFilter={filters.statuses}
               onEdit={openEdit}
+              onDelete={handleDelete}
               onCardClick={id => setPreviewPostId(id)}
             />
           )}
-          {activeTab === 'calendar' && <ContentCalendar entity={entity} onPostClick={id => setPreviewPostId(id)} />}
+          {activeTab === 'calendar' && <ContentCalendar entity={calEntity ?? entity} onPostClick={id => setPreviewPostId(id)} />}
           {activeTab === 'files' && <FilesTab posts={filtered} />}
-          {activeTab === 'analytics' && <BPIAnalytics entity={entity} />}
+          {activeTab === 'analytics' && (
+            picScope
+              ? <BPIAnalytics picScope={picScope} />
+              : <BPIAnalytics entity={entity === 'ws' ? 'bpi' : entity} />
+          )}
         </div>
 
         {/* Modals */}
@@ -102,6 +131,13 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             postId={previewPostId}
             onClose={() => setPreviewPostId(null)}
             onEdit={id => { setPreviewPostId(null); openEdit(id) }}
+          />
+        )}
+        {confirmReq && (
+          <ConfirmDialog
+            request={confirmReq}
+            busy={confirmBusy}
+            onCancel={() => setConfirmReq(null)}
           />
         )}
       </div>
@@ -131,7 +167,7 @@ function ListView({
             <th>{t('Status')}</th>
             <th>{t('PIC')}</th>
             <th>{t('Caption')}</th>
-            <th style={{ width: 80 }}>{t('Aksi')}</th>
+            <th style={{ width: 96, whiteSpace: 'nowrap' }}>{t('Aksi')}</th>
           </tr>
         </thead>
         <tbody>
@@ -174,14 +210,16 @@ function ListView({
                 </span>
               </td>
               <td onClick={e => e.stopPropagation()}>
-                <button
-                  onClick={() => onEdit(p.id)}
-                  style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: 'var(--text)', marginRight: 4 }}
-                >Edit</button>
-                <button
-                  onClick={() => onDelete(p.id)}
-                  style={{ background: 'var(--accent2)', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: '#fff' }}
-                >✕</button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={() => onEdit(p.id)}
+                    style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: 'var(--text)', whiteSpace: 'nowrap' }}
+                  >Edit</button>
+                  <button
+                    onClick={() => onDelete(p.id)}
+                    style={{ background: 'var(--accent2)', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: '#fff', lineHeight: 1 }}
+                  >✕</button>
+                </div>
               </td>
             </tr>
           ))}
@@ -193,12 +231,13 @@ function ListView({
 
 // ── Kanban Board ──
 function KanbanBoard({
-  posts, currentUser, statusFilter, onEdit, onCardClick,
+  posts, currentUser, statusFilter, onEdit, onDelete, onCardClick,
 }: {
   posts: Post[]
   currentUser: string
   statusFilter: string[]
   onEdit: (id: string) => void
+  onDelete: (id: string) => void
   onCardClick: (id: string) => void
 }) {
   // When statuses are filtered, only show those columns.
@@ -291,6 +330,7 @@ function KanbanBoard({
                   onDragEnd={() => { setDragPostId(null); setDragOverCol(null) }}
                   onClick={() => onCardClick(p.id)}
                   onEdit={() => onEdit(p.id)}
+                  onDelete={() => onDelete(p.id)}
                 />
               ))}
             </div>
@@ -318,14 +358,17 @@ function KanbanBoard({
 
 // ── Kanban Card ──
 function KanbanCard({
-  post, onDragStart, onDragEnd, onClick, onEdit,
+  post, onDragStart, onDragEnd, onClick, onEdit, onDelete,
 }: {
   post: Post
   onDragStart: (e: React.DragEvent) => void
   onDragEnd: () => void
   onClick: () => void
   onEdit: () => void
+  onDelete: () => void
 }) {
+  const t = useT()
+  const [hovered, setHovered] = useState(false)
   return (
     <div
       className="kanban-card"
@@ -334,20 +377,57 @@ function KanbanCard({
       onDragEnd={onDragEnd}
       onClick={onClick}
       style={{
+        position: 'relative',
         background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
         padding: '10px 12px', marginBottom: 8, cursor: 'pointer',
         transition: 'border-color 0.15s, box-shadow 0.15s',
       }}
       onMouseOver={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(108,99,255,0.4)'
+        setHovered(true)
+        ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(108,99,255,0.4)'
         ;(e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)'
       }}
       onMouseOut={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
+        setHovered(false)
+        ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
         ;(e.currentTarget as HTMLElement).style.boxShadow = ''
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.4, color: 'var(--text)', marginBottom: 6 }}>
+      {/* Hover actions — edit + delete */}
+      <div style={{
+        position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4,
+        opacity: hovered ? 1 : 0, pointerEvents: hovered ? 'auto' : 'none',
+        transition: 'opacity 0.12s',
+      }}>
+        <button
+          onClick={e => { e.stopPropagation(); onEdit() }}
+          title={t('Edit')}
+          style={{
+            width: 22, height: 22, borderRadius: 5, cursor: 'pointer',
+            background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+          }}
+          onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
+          onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </button>
+        <button
+          onClick={e => { e.stopPropagation(); onDelete() }}
+          title={t('Hapus')}
+          style={{
+            width: 22, height: 22, borderRadius: 5, cursor: 'pointer',
+            background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, fontSize: 12, lineHeight: 1,
+          }}
+          onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.background = 'var(--accent2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent2)' }}
+          onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+        >✕</button>
+      </div>
+
+      <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.4, color: 'var(--text)', marginBottom: 6, paddingRight: 48 }}>
         {post.title}
       </div>
       {post.date && (
@@ -438,7 +518,7 @@ export interface PostFilters {
 export const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: [], ratios: [], month: '', statuses: [] }
 
 // Owns filter state + the data the popup needs (accounts, months for an entity).
-export function useBoardFilter(entity: 'bpi' | 'bsi') {
+export function useBoardFilter(scope: 'bpi' | 'bsi' | { pic: string }) {
   const { posts } = useStore()
   const [filters, setFilters] = useState<PostFilters>(EMPTY_FILTERS)
   const [accounts, setAccounts] = useState<{ email: string; name: string }[]>([])
@@ -452,9 +532,11 @@ export function useBoardFilter(entity: 'bpi' | 'bsi') {
   }, [])
   const months = useMemo(() => {
     const set = new Set<string>()
-    for (const p of posts) if (p.entity === entity && p.date) set.add(p.date.slice(0, 7))
+    const inScope = (p: typeof posts[number]) =>
+      typeof scope === 'string' ? p.entity === scope : (p.pics || []).includes(scope.pic)
+    for (const p of posts) if (inScope(p) && p.date) set.add(p.date.slice(0, 7))
     return Array.from(set).sort().reverse()
-  }, [posts, entity])
+  }, [posts, scope])
   return { filters, setFilters, accounts, months }
 }
 

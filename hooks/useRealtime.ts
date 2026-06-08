@@ -29,7 +29,11 @@ export function useRealtime() {
         if (payload.eventType === 'DELETE') {
           removePost(payload.old.id as string)
         } else {
-          upsertPost(payload.new as Post)
+          const np = payload.new as Post
+          // Soft-deleted posts drop out of the board; restores (deleted_at
+          // cleared) flow back in as a normal upsert.
+          if (np.deleted_at) removePost(np.id)
+          else upsertPost(np)
         }
       })
 
