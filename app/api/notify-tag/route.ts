@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, skipped: 'RESEND_API_KEY not set' })
   }
 
-  let body: { email?: string; name?: string; postTitle?: string; taggedBy?: string }
+  let body: { email?: string; name?: string; postTitle?: string; taggedBy?: string; kind?: 'tag' | 'comment'; snippet?: string }
   try {
     body = await req.json()
   } catch {
@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
   const nameInput = String(body.name ?? '')
   const postTitle = String(body.postTitle ?? '')
   const taggedBy = String(body.taggedBy ?? '')
+  const kind = body.kind === 'comment' ? 'comment' : 'tag'
+  const snippet = String(body.snippet ?? '')
 
   // Resolve the recipient + display name server-side. An email is only honored
   // if it belongs to a registered account; otherwise fall back to the legacy
@@ -95,19 +97,33 @@ export async function POST(req: NextRequest) {
   const eName = escapeHtml(displayName || 'tim')
   const eBy = escapeHtml(taggedBy)
   const eTitle = escapeHtml(postTitle || '(tanpa judul)')
+  const eSnippet = escapeHtml(snippet.slice(0, 300))
+  const cleanTitle = postTitle.replace(/[\r\n]+/g, ' ').slice(0, 120)
   // Subject is a mail header — strip CR/LF to prevent header injection.
-  const subject = `Kamu di-tag pada post "${postTitle.replace(/[\r\n]+/g, ' ').slice(0, 120)}"`
+  const subject = kind === 'comment'
+    ? `${taggedBy ? taggedBy.replace(/[\r\n]+/g, ' ').slice(0, 60) + ' ' : ''}me-mention kamu di komentar`
+    : `Kamu di-tag pada post "${cleanTitle}"`
+
+  const lead = kind === 'comment'
+    ? `${eBy ? `<strong>${eBy}</strong> me-` : 'Kamu di-'}mention kamu di komentar pada sebuah post di <strong>Bentala Internal System</strong>.`
+    : `${eBy ? `<strong>${eBy}</strong> me-` : 'Kamu di-'}tag kamu pada sebuah post di <strong>Bentala Internal System</strong>.`
+
+  const snippetBlock = kind === 'comment' && eSnippet
+    ? `<div style="background:#f4f5fa;border:1px solid #d5d8ea;border-radius:8px;padding:14px 16px;margin-bottom:20px">
+        <div style="font-size:12px;color:#6b7280;margin-bottom:4px">KOMENTAR</div>
+        <div style="font-size:14px;line-height:1.6">${eSnippet}</div>
+       </div>`
+    : ''
 
   const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1d2e">
       <h2 style="margin:0 0 8px;font-size:18px">Halo ${eName} 👋</h2>
-      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#4b5168">
-        ${eBy ? `<strong>${eBy}</strong> me-` : 'Kamu di-'}tag kamu pada sebuah post di <strong>Bentala Internal System</strong>.
-      </p>
-      <div style="background:#f4f5fa;border:1px solid #d5d8ea;border-radius:8px;padding:14px 16px;margin-bottom:20px">
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#4b5168">${lead}</p>
+      <div style="background:#f4f5fa;border:1px solid #d5d8ea;border-radius:8px;padding:14px 16px;margin-bottom:${snippetBlock ? 12 : 20}px">
         <div style="font-size:12px;color:#6b7280;margin-bottom:4px">POST</div>
         <div style="font-size:15px;font-weight:600">${eTitle}</div>
       </div>
+      ${snippetBlock}
       ${appUrl ? `<a href="${appUrl}" style="display:inline-block;background:#0B3DE7;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px">Buka di Web Internal</a>` : ''}
       <p style="margin:24px 0 0;font-size:12px;color:#9aa0b4">Email otomatis dari Bentala Internal System.</p>
     </div>`
