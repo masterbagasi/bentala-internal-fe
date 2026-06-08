@@ -59,6 +59,11 @@ const SEED: Record<string, string> = {
   'Post ini akan dihapus permanen dan tidak bisa dipulihkan.':
     'This post will be permanently deleted and cannot be restored.',
   '(Tanpa judul)': '(Untitled)',
+  // ── Comment @mentions ──
+  'Tulis komentar… ketik @ untuk mention (⌘/Ctrl + Enter kirim)':
+    'Write a comment… type @ to mention (⌘/Ctrl + Enter to send)',
+  'me-mention kamu di komentar': 'mentioned you in a comment',
+
   // ── Post change history ──
   'Riwayat Perubahan': 'Change History',
   'Belum ada riwayat.': 'No history yet.',
