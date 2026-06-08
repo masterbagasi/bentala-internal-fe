@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -333,19 +333,68 @@ export function PostCommentsBody({ s }: { s: PostCommentsState }) {
 // at the very bottom, never scrolls with the feed.
 export function PostCommentsComposer({ s }: { s: PostCommentsState }) {
   const t = useT()
-  const { me, input, setInput, submit, posting, error } = s
+  const { me, input, setInput, submit, posting, error, accounts, addMention } = s
+  const taRef = useRef<HTMLTextAreaElement>(null)
+  // While typing an @token, `menu` holds the query text + the token start index.
+  const [menu, setMenu] = useState<{ query: string; start: number } | null>(null)
+  const [active, setActive] = useState(0)
+
+  const matches = useMemo(() => {
+    if (!menu) return [] as typeof accounts
+    const q = menu.query.toLowerCase()
+    return accounts
+      .filter(a => a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q))
+      .slice(0, 6)
+  }, [menu, accounts])
+
+  function onChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    setInput(val)
+    const caret = e.target.selectionStart ?? val.length
+    const upto = val.slice(0, caret)
+    const m = /(?:^|\s)@([^\s@]*)$/.exec(upto)
+    if (m) { setMenu({ query: m[1], start: caret - m[1].length - 1 }); setActive(0) }
+    else setMenu(null)
+  }
+
+  function pick(acc: { email: string; name: string }) {
+    if (!menu) return
+    const tokenEnd = menu.start + 1 + menu.query.length
+    const before = input.slice(0, menu.start)
+    const after = input.slice(tokenEnd)
+    const insert = `@${acc.name} `
+    const next = before + insert + after
+    setInput(next)
+    addMention(acc.email)
+    setMenu(null)
+    requestAnimationFrame(() => {
+      const pos = (before + insert).length
+      taRef.current?.focus()
+      taRef.current?.setSelectionRange(pos, pos)
+    })
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (menu && matches.length) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => (a + 1) % matches.length); return }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setActive(a => (a - 1 + matches.length) % matches.length); return }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pick(matches[active]); return }
+      if (e.key === 'Escape')    { setMenu(null); return }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit()
+  }
+
   return (
     <div style={{ width: '100%', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
       <Avatar name={me.name || me.email || 'You'} size={30} />
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
         <textarea
+          ref={taRef}
           rows={2}
           value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit()
-          }}
-          placeholder={t('Tulis komentar… (⌘/Ctrl + Enter untuk kirim)')}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          placeholder={t('Tulis komentar… ketik @ untuk mention (⌘/Ctrl + Enter kirim)')}
           style={{
             display: 'block',
             width: '100%', boxSizing: 'border-box', resize: 'vertical',
@@ -353,6 +402,20 @@ export function PostCommentsComposer({ s }: { s: PostCommentsState }) {
             padding: '10px 12px', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none',
           }}
         />
+        {menu && matches.length > 0 && (
+          <div style={{ position: 'absolute', left: 0, bottom: 'calc(100% + 4px)', width: 240, zIndex: 50, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.5)', overflow: 'hidden', padding: 4 }}>
+            {matches.map((a, i) => (
+              <button key={a.email} onMouseDown={e => { e.preventDefault(); pick(a) }} onMouseEnter={() => setActive(i)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', textAlign: 'left', background: i === active ? 'var(--bg3)' : 'transparent', color: 'var(--text)' }}>
+                <Avatar name={a.name || a.email} size={22} />
+                <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>{a.name}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text2)', marginLeft: 6 }}>{a.email}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
         {error && <div style={{ fontSize: 12, color: '#f87171', marginTop: 6 }}>{error}</div>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
           <button
