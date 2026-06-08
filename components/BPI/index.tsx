@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
@@ -44,6 +45,17 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null)
     const [confirmBusy, setConfirmBusy] = useState(false)
     const logActivity = useLogActivity()
+
+    // Deep link from a notification: /<board>?post=<id> opens that post's preview.
+    const searchParams = useSearchParams()
+    const router = useRouter()
+    const pathname = usePathname()
+    useEffect(() => {
+      const pid = searchParams.get('post')
+      if (!pid) return
+      setPreviewPostId(pid)
+      router.replace(pathname) // drop the query so it doesn't re-open on refresh
+    }, [searchParams, pathname, router])
 
     const filtered = posts.filter(p => {
       // Scope: by assigned PIC (workspace) or by entity (boards).

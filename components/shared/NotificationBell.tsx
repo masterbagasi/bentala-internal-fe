@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { useStore } from '@/hooks/useStore'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
@@ -28,6 +29,19 @@ interface Notif {
   text: string
   postTitle?: string
   tag?: boolean
+  postId?: string
+  href?: string
+}
+
+// Which board route a post lives on (so a notification can deep-link to it).
+function postHref(post: Post | undefined): string | null {
+  if (!post) return null
+  if (post.entity === 'bpi') return '/bpi'
+  if (post.entity === 'bsi') return '/bsi'
+  const pics = post.pics || []
+  if (pics.includes('Video Production')) return '/bpi-faizal'
+  if (pics.includes('Design Studio')) return '/bpi-reinaldi'
+  return '/bpi'
 }
 
 interface ActivityRow {
@@ -46,12 +60,12 @@ const sb = () => getSupabase() as unknown as import('@supabase/supabase-js').Sup
 
 export function NotificationBell() {
   const t = useT()
+  const router = useRouter()
   const posts = useStore(s => s.posts)
 
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeen] = useState<number>(0)
   const [me, setMe] = useState<{ email: string; name: string }>({ email: '', name: '' })
-  const [postActivity, setPostActivity] = useState<ActivityRow[]>([])
   const [myMentions, setMyMentions] = useState<ActivityRow[]>([])
   const ref = useRef<HTMLDivElement>(null)
   const wasOpenedRef = useRef(false)
@@ -82,53 +96,6 @@ export function NotificationBell() {
     )
   }, [posts, me.email, me.name])
 
-  const myPostMap = useMemo(() => {
-    const m = new Map<string, Post>()
-    myPosts.forEach(p => m.set(p.id, p))
-    return m
-  }, [myPosts])
-
-  // Stable key so we only refetch/resubscribe when the *set* of my posts changes.
-  const myPostKey = useMemo(() => myPosts.map(p => p.id).sort().join(','), [myPosts])
-
-  // Fetch + live-subscribe to detailed change activity on my tagged posts.
-  useEffect(() => {
-    const ids = myPostKey ? myPostKey.split(',') : []
-    if (ids.length === 0) { setPostActivity([]); return }
-
-    let cancelled = false
-    const supabase = sb()
-    supabase
-      .from('post_comments')
-      .select('*')
-      .in('post_id', ids)
-      .eq('type', 'activity')
-      .order('created_at', { ascending: false })
-      .limit(60)
-      .then(({ data }: { data: ActivityRow[] | null }) => {
-        if (!cancelled) setPostActivity(data ?? [])
-      })
-
-    const idSet = new Set(ids)
-    const channel = supabase
-      // Unique per post-set so re-subscribing (when my posts change) doesn't
-      // collide with the channel being torn down.
-      .channel(`notif:post_comments:${myPostKey}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'post_comments' },
-        (payload: { new: ActivityRow }) => {
-          if (cancelled) return
-          const row = payload.new
-          if ((row.type ?? 'comment') !== 'activity') return
-          if (!idSet.has(row.post_id)) return
-          setPostActivity(prev => (prev.some(r => r.id === row.id) ? prev : [row, ...prev]))
-        },
-      )
-      .subscribe()
-
-    return () => { cancelled = true; supabase.removeChannel(channel) }
-  }, [myPostKey])
 
   // Comments that @mention me — email-independent in-app notifications.
   useEffect(() => {
@@ -193,22 +160,18 @@ export function NotificationBell() {
     try { localStorage.setItem(STORAGE_KEY, String(now)) } catch {}
   }
 
+  // Click a notification → go to its post (deep-link opens the post preview).
+  function openNotif(item: Notif) {
+    if (!item.href || !item.postId) return
+    setOpen(false)
+    router.push(`${item.href}?post=${item.postId}`)
+  }
+
   // Build the personalized feed:
   //  1) Detailed change activity on posts I'm tagged in (who + what changed).
   //  2) "You were tagged" events from the global log addressed to me.
   const notifs = useMemo<Notif[]>(() => {
     const out: Notif[] = []
-
-    postActivity.forEach(r => {
-      const post = myPostMap.get(r.post_id)
-      out.push({
-        id: r.id,
-        at: r.created_at,
-        author: r.author_name || r.author_email || t('Seseorang'),
-        text: r.body,
-        postTitle: post?.title,
-      })
-    })
 
     myMentions.forEach(r => {
       const post = posts.find(p => p.id === r.post_id)
@@ -218,6 +181,8 @@ export function NotificationBell() {
         author: r.author_name || r.author_email || t('Seseorang'),
         text: t('me-mention kamu di komentar'),
         postTitle: post?.title,
+        postId: r.post_id,
+        href: postHref(post) ?? undefined,
       })
     })
 
@@ -232,6 +197,8 @@ export function NotificationBell() {
         text: t('Anda di-tag pada post ini'),
         postTitle: p.title,
         tag: true,
+        postId: p.id,
+        href: postHref(p) ?? undefined,
       })
     })
 
@@ -239,7 +206,7 @@ export function NotificationBell() {
       .filter((n, i, arr) => arr.findIndex(x => x.id === n.id) === i)
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 30)
-  }, [postActivity, myMentions, myPosts, myPostMap, posts, me.name, me.email])
+  }, [myMentions, myPosts, posts, me.name, me.email])
 
   const unread = notifs.filter(n => new Date(n.at).getTime() > lastSeen).length
 
@@ -304,7 +271,7 @@ export function NotificationBell() {
               <div style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--text2)', fontSize: 13, lineHeight: 1.6 }}>
                 {t('Belum ada notifikasi.')}<br />
                 <span style={{ fontSize: 11, color: 'var(--text3)' }}>
-                  {t('Notifikasi muncul saat Anda di-tag pada post, di-mention di komentar, atau ada perubahan pada post yang men-tag Anda.')}
+                  {t('Notifikasi muncul saat Anda di-tag pada post atau di-mention di komentar.')}
                 </span>
               </div>
             ) : (
@@ -313,11 +280,16 @@ export function NotificationBell() {
                 return (
                   <div
                     key={item.id}
+                    onClick={() => openNotif(item)}
                     style={{
                       padding: '10px 14px', borderBottom: '1px solid var(--border)',
                       background: isUnread ? 'rgba(108,99,255,0.06)' : 'transparent',
                       display: 'flex', gap: 10, alignItems: 'flex-start',
+                      cursor: item.href ? 'pointer' : 'default',
+                      transition: 'background 0.12s',
                     }}
+                    onMouseOver={e => { if (item.href) (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
+                    onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = isUnread ? 'rgba(108,99,255,0.06)' : 'transparent' }}
                   >
                     <div
                       style={{

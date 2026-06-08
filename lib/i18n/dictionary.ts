@@ -64,8 +64,8 @@ const SEED: Record<string, string> = {
     'Write a comment… type @ to mention (⌘/Ctrl + Enter to send)',
   'me-mention kamu di komentar': 'mentioned you in a comment',
   'Anda di-tag pada post ini': 'You were tagged on this post',
-  'Notifikasi muncul saat Anda di-tag pada post, di-mention di komentar, atau ada perubahan pada post yang men-tag Anda.':
-    'Notifications appear when you are tagged on a post, mentioned in a comment, or when a post that tags you changes.',
+  'Notifikasi muncul saat Anda di-tag pada post atau di-mention di komentar.':
+    'Notifications appear when you are tagged on a post or mentioned in a comment.',
 
   // ── Post change history ──
   'Riwayat Perubahan': 'Change History',
