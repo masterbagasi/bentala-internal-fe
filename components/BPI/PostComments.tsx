@@ -79,6 +79,30 @@ function fileName(url: string): string {
   }
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// Render a comment body with @Name highlighted for each mentioned account.
+// Split on a capturing group so the matched "@Name" parts are kept, then test
+// each part against the known names (avoids stateful global-regex .test).
+function renderBodyWithMentions(
+  body: string,
+  mentions: string[] | undefined,
+  accounts: { email: string; name: string }[],
+): import('react').ReactNode {
+  const names = (mentions ?? [])
+    .map(em => accounts.find(a => a.email === em)?.name)
+    .filter((n): n is string => !!n)
+  if (!names.length) return body
+  const re = new RegExp('(@(?:' + names.map(escapeRegExp).join('|') + '))', 'g')
+  return body.split(re).map((part, i) =>
+    part.startsWith('@') && names.some(n => part === '@' + n)
+      ? <span key={i} style={{ color: 'var(--accent)', fontWeight: 600 }}>{part}</span>
+      : <span key={i}>{part}</span>,
+  )
+}
+
 function Avatar({ name, size = 30 }: { name: string; size?: number }) {
   return (
     <span
@@ -302,7 +326,7 @@ export type PostCommentsState = ReturnType<typeof usePostComments>
 // Tabs + scrollable feed — goes in the modal body.
 export function PostCommentsBody({ s }: { s: PostCommentsState }) {
   const t = useT()
-  const { tab, setTab, feed, loading, commentCount } = s
+  const { tab, setTab, feed, loading, commentCount, accounts } = s
   return (
     <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
       {/* Tabs */}
@@ -321,7 +345,7 @@ export function PostCommentsBody({ s }: { s: PostCommentsState }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {feed.map(e => (
-            <FeedItem key={`${e.kind}-${e.id}`} entry={e} />
+            <FeedItem key={`${e.kind}-${e.id}`} entry={e} accounts={accounts} />
           ))}
         </div>
       )}
@@ -455,7 +479,7 @@ function Tab({ label, active, onClick }: { label: string; active: boolean; onCli
   )
 }
 
-function FeedItem({ entry }: { entry: FeedEntry }) {
+function FeedItem({ entry, accounts }: { entry: FeedEntry; accounts: { email: string; name: string }[] }) {
   const t = useT()
   if (entry.kind === 'activity') {
     return (
@@ -513,7 +537,7 @@ function FeedItem({ entry }: { entry: FeedEntry }) {
             padding: '9px 12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
           }}
         >
-          {entry.body}
+          {renderBodyWithMentions(entry.body ?? '', entry.mentions, accounts)}
         </div>
       </div>
     </div>
