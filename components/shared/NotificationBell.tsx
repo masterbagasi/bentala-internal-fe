@@ -38,6 +38,7 @@ interface ActivityRow {
   author_email: string | null
   body: string
   created_at: string
+  mentions?: string[] | null
 }
 
 // Untyped client — `post_comments` isn't in the generated Database types.
@@ -52,6 +53,7 @@ export function NotificationBell() {
   const [lastSeen, setLastSeen] = useState<number>(0)
   const [me, setMe] = useState<{ email: string; name: string }>({ email: '', name: '' })
   const [postActivity, setPostActivity] = useState<ActivityRow[]>([])
+  const [myMentions, setMyMentions] = useState<ActivityRow[]>([])
   const ref = useRef<HTMLDivElement>(null)
   const wasOpenedRef = useRef(false)
 
@@ -127,6 +129,38 @@ export function NotificationBell() {
     return () => { cancelled = true; supabase.removeChannel(channel) }
   }, [myPostKey])
 
+  // Comments that @mention me — email-independent in-app notifications.
+  useEffect(() => {
+    if (!me.email) return
+    let cancelled = false
+    const supabase = sb()
+    supabase
+      .from('post_comments')
+      .select('*')
+      .contains('mentions', [me.email])
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .then(({ data }: { data: ActivityRow[] | null }) => {
+        if (!cancelled) setMyMentions(data ?? [])
+      })
+
+    const channel = supabase
+      .channel('notif:mentions')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'post_comments' },
+        (payload: { new: ActivityRow }) => {
+          if (cancelled) return
+          const row = payload.new
+          if (!(row.mentions ?? []).map(x => x.toLowerCase()).includes(me.email)) return
+          setMyMentions(prev => (prev.some(r => r.id === row.id) ? prev : [row, ...prev]))
+        },
+      )
+      .subscribe()
+
+    return () => { cancelled = true; supabase.removeChannel(channel) }
+  }, [me.email])
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
@@ -175,6 +209,18 @@ export function NotificationBell() {
       })
     })
 
+    myMentions.forEach(r => {
+      const post = posts.find(p => p.id === r.post_id)
+      out.push({
+        id: `mention-${r.id}`,
+        at: r.created_at,
+        author: r.author_name || r.author_email || t('Seseorang'),
+        text: t('me-mention kamu di komentar'),
+        postTitle: post?.title,
+        tag: true,
+      })
+    })
+
     // Tag notifications (incl. brand-new posts where I was tagged on create).
     const nameLc = me.name.toLowerCase()
     const localpart = me.email.split('@')[0]
@@ -190,7 +236,7 @@ export function NotificationBell() {
       .filter((n, i, arr) => arr.findIndex(x => x.id === n.id) === i)
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 30)
-  }, [postActivity, myPostMap, activity, me.name, me.email])
+  }, [postActivity, myMentions, myPostMap, posts, activity, me.name, me.email])
 
   const unread = notifs.filter(n => new Date(n.at).getTime() > lastSeen).length
 
