@@ -256,19 +256,13 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
       logActivity(`Post baru ditambahkan: "${form.title}"`, creator)
     }
 
-    // Notify newly-tagged accounts: web-internal (activity log) + email.
-    // `tagged` now holds account emails; resolve a friendly name for the log.
+    // Log newly-tagged accounts to the activity feed. The tagged user is
+    // notified in-app via the NotificationBell (derived from posts that tag
+    // them) — no email is sent.
     const newlyTagged = form.tagged.filter(email => !originalTagged.includes(email))
     for (const email of newlyTagged) {
       const displayName = accounts.find(a => a.email === email)?.name ?? email
       await logActivity(`🔔 ${displayName} di-tag pada post "${form.title}"`, displayName)
-      // Fire-and-forget; the route validates the email belongs to a registered
-      // account server-side and no-ops gracefully if email isn't configured.
-      fetch('/api/notify-tag', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, postTitle: form.title, taggedBy: currentUserName }),
-      }).catch(() => {})
     }
 
     setLoading(false)

@@ -301,18 +301,8 @@ export function usePostComments(post: Post | null | undefined) {
       setInput('')
       setMentions([])
       setTab('comments')
-      // Fire-and-forget mention emails (skip self). Endpoint no-ops if Resend
-      // isn't configured, and resolves recipients server-side.
-      const postTitle = post.title
-      finalMentions
-        .filter(em => em.toLowerCase() !== me.email.toLowerCase())
-        .forEach(em => {
-          fetch('/api/notify-tag', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: em, kind: 'comment', postTitle, taggedBy: me.name, snippet: body.slice(0, 200) }),
-          }).catch(() => {})
-        })
+      // Mentions are persisted on the comment row above; the mentioned user is
+      // notified in-app via the NotificationBell (no email).
     } catch {
       setError(t('Gagal mengirim komentar. Coba lagi.'))
     } finally {

@@ -47,7 +47,6 @@ const sb = () => getSupabase() as unknown as import('@supabase/supabase-js').Sup
 export function NotificationBell() {
   const t = useT()
   const posts = useStore(s => s.posts)
-  const activity = useStore(s => s.activity)
 
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeen] = useState<number>(0)
@@ -219,26 +218,28 @@ export function NotificationBell() {
         author: r.author_name || r.author_email || t('Seseorang'),
         text: t('me-mention kamu di komentar'),
         postTitle: post?.title,
-        tag: true,
       })
     })
 
-    // Tag notifications (incl. brand-new posts where I was tagged on create).
-    const nameLc = me.name.toLowerCase()
-    const localpart = me.email.split('@')[0]
-    activity.forEach(a => {
-      if (!a.message.startsWith('🔔')) return
-      const m = a.message.toLowerCase()
-      const mine = (nameLc && m.includes(nameLc)) || (localpart && m.includes(localpart.toLowerCase()))
-      if (!mine) return
-      out.push({ id: a.id, at: a.created_at, author: a.user_name, text: a.message, tag: true })
+    // Post tags — derived directly from the posts where I'm tagged (reliable,
+    // realtime via the store). Timestamp uses updated_at so being (re)tagged
+    // when a post is saved surfaces it as a fresh notification.
+    myPosts.forEach(p => {
+      out.push({
+        id: `tag-${p.id}`,
+        at: p.updated_at || p.created_at,
+        author: p.created_by || t('Seseorang'),
+        text: t('Anda di-tag pada post ini'),
+        postTitle: p.title,
+        tag: true,
+      })
     })
 
     return out
       .filter((n, i, arr) => arr.findIndex(x => x.id === n.id) === i)
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 30)
-  }, [postActivity, myMentions, myPostMap, posts, activity, me.name, me.email])
+  }, [postActivity, myMentions, myPosts, myPostMap, posts, me.name, me.email])
 
   const unread = notifs.filter(n => new Date(n.at).getTime() > lastSeen).length
 
@@ -303,7 +304,7 @@ export function NotificationBell() {
               <div style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--text2)', fontSize: 13, lineHeight: 1.6 }}>
                 {t('Belum ada notifikasi.')}<br />
                 <span style={{ fontSize: 11, color: 'var(--text3)' }}>
-                  {t('Notifikasi muncul saat Anda di-tag atau ada perubahan pada post yang men-tag Anda.')}
+                  {t('Notifikasi muncul saat Anda di-tag pada post, di-mention di komentar, atau ada perubahan pada post yang men-tag Anda.')}
                 </span>
               </div>
             ) : (
