@@ -136,10 +136,14 @@ export async function POST(req: NextRequest) {
     })
     if (!res.ok) {
       const err = await res.text()
+      // Surface the real reason in server logs (e.g. restricted key / domain
+      // not verified) — the client fires this fire-and-forget and ignores it.
+      console.error(`[notify-tag] Resend rejected send (${res.status}) from="${from}" to="${to}":`, err)
       return NextResponse.json({ ok: false, error: err }, { status: 502 })
     }
     return NextResponse.json({ ok: true })
   } catch (e) {
+    console.error('[notify-tag] send failed:', e)
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 })
   }
 }
