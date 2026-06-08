@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { isSuperAdmin } from '@/lib/access'
+import { AccountEditModal } from '@/app/(dashboard)/settings/access/AccountEditModal'
+import type { AccessUser } from '@/app/(dashboard)/settings/access/AccessControlClient'
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -114,7 +116,12 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
     name: string
     email: string
     avatarUrl: string | null
-  }>({ name: '', email: '', avatarUrl: null })
+    phone: string
+    position: string
+    createdAt: string | null
+    lastSignInAt: string | null
+  }>({ name: '', email: '', avatarUrl: null, phone: '', position: '', createdAt: null, lastSignInAt: null })
+  const [editOpen, setEditOpen] = useState(false)
   const [theme, setThemeState] = useState<'dark' | 'light'>('dark')
   const [lang, setLangState] = useState<'id' | 'en'>('id')
   const [isSuper, setIsSuper] = useState(false)
@@ -124,25 +131,26 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const loadUser = useCallback(async () => {
+    const { data } = await getSupabase().auth.getUser()
+    if (!data.user) return
+    const meta = data.user.user_metadata ?? {}
+    setUser({
+      name: meta.full_name ?? meta.name ?? data.user.email?.split('@')[0] ?? 'User',
+      email: data.user.email ?? '',
+      avatarUrl: meta.avatar_url ?? null,
+      phone: meta.phone ?? '',
+      position: meta.position ?? '',
+      createdAt: data.user.created_at ?? null,
+      lastSignInAt: data.user.last_sign_in_at ?? null,
+    })
+    // Role is in app_metadata (service-role-only; not user-writable).
+    setIsSuper(isSuperAdmin(data.user.email) || data.user.app_metadata?.role === 'super_admin')
+  }, [])
+
   // Load user + settings on mount
   useEffect(() => {
-    getSupabase()
-      .auth.getUser()
-      .then(({ data }) => {
-        if (data.user) {
-          const meta = data.user.user_metadata ?? {}
-          setUser({
-            name:
-              meta.full_name ??
-              meta.name ??
-              data.user.email?.split('@')[0] ??
-              'User',
-            email: data.user.email ?? '',
-            avatarUrl: meta.avatar_url ?? null,
-          })
-          setIsSuper(isSuperAdmin(data.user.email))
-        }
-      })
+    loadUser()
 
     try {
       const t = localStorage.getItem('bentala_theme') as 'dark' | 'light' | null
@@ -150,7 +158,7 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
       const l = localStorage.getItem('bentala_lang') as 'id' | 'en' | null
       if (l) setLangState(l)
     } catch {}
-  }, [])
+  }, [loadUser])
 
   // Click-outside to close popup
   useEffect(() => {
@@ -415,8 +423,8 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
                   <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                 </svg>
               }
-              label={uploading ? 'Mengupload...' : 'Edit Profil'}
-              onClick={() => { if (!uploading) fileInputRef.current?.click() }}
+              label="Edit Profil"
+              onClick={() => { setOpen(false); setEditOpen(true) }}
             />
 
             <PopupItem
@@ -515,6 +523,22 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
             />
           </div>
         </div>
+      )}
+
+      {/* Self profile edit modal */}
+      {editOpen && (
+        <AccountEditModal
+          self
+          user={{
+            email: user.email, name: user.name, avatarUrl: user.avatarUrl,
+            isSuperAdmin: isSuper, role: isSuper ? 'super_admin' : 'admin', locked: isSuperAdmin(user.email),
+            sections: [], phone: user.phone, position: user.position,
+            language: 'id', notif: { email: true, inApp: true, push: false }, active: true,
+            createdAt: user.createdAt, lastSignInAt: user.lastSignInAt,
+          }}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => { setEditOpen(false); loadUser() }}
+        />
       )}
     </div>
   )

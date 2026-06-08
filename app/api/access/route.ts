@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
-import { isSuperAdmin, normaliseSections, ACCESS_SECTIONS } from '@/lib/access'
+import { isSuperAdmin, isEffectiveSuperAdmin, normaliseSections, ACCESS_SECTIONS } from '@/lib/access'
 
 // Per-account menu access management. Super-admin only.
 //
@@ -27,7 +27,8 @@ async function requireSuperAdmin(): Promise<{ email: string } | NextResponse> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user || !isSuperAdmin(user.email)) {
+  // Role lives in app_metadata (service-role-only; not user-writable).
+  if (!user || !isEffectiveSuperAdmin(user.email, user.app_metadata?.role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   return { email: user.email! }
@@ -41,8 +42,16 @@ export async function GET() {
     const admin = createSupabaseAdmin()
 
     // All login accounts (service role). Page through to be safe on larger orgs.
-    const accounts: { email: string; name: string; avatarUrl: string | null }[] = []
+    interface AccountInfo {
+      email: string; name: string; avatarUrl: string | null
+      phone: string; position: string; language: string
+      notif: { email: boolean; inApp: boolean; push: boolean }
+      active: boolean; createdAt: string | null; lastSignInAt: string | null
+      metaRole: string | null
+    }
+    const accounts: AccountInfo[] = []
     let page = 1
+    const now = Date.now()
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 })
@@ -50,6 +59,9 @@ export async function GET() {
       for (const u of data.users) {
         if (!u.email) continue
         const meta = (u.user_metadata ?? {}) as Record<string, unknown>
+        const appMeta = (u.app_metadata ?? {}) as Record<string, unknown>
+        const notif = (meta.notif ?? {}) as Record<string, unknown>
+        const bannedUntil = (u as { banned_until?: string }).banned_until
         accounts.push({
           email: u.email,
           name:
@@ -57,6 +69,18 @@ export async function GET() {
             (meta.name as string) ||
             u.email.split('@')[0],
           avatarUrl: (meta.avatar_url as string) ?? null,
+          phone: (meta.phone as string) ?? '',
+          position: (meta.position as string) ?? '',
+          language: (meta.language as string) ?? 'id',
+          notif: {
+            email: notif.email !== false,
+            inApp: notif.inApp !== false,
+            push: notif.push === true,
+          },
+          active: !(bannedUntil && new Date(bannedUntil).getTime() > now),
+          createdAt: u.created_at ?? null,
+          lastSignInAt: u.last_sign_in_at ?? null,
+          metaRole: (appMeta.role as string) ?? null,
         })
       }
       if (data.users.length < 200) break
@@ -74,13 +98,22 @@ export async function GET() {
     }
 
     const users = accounts
-      .map(a => ({
-        ...a,
-        isSuperAdmin: isSuperAdmin(a.email),
-        sections: isSuperAdmin(a.email)
-          ? ACCESS_SECTIONS.map(s => s.id)
-          : byEmail.get(a.email.toLowerCase()) ?? [],
-      }))
+      .map(a => {
+        const hardcoded = isSuperAdmin(a.email)
+        const role: 'super_admin' | 'admin' | 'user' = hardcoded || a.metaRole === 'super_admin'
+          ? 'super_admin'
+          : a.metaRole === 'admin' ? 'admin' : 'user'
+        const eff = role === 'super_admin'
+        const { metaRole: _omit, ...rest } = a
+        void _omit
+        return {
+          ...rest,
+          role,
+          locked: hardcoded, // hardcoded super admin — role can't be changed
+          isSuperAdmin: eff,
+          sections: eff ? ACCESS_SECTIONS.map(s => s.id) : byEmail.get(a.email.toLowerCase()) ?? [],
+        }
+      })
       .sort((a, b) => a.email.localeCompare(b.email))
 
     return NextResponse.json({
@@ -108,9 +141,9 @@ export async function POST(req: NextRequest) {
   if (!email || !email.includes('@')) {
     return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
   }
-  // The super admin's access is implicit and not stored — reject edits to it.
+  // The hardcoded super admin's access is implicit (full) — saving is a no-op.
   if (isSuperAdmin(email)) {
-    return NextResponse.json({ error: 'Super admin access cannot be changed' }, { status: 400 })
+    return NextResponse.json({ ok: true, email, sections: ACCESS_SECTIONS.map(s => s.id) })
   }
 
   const sections = normaliseSections(body.sections)

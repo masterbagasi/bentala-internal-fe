@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import {
-  isSuperAdmin,
+  isEffectiveSuperAdmin,
   sectionForPath,
   firstAllowedLanding,
   normaliseSections,
@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
   // may only enter routes whose section is in their `menu_access` row. Default
   // is DENY: an account with no row sees nothing. Disallowed routes redirect to
   // the account's first allowed section, or /no-access if they have none.
-  if (user && !isPublic && !isSuperAdmin(user.email)) {
+  if (user && !isPublic && !isEffectiveSuperAdmin(user.email, user.app_metadata?.role)) {
     // /no-access is the dead-end for access-less accounts — always reachable so
     // we don't bounce them in a loop.
     if (pathname === '/no-access') {

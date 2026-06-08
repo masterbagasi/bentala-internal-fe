@@ -103,10 +103,18 @@ const LEGACY_ALIASES: Record<string, string[]> = {
   // overview / team granular ids equal their legacy ids — no alias needed.
 }
 
+export type Role = 'super_admin' | 'admin' | 'user'
+
+/** Hardcoded super admins (immutable — always super, can't be demoted). */
 export function isSuperAdmin(email: string | null | undefined): boolean {
   if (!email) return false
   const lower = email.toLowerCase()
   return SUPER_ADMIN_EMAILS.some(e => e.toLowerCase() === lower)
+}
+
+/** Effective super admin = hardcoded OR promoted via menu_access role. */
+export function isEffectiveSuperAdmin(email: string | null | undefined, role: unknown): boolean {
+  return isSuperAdmin(email) || role === 'super_admin'
 }
 
 function pathMatchesRoute(pathname: string, route: string): boolean {

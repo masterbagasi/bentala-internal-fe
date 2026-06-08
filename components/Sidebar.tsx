@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { useState, useEffect, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { AccountButton } from '@/components/shared/AccountButton'
-import { isSuperAdmin, normaliseSections, ALL_SECTION_IDS, sectionForPath } from '@/lib/access'
+import { isEffectiveSuperAdmin, normaliseSections, ALL_SECTION_IDS, sectionForPath } from '@/lib/access'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -294,7 +294,7 @@ export function Sidebar() {
     const supabase = getSupabase()
     supabase.auth.getUser().then(async ({ data }) => {
       const email = data.user?.email
-      if (isSuperAdmin(email)) {
+      if (isEffectiveSuperAdmin(email, data.user?.app_metadata?.role)) {
         if (!cancelled) setAccess({ loading: false, isSuper: true, allowed: new Set(ALL_SECTION_IDS) })
         return
       }

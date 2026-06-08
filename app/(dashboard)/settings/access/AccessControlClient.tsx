@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
+import { AccountEditModal } from './AccountEditModal'
+import { getSupabase } from '@/lib/supabase'
 
 // ── Types (mirror /api/access GET response) ──
 interface SectionMeta {
@@ -10,15 +12,28 @@ interface SectionMeta {
   group: string
   subgroup?: string
 }
-interface AccessUser {
+export interface AccessUser {
   email: string
   name: string
   avatarUrl: string | null
   isSuperAdmin: boolean
+  role: 'super_admin' | 'admin' | 'user'
+  locked: boolean
   sections: string[]
+  phone: string
+  position: string
+  language: string
+  notif: { email: boolean; inApp: boolean; push: boolean }
+  active: boolean
+  createdAt: string | null
+  lastSignInAt: string | null
 }
 
 type RowState = 'idle' | 'saving' | 'saved' | 'error'
+
+const ROLE_LABEL: Record<'super_admin' | 'admin' | 'user', string> = {
+  super_admin: 'Super Admin', admin: 'Admin', user: 'User',
+}
 
 function initials(name: string): string {
   return (
@@ -46,13 +61,26 @@ export default function AccessControlClient() {
 
   // Which account's access modal is open.
   const [editEmail, setEditEmail] = useState<string | null>(null)
+  // Which account's profile/edit modal is open.
+  const [profileUser, setProfileUser] = useState<AccessUser | null>(null)
+  // The currently logged-in super admin (to route their own row to self-edit).
+  const [me, setMe] = useState('')
 
   // Add-account form.
   const [showAdd, setShowAdd] = useState(false)
   const [newEmail, setNewEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [newPassword2, setNewPassword2] = useState('')
+  const [showNp1, setShowNp1] = useState(false)
+  const [showNp2, setShowNp2] = useState(false)
   const [addBusy, setAddBusy] = useState(false)
   const [addError, setAddError] = useState('')
+
+  function openAddModal() {
+    setNewEmail(''); setNewPassword(''); setNewPassword2('')
+    setShowNp1(false); setShowNp2(false); setAddError('')
+    setShowAdd(true)
+  }
 
   // Password-change modal (one account at a time).
   const [pwEmail, setPwEmail] = useState<string | null>(null)
@@ -90,6 +118,10 @@ export default function AccessControlClient() {
   }
 
   useEffect(() => {
+    getSupabase().auth.getUser().then(({ data }) => setMe((data.user?.email ?? '').toLowerCase()))
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
     reload(false)
       .catch(() => { if (!cancelled) setLoadError('Gagal memuat data akses. Pastikan Anda super admin.') })
@@ -102,6 +134,7 @@ export default function AccessControlClient() {
     setAddError('')
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) { setAddError('Email tidak valid'); return }
     if (newPassword.length < 6) { setAddError('Password minimal 6 karakter'); return }
+    if (newPassword !== newPassword2) { setAddError('Password tidak sama dengan pengulangannya'); return }
     setAddBusy(true)
     try {
       const r = await fetch('/api/access/account', {
@@ -112,7 +145,7 @@ export default function AccessControlClient() {
       const data = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(data.error || 'Gagal membuat akun')
       await reload(true)
-      setShowAdd(false); setNewEmail(''); setNewPassword('')
+      setShowAdd(false); setNewEmail(''); setNewPassword(''); setNewPassword2('')
     } catch (e) {
       setAddError(e instanceof Error ? e.message : 'Gagal membuat akun')
     } finally {
@@ -127,13 +160,19 @@ export default function AccessControlClient() {
     if (pw1 !== pw2) { setPwError('Password tidak sama dengan pengulangannya'); return }
     setPwBusy(true)
     try {
-      const r = await fetch('/api/access/account', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pwEmail, password: pw1 }),
-      })
-      const data = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(data.error || 'Gagal mengganti password')
+      if (pwEmail.toLowerCase() === me) {
+        // Changing own password — use self update (admin API blocks editing self/super).
+        const { error } = await getSupabase().auth.updateUser({ password: pw1 })
+        if (error) throw new Error(error.message)
+      } else {
+        const r = await fetch('/api/access/account', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: pwEmail, password: pw1 }),
+        })
+        const data = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(data.error || 'Gagal mengganti password')
+      }
       setPwDone(true)
       setTimeout(() => closePwModal(), 1200)
     } catch (e) {
@@ -195,6 +234,18 @@ export default function AccessControlClient() {
     return Array.from(a).some(v => !b.has(v))
   }
 
+  // Close the access modal WITHOUT applying: discard unsaved toggles by
+  // reverting the draft back to the last saved state. Nothing changes unless
+  // the user clicks Simpan.
+  function closeEditModal() {
+    if (editEmail) {
+      const base = new Set(saved[editEmail] ?? [])
+      setDraft(prev => ({ ...prev, [editEmail]: base }))
+      setStatus(prev => ({ ...prev, [editEmail]: 'idle' }))
+    }
+    setEditEmail(null)
+  }
+
   async function save(email: string) {
     const sel = Array.from(draft[email] ?? new Set())
     setStatus(prev => ({ ...prev, [email]: 'saving' }))
@@ -223,19 +274,15 @@ export default function AccessControlClient() {
 
   return (
     <div>
-      {/* Intro + search + add */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 12, color: 'var(--text2)', maxWidth: 480, lineHeight: 1.5 }}>
-          Pilih akun untuk mengatur menu yang boleh diaksesnya. Akun tanpa akses
-          sama sekali tidak bisa membuka menu apa pun (default tertutup).
-        </div>
+      {/* Search + add */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
             type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari akun…"
             style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, minWidth: 180, outline: 'none' }}
           />
           <button
-            onClick={() => { setShowAdd(v => !v); setAddError('') }}
+            onClick={openAddModal}
             style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
             + Tambah Akun
@@ -243,28 +290,37 @@ export default function AccessControlClient() {
         </div>
       </div>
 
-      {/* Add-account form */}
-      {showAdd && (
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--accent)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Tambah Akun Baru</div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="email@masterbagasi.com" autoComplete="off" style={addInputStyle} />
-            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Password (min 6 karakter)" autoComplete="new-password" style={addInputStyle} />
-            <button onClick={addAccount} disabled={addBusy} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: addBusy ? 'not-allowed' : 'pointer', opacity: addBusy ? 0.7 : 1, whiteSpace: 'nowrap' }}>
-              {addBusy ? 'Membuat…' : 'Buat Akun'}
-            </button>
+      {/* Add-account modal */}
+      <Modal
+        open={showAdd}
+        onClose={() => setShowAdd(false)}
+        title="Tambah Akun Baru"
+        footer={
+          <>
+            <BtnSecondary onClick={() => setShowAdd(false)} disabled={addBusy}>Batal</BtnSecondary>
+            <BtnPrimary onClick={addAccount} loading={addBusy}>Buat Akun</BtnPrimary>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>Email</label>
+            <input
+              type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)}
+              placeholder="email@masterbagasi.com" autoComplete="off"
+              onKeyDown={e => { if (e.key === 'Enter') addAccount() }}
+              style={{ width: '100%', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+            />
           </div>
-          {addError && <div style={{ fontSize: 12, color: '#f87171', marginTop: 10 }}>{addError}</div>}
-          <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 10, lineHeight: 1.5 }}>
-            Akun baru dibuat tanpa akses menu apa pun. Klik <strong>Atur Akses</strong> di daftar untuk memberi akses.
-          </div>
+          <PasswordField label="Password" value={newPassword} onChange={setNewPassword} show={showNp1} onToggleShow={() => setShowNp1(s => !s)} placeholder="Minimal 6 karakter" onEnter={addAccount} />
+          <PasswordField label="Ulangi Password" value={newPassword2} onChange={setNewPassword2} show={showNp2} onToggleShow={() => setShowNp2(s => !s)} placeholder="Ketik ulang password" onEnter={addAccount} />
+          {addError && <div style={{ fontSize: 12, color: '#f87171' }}>{addError}</div>}
         </div>
-      )}
+      </Modal>
 
       {/* Account list (compact) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {filteredUsers.map(u => {
-          const count = saved[u.email]?.size ?? 0
           return (
             <div key={u.email} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
               <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, background: u.avatarUrl ? 'transparent' : 'linear-gradient(135deg,#6c63ff,#a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden' }}>
@@ -278,24 +334,24 @@ export default function AccessControlClient() {
                 <div style={{ fontSize: 12, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
               </div>
 
-              {u.isSuperAdmin ? (
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', background: 'rgba(108,99,255,0.12)', padding: '5px 12px', borderRadius: 6, whiteSpace: 'nowrap' }}>
-                  Super Admin · Akses Penuh
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', padding: '3px 10px', borderRadius: 999,
+                  color: u.role === 'super_admin' ? 'var(--accent)' : 'var(--text2)',
+                  background: u.role === 'super_admin' ? 'rgba(108,99,255,0.12)' : 'var(--bg3)',
+                  border: `1px solid ${u.role === 'super_admin' ? 'rgba(108,99,255,0.3)' : 'var(--border)'}`,
+                }}>
+                  {ROLE_LABEL[u.role]}
                 </span>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
-                    {count > 0 ? `${count} menu` : 'Tanpa akses'}
-                  </span>
-                  <button
-                    onClick={() => setEditEmail(u.email)}
-                    style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  >
-                    Atur Akses
-                  </button>
-                  <button onClick={() => openPwModal(u.email)} style={quickBtnStyle}>Ubah Password</button>
-                </div>
-              )}
+                <button
+                  onClick={() => setEditEmail(u.email)}
+                  style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  Atur Akses
+                </button>
+                <button onClick={() => setProfileUser(u)} style={quickBtnStyle}>Edit Akun</button>
+                <button onClick={() => openPwModal(u.email)} style={quickBtnStyle}>Ubah Password</button>
+              </div>
             </div>
           )
         })}
@@ -308,10 +364,10 @@ export default function AccessControlClient() {
       {/* Per-account access modal */}
       <Modal
         open={editEmail !== null}
-        onClose={() => setEditEmail(null)}
+        onClose={closeEditModal}
         wide
         maxWidth={760}
-        title={editUser ? `Atur Akses — ${editUser.name}` : 'Atur Akses'}
+        title="Atur Akses"
         headerRight={
           editEmail ? (
             <div style={{ display: 'flex', gap: 6 }}>
@@ -324,7 +380,7 @@ export default function AccessControlClient() {
           <>
             {editSt === 'saved' && <span style={{ fontSize: 12, color: '#34d399', marginRight: 'auto' }}>Tersimpan ✓</span>}
             {editSt === 'error' && <span style={{ fontSize: 12, color: '#f87171', marginRight: 'auto' }}>Gagal menyimpan</span>}
-            <BtnSecondary onClick={() => setEditEmail(null)}>Tutup</BtnSecondary>
+            <BtnSecondary onClick={closeEditModal}>Tutup</BtnSecondary>
             <BtnPrimary onClick={() => editEmail && save(editEmail)} loading={editSt === 'saving'} disabled={!editDirty}>
               Simpan
             </BtnPrimary>
@@ -332,49 +388,62 @@ export default function AccessControlClient() {
         }
       >
         {editEmail && (
-          <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
-            {editEmail} · centang menu yang boleh diakses.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: editUser?.avatarUrl ? 'transparent' : 'linear-gradient(135deg,#6c63ff,#a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13 }}>
+              {editUser?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={editUser.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (editUser?.name?.[0] || '?').toUpperCase()}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>{editUser?.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{editEmail}</div>
+            </div>
           </div>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {grouped.groupOrder.map(group => {
+        <div>
+          {grouped.groupOrder.map((group, gi) => {
             const subs = grouped.map.get(group)!
             const groupIds = sections.filter(s => s.group === group).map(s => s.id)
-            const allOn = groupIds.every(id => editSel.has(id))
+            const selCount = groupIds.filter(id => editSel.has(id)).length
+            const allOn = selCount === groupIds.length
             return (
-              <div key={group}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{group}</div>
-                  <button onClick={() => editEmail && setGroupAll(editEmail, group, !allOn)} style={groupBtnStyle}>
+              <div key={group} style={{ paddingTop: gi === 0 ? 0 : 18, marginTop: gi === 0 ? 0 : 18, borderTop: gi === 0 ? 'none' : '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{group}</div>
+                  <span style={{ fontSize: 10.5, fontWeight: 600, color: selCount ? 'var(--accent)' : 'var(--text3)', background: selCount ? 'rgba(108,99,255,0.12)' : 'var(--bg3)', border: `1px solid ${selCount ? 'rgba(108,99,255,0.3)' : 'var(--border)'}`, borderRadius: 999, padding: '1px 8px' }}>{selCount}/{groupIds.length}</span>
+                  <button onClick={() => editEmail && setGroupAll(editEmail, group, !allOn)} style={{ ...groupBtnStyle, marginLeft: 'auto' }}>
                     {allOn ? 'Kosongkan' : 'Pilih semua'}
                   </button>
                 </div>
-                {Array.from(subs.entries()).map(([subKey, items]) => (
-                  <div key={subKey || '_'} style={{ marginBottom: subKey ? 10 : 0, paddingLeft: subKey ? 10 : 0, borderLeft: subKey ? '2px solid var(--border)' : 'none' }}>
-                    {subKey && <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>{subKey}</div>}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
-                      {items.map(s => {
-                        const checked = editSel.has(s.id)
-                        return (
-                          <label key={s.id} style={{
-                            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8,
-                            border: `1px solid ${checked ? 'var(--accent)' : 'var(--border)'}`,
-                            background: checked ? 'rgba(108,99,255,0.10)' : 'var(--bg3)',
-                            cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none',
-                          }}>
-                            <input type="checkbox" checked={checked} onChange={() => editEmail && toggle(editEmail, s.id)} style={{ accentColor: 'var(--accent)', width: 15, height: 15 }} />
-                            {s.label}
-                          </label>
-                        )
-                      })}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {Array.from(subs.entries()).map(([subKey, items]) => (
+                    <div key={subKey || '_'}>
+                      {subKey && <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>{subKey}</div>}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(165px, 1fr))', gap: 8 }}>
+                        {items.map(s => (
+                          <AccessTile key={s.id} label={s.label} checked={editSel.has(s.id)} onToggle={() => editEmail && toggle(editEmail, s.id)} />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )
           })}
         </div>
       </Modal>
+
+      {/* Per-account profile/edit modal */}
+      {profileUser && (
+        <AccountEditModal
+          user={profileUser}
+          self={profileUser.email.toLowerCase() === me}
+          canEditRole={!profileUser.locked && profileUser.email.toLowerCase() !== me}
+          onClose={() => setProfileUser(null)}
+          onSaved={() => { setProfileUser(null); reload(true) }}
+        />
+      )}
 
       {/* Password-change modal */}
       <Modal
@@ -401,6 +470,27 @@ export default function AccessControlClient() {
         </div>
       </Modal>
     </div>
+  )
+}
+
+// ── Access checkbox tile (with hover) ──
+function AccessTile({ label, checked, onToggle }: { label: string; checked: boolean; onToggle: () => void }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <label
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', borderRadius: 9,
+        border: `1px solid ${checked ? 'var(--accent)' : hover ? 'var(--text3)' : 'var(--border)'}`,
+        background: checked ? 'rgba(108,99,255,0.12)' : 'var(--bg3)',
+        cursor: 'pointer', fontSize: 13, color: 'var(--text)', userSelect: 'none',
+        transition: 'border-color 0.12s, background 0.12s',
+      }}
+    >
+      <input type="checkbox" checked={checked} onChange={onToggle} style={{ accentColor: 'var(--accent)', width: 15, height: 15, flexShrink: 0 }} />
+      {label}
+    </label>
   )
 }
 
@@ -459,11 +549,6 @@ const groupBtnStyle: React.CSSProperties = {
 const quickBtnStyle: React.CSSProperties = {
   padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border)',
   background: 'var(--bg3)', color: 'var(--text2)', fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap',
-}
-
-const addInputStyle: React.CSSProperties = {
-  flex: 1, minWidth: 200, background: 'var(--bg3)', border: '1px solid var(--border)',
-  borderRadius: 8, padding: '9px 12px', color: 'var(--text)', fontSize: 13, outline: 'none',
 }
 
 function cloneMap(m: Record<string, Set<string>>): Record<string, Set<string>> {
