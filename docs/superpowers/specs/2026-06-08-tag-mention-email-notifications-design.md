@@ -91,9 +91,9 @@ changing the data model.)
     unchanged. On comment submit, loop the reconciled `mentions` and POST once
     per recipient (skip the comment author).
 - **In-app bell** — `NotificationBell` additionally:
-  - On mount, query `post_comments` where `mentions @> [myEmail]` (recent N),
-    map to "<author> mentioned you in a comment on <post title>" entries (link
-    opens the post).
+  - On mount, query `post_comments` where `mentions @> [myEmail]` (most recent
+    50, newest first), map to "<author> mentioned you in a comment on <post
+    title>" entries (link opens the post).
   - Subscribe to `post_comments` INSERT; when a new row's `mentions` includes my
     email, add a notification. (Array membership can't be filtered in the
     realtime channel, so subscribe broadly and filter client-side.)
