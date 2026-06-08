@@ -19,6 +19,7 @@ interface CommentRow {
   author_name: string | null
   body: string
   created_at: string
+  mentions?: string[] | null
 }
 
 interface FeedEntry {
@@ -29,6 +30,7 @@ interface FeedEntry {
   at: string
   // comment
   body?: string
+  mentions?: string[]
   // activity
   text?: string
   attach?: string
@@ -106,6 +108,24 @@ export function usePostComments(post: Post | null | undefined) {
   const [input, setInput] = useState('')
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState('')
+  const [accounts, setAccounts] = useState<{ email: string; name: string; avatarUrl: string | null }[]>([])
+  const [mentions, setMentions] = useState<string[]>([])
+
+  // Team accounts for @mention autocomplete.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/accounts')
+      .then(r => (r.ok ? r.json() : { accounts: [] }))
+      .then((d: { accounts?: { email: string; name: string; avatarUrl: string | null }[] }) => {
+        if (!cancelled) setAccounts(d.accounts ?? [])
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  function addMention(email: string) {
+    setMentions(prev => (prev.includes(email) ? prev : [...prev, email]))
+  }
 
   // Load current user + the comment thread.
   useEffect(() => {
@@ -198,6 +218,7 @@ export function usePostComments(post: Post | null | undefined) {
         authorEmail: c.author_email,
         at: c.created_at,
         body: c.body,
+        mentions: c.mentions ?? [],
       })),
     [comments],
   )
@@ -235,17 +256,35 @@ export function usePostComments(post: Post | null | undefined) {
     }
     setPosting(true)
     setError('')
+    // Keep only mentions whose "@Name" is still present in the final body.
+    const finalMentions = mentions.filter(em => {
+      const name = accounts.find(a => a.email === em)?.name ?? em
+      return body.includes(`@${name}`)
+    })
     try {
       const { data, error: insErr } = await sb()
         .from('post_comments')
-        .insert({ post_id: post.id, author_email: me.email, author_name: me.name, body })
+        .insert({ post_id: post.id, author_email: me.email, author_name: me.name, body, mentions: finalMentions })
         .select('*')
         .single()
       if (insErr) throw insErr
       const row = data as CommentRow
       setRows(prev => (prev.some(r => r.id === row.id) ? prev : [...prev, row]))
       setInput('')
+      setMentions([])
       setTab('comments')
+      // Fire-and-forget mention emails (skip self). Endpoint no-ops if Resend
+      // isn't configured, and resolves recipients server-side.
+      const postTitle = post.title
+      finalMentions
+        .filter(em => em.toLowerCase() !== me.email.toLowerCase())
+        .forEach(em => {
+          fetch('/api/notify-tag', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: em, kind: 'comment', postTitle, taggedBy: me.name, snippet: body.slice(0, 200) }),
+          }).catch(() => {})
+        })
     } catch {
       setError(t('Gagal mengirim komentar. Coba lagi.'))
     } finally {
@@ -255,7 +294,7 @@ export function usePostComments(post: Post | null | undefined) {
 
   const commentCount = comments.length
 
-  return { tab, setTab, feed, loading, commentCount, me, input, setInput, posting, error, submit }
+  return { tab, setTab, feed, loading, commentCount, me, input, setInput, posting, error, submit, accounts, addMention }
 }
 
 export type PostCommentsState = ReturnType<typeof usePostComments>
