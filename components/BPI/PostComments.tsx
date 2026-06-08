@@ -280,11 +280,15 @@ export function usePostComments(post: Post | null | undefined) {
     }
     setPosting(true)
     setError('')
-    // Keep only mentions whose "@Name" is still present in the final body.
-    const finalMentions = mentions.filter(em => {
-      const name = accounts.find(a => a.email === em)?.name ?? em
-      return body.includes(`@${name}`)
-    })
+    // Keep only mentions whose "@Name" is still present in the final body as a
+    // whole token (word-boundary, so "@Andi" doesn't match "@Andi Setiawan").
+    // Store emails lowercased for consistent matching in the bell.
+    const finalMentions = mentions
+      .filter(em => {
+        const name = accounts.find(a => a.email === em)?.name ?? em
+        return new RegExp(`(^|\\s)@${escapeRegExp(name)}(\\s|$)`).test(body)
+      })
+      .map(em => em.toLowerCase())
     try {
       const { data, error: insErr } = await sb()
         .from('post_comments')

@@ -112,7 +112,9 @@ export function NotificationBell() {
 
     const idSet = new Set(ids)
     const channel = supabase
-      .channel('notif:post_comments')
+      // Unique per post-set so re-subscribing (when my posts change) doesn't
+      // collide with the channel being torn down.
+      .channel(`notif:post_comments:${myPostKey}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'post_comments' },
