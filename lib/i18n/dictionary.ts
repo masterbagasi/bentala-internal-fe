@@ -108,6 +108,9 @@ const SEED: Record<string, string> = {
   'Gagal mengubah password': 'Failed to change password',
   'Password berhasil diubah. Gunakan password baru saat login berikutnya.':
     'Password changed successfully. Use the new password on your next login.',
+  'Nama Project *': 'Project Name *',
+  'Nama project...': 'Project name...',
+  'Tulis headline...': 'Write the headline...',
   'Nama lengkap': 'Full name',
   'Nomor telepon': 'Phone number',
   'Jabatan / posisi': 'Job / position',

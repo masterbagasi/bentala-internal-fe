@@ -34,6 +34,7 @@ export interface Database {
           status: string
           pics: string[]
           caption: string
+          headline: string
           brief: string
           hashtags: string
           content_types: string[]

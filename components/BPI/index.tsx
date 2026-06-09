@@ -5,7 +5,13 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
-import { BPI_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
+import { BPI_STATUS_COLS, WS_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
+
+// Workspace (Video Production / Design Studio) board groups statuses its own
+// way: 'ready'/'published' both fold into the "Done" column.
+function wsColKey(status: string): string {
+  return status === 'ready' || status === 'published' ? 'done' : status
+}
 import { formatDate, byPostDateAsc } from '@/lib/utils'
 import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
@@ -111,6 +117,8 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               onEdit={openEdit}
               onDelete={handleDelete}
               onCardClick={id => setPreviewPostId(id)}
+              colSet={picScope ? WS_STATUS_COLS : undefined}
+              colKeyOf={picScope ? wsColKey : undefined}
             />
           )}
           {activeTab === 'calendar' && <ContentCalendar entity={calEntity ?? entity} onPostClick={id => setPreviewPostId(id)} />}
@@ -253,8 +261,11 @@ function ListView({
 }
 
 // ── Kanban Board ──
+type BoardCol = { key: string; label: string; color: string; locked?: boolean }
+
 function KanbanBoard({
   posts, currentUser, statusFilter, onEdit, onDelete, onCardClick,
+  colSet, colKeyOf,
 }: {
   posts: Post[]
   currentUser: string
@@ -262,10 +273,16 @@ function KanbanBoard({
   onEdit: (id: string) => void
   onDelete: (id: string) => void
   onCardClick: (id: string) => void
+  /** Column set + status→column mapping. Defaults to the BPI pipeline; the
+   *  workspace (Video Production / Design Studio) passes its own columns. */
+  colSet?: readonly BoardCol[]
+  colKeyOf?: (status: string) => string
 }) {
   // When statuses are filtered, only show those columns.
   const t = useT()
-  const cols = statusFilter.length ? BPI_STATUS_COLS.filter(c => statusFilter.includes(c.key)) : BPI_STATUS_COLS
+  const baseCols: readonly BoardCol[] = colSet ?? BPI_STATUS_COLS
+  const keyOf = (status: string) => (colKeyOf ? colKeyOf(status) : status)
+  const cols = statusFilter.length ? baseCols.filter(c => statusFilter.includes(c.key)) : baseCols
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const logActivity = useLogActivity()
@@ -299,7 +316,7 @@ function KanbanBoard({
       alignItems: 'flex-start', marginTop: 20,
     }}>
       {cols.map(col => {
-        const colPosts = posts.filter(p => p.status === col.key).slice().sort(byPostDateAsc)
+        const colPosts = posts.filter(p => keyOf(p.status) === col.key).slice().sort(byPostDateAsc)
         const isLocked = 'locked' in col && col.locked && currentUser === 'Naufal'
         const isOver = dragOverCol === col.key
         const active = isOver && !isLocked

@@ -18,6 +18,7 @@ export interface Post {
   status: PostStatus
   pics: string[]          // ['Video Production', 'Design Studio']
   caption: string
+  headline: string        // headline copy for the content
   brief: string           // content brief / instructions
   hashtags: string
   content_types: string[] // ['video', 'design']

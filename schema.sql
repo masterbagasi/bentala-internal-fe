@@ -20,6 +20,7 @@ create table if not exists posts (
   )),
   pics        text[] default '{}',   -- ['Faizal', 'Reinaldi']
   caption     text default '',
+  headline    text default '',
   hashtags    text default '',
   content_types text[] default '{}', -- ['video','design']
   video_link  text default '',

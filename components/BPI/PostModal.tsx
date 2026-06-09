@@ -29,6 +29,7 @@ const DEFAULT_FORM = {
   status: 'todo' as Post['status'],
   pics: [] as string[],
   caption: '',
+  headline: '',
   brief: '',
   hashtags: '',
   content_types: [] as ContentType[],
@@ -121,6 +122,7 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
           status:        p.status,
           pics:          p.pics || [],
           caption:       p.caption || '',
+          headline:      p.headline || '',
           brief:         p.brief || '',
           hashtags:      p.hashtags || '',
           content_types: (p.content_types || []) as ContentType[],
@@ -226,6 +228,7 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
       status:        form.status,
       pics,
       caption:       form.caption,
+      headline:      form.headline,
       brief:         form.brief,
       hashtags:      form.hashtags,
       content_types: form.content_types,
@@ -289,11 +292,11 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {/* Title */}
-        <FormGroup label={t('Judul Post *')}>
+        {/* Project name */}
+        <FormGroup label={t('Nama Project *')}>
           <input
             type="text"
-            placeholder={t('Judul konten...')}
+            placeholder={t('Nama project...')}
             value={form.title}
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
           />
@@ -363,6 +366,17 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
             />
           </FormGroup>
         </div>
+
+        {/* Headline (above Brief) */}
+        <FormGroup label={t('Headline')}>
+          <textarea
+            rows={2}
+            placeholder={t('Tulis headline...')}
+            value={form.headline}
+            onChange={e => setForm(f => ({ ...f, headline: e.target.value }))}
+            style={{ fontFamily: 'inherit', resize: 'vertical' }}
+          />
+        </FormGroup>
 
         {/* Brief (above Caption) */}
         <FormGroup label={t('Brief')}>
