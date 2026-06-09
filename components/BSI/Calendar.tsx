@@ -38,9 +38,11 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
   // Get posts for this entity
   function getEntityPosts(platform?: string): Post[] {
     const member = WS_MAP[entity]
-    let filtered = member
-      ? posts.filter(p => (p.pics || []).includes(member))
-      : posts.filter(p => p.entity === entity)
+    let filtered = entity === 'all'
+      ? posts.filter(p => ['bpi', 'bsi', 'ws'].includes(p.entity))
+      : member
+        ? posts.filter(p => (p.pics || []).includes(member))
+        : posts.filter(p => p.entity === entity)
     if (platform && platform !== 'all') {
       filtered = filtered.filter(p => (p.platforms || []).includes(platform as 'ig' | 'tiktok'))
     }

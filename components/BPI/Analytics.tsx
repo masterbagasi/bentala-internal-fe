@@ -8,7 +8,7 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 
 Chart.register(...registerables)
 
-export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: 'bpi' | 'bsi'; picScope?: string }) {
+export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: 'bpi' | 'bsi' | 'all'; picScope?: string }) {
   const t = useT()
   const { posts, dateRange } = useStore()
   const chartRef = useRef<HTMLCanvasElement>(null)
@@ -18,8 +18,10 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: 'bpi' | 'b
   const to   = new Date(dateRange.to + 'T23:59:59')
 
   const bpiPosts = posts.filter(p => {
-    // Scope: workspace pages filter by assigned PIC; boards filter by entity.
-    if (picScope ? !(p.pics || []).includes(picScope) : p.entity !== entity) return false
+    // Scope: PIC (workspace), all socmed projects, or a single entity (board).
+    if (picScope
+      ? !(p.pics || []).includes(picScope)
+      : entity === 'all' ? !['bpi', 'bsi', 'ws'].includes(p.entity) : p.entity !== entity) return false
     if (!p.date) return true
     const d = new Date(p.date)
     return d >= from && d <= to

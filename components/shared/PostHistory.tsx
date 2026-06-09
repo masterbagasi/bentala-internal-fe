@@ -10,10 +10,12 @@ import { ConfirmDialog, type ConfirmRequest } from '@/components/website/Confirm
 // Scope: which posts this history belongs to.
 //  - { entity: 'bpi' } → Bentala Project / Studio boards
 //  - { pic: 'Video Production' } → workspace pages (posts assigned to a member)
-export type HistoryScope = { entity: 'bpi' | 'bsi' } | { pic: string }
+export type HistoryScope = { entity: 'bpi' | 'bsi' } | { pic: string } | { all: true }
+
+const ALL_ENTITIES = ['bpi', 'bsi', 'ws']
 
 function scopeKey(scope: HistoryScope): string {
-  return 'entity' in scope ? `entity-${scope.entity}` : `pic-${scope.pic}`
+  return 'all' in scope ? 'all' : 'entity' in scope ? `entity-${scope.entity}` : `pic-${scope.pic}`
 }
 
 interface HistoryRow {
@@ -62,13 +64,13 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
   const load = useCallback(async () => {
     const sb = getSupabase()
     let q = sb.from('post_history').select('*').order('created_at', { ascending: false }).limit(150)
-    q = 'entity' in scope ? q.eq('entity', scope.entity) : q.contains('pics', [scope.pic])
+    q = 'all' in scope ? q.in('entity', ALL_ENTITIES) : 'entity' in scope ? q.eq('entity', scope.entity) : q.contains('pics', [scope.pic])
     const { data } = await q
     setRows((data ?? []) as HistoryRow[])
 
     // Which posts are currently soft-deleted (→ show Restore).
     let dq = sb.from('posts').select('id, entity, pics').not('deleted_at', 'is', null)
-    dq = 'entity' in scope ? dq.eq('entity', scope.entity) : dq.contains('pics', [scope.pic])
+    dq = 'all' in scope ? dq.in('entity', ALL_ENTITIES) : 'entity' in scope ? dq.eq('entity', scope.entity) : dq.contains('pics', [scope.pic])
     const { data: del } = await dq
     setRestorable(new Set(((del ?? []) as { id: string }[]).map(d => d.id)))
   }, [scope])

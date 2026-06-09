@@ -34,6 +34,8 @@ interface BPIPageProps {
   entity: 'bpi' | 'bsi' | 'ws'
   /** Workspace pages scope by assigned PIC across entities instead of by entity. */
   picScope?: string
+  /** "All Project" mode: combine posts from every project (bpi + bsi + ws). */
+  allProjects?: boolean
   /** Calendar entity key (e.g. 'ws-fz') when different from `entity`. */
   calEntity?: string
   currentUser?: string
@@ -41,8 +43,10 @@ interface BPIPageProps {
   filters: PostFilters
 }
 
+const ALL_ENTITIES = ['bpi', 'bsi', 'ws']
+
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
-  function BPIPage({ entity, picScope, calEntity, currentUser = 'Naufal', activeTab, filters }, ref) {
+  function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters }, ref) {
     const t = useT()
     const { posts, removePost } = useStore()
     const [showPostModal, setShowPostModal] = useState(false)
@@ -53,8 +57,10 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     const logActivity = useLogActivity()
 
     const filtered = posts.filter(p => {
-      // Scope: by assigned PIC (workspace) or by entity (boards).
-      if (picScope ? !(p.pics || []).includes(picScope) : p.entity !== entity) return false
+      // Scope: all socmed projects, by assigned PIC (workspace), or by entity (board).
+      if (allProjects
+        ? !ALL_ENTITIES.includes(p.entity)
+        : picScope ? !(p.pics || []).includes(picScope) : p.entity !== entity) return false
       if (filters.platforms.length && !filters.platforms.some(x => ((p.platforms || []) as string[]).includes(x))) return false
       if (filters.contentTypes.length && !filters.contentTypes.some(x => (p.content_types || []).includes(x))) return false
       if (filters.tagged.length && !filters.tagged.some(x => (p.tagged || []).includes(x))) return false
@@ -121,12 +127,14 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               colKeyOf={picScope ? wsColKey : undefined}
             />
           )}
-          {activeTab === 'calendar' && <ContentCalendar entity={calEntity ?? entity} onPostClick={id => setPreviewPostId(id)} />}
+          {activeTab === 'calendar' && <ContentCalendar entity={allProjects ? 'all' : (calEntity ?? entity)} onPostClick={id => setPreviewPostId(id)} />}
           {activeTab === 'files' && <FilesTab posts={filtered} />}
           {activeTab === 'analytics' && (
-            picScope
-              ? <BPIAnalytics picScope={picScope} />
-              : <BPIAnalytics entity={entity === 'ws' ? 'bpi' : entity} />
+            allProjects
+              ? <BPIAnalytics entity="all" />
+              : picScope
+                ? <BPIAnalytics picScope={picScope} />
+                : <BPIAnalytics entity={entity === 'ws' ? 'bpi' : entity} />
           )}
         </div>
 
@@ -467,13 +475,19 @@ function KanbanCard({
         >✕</button>
       </div>
 
-      <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.4, color: 'var(--text)', marginBottom: 6, paddingRight: 48 }}>
-        {post.title}
+      {/* Project glyph (matches the sidebar tab logo) + title + date */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <EntityGlyph entity={post.entity} />
+        <div style={{ flex: 1, minWidth: 0, paddingRight: 44 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.4, color: 'var(--text)', marginBottom: 4 }}>
+            {post.title}
+          </div>
+          {post.date && (
+            <div style={{ fontSize: 11, color: 'var(--text2)' }}>{formatDate(post.date)}</div>
+          )}
+        </div>
       </div>
-      {post.date && (
-        <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>{formatDate(post.date)}</div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
         <div style={{ display: 'flex', gap: 4 }}>
           {(post.platforms || []).map(pl => (
             <PlatformIcon key={pl} platform={pl} size={18} />
@@ -484,6 +498,32 @@ function KanbanCard({
         </div>
       </div>
     </div>
+  )
+}
+
+// Small project glyph on a board card — mirrors the sidebar tab logos
+// (bpi = orange, bsi = purple) so a card shows which project it belongs to.
+const ENTITY_GLYPH: Record<string, { label: string; color: string }> = {
+  bpi: { label: 'bpi', color: '#c46e1f' },
+  bsi: { label: 'bsi', color: '#8845c0' },
+  ws:  { label: 'ws',  color: '#5a5a60' },
+}
+function EntityGlyph({ entity }: { entity: string }) {
+  const g = ENTITY_GLYPH[entity] ?? ENTITY_GLYPH.ws
+  return (
+    <span
+      title={entity === 'bpi' ? 'Bentala Project' : entity === 'bsi' ? 'Bentala Studio' : 'Workspace'}
+      style={{
+        width: 30, height: 30, borderRadius: 7, flexShrink: 0,
+        backgroundColor: g.color,
+        backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.05) 45%, rgba(0,0,0,0.15) 100%)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.2)',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.02em', textTransform: 'lowercase',
+      }}
+    >
+      {g.label}
+    </span>
   )
 }
 
@@ -558,7 +598,7 @@ export interface PostFilters {
 export const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: [], ratios: [], month: '', statuses: [] }
 
 // Owns filter state + the data the popup needs (accounts, months for an entity).
-export function useBoardFilter(scope: 'bpi' | 'bsi' | { pic: string }) {
+export function useBoardFilter(scope: 'bpi' | 'bsi' | 'all' | { pic: string }) {
   const { posts } = useStore()
   const [filters, setFilters] = useState<PostFilters>(EMPTY_FILTERS)
   const [accounts, setAccounts] = useState<{ email: string; name: string }[]>([])
@@ -573,7 +613,9 @@ export function useBoardFilter(scope: 'bpi' | 'bsi' | { pic: string }) {
   const months = useMemo(() => {
     const set = new Set<string>()
     const inScope = (p: typeof posts[number]) =>
-      typeof scope === 'string' ? p.entity === scope : (p.pics || []).includes(scope.pic)
+      typeof scope === 'string'
+        ? (scope === 'all' ? ['bpi', 'bsi', 'ws'].includes(p.entity) : p.entity === scope)
+        : (p.pics || []).includes(scope.pic)
     for (const p of posts) if (inScope(p) && p.date) set.add(p.date.slice(0, 7))
     return Array.from(set).sort().reverse()
   }, [posts, scope])

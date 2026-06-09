@@ -346,6 +346,11 @@ export function Sidebar() {
       badge: <BrandBadge text="smm" />,
       fullLabel: 'Socmed Management',
       items: [
+        // Combined board across every project — super admin only (it aggregates
+        // posts from all projects regardless of per-account grants).
+        ...(access.isSuper
+          ? [{ href: '/projects-all', label: 'All Project', icon: <FolderIcon />, color: COLOR.blue }]
+          : []),
         {
           type: 'subgroup', id: 'smm-bpi', label: 'Bentala Project', icon: <BrandGlyph text="bpi" />, color: COLOR.orange,
           items: [
