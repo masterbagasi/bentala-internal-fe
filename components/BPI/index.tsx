@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, useMemo, forwardRef, useImperativeHandle, Suspense } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
@@ -45,17 +45,6 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null)
     const [confirmBusy, setConfirmBusy] = useState(false)
     const logActivity = useLogActivity()
-
-    // Deep link from a notification: /<board>?post=<id> opens that post's preview.
-    const searchParams = useSearchParams()
-    const router = useRouter()
-    const pathname = usePathname()
-    useEffect(() => {
-      const pid = searchParams.get('post')
-      if (!pid) return
-      setPreviewPostId(pid)
-      router.replace(pathname) // drop the query so it doesn't re-open on refresh
-    }, [searchParams, pathname, router])
 
     const filtered = posts.filter(p => {
       // Scope: by assigned PIC (workspace) or by entity (boards).
@@ -104,6 +93,11 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
 
     return (
       <div>
+        {/* Deep link from a notification (/<board>?post=<id>). Isolated in a
+            Suspense boundary so useSearchParams doesn't break static prerender. */}
+        <Suspense fallback={null}>
+          <DeepLinkPost onOpen={setPreviewPostId} />
+        </Suspense>
         {/* Tab content */}
         <div style={{ padding: activeTab === 'board' ? '0 24px 24px' : 24 }}>
           {activeTab === 'list' && (
@@ -156,6 +150,23 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     )
   }
 )
+
+// Reads ?post=<id> and opens that post's preview, then strips the query so a
+// refresh doesn't re-open it. Kept in its own component (wrapped in Suspense by
+// the parent) because useSearchParams forces client rendering and would
+// otherwise fail static prerendering of the board pages.
+function DeepLinkPost({ onOpen }: { onOpen: (id: string) => void }) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  useEffect(() => {
+    const pid = searchParams.get('post')
+    if (!pid) return
+    onOpen(pid)
+    router.replace(pathname)
+  }, [searchParams, pathname, router, onOpen])
+  return null
+}
 
 // ── List View ──
 function ListView({
