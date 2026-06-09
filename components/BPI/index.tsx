@@ -106,6 +106,21 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     const [showPostModal, setShowPostModal] = useState(false)
     const [editPostId, setEditPostId] = useState<string | null>(null)
     const [previewPostId, setPreviewPostId] = useState<string | null>(null)
+    // Tagged-account directory (email → name + avatar) for the card avatars.
+    const [accounts, setAccounts] = useState<Record<string, { name: string; avatarUrl: string | null }>>({})
+    useEffect(() => {
+      let cancelled = false
+      fetch('/api/accounts')
+        .then(r => (r.ok ? r.json() : { accounts: [] }))
+        .then((d: { accounts?: { email: string; name: string; avatarUrl: string | null }[] }) => {
+          if (cancelled) return
+          const m: Record<string, { name: string; avatarUrl: string | null }> = {}
+          for (const a of d.accounts ?? []) m[a.email.toLowerCase()] = { name: a.name, avatarUrl: a.avatarUrl }
+          setAccounts(m)
+        })
+        .catch(() => {})
+      return () => { cancelled = true }
+    }, [])
     const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null)
     const [confirmBusy, setConfirmBusy] = useState(false)
     const logActivity = useLogActivity()
@@ -209,6 +224,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               onEdit={openEdit}
               onDelete={handleDelete}
               onCardClick={id => setPreviewPostId(id)}
+              accounts={accounts}
               colSet={boardTrack ? WS_STATUS_COLS : SMM_STATUS_COLS}
               colOf={
                 boardTrack === 'video' ? (p => trackColKey(p.video_status))
@@ -366,10 +382,11 @@ function ListView({
 
 // ── Kanban Board ──
 type BoardCol = { key: string; label: string; color: string; locked?: boolean }
+type AccountDir = Record<string, { name: string; avatarUrl: string | null }>
 
 function KanbanBoard({
   posts, currentUser, statusFilter, onEdit, onDelete, onCardClick,
-  colSet, colOf, onMove, canEdit = true,
+  colSet, colOf, onMove, canEdit = true, accounts,
 }: {
   posts: Post[]
   currentUser: string
@@ -384,6 +401,8 @@ function KanbanBoard({
   /** Perform the move write when a card is dropped on a column. */
   onMove?: (post: Post, colKey: string) => void | Promise<void>
   canEdit?: boolean
+  /** email → { name, avatarUrl } for tagged-account avatars. */
+  accounts?: AccountDir
 }) {
   // When statuses are filtered, only show those columns.
   const t = useT()
@@ -464,6 +483,7 @@ function KanbanBoard({
                   onEdit={() => onEdit(p.id)}
                   onDelete={() => onDelete(p.id)}
                   canEdit={canEdit}
+                  accounts={accounts}
                 />
               ))}
             </div>
@@ -493,7 +513,7 @@ function KanbanBoard({
 
 // ── Kanban Card ──
 function KanbanCard({
-  post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true,
+  post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true, accounts,
 }: {
   post: Post
   onDragStart: (e: React.DragEvent) => void
@@ -502,6 +522,7 @@ function KanbanCard({
   onEdit: () => void
   onDelete: () => void
   canEdit?: boolean
+  accounts?: AccountDir
 }) {
   const t = useT()
   const [hovered, setHovered] = useState(false)
@@ -600,7 +621,21 @@ function KanbanCard({
               ))}
             </div>
             <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-              {tagged.map(m => <TeamAvatar key={m} name={m} size={20} />)}
+              {tagged.map(m => {
+                const acc = accounts?.[m.toLowerCase()]
+                return acc?.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={m}
+                    src={acc.avatarUrl}
+                    alt={acc.name}
+                    title={acc.name}
+                    style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }}
+                  />
+                ) : (
+                  <TeamAvatar key={m} name={acc?.name || m} size={20} />
+                )
+              })}
             </div>
           </div>
         </>
