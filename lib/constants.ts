@@ -68,6 +68,19 @@ export const BPI_STATUS_COLS = [
   { key: 'published', label: 'Published',     color: '#22c55e' },
 ] as const
 
+// Socmed Management "Projects" board — splits Revisi into Video / Design so a
+// project can be sent back to one discipline without moving the other.
+export const SMM_STATUS_COLS = [
+  { key: 'todo',          label: 'Idea',          color: '#8b8fa8' },
+  { key: 'brief',         label: 'Brief',         color: '#64b5f6' },
+  { key: 'produksi',      label: 'Production',    color: '#5b9bd5' },
+  { key: 'revisi_video',  label: 'Revisi Video',  color: '#f59e0b' },
+  { key: 'revisi_design', label: 'Revisi Design', color: '#a78bfa' },
+  { key: 'review',        label: 'Review',        color: '#ffc542' },
+  { key: 'ready',         label: 'Ready to Post', color: '#43d9a2' },
+  { key: 'published',     label: 'Published',     color: '#22c55e' },
+] as const
+
 // WS Board columns (Video Production / Design Studio)
 export const WS_STATUS_COLS = [
   // "To Do List" maps to BPI's "Brief" — a post enters the production worksheet

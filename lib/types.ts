@@ -20,6 +20,8 @@ export interface Post {
   caption: string
   headline: string        // headline copy for the content
   brief: string           // content brief / instructions
+  video_status: string    // independent Video Production track status
+  design_status: string   // independent Design Studio track status
   hashtags: string
   content_types: string[] // ['video', 'design']
   video_link: string

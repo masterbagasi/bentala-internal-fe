@@ -5,12 +5,66 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
-import { BPI_STATUS_COLS, WS_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
+import { BPI_STATUS_COLS, WS_STATUS_COLS, SMM_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
 
-// Workspace (Video Production / Design Studio) board groups statuses its own
-// way: 'ready'/'published' both fold into the "Done" column.
-function wsColKey(status: string): string {
-  return status === 'ready' || status === 'published' ? 'done' : status
+// ── Per-track workflow helpers ───────────────────────────────
+// Posts carry two independent production tracks (video_status, design_status).
+// VP / DS boards each show their own track; the SMM board derives a single
+// column from both tracks + the overall status.
+const VP_PIC = 'Video Production'
+const DS_PIC = 'Design Studio'
+const hasVideo = (p: Post) => (p.pics || []).includes(VP_PIC)
+const hasDesign = (p: Post) => (p.pics || []).includes(DS_PIC)
+const trackDone = (v: string) => v === 'review' || v === 'done' || v === 'ready' || v === 'published'
+
+// Map a track value to its WS board column (ready/published/done → "Done").
+function trackColKey(v: string): string {
+  if (v === 'ready' || v === 'published' || v === 'done') return 'done'
+  if (v === 'revisi' || v === 'produksi' || v === 'review') return v
+  return 'brief' // empty / not started → "To Do List"
+}
+
+// Overall post status derived from the two tracks (used when a track changes).
+function deriveStatus(p: Post): Post['status'] {
+  const hv = hasVideo(p), hd = hasDesign(p)
+  if ((hv && p.video_status === 'revisi') || (hd && p.design_status === 'revisi')) return 'revisi'
+  const vOk = !hv || trackDone(p.video_status)
+  const dOk = !hd || trackDone(p.design_status)
+  if ((hv || hd) && vOk && dOk) return 'review'
+  return 'produksi'
+}
+
+// Which SMM column a post sits in (single-column, revisi takes priority;
+// video revisi before design revisi).
+function smmColKey(p: Post): string {
+  const s = p.status
+  if (s === 'todo' || s === 'brief' || s === 'ready' || s === 'published' || s === 'done') return s
+  const hv = hasVideo(p), hd = hasDesign(p)
+  if (hv && p.video_status === 'revisi') return 'revisi_video'
+  if (hd && p.design_status === 'revisi') return 'revisi_design'
+  const vOk = !hv || trackDone(p.video_status)
+  const dOk = !hd || trackDone(p.design_status)
+  if ((hv || hd) && vOk && dOk) return 'review'
+  return 'produksi'
+}
+
+// Updates to apply when a card is dropped on an SMM column.
+function smmUpdates(p: Post, colKey: string): Partial<Post> {
+  switch (colKey) {
+    case 'revisi_video':  return { video_status: 'revisi', status: 'revisi' }
+    case 'revisi_design': return { design_status: 'revisi', status: 'revisi' }
+    case 'produksi': return {
+      status: 'produksi',
+      ...(hasVideo(p) ? { video_status: 'produksi' } : {}),
+      ...(hasDesign(p) ? { design_status: 'produksi' } : {}),
+    }
+    case 'review': return {
+      status: 'review',
+      ...(hasVideo(p) ? { video_status: 'review' } : {}),
+      ...(hasDesign(p) ? { design_status: 'review' } : {}),
+    }
+    default: return { status: colKey as Post['status'] } // todo / brief / ready / published
+  }
 }
 import { formatDate, byPostDateAsc } from '@/lib/utils'
 import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
@@ -48,13 +102,44 @@ const ALL_ENTITIES = ['bpi', 'bsi', 'ws']
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
   function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters }, ref) {
     const t = useT()
-    const { posts, removePost } = useStore()
+    const { posts, removePost, upsertPost } = useStore()
     const [showPostModal, setShowPostModal] = useState(false)
     const [editPostId, setEditPostId] = useState<string | null>(null)
     const [previewPostId, setPreviewPostId] = useState<string | null>(null)
     const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null)
     const [confirmBusy, setConfirmBusy] = useState(false)
     const logActivity = useLogActivity()
+
+    // Project dropdown in the post modal: empty on "All Project", pre-selected
+    // on the bpi/bsi boards, hidden on workspace (ws) pages.
+    const projectScope: 'bpi' | 'bsi' | 'all' | undefined =
+      allProjects ? 'all'
+      : picScope ? undefined
+      : (entity === 'bpi' || entity === 'bsi') ? entity
+      : undefined
+
+    // Only the Socmed Management boards (bpi / bsi / all) can create, edit or
+    // delete posts. Workspace pages (Video Production / Design Studio) are
+    // work-only: view, change status, and attach files — but not edit the post.
+    const canEdit = !picScope
+
+    // Which board this is: the video track, the design track, or the combined
+    // SMM board (null). Drag-to-move writes the right field per board.
+    const boardTrack: 'video' | 'design' | null =
+      picScope === VP_PIC ? 'video' : picScope === DS_PIC ? 'design' : null
+
+    async function moveOnBoard(post: Post, colKey: string) {
+      const updates: Partial<Post> =
+        boardTrack === 'video' ? (() => { const u: Partial<Post> = { video_status: colKey }; u.status = deriveStatus({ ...post, ...u } as Post); return u })()
+        : boardTrack === 'design' ? (() => { const u: Partial<Post> = { design_status: colKey }; u.status = deriveStatus({ ...post, ...u } as Post); return u })()
+        : smmUpdates(post, colKey)
+      const next = { ...post, ...updates } as Post
+      upsertPost(next) // optimistic
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (getSupabase() as any).from('posts').update(updates).eq('id', post.id)
+      if (error) { upsertPost(post); return } // rollback
+      logActivity(`Post "${post.title}" dipindahkan`)
+    }
 
     const filtered = posts.filter(p => {
       // Scope: all socmed projects, by assigned PIC (workspace), or by entity (board).
@@ -113,18 +198,24 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
         {/* Tab content */}
         <div style={{ padding: activeTab === 'board' ? '0 24px 24px' : 24 }}>
           {activeTab === 'list' && (
-            <ListView posts={filtered} onEdit={openEdit} onDelete={handleDelete} onPreview={id => setPreviewPostId(id)} />
+            <ListView posts={filtered} canEdit={canEdit} onEdit={openEdit} onDelete={handleDelete} onPreview={id => setPreviewPostId(id)} />
           )}
           {activeTab === 'board' && (
             <KanbanBoard
               posts={filtered}
               currentUser={currentUser}
               statusFilter={filters.statuses}
+              canEdit={canEdit}
               onEdit={openEdit}
               onDelete={handleDelete}
               onCardClick={id => setPreviewPostId(id)}
-              colSet={picScope ? WS_STATUS_COLS : undefined}
-              colKeyOf={picScope ? wsColKey : undefined}
+              colSet={boardTrack ? WS_STATUS_COLS : SMM_STATUS_COLS}
+              colOf={
+                boardTrack === 'video' ? (p => trackColKey(p.video_status))
+                : boardTrack === 'design' ? (p => trackColKey(p.design_status))
+                : smmColKey
+              }
+              onMove={moveOnBoard}
             />
           )}
           {activeTab === 'calendar' && <ContentCalendar entity={allProjects ? 'all' : (calEntity ?? entity)} onPostClick={id => setPreviewPostId(id)} />}
@@ -145,12 +236,14 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             onClose={() => { setShowPostModal(false); setEditPostId(null) }}
             editId={editPostId}
             entity={entity}
+            projectScope={projectScope}
           />
         )}
         {previewPostId && (
           <PostPreviewModal
             open={!!previewPostId}
             postId={previewPostId}
+            canEdit={canEdit}
             onClose={() => setPreviewPostId(null)}
             onEdit={id => { setPreviewPostId(null); openEdit(id) }}
           />
@@ -186,12 +279,13 @@ function DeepLinkPost({ onOpen }: { onOpen: (id: string) => void }) {
 
 // ── List View ──
 function ListView({
-  posts, onEdit, onDelete, onPreview,
+  posts, onEdit, onDelete, onPreview, canEdit = true,
 }: {
   posts: Post[]
   onEdit: (id: string) => void
   onDelete: (id: string) => void
   onPreview: (id: string) => void
+  canEdit?: boolean
 }) {
   const t = useT()
   return (
@@ -206,13 +300,13 @@ function ListView({
             <th>{t('Status')}</th>
             <th>{t('PIC')}</th>
             <th>{t('Caption')}</th>
-            <th style={{ width: 96, whiteSpace: 'nowrap' }}>{t('Aksi')}</th>
+            {canEdit && <th style={{ width: 96, whiteSpace: 'nowrap' }}>{t('Aksi')}</th>}
           </tr>
         </thead>
         <tbody>
           {posts.length === 0 ? (
             <tr>
-              <td colSpan={8}>
+              <td colSpan={canEdit ? 8 : 7}>
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
                   {t('Belum ada post. Klik "+ Tambah Post" untuk mulai.')}
@@ -248,18 +342,20 @@ function ListView({
                   {p.caption?.slice(0, 50) || '—'}
                 </span>
               </td>
-              <td onClick={e => e.stopPropagation()}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button
-                    onClick={() => onEdit(p.id)}
-                    style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: 'var(--text)', whiteSpace: 'nowrap' }}
-                  >Edit</button>
-                  <button
-                    onClick={() => onDelete(p.id)}
-                    style={{ background: 'var(--accent2)', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: '#fff', lineHeight: 1 }}
-                  >✕</button>
-                </div>
-              </td>
+              {canEdit && (
+                <td onClick={e => e.stopPropagation()}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                      onClick={() => onEdit(p.id)}
+                      style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: 'var(--text)', whiteSpace: 'nowrap' }}
+                    >Edit</button>
+                    <button
+                      onClick={() => onDelete(p.id)}
+                      style={{ background: 'var(--accent2)', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: '#fff', lineHeight: 1 }}
+                    >✕</button>
+                  </div>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -273,7 +369,7 @@ type BoardCol = { key: string; label: string; color: string; locked?: boolean }
 
 function KanbanBoard({
   posts, currentUser, statusFilter, onEdit, onDelete, onCardClick,
-  colSet, colKeyOf,
+  colSet, colOf, onMove, canEdit = true,
 }: {
   posts: Post[]
   currentUser: string
@@ -281,41 +377,29 @@ function KanbanBoard({
   onEdit: (id: string) => void
   onDelete: (id: string) => void
   onCardClick: (id: string) => void
-  /** Column set + status→column mapping. Defaults to the BPI pipeline; the
-   *  workspace (Video Production / Design Studio) passes its own columns. */
+  /** Column set; defaults to the BPI pipeline. */
   colSet?: readonly BoardCol[]
-  colKeyOf?: (status: string) => string
+  /** Which column a post belongs to (defaults to its status). */
+  colOf?: (post: Post) => string
+  /** Perform the move write when a card is dropped on a column. */
+  onMove?: (post: Post, colKey: string) => void | Promise<void>
+  canEdit?: boolean
 }) {
   // When statuses are filtered, only show those columns.
   const t = useT()
   const baseCols: readonly BoardCol[] = colSet ?? BPI_STATUS_COLS
-  const keyOf = (status: string) => (colKeyOf ? colKeyOf(status) : status)
+  const keyOf = (p: Post) => (colOf ? colOf(p) : p.status)
   const cols = statusFilter.length ? baseCols.filter(c => statusFilter.includes(c.key)) : baseCols
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
-  const logActivity = useLogActivity()
-  const upsertPost = useStore(s => s.upsertPost)
 
-  async function handleDrop(newStatus: string) {
+  function handleDrop(newCol: string) {
     setDragOverCol(null)
-    if (!dragPostId) return
-    if (currentUser === 'Naufal' && newStatus === 'review') {
-      setDragPostId(null); return
-    }
+    if (!dragPostId) { setDragPostId(null); return }
     const dragged = posts.find(p => p.id === dragPostId)
     setDragPostId(null)
-    if (!dragged || dragged.status === newStatus) return
-
-    // Optimistic: move the card immediately, don't wait for realtime
-    upsertPost({ ...dragged, status: newStatus as Post['status'] })
-
-    const supabase = getSupabase()
-    const { error } = await supabase.from('posts').update({ status: newStatus }).eq('id', dragged.id)
-    if (error) {
-      upsertPost(dragged) // rollback on failure
-    } else {
-      logActivity(`Post "${dragged.title}" dipindahkan ke ${newStatus}`)
-    }
+    if (!dragged || keyOf(dragged) === newCol) return
+    void onMove?.(dragged, newCol)
   }
 
   return (
@@ -324,7 +408,7 @@ function KanbanBoard({
       alignItems: 'flex-start', marginTop: 20,
     }}>
       {cols.map(col => {
-        const colPosts = posts.filter(p => keyOf(p.status) === col.key).slice().sort(byPostDateAsc)
+        const colPosts = posts.filter(p => keyOf(p) === col.key).slice().sort(byPostDateAsc)
         const isLocked = 'locked' in col && col.locked && currentUser === 'Naufal'
         const isOver = dragOverCol === col.key
         const active = isOver && !isLocked
@@ -379,24 +463,27 @@ function KanbanBoard({
                   onClick={() => onCardClick(p.id)}
                   onEdit={() => onEdit(p.id)}
                   onDelete={() => onDelete(p.id)}
+                  canEdit={canEdit}
                 />
               ))}
             </div>
 
-            <button
-              onClick={() => onEdit('')}
-              style={{
-                width: '100%', background: 'none', border: 'none', color: 'var(--text2)',
-                fontSize: 13, padding: '7px 4px', cursor: 'pointer', textAlign: 'left',
-                display: 'flex', alignItems: 'center', gap: 7, borderRadius: 6,
-                marginTop: 4, flexShrink: 0,
-              }}
-              onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(108,99,255,0.08)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)' }}
-              onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
-            >
-              <span style={{ fontSize: 15, color: 'var(--accent)', lineHeight: 1 }}>+</span>
-              {t('Tambah post')}
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => onEdit('')}
+                style={{
+                  width: '100%', background: 'none', border: 'none', color: 'var(--text2)',
+                  fontSize: 13, padding: '7px 4px', cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', alignItems: 'center', gap: 7, borderRadius: 6,
+                  marginTop: 4, flexShrink: 0,
+                }}
+                onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(108,99,255,0.08)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)' }}
+                onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
+              >
+                <span style={{ fontSize: 15, color: 'var(--accent)', lineHeight: 1 }}>+</span>
+                {t('Tambah post')}
+              </button>
+            )}
           </div>
         )
       })}
@@ -406,7 +493,7 @@ function KanbanBoard({
 
 // ── Kanban Card ──
 function KanbanCard({
-  post, onDragStart, onDragEnd, onClick, onEdit, onDelete,
+  post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true,
 }: {
   post: Post
   onDragStart: (e: React.DragEvent) => void
@@ -414,9 +501,12 @@ function KanbanCard({
   onClick: () => void
   onEdit: () => void
   onDelete: () => void
+  canEdit?: boolean
 }) {
   const t = useT()
   const [hovered, setHovered] = useState(false)
+  // Tagged accounts (emails) shown bottom-right — NOT the content-type PICs.
+  const tagged = (post.tagged || []).filter(m => m.includes('@'))
   return (
     <div
       className="kanban-card"
@@ -426,22 +516,25 @@ function KanbanCard({
       onClick={onClick}
       style={{
         position: 'relative',
-        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
-        padding: '10px 12px', marginBottom: 8, cursor: 'pointer',
-        transition: 'border-color 0.15s, box-shadow 0.15s',
+        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10,
+        padding: '12px 13px', marginBottom: 8, cursor: 'pointer',
+        transition: 'border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease',
       }}
       onMouseOver={e => {
         setHovered(true)
-        ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(108,99,255,0.4)'
-        ;(e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.25)'
+        ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(108,99,255,0.45)'
+        ;(e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px rgba(0,0,0,0.28)'
+        ;(e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'
       }}
       onMouseOut={e => {
         setHovered(false)
         ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'
         ;(e.currentTarget as HTMLElement).style.boxShadow = ''
+        ;(e.currentTarget as HTMLElement).style.transform = ''
       }}
     >
-      {/* Hover actions — edit + delete */}
+      {/* Hover actions — edit + delete (Socmed Management boards only) */}
+      {canEdit && (
       <div style={{
         position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4,
         opacity: hovered ? 1 : 0, pointerEvents: hovered ? 'auto' : 'none',
@@ -474,29 +567,44 @@ function KanbanCard({
           onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
         >✕</button>
       </div>
+      )}
 
       {/* Project glyph (matches the sidebar tab logo) + title + date */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
         <EntityGlyph entity={post.entity} />
         <div style={{ flex: 1, minWidth: 0, paddingRight: 44 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.4, color: 'var(--text)', marginBottom: 4 }}>
+          <div style={{
+            fontSize: 13.5, fontWeight: 600, lineHeight: 1.35, color: 'var(--text)', marginBottom: 4,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}>
             {post.title}
           </div>
           {post.date && (
-            <div style={{ fontSize: 11, color: 'var(--text2)' }}>{formatDate(post.date)}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text3)' }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
+                <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              {formatDate(post.date)}
+            </div>
           )}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {(post.platforms || []).map(pl => (
-            <PlatformIcon key={pl} platform={pl} size={18} />
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-          {(post.pics || []).map(m => <TeamAvatar key={m} name={m} size={20} />)}
-        </div>
-      </div>
+
+      {((post.platforms || []).length > 0 || tagged.length > 0) && (
+        <>
+          <div style={{ height: 1, background: 'var(--border)', opacity: 0.55, marginTop: 11 }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 9, minHeight: 22 }}>
+            <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+              {(post.platforms || []).map(pl => (
+                <PlatformIcon key={pl} platform={pl} size={18} />
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+              {tagged.map(m => <TeamAvatar key={m} name={m} size={20} />)}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -514,12 +622,12 @@ function EntityGlyph({ entity }: { entity: string }) {
     <span
       title={entity === 'bpi' ? 'Bentala Project' : entity === 'bsi' ? 'Bentala Studio' : 'Workspace'}
       style={{
-        width: 30, height: 30, borderRadius: 7, flexShrink: 0,
+        width: 28, height: 28, borderRadius: 8, flexShrink: 0, marginTop: 1,
         backgroundColor: g.color,
-        backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.05) 45%, rgba(0,0,0,0.15) 100%)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -1px 0 rgba(0,0,0,0.2)',
+        backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.06) 45%, rgba(0,0,0,0.16) 100%)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -1px 0 rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.25)',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.02em', textTransform: 'lowercase',
+        fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.03em', textTransform: 'lowercase',
       }}
     >
       {g.label}

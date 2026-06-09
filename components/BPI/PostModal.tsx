@@ -17,6 +17,10 @@ interface PostModalProps {
   onClose: () => void
   editId: string | null
   entity: 'bpi' | 'bsi' | 'ws'
+  /** When set, show a Project dropdown (Bentala Project / Studio) below the
+   *  name. 'bpi'/'bsi' pre-select that project; 'all' starts empty. Omitted on
+   *  workspace pages (post keeps its 'ws' entity). */
+  projectScope?: 'bpi' | 'bsi' | 'all'
 }
 
 type Platform = (typeof POST_PLATFORMS)[number]['key']
@@ -24,6 +28,7 @@ type ContentType = 'video' | 'design'
 
 const DEFAULT_FORM = {
   title: '',
+  project: '' as '' | 'bpi' | 'bsi',
   platforms: [] as Platform[],
   date: '',
   status: 'todo' as Post['status'],
@@ -43,7 +48,7 @@ const DEFAULT_FORM = {
   files: [] as string[],
 }
 
-export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
+export function PostModal({ open, onClose, editId, entity, projectScope }: PostModalProps) {
   const t = useT()
   const { posts, upsertPost } = useStore()
   const logActivity = useLogActivity()
@@ -117,6 +122,7 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
       if (p) {
         const loaded = {
           title:         p.title,
+          project:       (p.entity === 'bpi' || p.entity === 'bsi' ? p.entity : '') as '' | 'bpi' | 'bsi',
           platforms:     (p.platforms || []) as Platform[],
           date:          p.date || '',
           status:        p.status,
@@ -140,11 +146,12 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
         setOriginalForm(loaded)
       }
     } else {
-      setForm(DEFAULT_FORM)
+      // New post: pre-select the project from the tab context ('all' → empty).
+      setForm({ ...DEFAULT_FORM, project: projectScope && projectScope !== 'all' ? projectScope : '' })
       setOriginalTagged([])
       setOriginalForm(null)
     }
-  }, [open, editId, posts])
+  }, [open, editId, posts, projectScope])
 
   // Record what changed on an edit as activity rows in post_comments, so the
   // post's activity feed reflects edits (status, fields, etc.).
@@ -210,7 +217,10 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
   }
 
   async function handleSave() {
-    if (!form.title.trim()) { alert(t('Judul post wajib diisi!')); return }
+    if (!form.title.trim()) { alert(t('Nama project wajib diisi!')); return }
+    // When the Project dropdown is shown, a choice is required.
+    if (projectScope && !form.project) { alert(t('Pilih project terlebih dahulu!')); return }
+    const finalEntity = projectScope ? form.project : entity
 
     setLoading(true)
     const supabase = getSupabase()
@@ -221,7 +231,7 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
     if (form.content_types.includes('design')) pics.push('Design Studio')
 
     const data = {
-      entity,
+      entity:        finalEntity,
       title:         form.title.trim(),
       platforms:     form.platforms,
       date:          form.date || null,
@@ -301,6 +311,21 @@ export function PostModal({ open, onClose, editId, entity }: PostModalProps) {
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
           />
         </FormGroup>
+
+        {/* Project (Bentala Project / Studio) — only on the socmed boards */}
+        {projectScope && (
+          <FormGroup label={t('Project *')}>
+            <SingleDropdown
+              placeholder={t('Pilih project...')}
+              options={[
+                { value: 'bpi', label: 'Bentala Project' },
+                { value: 'bsi', label: 'Bentala Studio' },
+              ]}
+              value={form.project}
+              onChange={v => setForm(f => ({ ...f, project: v as 'bpi' | 'bsi' }))}
+            />
+          </FormGroup>
+        )}
 
         {/* 2. Tanggal Posting + Status */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>

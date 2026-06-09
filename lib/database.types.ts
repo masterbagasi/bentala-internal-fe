@@ -36,6 +36,8 @@ export interface Database {
           caption: string
           headline: string
           brief: string
+          video_status: string
+          design_status: string
           hashtags: string
           content_types: string[]
           video_link: string
