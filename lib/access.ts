@@ -67,6 +67,12 @@ export const ACCESS_SECTIONS: AccessSection[] = [
   { id: 'projects.vp',    label: 'Video Production',  group: 'Projects', routes: ['/bpi-faizal', '/pipeline/vp'], landing: '/bpi-faizal' },
   { id: 'projects.ds',    label: 'Design Studio',     group: 'Projects', routes: ['/bpi-reinaldi', '/pipeline/ds'], landing: '/bpi-reinaldi' },
 
+  // Marketing Tools
+  { id: 'marketing.kol',    label: 'KOL Analythics',         group: 'Marketing Tools', routes: ['/marketing/kol'],                    landing: '/marketing/kol' },
+  { id: 'marketing.sma',    label: 'Social Media Analytics', group: 'Marketing Tools', routes: ['/marketing/social-media-analytics'], landing: '/marketing/social-media-analytics' },
+  { id: 'marketing.meta',   label: 'Meta Ads',               group: 'Marketing Tools', routes: ['/marketing/meta-ads'],               landing: '/marketing/meta-ads' },
+  { id: 'marketing.google', label: 'Google Ads',             group: 'Marketing Tools', routes: ['/marketing/google-ads'],             landing: '/marketing/google-ads' },
+
   // AI Studio
   { id: 'ai.chat',      label: 'Chat AI',          group: 'AI Studio', routes: ['/ai/chat'],         landing: '/ai/chat' },
   { id: 'ai.ideas',     label: 'Pencari Ide',      group: 'AI Studio', routes: ['/ai/ideas'],        landing: '/ai/ideas' },

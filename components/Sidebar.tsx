@@ -150,6 +150,25 @@ const ChartIcon = () => (
     <line x1="6" y1="20" x2="6" y2="14" /><line x1="3" y1="20" x2="21" y2="20" />
   </svg>
 )
+const MegaphoneIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
+    <path d="M3 11v2a1 1 0 0 0 1 1h3l7 5V5L7 10H4a1 1 0 0 0-1 1z" />
+    <path d="M18 8a5 5 0 0 1 0 8" />
+  </svg>
+)
+const TargetIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="5" />
+    <circle cx="12" cy="12" r="1.5" />
+  </svg>
+)
+const TrendIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+    <polyline points="16 7 22 7 22 13" />
+  </svg>
+)
 const ShareIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
     <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
@@ -397,6 +416,17 @@ export function Sidebar() {
         { href: '/tasks',        label: 'Task Board',       icon: <TaskIcon />,   color: COLOR.green },
         { href: '/bpi-faizal',   label: 'Video Production', icon: <VideoIcon />,  color: COLOR.red },
         { href: '/bpi-reinaldi', label: 'Design Studio',    icon: <DesignIcon />, color: COLOR.purple },
+      ],
+    },
+    {
+      id: 'marketing',
+      badge: <BrandBadge text="mkt." />,
+      fullLabel: 'Marketing Tools',
+      items: [
+        { href: '/marketing/kol',        label: 'KOL Analythics', icon: <ChartIcon />,     color: COLOR.pink   },
+        { href: '/marketing/social-media-analytics', label: 'Social Media Analytics', icon: <TrendIcon />, color: COLOR.teal },
+        { href: '/marketing/meta-ads',   label: 'Meta Ads',       icon: <MegaphoneIcon />, color: COLOR.blue   },
+        { href: '/marketing/google-ads', label: 'Google Ads',     icon: <TargetIcon />,    color: COLOR.yellow },
       ],
     },
     {
