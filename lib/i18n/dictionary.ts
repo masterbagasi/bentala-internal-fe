@@ -111,6 +111,7 @@ const SEED: Record<string, string> = {
   'Nama Project *': 'Project Name *',
   'Nama project...': 'Project name...',
   'Tulis headline...': 'Write the headline...',
+  'Belum ada headline.': 'No headline yet.',
   'Nama lengkap': 'Full name',
   'Nomor telepon': 'Phone number',
   'Jabatan / posisi': 'Job / position',

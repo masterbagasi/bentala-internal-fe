@@ -288,6 +288,20 @@ export function PostPreviewModal({ open, postId, onClose, onEdit }: PostPreviewM
         })()} />
       </div>
 
+      {/* Headline — above Brief, mirroring the edit form */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
+          {t('Headline')}
+        </div>
+        <pre style={{
+          fontSize: 13, lineHeight: 1.7, color: post.headline ? 'var(--text)' : 'var(--text2)',
+          background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
+          whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0,
+        }}>
+          {post.headline || t('Belum ada headline.')}
+        </pre>
+      </div>
+
       {/* Brief — always shown to mirror the edit form */}
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
