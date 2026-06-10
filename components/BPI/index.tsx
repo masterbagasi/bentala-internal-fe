@@ -84,6 +84,7 @@ import dynamic from 'next/dynamic'
 const BPIAnalytics = dynamic(() => import('./Analytics').then(m => ({ default: m.BPIAnalytics })), { ssr: false })
 import type { Post } from '@/lib/types'
 import { useLogActivity } from '@/hooks/useData'
+import { useSocmedProjects } from '@/lib/socmed-projects'
 
 export type BPITabType = 'list' | 'board' | 'calendar' | 'files' | 'analytics'
 
@@ -718,26 +719,25 @@ function KanbanCard({
 
 // Small project glyph on a board card — mirrors the sidebar tab logos
 // (bpi = orange, bsi = purple) so a card shows which project it belongs to.
-const ENTITY_GLYPH: Record<string, { label: string; color: string }> = {
-  bpi: { label: 'bpi', color: '#c46e1f' },
-  bsi: { label: 'bsi', color: '#8845c0' },
-  ws:  { label: 'ws',  color: '#5a5a60' },
-}
 function EntityGlyph({ entity }: { entity: string }) {
-  const g = ENTITY_GLYPH[entity] ?? ENTITY_GLYPH.ws
+  const projects = useSocmedProjects(false)
+  const proj = projects.find(p => p.slug === entity)
+  const label = proj?.glyph || (entity === 'ws' ? 'ws' : entity.slice(0, 3))
+  const color = proj?.color || '#5a5a60'
+  const title = proj?.name || (entity === 'ws' ? 'Workspace' : entity)
   return (
     <span
-      title={entity === 'bpi' ? 'Bentala Project' : entity === 'bsi' ? 'Bentala Studio' : 'Workspace'}
+      title={title}
       style={{
         width: 28, height: 28, borderRadius: 8, flexShrink: 0, marginTop: 1,
-        backgroundColor: g.color,
+        backgroundColor: color,
         backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.06) 45%, rgba(0,0,0,0.16) 100%)',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -1px 0 rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.25)',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.03em', textTransform: 'lowercase',
       }}
     >
-      {g.label}
+      {label}
     </span>
   )
 }

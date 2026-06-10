@@ -8,6 +8,7 @@ import { getSupabase } from '@/lib/supabase'
 import { AccountButton } from '@/components/shared/AccountButton'
 import { isEffectiveSuperAdmin, normaliseSections, ALL_SECTION_IDS, sectionForPath } from '@/lib/access'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useSocmedProjects } from '@/lib/socmed-projects'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -280,6 +281,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [isExpanded, setIsExpanded] = useState(true)
   const [query, setQuery] = useState('')
+  const smmProjects = useSocmedProjects(true)
 
   // ── Per-account menu access ──
   // Determines which sections this account may see. Super admin sees all.
@@ -346,24 +348,20 @@ export function Sidebar() {
       badge: <BrandBadge text="smm" />,
       fullLabel: 'Socmed Management',
       items: [
-        // Combined board across every project (aggregates posts from all
-        // projects). Gated by the `smm.all` access grant like any other item —
-        // super admins see it implicitly, others need it granted.
-        { href: '/projects-all', label: 'All Project', icon: <FolderIcon />, color: COLOR.blue },
-        {
-          type: 'subgroup', id: 'smm-bpi', label: 'Bentala Project', icon: <BrandGlyph text="bpi" />, color: COLOR.orange,
+        ...(access.isSuper
+          ? [{ href: '/projects-all', label: 'All Project', icon: <FolderIcon />, color: COLOR.blue }]
+          : []),
+        ...smmProjects.map(p => ({
+          type: 'subgroup' as const,
+          id: `smm-${p.slug}`,
+          label: p.name,
+          icon: <BrandGlyph text={p.glyph || p.slug} />,
+          color: p.color,
           items: [
-            { href: '/bpi/social', label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
-            { href: '/bpi',        label: 'Projects',     icon: <ListIcon />,  color: COLOR.orange },
+            { href: `/smm/${p.slug}/social`, label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
+            { href: `/smm/${p.slug}`,        label: 'Projects',     icon: <ListIcon />,  color: p.color },
           ],
-        },
-        {
-          type: 'subgroup', id: 'smm-bsi', label: 'Bentala Studio', icon: <BrandGlyph text="bsi" />, color: COLOR.purple,
-          items: [
-            { href: '/bsi/social', label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
-            { href: '/bsi',        label: 'Projects',     icon: <ListIcon />,  color: COLOR.purple },
-          ],
-        },
+        })),
       ],
     },
     {
@@ -434,7 +432,7 @@ export function Sidebar() {
           : []),
       ],
     },
-  ], [access.isSuper])
+  ], [access.isSuper, smmProjects])
 
   // Search filter — case-insensitive match. Two paths:
   //  1) Section title (label / fullLabel / badge text — e.g. "bentala
