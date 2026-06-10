@@ -10,7 +10,7 @@ import { ConfirmDialog, type ConfirmRequest } from '@/components/website/Confirm
 // Scope: which posts this history belongs to.
 //  - { entity: 'bpi' } → Bentala Project / Studio boards
 //  - { pic: 'Video Production' } → workspace pages (posts assigned to a member)
-export type HistoryScope = { entity: 'bpi' | 'bsi' } | { pic: string } | { all: true }
+export type HistoryScope = { entity: string } | { pic: string } | { all: true }
 
 const ALL_ENTITIES = ['bpi', 'bsi', 'ws']
 

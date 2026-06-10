@@ -24,6 +24,14 @@ const nextConfig = {
       },
     ]
   },
+  async redirects() {
+    return [
+      { source: '/bpi', destination: '/smm/bpi', permanent: true },
+      { source: '/bpi/social', destination: '/smm/bpi/social', permanent: true },
+      { source: '/bsi', destination: '/smm/bsi', permanent: true },
+      { source: '/bsi/social', destination: '/smm/bsi/social', permanent: true },
+    ]
+  },
 }
 
 module.exports = nextConfig

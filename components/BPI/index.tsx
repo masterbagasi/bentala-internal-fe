@@ -92,7 +92,7 @@ export interface BPIPageHandle {
 }
 
 interface BPIPageProps {
-  entity: 'bpi' | 'bsi' | 'ws'
+  entity: string
   /** Workspace pages scope by assigned PIC across entities instead of by entity. */
   picScope?: string
   /** "All Project" mode: combine posts from every project (bpi + bsi + ws). */
@@ -813,7 +813,7 @@ export interface PostFilters {
 export const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: [], ratios: [], month: '', statuses: [] }
 
 // Owns filter state + the data the popup needs (accounts, months for an entity).
-export function useBoardFilter(scope: 'bpi' | 'bsi' | 'all' | { pic: string }) {
+export function useBoardFilter(scope: string | { pic: string }) {
   const { posts } = useStore()
   const [filters, setFilters] = useState<PostFilters>(EMPTY_FILTERS)
   const [accounts, setAccounts] = useState<{ email: string; name: string }[]>([])

@@ -8,7 +8,7 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 
 Chart.register(...registerables)
 
-export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: 'bpi' | 'bsi' | 'all'; picScope?: string }) {
+export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; picScope?: string }) {
   const t = useT()
   const { posts, dateRange } = useStore()
   const chartRef = useRef<HTMLCanvasElement>(null)

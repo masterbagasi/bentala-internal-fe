@@ -16,7 +16,7 @@ interface PostModalProps {
   open: boolean
   onClose: () => void
   editId: string | null
-  entity: 'bpi' | 'bsi' | 'ws'
+  entity: string
   /** When set, show a Project dropdown (Bentala Project / Studio) below the
    *  name. 'bpi'/'bsi' pre-select that project; 'all' starts empty. Omitted on
    *  workspace pages (post keeps its 'ws' entity). */
