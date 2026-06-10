@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
-import { isSuperAdmin, isEffectiveSuperAdmin, normaliseSections, ACCESS_SECTIONS } from '@/lib/access'
+import { isSuperAdmin, isEffectiveSuperAdmin, normaliseSections, buildAccessSections } from '@/lib/access'
 
 // Per-account menu access management. Super-admin only.
 //
@@ -40,6 +40,14 @@ export async function GET() {
 
   try {
     const admin = createSupabaseAdmin()
+
+    // Full section list including per-project socmed sections (for the admin UI).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: projRows } = await (admin as any)
+      .from('socmed_projects')
+      .select('slug, name')
+      .order('sort_order', { ascending: true })
+    const SECTIONS = buildAccessSections((projRows ?? []) as { slug: string; name: string }[])
 
     // All login accounts (service role). Page through to be safe on larger orgs.
     interface AccountInfo {
@@ -111,14 +119,14 @@ export async function GET() {
           role,
           locked: hardcoded, // hardcoded super admin — role can't be changed
           isSuperAdmin: eff,
-          sections: eff ? ACCESS_SECTIONS.map(s => s.id) : byEmail.get(a.email.toLowerCase()) ?? [],
+          sections: eff ? SECTIONS.map(s => s.id) : byEmail.get(a.email.toLowerCase()) ?? [],
         }
       })
       .sort((a, b) => a.email.localeCompare(b.email))
 
     return NextResponse.json({
       users,
-      sections: ACCESS_SECTIONS.map(s => ({ id: s.id, label: s.label, group: s.group, subgroup: s.subgroup })),
+      sections: SECTIONS.map(s => ({ id: s.id, label: s.label, group: s.group, subgroup: s.subgroup })),
     })
   } catch (err) {
     console.error('[/api/access] GET', err)
@@ -143,7 +151,11 @@ export async function POST(req: NextRequest) {
   }
   // The hardcoded super admin's access is implicit (full) — saving is a no-op.
   if (isSuperAdmin(email)) {
-    return NextResponse.json({ ok: true, email, sections: ACCESS_SECTIONS.map(s => s.id) })
+    const admin = createSupabaseAdmin()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: projRows } = await (admin as any).from('socmed_projects').select('slug, name').order('sort_order', { ascending: true })
+    const ids = buildAccessSections((projRows ?? []) as { slug: string; name: string }[]).map(s => s.id)
+    return NextResponse.json({ ok: true, email, sections: ids })
   }
 
   const sections = normaliseSections(body.sections)
