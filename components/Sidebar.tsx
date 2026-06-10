@@ -348,9 +348,9 @@ export function Sidebar() {
       badge: <BrandBadge text="smm" />,
       fullLabel: 'Socmed Management',
       items: [
-        ...(access.isSuper
-          ? [{ href: '/projects-all', label: 'All Project', icon: <FolderIcon />, color: COLOR.blue }]
-          : []),
+        // "All Project" combined board — gated by the `smm.all` access grant
+        // (super admins see it implicitly; others need it granted).
+        { href: '/projects-all', label: 'All Project', icon: <FolderIcon />, color: COLOR.blue },
         ...smmProjects.map(p => ({
           type: 'subgroup' as const,
           id: `smm-${p.slug}`,
