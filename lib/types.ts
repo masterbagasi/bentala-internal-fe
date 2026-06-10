@@ -9,6 +9,46 @@ export type PostStatus =
 export type PostEntity = 'bpi' | 'bsi' | 'ws'
 export type PostPlatform = 'ig' | 'tiktok' | 'youtube' | 'x' | 'linkedin'
 
+// Which discipline a revision is addressed to. Mirrors the two content tracks.
+export type RevisionTrack = 'video' | 'design'
+
+// One uploaded reference file on a revision.
+export interface RevisionFile {
+  url: string
+  name: string
+}
+
+// A revision request attached to a post (stored in posts.revisions jsonb). Shown
+// in the post-detail "Detail Revisi" section; editable from Socmed Management.
+export interface PostRevision {
+  id: string
+  tracks: RevisionTrack[]    // Video Production / Design Studio (can be both)
+  detail: string             // revision instructions
+  reference_links?: string[] // pasted reference URLs (can be many)
+  reference_link?: string    // legacy single reference URL (older rows)
+  files?: RevisionFile[]     // uploaded reference files (can be many)
+  file_url?: string          // legacy single-file URL (older rows)
+  file_name?: string         // legacy single-file name (older rows)
+  author_name: string
+  author_email: string
+  created_at: string
+  updated_at: string
+}
+
+/** Normalise a revision's files (new `files[]` + any legacy single file). */
+export function revisionFiles(rev: PostRevision): RevisionFile[] {
+  const out = [...(rev.files ?? [])]
+  if (rev.file_url) out.push({ url: rev.file_url, name: rev.file_name || rev.file_url })
+  return out
+}
+
+/** Normalise a revision's reference links (new `reference_links[]` + legacy single). */
+export function revisionLinks(rev: PostRevision): string[] {
+  const out = [...(rev.reference_links ?? [])]
+  if (rev.reference_link && !out.includes(rev.reference_link)) out.push(rev.reference_link)
+  return out
+}
+
 export interface Post {
   id: string
   entity: PostEntity
@@ -33,6 +73,7 @@ export interface Post {
   created_by: string      // name of the user who created the post
   ratio: string           // content aspect ratio, e.g. '1:1', '9:16'
   files: string[]         // uploaded attachment URLs (any file type)
+  revisions?: PostRevision[] // revision requests (Socmed Management)
   created_at: string
   updated_at: string
   deleted_at?: string | null  // soft-delete timestamp; null/absent = active

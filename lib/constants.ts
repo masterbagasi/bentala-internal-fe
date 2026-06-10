@@ -68,17 +68,17 @@ export const BPI_STATUS_COLS = [
   { key: 'published', label: 'Published',     color: '#22c55e' },
 ] as const
 
-// Socmed Management "Projects" board — splits Revisi into Video / Design so a
-// project can be sent back to one discipline without moving the other.
+// Socmed Management "Projects" board — single Revisi column (a post in revision
+// on either track sits here). The per-track state (which discipline is in
+// revision / review / production) is shown via status chips on the card instead.
 export const SMM_STATUS_COLS = [
-  { key: 'todo',          label: 'Idea',          color: '#8b8fa8' },
-  { key: 'brief',         label: 'Brief',         color: '#64b5f6' },
-  { key: 'produksi',      label: 'Production',    color: '#5b9bd5' },
-  { key: 'revisi_video',  label: 'Revisi Video',  color: '#f59e0b' },
-  { key: 'revisi_design', label: 'Revisi Design', color: '#a78bfa' },
-  { key: 'review',        label: 'Review',        color: '#ffc542' },
-  { key: 'ready',         label: 'Ready to Post', color: '#43d9a2' },
-  { key: 'published',     label: 'Published',     color: '#22c55e' },
+  { key: 'todo',      label: 'Idea',          color: '#8b8fa8' },
+  { key: 'brief',     label: 'Brief',         color: '#64b5f6' },
+  { key: 'produksi',  label: 'Production',    color: '#5b9bd5' },
+  { key: 'revisi',    label: 'Revisi',        color: '#a78bfa' },
+  { key: 'review',    label: 'Review',        color: '#ffc542' },
+  { key: 'ready',     label: 'Ready to Post', color: '#43d9a2' },
+  { key: 'published', label: 'Published',     color: '#22c55e' },
 ] as const
 
 // WS Board columns (Video Production / Design Studio)

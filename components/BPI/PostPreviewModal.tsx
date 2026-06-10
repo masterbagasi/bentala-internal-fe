@@ -13,6 +13,8 @@ import type { Post } from '@/lib/types'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { uploadFileResumable } from '@/lib/storage'
 import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
+import { RevisiModal, RevisiSection } from '@/components/BPI/RevisiModal'
+import type { PostRevision } from '@/lib/types'
 
 interface PostPreviewModalProps {
   open: boolean
@@ -35,6 +37,9 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
   const [statusMenuOpen, setStatusMenuOpen] = useState(false)
   const [statusMenuPos, setStatusMenuPos] = useState({ top: 0, left: 0 })
   const [savingStatus, setSavingStatus] = useState(false)
+  // Revisi popup: create (status → revisi) or edit an existing revision.
+  const [revisiCreate, setRevisiCreate] = useState(false)
+  const [editingRevisi, setEditingRevisi] = useState<PostRevision | null>(null)
   const statusBtnRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     setStatusDraft(post?.status ?? '')
@@ -44,7 +49,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
 
   // Files uploaded via the Video Production / Design worksheet live in the
   // file_attachments table — load them so they show here too.
-  const [extraFiles, setExtraFiles] = useState<{ id: string; url: string; name: string }[]>([])
+  const [extraFiles, setExtraFiles] = useState<{ id: string; url: string; name: string; createdAt?: string | null }[]>([])
   useEffect(() => {
     if (!open || !postId) { setExtraFiles([]); return }
     let cancelled = false
@@ -55,7 +60,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       .order('created_at', { ascending: true })
       .then(({ data }: { data: Array<Record<string, unknown>> | null }) => {
         if (cancelled || !data) return
-        setExtraFiles(data.map(r => ({ id: r.id as string, url: r.storage_path as string, name: (r.file_name as string) || 'file' })))
+        setExtraFiles(data.map(r => ({ id: r.id as string, url: r.storage_path as string, name: (r.file_name as string) || 'file', createdAt: (r.created_at as string) ?? null })))
       })
     return () => { cancelled = true }
   }, [open, postId])
@@ -133,19 +138,21 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     | { kind: 'field'; field: 'video_link' | 'design_link' | 'video_file_url' | 'design_file_url' }
     | { kind: 'files'; fileIdx: number }
     | { kind: 'row'; rowId: string }
-  const attachments: { icon: string; label: string; url: string; src: AttachSrc }[] = []
+  const attachments: { icon: string; label: string; url: string; src: AttachSrc; at?: number }[] = []
   const seenUrls = new Set<string>()
-  const addAttach = (url: string | null | undefined, src: AttachSrc, icon?: string, label?: string) => {
+  const addAttach = (url: string | null | undefined, src: AttachSrc, icon?: string, label?: string, at?: number) => {
     if (!url || seenUrls.has(url)) return
     seenUrls.add(url)
-    attachments.push({ icon: icon ?? attachIcon(url), label: label ?? attachLabel(url), url, src })
+    attachments.push({ icon: icon ?? attachIcon(url), label: label ?? attachLabel(url), url, src, at: at ?? uploadTimeFromUrl(url) })
   }
   addAttach(post.video_link, { kind: 'field', field: 'video_link' }, '🎬', 'Video')
   addAttach(post.design_link, { kind: 'field', field: 'design_link' }, '🎨', 'Design')
   addAttach(post.video_file_url, { kind: 'field', field: 'video_file_url' }, '🎬', 'Video')
   addAttach(post.design_file_url, { kind: 'field', field: 'design_file_url' }, '🎨', 'Design')
   ;(post.files || []).forEach((f, i) => addAttach(f, { kind: 'files', fileIdx: i }))
-  for (const f of extraFiles) addAttach(f.url, { kind: 'row', rowId: f.id }, undefined, f.name)
+  for (const f of extraFiles) addAttach(f.url, { kind: 'row', rowId: f.id }, undefined, f.name, f.createdAt ? new Date(f.createdAt).getTime() : undefined)
+  // Newest upload first. Items with no derivable timestamp (e.g. pasted links) sink to the bottom.
+  attachments.sort((a, b) => (b.at ?? -1) - (a.at ?? -1))
 
   // Files that can be previewed in-app (image/video/pdf) — links are excluded,
   // so the preview popup can page left/right through actual files only.
@@ -157,6 +164,22 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     const { error } = await getSupabase().from('posts').update({ files: urls }).eq('id', post.id)
     if (error) { alert(t('Gagal menyimpan: ') + error.message); return }
     upsertPost({ ...post, files: urls } as Post)
+  }
+
+  // Remove a revision entry from posts.revisions (Socmed Management only).
+  async function deleteRevisi(rev: PostRevision) {
+    if (!post || !window.confirm(t('Hapus revisi ini?'))) return
+    const next = (post.revisions ?? []).filter(r => r.id !== rev.id)
+    const sb = getSupabase() as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+    const { error } = await sb.from('posts').update({ revisions: next }).eq('id', post.id)
+    if (error) { alert(t('Gagal menghapus: ') + error.message); return }
+    upsertPost({ ...post, revisions: next } as Post)
+    if (comments.me.email) {
+      await sb.from('post_comments').insert({
+        post_id: post.id, type: 'activity', author_email: comments.me.email, author_name: comments.me.name,
+        body: t('menghapus sebuah revisi'),
+      })
+    }
   }
 
   // Add a pasted link (Drive / Figma / etc.) to the attachments.
@@ -271,7 +294,13 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
                 {BPI_STATUS_COLS.map(c => (
                   <button
                     key={c.key}
-                    onClick={() => { setStatusDraft(c.key); setStatusMenuOpen(false) }}
+                    onClick={() => {
+                      setStatusMenuOpen(false)
+                      // Switching to Revisi opens the revision popup straight
+                      // away (it persists status + the revision on Save).
+                      if (c.key === 'revisi') { setRevisiCreate(true); return }
+                      setStatusDraft(c.key)
+                    }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                       padding: '7px 10px', borderRadius: 5, cursor: 'pointer', fontSize: 12,
@@ -422,6 +451,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
                 icon={a.icon}
                 label={a.label}
                 url={a.url}
+                time={a.at ? formatUploadTime(a.at) : undefined}
                 onOpen={() => openAttachment(a.url, a.label)}
                 onDelete={() => deleteAttachment(a)}
               />
@@ -431,6 +461,19 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
           <div style={{ fontSize: 12, color: 'var(--text3)', padding: '4px 2px' }}>{t('Belum ada lampiran.')}</div>
         )}
       </div>
+
+      {/* Detail Revisi — above comments + activity. Editable here (Socmed
+          Management); read-only preview on the worksheet pages. */}
+      {(canEdit || (post.revisions?.length ?? 0) > 0) && (
+        <RevisiSection
+          revisions={post.revisions ?? []}
+          canEdit={canEdit}
+          onAdd={() => setRevisiCreate(true)}
+          onEdit={rev => setEditingRevisi(rev)}
+          onDelete={deleteRevisi}
+          onOpenLink={(url, label) => openAttachment(url, label)}
+        />
+      )}
 
       {/* Comment room + activity feed (composer lives in the fixed footer) */}
       <PostCommentsBody s={comments} />
@@ -477,6 +520,30 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       </Modal>
       )
     })()}
+
+    {/* Revisi popup — create. applyStatus flips the post (and its tracks) to
+        'revisi' on save, so adding a revision from any status (e.g. Review)
+        moves it to Revisi automatically. */}
+    {revisiCreate && (
+      <RevisiModal
+        open={revisiCreate}
+        post={post}
+        applyStatus
+        onClose={() => setRevisiCreate(false)}
+        onSaved={() => setRevisiCreate(false)}
+      />
+    )}
+    {/* Revisi popup — edit an existing revision (Socmed Management only) */}
+    {editingRevisi && (
+      <RevisiModal
+        open={!!editingRevisi}
+        post={post}
+        editing={editingRevisi}
+        applyStatus={false}
+        onClose={() => setEditingRevisi(null)}
+        onSaved={() => setEditingRevisi(null)}
+      />
+    )}
     </>
   )
 }
@@ -497,6 +564,28 @@ function attachLabel(url: string): string {
   } catch {
     return url
   }
+}
+
+// Files uploaded through the app are stored as `${prefix}/${Date.now()}-${rand}.${ext}`,
+// so the leading number in the filename is the upload time. Returns ms epoch, or
+// undefined for pasted links / non-conforming names.
+function uploadTimeFromUrl(url: string): number | undefined {
+  let name = url
+  try { name = new URL(url).pathname.split('/').pop() || url } catch { /* keep raw */ }
+  const m = name.match(/^(\d{10,16})/)
+  if (!m) return undefined
+  let n = Number(m[1])
+  if (!Number.isFinite(n)) return undefined
+  if (m[1].length <= 10) n *= 1000 // seconds → ms
+  // Plausible range: 2010-01-01 .. 2100-01-01 — guards against random digit prefixes.
+  if (n < 1262304000000 || n > 4102444800000) return undefined
+  return n
+}
+
+function formatUploadTime(ms: number): string {
+  return new Date(ms).toLocaleString('id-ID', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
 }
 
 function isImageUrl(url: string): boolean {
@@ -613,63 +702,88 @@ function UploadingCard({ name, progress, onCancel, cancelLabel }: { name: string
   )
 }
 
-function AttachCard({ icon, label, url, onOpen, onDelete }: { icon: string; label: string; url: string; onOpen: () => void; onDelete: () => void }) {
+function AttachCard({ icon, label, url, time, onOpen, onDelete }: { icon: string; label: string; url: string; time?: string; onOpen: () => void; onDelete: () => void }) {
   const t = useT()
   const thumbSrc = safeImageSrc(url)
+  const ext = fileExt(label) || fileExt(url)
   return (
     <div
       onClick={onOpen}
       title={label}
       style={{
-        display: 'flex', flexDirection: 'column', gap: 8,
-        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10,
-        padding: 8, cursor: 'pointer',
+        position: 'relative', display: 'flex', flexDirection: 'column',
+        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12,
+        overflow: 'hidden', cursor: 'pointer',
+        transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease',
       }}
-      onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
-      onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+      onMouseOver={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--accent)'; el.style.boxShadow = '0 8px 22px rgba(0,0,0,0.32)'; el.style.transform = 'translateY(-2px)' }}
+      onMouseOut={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--border)'; el.style.boxShadow = 'none'; el.style.transform = 'none' }}
     >
+      {/* Thumbnail / icon with a bottom scrim + file-type badge */}
       <div style={{
-        width: '100%', height: 96, borderRadius: 8, background: 'var(--bg2)',
+        position: 'relative', width: '100%', height: 122, background: 'var(--bg2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
       }}>
         {thumbSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumbSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <span style={{ fontSize: 32 }}>{icon}</span>
+          <span style={{ fontSize: 36, opacity: 0.92 }}>{icon}</span>
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.42) 0%, transparent 40%)', pointerEvents: 'none' }} />
+        {ext && (
+          <span style={{ position: 'absolute', left: 8, bottom: 8, fontSize: 9.5, fontWeight: 800, letterSpacing: '0.05em', color: '#fff', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 5, padding: '2px 6px', backdropFilter: 'blur(4px)' }}>{ext}</span>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {label}
-        </span>
-        {isSafeHttpUrl(url) && (
-          <a
-            href={url}
-            download
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            title="Download"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, color: 'var(--text2)', flexShrink: 0 }}
-            onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg2)' }}
+
+      {/* Footer — name + actions on one row, timestamp on its own full-width row */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '9px 10px 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {label}
+          </span>
+          {isSafeHttpUrl(url) && (
+            <a
+              href={url}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              title="Download"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, color: 'var(--text2)', flexShrink: 0 }}
+              onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg2)' }}
+              onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
+            >
+              <PvDownloadIcon />
+            </a>
+          )}
+          <button
+            onClick={e => { e.stopPropagation(); onDelete() }}
+            title={t('Hapus')}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', flexShrink: 0 }}
+            onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
             onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
           >
-            <PvDownloadIcon />
-          </a>
+            <PvTrashIcon />
+          </button>
+        </div>
+        {time && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--text3)' }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+            </svg>
+            {time}
+          </span>
         )}
-        <button
-          onClick={e => { e.stopPropagation(); onDelete() }}
-          title={t('Hapus')}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', flexShrink: 0 }}
-          onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.background = '#ff6b6b18' }}
-          onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
-        >
-          <PvTrashIcon />
-        </button>
       </div>
     </div>
   )
+}
+
+// Short uppercase file extension for the thumbnail badge (PNG / MP4 / PDF …).
+function fileExt(s: string): string {
+  const e = (s.split('?')[0].split('.').pop() || '').toUpperCase()
+  return e.length >= 2 && e.length <= 5 && /^[A-Z0-9]+$/.test(e) ? e : ''
 }
 
 function PvDownloadIcon({ size = 15 }: { size?: number }) {

@@ -34,25 +34,31 @@ function deriveStatus(p: Post): Post['status'] {
   return 'produksi'
 }
 
-// Which SMM column a post sits in (single-column, revisi takes priority;
-// video revisi before design revisi).
+// Which SMM column a post sits in. A single Revisi column: a post sits there
+// while EITHER track is in revision. A post only reaches Review once ALL of its
+// tracks are done (review/done/ready/published) — until then it stays in
+// Production, with per-track chips on the card showing each discipline's stage.
 function smmColKey(p: Post): string {
   const s = p.status
   if (s === 'todo' || s === 'brief' || s === 'ready' || s === 'published' || s === 'done') return s
   const hv = hasVideo(p), hd = hasDesign(p)
-  if (hv && p.video_status === 'revisi') return 'revisi_video'
-  if (hd && p.design_status === 'revisi') return 'revisi_design'
+  if ((hv && p.video_status === 'revisi') || (hd && p.design_status === 'revisi')) return 'revisi'
   const vOk = !hv || trackDone(p.video_status)
   const dOk = !hd || trackDone(p.design_status)
   if ((hv || hd) && vOk && dOk) return 'review'
   return 'produksi'
 }
 
-// Updates to apply when a card is dropped on an SMM column.
+// Updates to apply when a card is dropped on an SMM column. For the track-driven
+// columns (revisi / produksi / review) we move every applicable track so the
+// derived column stays in sync with the card's new position.
 function smmUpdates(p: Post, colKey: string): Partial<Post> {
   switch (colKey) {
-    case 'revisi_video':  return { video_status: 'revisi', status: 'revisi' }
-    case 'revisi_design': return { design_status: 'revisi', status: 'revisi' }
+    case 'revisi': return {
+      status: 'revisi',
+      ...(hasVideo(p) ? { video_status: 'revisi' } : {}),
+      ...(hasDesign(p) ? { design_status: 'revisi' } : {}),
+    }
     case 'produksi': return {
       status: 'produksi',
       ...(hasVideo(p) ? { video_status: 'produksi' } : {}),
@@ -71,6 +77,7 @@ import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/Stat
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { PostModal } from './PostModal'
 import { PostPreviewModal } from './PostPreviewModal'
+import { RevisiModal } from './RevisiModal'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
 import { ContentCalendar } from '@/components/BSI/Calendar'
 import dynamic from 'next/dynamic'
@@ -106,6 +113,8 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     const [showPostModal, setShowPostModal] = useState(false)
     const [editPostId, setEditPostId] = useState<string | null>(null)
     const [previewPostId, setPreviewPostId] = useState<string | null>(null)
+    // Post awaiting a revision popup (drag → Revisi on the Socmed Management board).
+    const [revisiPost, setRevisiPost] = useState<Post | null>(null)
     // Tagged-account directory (email → name + avatar) for the card avatars.
     const [accounts, setAccounts] = useState<Record<string, { name: string; avatarUrl: string | null }>>({})
     useEffect(() => {
@@ -144,6 +153,9 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       picScope === VP_PIC ? 'video' : picScope === DS_PIC ? 'design' : null
 
     async function moveOnBoard(post: Post, colKey: string) {
+      // Socmed Management → Revisi opens the revision popup instead of moving
+      // straight away; the status/track flip happens when the revision is saved.
+      if (!boardTrack && colKey === 'revisi') { setRevisiPost(post); return }
       const updates: Partial<Post> =
         boardTrack === 'video' ? (() => { const u: Partial<Post> = { video_status: colKey }; u.status = deriveStatus({ ...post, ...u } as Post); return u })()
         : boardTrack === 'design' ? (() => { const u: Partial<Post> = { design_status: colKey }; u.status = deriveStatus({ ...post, ...u } as Post); return u })()
@@ -225,6 +237,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               onDelete={handleDelete}
               onCardClick={id => setPreviewPostId(id)}
               accounts={accounts}
+              showTrackStatus={!boardTrack}
               colSet={boardTrack ? WS_STATUS_COLS : SMM_STATUS_COLS}
               colOf={
                 boardTrack === 'video' ? (p => trackColKey(p.video_status))
@@ -269,6 +282,14 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             request={confirmReq}
             busy={confirmBusy}
             onCancel={() => setConfirmReq(null)}
+          />
+        )}
+        {revisiPost && (
+          <RevisiModal
+            open={!!revisiPost}
+            post={revisiPost}
+            onClose={() => setRevisiPost(null)}
+            onSaved={() => setRevisiPost(null)}
           />
         )}
       </div>
@@ -386,7 +407,7 @@ type AccountDir = Record<string, { name: string; avatarUrl: string | null }>
 
 function KanbanBoard({
   posts, currentUser, statusFilter, onEdit, onDelete, onCardClick,
-  colSet, colOf, onMove, canEdit = true, accounts,
+  colSet, colOf, onMove, canEdit = true, accounts, showTrackStatus = false,
 }: {
   posts: Post[]
   currentUser: string
@@ -403,6 +424,8 @@ function KanbanBoard({
   canEdit?: boolean
   /** email → { name, avatarUrl } for tagged-account avatars. */
   accounts?: AccountDir
+  /** Socmed Management board: show per-track status chips on dual-track cards. */
+  showTrackStatus?: boolean
 }) {
   // When statuses are filtered, only show those columns.
   const t = useT()
@@ -484,6 +507,7 @@ function KanbanBoard({
                   onDelete={() => onDelete(p.id)}
                   canEdit={canEdit}
                   accounts={accounts}
+                  showTrackStatus={showTrackStatus}
                 />
               ))}
             </div>
@@ -511,9 +535,44 @@ function KanbanBoard({
   )
 }
 
+// Per-track stage chip metadata (Socmed Management cards). Maps a raw track
+// value (via trackColKey) to a short label + colour, reusing the WS palette.
+const TRACK_STAGE: Record<string, { label: string; color: string }> = {
+  brief:    { label: 'To Do',      color: '#8b8fa8' },
+  revisi:   { label: 'Revisi',     color: '#a78bfa' },
+  produksi: { label: 'Production', color: '#5b9bd5' },
+  review:   { label: 'Review',     color: '#ffc542' },
+  done:     { label: 'Done',       color: '#43d9a2' },
+}
+
+// Chip colour is fixed per TRACK (Video = purple, Design = yellow) so the two
+// tracks are visually distinct regardless of which stage each is at. The stage
+// (Review / Revisi / …) is only the label.
+const TRACK_COLOR: Record<string, string> = { Video: '#a78bfa', Design: '#ffc542' }
+
+function TrackChip({ icon, track, value }: { icon: string; track: string; value: string }) {
+  const stage = TRACK_STAGE[trackColKey(value || '')] ?? TRACK_STAGE.brief
+  const color = TRACK_COLOR[track] ?? '#8b8fa8'
+  return (
+    <span
+      title={`${track}: ${stage.label}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        fontSize: 10.5, fontWeight: 600, lineHeight: 1,
+        padding: '3px 7px', borderRadius: 20, whiteSpace: 'nowrap',
+        color, background: color + '1f',
+        border: `1px solid ${color}55`,
+      }}
+    >
+      <span style={{ fontSize: 10 }}>{icon}</span>
+      {track} · {stage.label}
+    </span>
+  )
+}
+
 // ── Kanban Card ──
 function KanbanCard({
-  post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true, accounts,
+  post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true, accounts, showTrackStatus = false,
 }: {
   post: Post
   onDragStart: (e: React.DragEvent) => void
@@ -523,11 +582,17 @@ function KanbanCard({
   onDelete: () => void
   canEdit?: boolean
   accounts?: AccountDir
+  /** Socmed Management board: show per-track chips when the post has 2 tracks. */
+  showTrackStatus?: boolean
 }) {
   const t = useT()
   const [hovered, setHovered] = useState(false)
   // Tagged accounts (emails) shown bottom-right — NOT the content-type PICs.
   const tagged = (post.tagged || []).filter(m => m.includes('@'))
+  // Show per-track status only on the Socmed Management board AND only for posts
+  // that carry BOTH tracks (video + design) — so the lead can see which
+  // discipline is where while the card waits in Production.
+  const dualTrack = showTrackStatus && hasVideo(post) && hasDesign(post)
   return (
     <div
       className="kanban-card"
@@ -610,6 +675,13 @@ function KanbanCard({
           )}
         </div>
       </div>
+
+      {dualTrack && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
+          <TrackChip icon="🎬" track="Video" value={post.video_status} />
+          <TrackChip icon="🎨" track="Design" value={post.design_status} />
+        </div>
+      )}
 
       {((post.platforms || []).length > 0 || tagged.length > 0) && (
         <>
