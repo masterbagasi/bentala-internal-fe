@@ -869,6 +869,7 @@ function NavLink({
   return (
     <Link
       href={item.href}
+      prefetch={false}
       className={cn('relative flex items-center cursor-pointer transition-colors duration-150')}
       style={{
         padding: isExpanded ? '9px 12px' : '9px 0',
