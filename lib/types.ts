@@ -6,8 +6,20 @@ export type PostStatus =
   | 'todo' | 'brief' | 'produksi' | 'revisi'
   | 'review' | 'ready' | 'published' | 'done'
 
-export type PostEntity = 'bpi' | 'bsi' | 'ws'
+// Project slug a post belongs to (e.g. 'bpi', 'bsi', or a custom one). 'ws' is
+// the workspace pseudo-entity. Free-form string since projects are now dynamic.
+export type PostEntity = string
 export type PostPlatform = 'ig' | 'tiktok' | 'youtube' | 'x' | 'linkedin'
+
+export interface SocmedProject {
+  slug: string
+  name: string
+  glyph: string
+  color: string
+  sort_order: number
+  active: boolean
+  created_at?: string
+}
 
 // Which discipline a revision is addressed to. Mirrors the two content tracks.
 export type RevisionTrack = 'video' | 'design'
