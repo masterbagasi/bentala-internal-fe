@@ -39,7 +39,7 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
   function getEntityPosts(platform?: string): Post[] {
     const member = WS_MAP[entity]
     let filtered = entity === 'all'
-      ? posts.filter(p => ['bpi', 'bsi', 'ws'].includes(p.entity))
+      ? posts.slice() // All Project: every socmed post, including new projects
       : member
         ? posts.filter(p => (p.pics || []).includes(member))
         : posts.filter(p => p.entity === entity)
@@ -65,8 +65,6 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
     ? labelFmt(months[0].year, months[0].month)
     : `${labelFmt(months[0].year, months[0].month)} — ${labelFmt(months[months.length-1].year, months[months.length-1].month)}`
 
-  const isBpi = entity === 'bpi'
-  const isBsi = entity === 'bsi'
   const isWs = entity.startsWith('ws-')
 
   function handleDayClick(e: React.MouseEvent, dateStr: string) {
@@ -181,7 +179,10 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
           open={!!addDate}
           onClose={() => setAddDate(null)}
           editId={null}
-          entity={isBsi ? 'bsi' : 'bpi'}
+          // Add-from-calendar creates the post on this calendar's project. For a
+          // concrete project slug (bpi/bsi or any new project) use it directly;
+          // 'all' and ws- PIC scopes have no single project, fall back to bpi.
+          entity={entity === 'all' || isWs ? 'bpi' : entity}
         />
       )}
     </div>

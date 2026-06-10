@@ -21,7 +21,7 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
     // Scope: PIC (workspace), all socmed projects, or a single entity (board).
     if (picScope
       ? !(p.pics || []).includes(picScope)
-      : entity === 'all' ? !['bpi', 'bsi', 'ws'].includes(p.entity) : p.entity !== entity) return false
+      : entity === 'all' ? false : p.entity !== entity) return false
     if (!p.date) return true
     const d = new Date(p.date)
     return d >= from && d <= to

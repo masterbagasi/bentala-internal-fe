@@ -12,8 +12,6 @@ import { ConfirmDialog, type ConfirmRequest } from '@/components/website/Confirm
 //  - { pic: 'Video Production' } → workspace pages (posts assigned to a member)
 export type HistoryScope = { entity: string } | { pic: string } | { all: true }
 
-const ALL_ENTITIES = ['bpi', 'bsi', 'ws']
-
 function scopeKey(scope: HistoryScope): string {
   return 'all' in scope ? 'all' : 'entity' in scope ? `entity-${scope.entity}` : `pic-${scope.pic}`
 }
@@ -64,13 +62,14 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
   const load = useCallback(async () => {
     const sb = getSupabase()
     let q = sb.from('post_history').select('*').order('created_at', { ascending: false }).limit(150)
-    q = 'all' in scope ? q.in('entity', ALL_ENTITIES) : 'entity' in scope ? q.eq('entity', scope.entity) : q.contains('pics', [scope.pic])
+    // 'all' = every socmed post's history (incl. new projects); no entity filter.
+    q = 'all' in scope ? q : 'entity' in scope ? q.eq('entity', scope.entity) : q.contains('pics', [scope.pic])
     const { data } = await q
     setRows((data ?? []) as HistoryRow[])
 
     // Which posts are currently soft-deleted (→ show Restore).
     let dq = sb.from('posts').select('id, entity, pics').not('deleted_at', 'is', null)
-    dq = 'all' in scope ? dq.in('entity', ALL_ENTITIES) : 'entity' in scope ? dq.eq('entity', scope.entity) : dq.contains('pics', [scope.pic])
+    dq = 'all' in scope ? dq : 'entity' in scope ? dq.eq('entity', scope.entity) : dq.contains('pics', [scope.pic])
     const { data: del } = await dq
     setRestorable(new Set(((del ?? []) as { id: string }[]).map(d => d.id)))
   }, [scope])

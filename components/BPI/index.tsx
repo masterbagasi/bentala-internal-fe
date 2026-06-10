@@ -105,8 +105,6 @@ interface BPIPageProps {
   filters: PostFilters
 }
 
-const ALL_ENTITIES = ['bpi', 'bsi', 'ws']
-
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
   function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters }, ref) {
     const t = useT()
@@ -171,8 +169,10 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
 
     const filtered = posts.filter(p => {
       // Scope: all socmed projects, by assigned PIC (workspace), or by entity (board).
+      // All Project = combined view of every socmed post regardless of slug, so
+      // posts on newly-created projects appear too. Only board/PIC modes scope.
       if (allProjects
-        ? !ALL_ENTITIES.includes(p.entity)
+        ? false
         : picScope ? !(p.pics || []).includes(picScope) : p.entity !== entity) return false
       if (filters.platforms.length && !filters.platforms.some(x => ((p.platforms || []) as string[]).includes(x))) return false
       if (filters.contentTypes.length && !filters.contentTypes.some(x => (p.content_types || []).includes(x))) return false
@@ -829,7 +829,7 @@ export function useBoardFilter(scope: string | { pic: string }) {
     const set = new Set<string>()
     const inScope = (p: typeof posts[number]) =>
       typeof scope === 'string'
-        ? (scope === 'all' ? ['bpi', 'bsi', 'ws'].includes(p.entity) : p.entity === scope)
+        ? (scope === 'all' ? true : p.entity === scope)
         : (p.pics || []).includes(scope.pic)
     for (const p of posts) if (inScope(p) && p.date) set.add(p.date.slice(0, 7))
     return Array.from(set).sort().reverse()

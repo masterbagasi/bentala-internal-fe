@@ -53,8 +53,9 @@ export const WorkspacePage = forwardRef<WorkspacePageHandle, WorkspacePageProps>
   // Filter posts assigned to this member (BPI, BSI, and self-created workspace
   // tasks). Posts still at 'todo' (BPI "Idea") are NOT yet handed to production,
   // so they must not appear in the worksheet.
+  // Scope purely by assigned PIC (not by project) so posts on any project —
+  // including newly-created ones — reach the member's worksheet.
   const myPosts = posts.filter(p =>
-    (p.entity === 'bpi' || p.entity === 'bsi' || p.entity === 'ws') &&
     p.status !== 'todo' &&
     (p.pics || []).includes(member)
   )
