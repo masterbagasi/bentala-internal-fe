@@ -43,8 +43,10 @@ export const ACCESS_SECTIONS: AccessSection[] = [
   { id: 'website.news',   label: 'News Page',  group: 'Website', routes: ['/website/news'],   landing: '/website/news' },
   { id: 'website.seo',    label: 'SEO',        group: 'Website', routes: ['/website/seo'],    landing: '/website/seo' },
   { id: 'website.navbar', label: 'Setting',    group: 'Website', routes: ['/website/navbar'], landing: '/website/navbar' },
+  { id: 'website.visitors', label: 'Visitors', group: 'Website', routes: ['/website/visitors'], landing: '/website/visitors' },
 
   // Socmed Management
+  { id: 'smm.all',          label: 'All Project',  group: 'Socmed Management', routes: ['/projects-all'], landing: '/projects-all' },
   { id: 'smm.bpi.social',   label: 'Social Media', group: 'Socmed Management', subgroup: 'Bentala Project', routes: ['/bpi/social'], landing: '/bpi/social' },
   { id: 'smm.bpi.projects', label: 'Projects',     group: 'Socmed Management', subgroup: 'Bentala Project', routes: ['/bpi'],        landing: '/bpi' },
   { id: 'smm.bsi.social',   label: 'Social Media', group: 'Socmed Management', subgroup: 'Bentala Studio',  routes: ['/bsi/social'], landing: '/bsi/social' },
@@ -76,6 +78,8 @@ export const ACCESS_SECTIONS: AccessSection[] = [
   { id: 'ai.render',    label: 'Video Render',     group: 'AI Studio', routes: ['/ai/video/render'], landing: '/ai/video/render' },
   { id: 'ai.audio',     label: 'Generator Audio',  group: 'AI Studio', routes: ['/ai/audio'],        landing: '/ai/audio' },
   { id: 'ai.bpi',       label: 'BPI Intelligence', group: 'AI Studio', routes: ['/ai/bpi'],          landing: '/ai/bpi' },
+  { id: 'ai.builder',   label: 'Content Builder',  group: 'AI Studio', routes: ['/ai/builder'],      landing: '/ai/builder' },
+  { id: 'ai.pipeline',  label: 'Pipeline Konten',  group: 'AI Studio', routes: ['/ai/pipeline'],     landing: '/ai/pipeline' },
 
   // Team
   { id: 'team', label: 'Team & Roles', group: 'Team', routes: ['/team'], landing: '/team' },
@@ -90,15 +94,15 @@ export const ALL_SECTION_IDS: string[] = ACCESS_SECTIONS.map(s => s.id)
 /** Legacy top-level ids (older menu_access rows) → granular children. Lets old
  *  grants keep working after the move to per-item access. */
 const LEGACY_ALIASES: Record<string, string[]> = {
-  website:  ['website.home', 'website.about', 'website.news', 'website.seo', 'website.navbar'],
-  smm:      ['smm.bpi.social', 'smm.bpi.projects', 'smm.bsi.social', 'smm.bsi.projects'],
+  website:  ['website.home', 'website.about', 'website.news', 'website.seo', 'website.navbar', 'website.visitors'],
+  smm:      ['smm.all', 'smm.bpi.social', 'smm.bpi.projects', 'smm.bsi.social', 'smm.bsi.projects'],
   // Pre-merge ids (Bentala Project / Studio were separate sections).
   bpi:      ['smm.bpi.social', 'smm.bpi.projects'],
   bsi:      ['smm.bsi.social', 'smm.bsi.projects'],
   social:   ['social.accounts', 'social.analytics', 'social.reports', 'social.plan'],
   client:   ['client.leads', 'client.crm', 'client.invoices'],
   projects: ['projects.all', 'projects.tasks', 'projects.vp', 'projects.ds'],
-  ai:       ['ai.chat', 'ai.ideas', 'ai.image', 'ai.templates', 'ai.video', 'ai.render', 'ai.audio', 'ai.bpi'],
+  ai:       ['ai.chat', 'ai.ideas', 'ai.image', 'ai.templates', 'ai.video', 'ai.render', 'ai.audio', 'ai.bpi', 'ai.builder', 'ai.pipeline'],
   settings: ['settings.ai'],
   // overview / team granular ids equal their legacy ids — no alias needed.
 }
