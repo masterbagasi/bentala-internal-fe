@@ -11,7 +11,7 @@ const sb = () => getSupabase() as unknown as import('@supabase/supabase-js').Sup
 
 interface SocialAccount {
   id: string
-  brand: 'bpi' | 'bsi'
+  brand: string
   name: string
   type: SubjectType
   connections: Connection[]
@@ -21,11 +21,12 @@ interface SocialAccount {
 const PLATFORM_KEYS = Object.keys(PLATFORM_META) as Platform[]
 const STATUS_KEYS: ConnStatus[] = ['connected', 'pending', 'public', 'error']
 
-export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
+export function AccountsView({ brand, brandName }: { brand: string; brandName?: string }) {
   const t = useT()
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
+  const [connecting, setConnecting] = useState(false)
 
   const load = useCallback(async () => {
     // Retry a couple of times: Supabase's gotrue navigator lock can throw a
@@ -60,17 +61,56 @@ export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
     await sb().from('social_accounts').delete().eq('id', id)
   }
 
+  // OAuth-connect an Instagram account for this brand via Composio. Opens the
+  // Composio authorize page in a popup, polls until ACTIVE, then triggers a sync.
+  async function connectInstagram() {
+    if (connecting) return
+    setConnecting(true)
+    try {
+      const r = await fetch('/api/social/instagram/connect', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brand }),
+      })
+      if (!r.ok) throw new Error('connect failed')
+      const { redirectUrl, connectedAccountId, userId } = await r.json()
+      if (redirectUrl) window.open(redirectUrl, 'composio-instagram', 'width=600,height=760')
+      const qs = `brand=${encodeURIComponent(brand)}&connectedAccountId=${encodeURIComponent(connectedAccountId)}&userId=${encodeURIComponent(userId)}`
+      const started = Date.now()
+      const poll = setInterval(async () => {
+        // Give up after ~3 minutes so the spinner never hangs forever.
+        if (Date.now() - started > 180_000) { clearInterval(poll); setConnecting(false); return }
+        try {
+          const s = await (await fetch(`/api/social/instagram/connect/status?${qs}`)).json()
+          if (s.status === 'ACTIVE') {
+            clearInterval(poll)
+            await fetch(`/api/social/instagram/sync?brand=${encodeURIComponent(brand)}`, { method: 'POST' })
+            setConnecting(false)
+            load()
+          }
+        } catch { /* keep polling */ }
+      }, 2500)
+    } catch {
+      setConnecting(false)
+    }
+  }
+
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18, gap: 12 }}>
-        <p style={{ fontSize: 13, color: 'var(--text2)', margin: 0 }}>
-          {t('Akun socmed untuk')} <strong style={{ color: 'var(--text)' }}>{brand === 'bpi' ? 'Bentala Project' : 'Bentala Studio'}</strong>.
-          {' '}{t('Akun')} <strong style={{ color: 'var(--text)' }}>Owned</strong> {t('milik sendiri/klien;')} <strong style={{ color: 'var(--text)' }}>Prospect</strong> {t('hanya data publik.')}
-        </p>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18, gap: 10 }}>
+        <button
+          onClick={connectInstagram}
+          disabled={connecting}
+          style={{
+            marginLeft: 'auto', background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)',
+            borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: connecting ? 'default' : 'pointer',
+            whiteSpace: 'nowrap', opacity: connecting ? 0.7 : 1,
+          }}
+        >
+          {connecting ? t('Menghubungkan…') : t('Hubungkan Instagram')}
+        </button>
         <button
           onClick={() => setAdding(true)}
           style={{
-            marginLeft: 'auto', background: 'var(--accent)', color: '#fff', border: 'none',
+            background: 'var(--accent)', color: '#fff', border: 'none',
             borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
           }}
         >
@@ -129,14 +169,14 @@ export function AccountsView({ brand = 'bpi' }: { brand?: 'bpi' | 'bsi' }) {
         </div>
       )}
 
-      {adding && <AddAccountModal brand={brand} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load() }} />}
+      {adding && <AddAccountModal brand={brand} brandName={brandName} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load() }} />}
     </div>
   )
 }
 
 interface DraftConn { platform: Platform; handle: string; followers: string; status: ConnStatus }
 
-function AddAccountModal({ brand, onClose, onSaved }: { brand: 'bpi' | 'bsi'; onClose: () => void; onSaved: () => void }) {
+function AddAccountModal({ brand, brandName, onClose, onSaved }: { brand: string; brandName?: string; onClose: () => void; onSaved: () => void }) {
   const t = useT()
   const [name, setName] = useState('')
   const [type, setType] = useState<SubjectType>('owned')
@@ -173,7 +213,7 @@ function AddAccountModal({ brand, onClose, onSaved }: { brand: 'bpi' | 'bsi'; on
         background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 22, boxShadow: '0 16px 48px rgba(0,0,0,0.55)',
       }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>
-          {t('Tambah Akun')} — {brand === 'bpi' ? 'Bentala Project' : 'Bentala Studio'}
+          {t('Tambah Akun')} — {brandName || brand}
         </div>
 
         <div style={{ marginBottom: 14 }}>

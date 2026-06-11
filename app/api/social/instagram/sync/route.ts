@@ -24,6 +24,19 @@ async function authorize(req: NextRequest): Promise<NextResponse | null> {
 
 const now = () => new Date().toISOString()
 
+// Vercel cron issues a GET with `Authorization: Bearer $CRON_SECRET`. Re-dispatch
+// to POST (all brands) with the internal cron-secret header.
+export async function GET(req: NextRequest) {
+  const auth = req.headers.get('authorization')
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  const proxied = new NextRequest(new URL('/api/social/instagram/sync', req.url), {
+    method: 'POST', headers: { 'x-cron-secret': process.env.CRON_SECRET },
+  })
+  return POST(proxied)
+}
+
 export async function POST(req: NextRequest) {
   const forbidden = await authorize(req)
   if (forbidden) return forbidden
