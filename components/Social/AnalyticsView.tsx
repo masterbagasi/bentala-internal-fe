@@ -16,6 +16,8 @@ import {
   OverviewStats, ContentTypeViews, InteractionsByType, ProfileActivity,
   GenderSection, AgeSection, LocationsSection, ActiveTimesSection,
 } from './sections'
+import { LiveAnalytics } from './LiveAnalytics'
+import type { IgAnalytics } from '@/lib/social/types'
 
 Chart.register(...registerables)
 
@@ -32,6 +34,7 @@ export type PlatformTab = 'all' | Platform
 export type SubView = 'overview' | 'content' | 'audience'
 
 export function AnalyticsView({
+  brand,
   subjectId: subjectIdProp,
   setSubjectId: setSubjectIdProp,
   platform: platformProp,
@@ -41,6 +44,7 @@ export function AnalyticsView({
   range: rangeProp,
   setRange: setRangeProp,
 }: {
+  brand?: string
   subjectId?: string
   setSubjectId?: (id: string) => void
   platform?: PlatformTab
@@ -75,6 +79,30 @@ export function AnalyticsView({
   const setRange = setRangeProp ?? setRangeState
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [contentType, setContentType] = useState<'all' | 'video' | 'photo'>('all')
+
+  // Live Instagram data (cached via sync). When a brand has synced data we
+  // render the live view; otherwise the mock view below stays as-is.
+  const [live, setLive] = useState<IgAnalytics | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  useEffect(() => {
+    if (!brand) return
+    let cancelled = false
+    fetch(`/api/social/instagram/analytics?brand=${encodeURIComponent(brand)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled) setLive(d) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [brand])
+  async function refreshLive() {
+    if (!brand || refreshing) return
+    setRefreshing(true)
+    try {
+      await fetch(`/api/social/instagram/sync?brand=${encodeURIComponent(brand)}`, { method: 'POST' })
+      const r = await fetch(`/api/social/instagram/analytics?brand=${encodeURIComponent(brand)}`)
+      if (r.ok) setLive(await r.json())
+    } finally { setRefreshing(false) }
+  }
+  const hasLive = !!(brand && live && live.lastSyncedAt && live.posts.length)
 
   function changeSubject(id: string) {
     setSubjectId(id)
@@ -201,6 +229,12 @@ export function AnalyticsView({
     }
     return () => { charts.current.forEach(c => c.destroy()); charts.current = [] }
   }, [series, reachByPlatform, view])
+
+  // Live data present for this brand → render the real analytics. The mock
+  // path below is kept intact as the fallback (brands not yet synced).
+  if (hasLive && live) {
+    return <LiveAnalytics data={live} view={view} onRefresh={refreshLive} refreshing={refreshing} />
+  }
 
   return (
     <div>

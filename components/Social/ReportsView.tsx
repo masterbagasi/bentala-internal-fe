@@ -1,19 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SUBJECTS, CONNECTED_SUBJECTS, REPORT_NARRATIVE } from './mock'
 import { Card, StatCard, SectionTitle, fmtNum } from './ui'
 import { SocialFilterChip } from './AnalyticsView'
 import { SocialFilterButton, SocialFilterLabel } from './FilterButton'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import type { IgAnalytics } from '@/lib/social/types'
 
 export const REPORT_PERIODS = ['Mei 2026', 'April 2026', 'Q2 2026'] as const
 export type ReportPeriod = typeof REPORT_PERIODS[number]
 
 export function ReportsView({
+  brand,
   subjectId: subjectIdProp,
   period: periodProp,
 }: {
+  brand?: string
   subjectId?: string
   period?: ReportPeriod
 } = {}) {
@@ -23,6 +26,47 @@ export function ReportsView({
   const period = periodProp ?? REPORT_PERIODS[0]
   const subject = SUBJECTS.find(s => s.id === subjectId)!
   const totalFollowers = subject.connections.reduce((a, c) => a + c.followers, 0)
+
+  // Live cache → real KPI report when the brand has synced data; mock otherwise.
+  const [live, setLive] = useState<IgAnalytics | null>(null)
+  useEffect(() => {
+    if (!brand) return
+    let cancelled = false
+    fetch(`/api/social/instagram/analytics?brand=${encodeURIComponent(brand)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!cancelled) setLive(d) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [brand])
+
+  if (brand && live && live.lastSyncedAt && live.posts.length) {
+    const dash = (n: number | null) => (n == null ? '—' : fmtNum(n))
+    const topPosts = [...live.posts].sort((a, b) => (b.reach ?? 0) - (a.reach ?? 0)).slice(0, 5)
+    return (
+      <Card style={{ padding: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{t('Laporan Performa Sosial Media')}</h2>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>{t('Terakhir disinkron')}: {live.lastSyncedAt ? new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(live.lastSyncedAt)) : '—'}</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+          <StatCard label="Followers" value={dash(live.followers)} />
+          <StatCard label="Reach (28 hari)" value={dash(live.overview.reach)} />
+          <StatCard label="Views (28 hari)" value={dash(live.overview.views)} />
+          <StatCard label="Posts" value={String(live.posts.length)} />
+        </div>
+        <SectionTitle>{t('Konten Teratas (by Reach)')}</SectionTitle>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+          {topPosts.map(p => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 9 }}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.caption || '(tanpa caption)'}</span>
+              <span style={{ fontSize: 12, color: 'var(--text2)' }}>Reach <strong style={{ color: 'var(--text)' }}>{dash(p.reach)}</strong></span>
+              <span style={{ fontSize: 12, color: 'var(--text2)' }}>Likes <strong style={{ color: 'var(--text)' }}>{fmtNum(p.likes)}</strong></span>
+            </div>
+          ))}
+        </div>
+      </Card>
+    )
+  }
 
   return (
     <div>
