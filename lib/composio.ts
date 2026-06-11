@@ -66,6 +66,10 @@ export async function getConnection(connectedAccountId: string) {
   return composio().connectedAccounts.get(connectedAccountId)
 }
 
+export async function deleteConnection(connectedAccountId: string) {
+  return composio().connectedAccounts.delete(connectedAccountId)
+}
+
 export async function listActiveInstagram() {
   return composio().connectedAccounts.list({ statuses: ['ACTIVE'] })
 }

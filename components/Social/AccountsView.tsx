@@ -27,7 +27,8 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [connecting, setConnecting] = useState(false)
-  const [connections, setConnections] = useState<{ username: string | null; status: string; ig_user_id: string | null }[]>([])
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const [connections, setConnections] = useState<{ username: string | null; status: string; ig_user_id: string | null; connected_account_id: string }[]>([])
 
   const load = useCallback(async () => {
     // Retry a couple of times: Supabase's gotrue navigator lock can throw a
@@ -52,9 +53,18 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
   }, [brand])
 
   const loadConnections = useCallback(async () => {
-    const { data } = await sb().from('social_connections').select('username,status,ig_user_id').eq('brand', brand)
+    const { data } = await sb().from('social_connections').select('username,status,ig_user_id,connected_account_id').eq('brand', brand)
     setConnections((data as typeof connections | null) ?? [])
   }, [brand])
+
+  async function disconnect(connectedAccountId: string) {
+    if (!confirm(t('Putuskan & hapus data akun ini?'))) return
+    await fetch('/api/social/instagram/disconnect', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brand, connectedAccountId }),
+    })
+    loadConnections()
+    load()
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -124,27 +134,48 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18, gap: 10 }}>
-        <button
-          onClick={connectInstagram}
-          disabled={connecting}
-          style={{
-            marginLeft: 'auto', background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)',
-            borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: connecting ? 'default' : 'pointer',
-            whiteSpace: 'nowrap', opacity: connecting ? 0.7 : 1,
-          }}
-        >
-          {connecting ? t('Menghubungkan…') : t('Hubungkan Instagram')}
-        </button>
-        <button
-          onClick={() => setAdding(true)}
-          style={{
-            background: 'var(--accent)', color: '#fff', border: 'none',
-            borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-          }}
-        >
-          + {t('Tambah Akun')}
-        </button>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
+        <div style={{ position: 'relative', marginLeft: 'auto' }}>
+          <button
+            onClick={() => setAddMenuOpen(o => !o)}
+            disabled={connecting}
+            style={{
+              background: 'var(--accent)', color: '#fff', border: 'none',
+              borderRadius: 9, padding: '9px 16px', fontSize: 13, fontWeight: 600, cursor: connecting ? 'default' : 'pointer',
+              whiteSpace: 'nowrap', opacity: connecting ? 0.7 : 1,
+            }}
+          >
+            {connecting ? t('Menghubungkan…') : '+ ' + t('Add Account')}
+          </button>
+          {addMenuOpen && (
+            <>
+              <div onClick={() => setAddMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} />
+              <div style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 70, width: 230,
+                background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 6,
+                boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+              }}>
+                <button
+                  onClick={() => { setAddMenuOpen(false); connectInstagram() }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', fontSize: 13, fontWeight: 600, color: 'var(--text)', cursor: 'pointer' }}
+                  onMouseOver={e => (e.currentTarget.style.background = 'var(--bg3)')}
+                  onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span style={{ width: 24, height: 24, borderRadius: 7, background: 'linear-gradient(135deg,#c4399a,#c47a1f)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff' }}>IG</span>
+                  Instagram
+                </button>
+                {['TikTok', 'Facebook', 'YouTube', 'X', 'LinkedIn'].map(p => (
+                  <button key={p} disabled
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', fontSize: 13, fontWeight: 500, color: 'var(--text3)', cursor: 'not-allowed' }}>
+                    <span style={{ width: 24, height: 24, borderRadius: 7, background: 'var(--bg3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{p.charAt(0)}</span>
+                    {p}
+                    <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text3)' }}>{t('Segera')}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {connections.length > 0 && (
@@ -162,6 +193,15 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.status === 'connected' ? 'var(--accent3)' : 'var(--text3)' }} />
                   {c.status === 'connected' ? t('Terhubung') : c.status}
                 </span>
+                <button
+                  onClick={() => disconnect(c.connected_account_id)}
+                  title={t('Putuskan akun')}
+                  style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text3)', borderRadius: 8, padding: '6px 9px', fontSize: 13, cursor: 'pointer', lineHeight: 1 }}
+                  onMouseOver={e => { e.currentTarget.style.borderColor = '#f87171'; e.currentTarget.style.color = '#f87171' }}
+                  onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text3)' }}
+                >
+                  🗑
+                </button>
               </Card>
             ))}
           </div>
@@ -173,7 +213,7 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
       ) : accounts.length === 0 && connections.length === 0 ? (
         <Card style={{ padding: 40, textAlign: 'center' }}>
           <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 6 }}>{t('Belum ada akun socmed')}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>{t('Klik')} <strong>+ {t('Tambah Akun')}</strong> {t('untuk menambahkan akun pertama brand ini.')}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>{t('Klik')} <strong>+ {t('Add Account')}</strong> {t('lalu pilih Instagram untuk menghubungkan akun.')}</div>
         </Card>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
