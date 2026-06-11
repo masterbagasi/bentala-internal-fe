@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
+import { createSupabaseAdmin } from '@/lib/supabase-admin'
+import { isEffectiveSuperAdmin, normaliseSections } from '@/lib/access'
 import type { IgAnalytics } from '@/lib/social/types'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+// Same gate as the /smm/<brand>/social route: super admin, or the user's
+// menu_access grants the smm.<brand>.social section. Prevents reading another
+// project's analytics by passing an arbitrary ?brand=.
+async function canReadBrand(email: string, role: unknown, brand: string): Promise<boolean> {
+  if (isEffectiveSuperAdmin(email, role)) return true
+  const admin = createSupabaseAdmin()
+  const { data } = await (admin as any)
+    .from('menu_access').select('sections').ilike('email', email).maybeSingle()
+  const sections = normaliseSections(data?.sections ?? [])
+  return sections.includes(`smm.${brand}.social`)
+}
 
 // Reads the cached Instagram analytics for a brand and shapes it into the
 // IgAnalytics payload the Social views consume. No Composio call here — that
@@ -14,6 +28,9 @@ export async function GET(req: NextRequest) {
 
   const brand = new URL(req.url).searchParams.get('brand')
   if (!brand) return NextResponse.json({ error: 'brand required' }, { status: 400 })
+  if (!(await canReadBrand(user.email!, user.app_metadata?.role, brand))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   const db = supabase as any
 
   const [insights, media, mediaIns, demo, syncState] = await Promise.all([
