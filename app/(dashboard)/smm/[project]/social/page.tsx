@@ -6,7 +6,7 @@ import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
 import { AccountsView } from '@/components/Social/AccountsView'
 import { AnalyticsView, SocialAnalyticsFilterButton, SocialAnalyticsSubBar, type PlatformTab, type SubView } from '@/components/Social/AnalyticsView'
 import { ReportsView, SocialReportsFilterButton, REPORT_PERIODS, type ReportPeriod } from '@/components/Social/ReportsView'
-import { PlanView, SocialPlanFilterButton } from '@/components/Social/PlanView'
+import { SocialPlanFilterButton } from '@/components/Social/PlanView'
 import { SUBJECTS } from '@/components/Social/mock'
 import { presetRange, type DateRange } from '@/components/Social/DateRangePicker'
 import { getSupabase } from '@/lib/supabase'
@@ -113,7 +113,11 @@ export default function Page() {
           />
         )}
         {tab === 'reports' && conn === 'connected' && <ReportsView brand={slug} subjectId={subjectId} period={period} />}
-        {tab === 'plan' && conn === 'connected' && <PlanView />}
+        {tab === 'plan' && conn === 'connected' && (
+          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 13, maxWidth: 520, margin: '40px auto' }}>
+            {t('Plan (kalender konten + rekomendasi AI) untuk akun ini belum tersedia — menyusul setelah Analytics & Reports.')}
+          </div>
+        )}
       </div>
     </>
   )

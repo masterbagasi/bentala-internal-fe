@@ -27,19 +27,23 @@ export function ReportsView({
   const subject = SUBJECTS.find(s => s.id === subjectId)!
   const totalFollowers = subject.connections.reduce((a, c) => a + c.followers, 0)
 
-  // Live cache → real KPI report when the brand has synced data; mock otherwise.
+  // Live cache → real KPI report for this brand's connected account.
+  const EMPTY: IgAnalytics = { followers: null, overview: { reach: null, views: null, interactions: null, engaged: null }, followersByDay: [], posts: [], demographics: [], lastSyncedAt: null }
   const [live, setLive] = useState<IgAnalytics | null>(null)
   useEffect(() => {
     if (!brand) return
     let cancelled = false
     fetch(`/api/social/instagram/analytics?brand=${encodeURIComponent(brand)}`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (!cancelled) setLive(d) })
-      .catch(() => {})
+      .then(r => (r.ok ? r.json() : EMPTY))
+      .then(d => { if (!cancelled) setLive(d ?? EMPTY) })
+      .catch(() => { if (!cancelled) setLive(EMPTY) })
     return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brand])
 
-  if (brand && live && live.lastSyncedAt && live.posts.length) {
+  // A brand-scoped report ALWAYS reflects that brand's connected account — never mock.
+  if (brand) {
+    if (!live) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{t('Memuat…')}</div>
     const dash = (n: number | null) => (n == null ? '—' : fmtNum(n))
     const topPosts = [...live.posts].sort((a, b) => (b.reach ?? 0) - (a.reach ?? 0)).slice(0, 5)
     return (
@@ -48,6 +52,9 @@ export function ReportsView({
           <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{t('Laporan Performa Sosial Media')}</h2>
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>{t('Terakhir disinkron')}: {live.lastSyncedAt ? new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(live.lastSyncedAt)) : '—'}</div>
         </div>
+        {!live.posts.length && (
+          <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{t('Belum ada data — klik Refresh di tab Analytics untuk menarik dari Instagram.')}</div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
           <StatCard label="Followers" value={dash(live.followers)} />
           <StatCard label="Reach (28 hari)" value={dash(live.overview.reach)} />
