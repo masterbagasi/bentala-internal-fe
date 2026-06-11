@@ -27,6 +27,7 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [connections, setConnections] = useState<{ username: string | null; status: string; ig_user_id: string | null }[]>([])
 
   const load = useCallback(async () => {
     // Retry a couple of times: Supabase's gotrue navigator lock can throw a
@@ -50,10 +51,16 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
     setLoading(false)
   }, [brand])
 
+  const loadConnections = useCallback(async () => {
+    const { data } = await sb().from('social_connections').select('username,status,ig_user_id').eq('brand', brand)
+    setConnections((data as typeof connections | null) ?? [])
+  }, [brand])
+
   useEffect(() => {
     setLoading(true)
     load()
-  }, [brand, load])
+    loadConnections()
+  }, [brand, load, loadConnections])
 
   async function removeAccount(id: string) {
     if (!confirm(t('Hapus akun ini?'))) return
@@ -85,6 +92,7 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
             await fetch(`/api/social/instagram/sync?brand=${encodeURIComponent(brand)}`, { method: 'POST' })
             setConnecting(false)
             load()
+            loadConnections()
           }
         } catch { /* keep polling */ }
       }, 2500)
@@ -118,9 +126,30 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
         </button>
       </div>
 
+      {connections.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>{t('Akun Terhubung')}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {connections.map(c => (
+              <Card key={`${c.ig_user_id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
+                <span style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#c4399a,#c47a1f)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#fff' }}>IG</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>@{c.username ?? '—'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>Instagram · {c.ig_user_id}</div>
+                </div>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: c.status === 'connected' ? 'var(--accent3)' : 'var(--text3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.status === 'connected' ? 'var(--accent3)' : 'var(--text3)' }} />
+                  {c.status === 'connected' ? t('Terhubung') : c.status}
+                </span>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{t('Memuat akun…')}</div>
-      ) : accounts.length === 0 ? (
+      ) : accounts.length === 0 && connections.length === 0 ? (
         <Card style={{ padding: 40, textAlign: 'center' }}>
           <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 6 }}>{t('Belum ada akun socmed')}</div>
           <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>{t('Klik')} <strong>+ {t('Tambah Akun')}</strong> {t('untuk menambahkan akun pertama brand ini.')}</div>

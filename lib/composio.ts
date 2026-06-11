@@ -2,12 +2,16 @@
 // reads COMPOSIO_API_KEY (a server secret) and must never reach the client.
 import { Composio } from '@composio/core'
 
+// Manual tool execution requires a pinned toolkit version ("latest" is rejected).
+// Bump when adopting newer Instagram tool behavior. Overridable via env.
+const IG_TOOLKIT_VERSION = process.env.COMPOSIO_TOOLKIT_VERSION_INSTAGRAM || '20260523_00'
+
 let _client: Composio | null = null
 export function composio(): Composio {
   if (_client) return _client
   const apiKey = process.env.COMPOSIO_API_KEY
   if (!apiKey) throw new Error('COMPOSIO_API_KEY is not set')
-  _client = new Composio({ apiKey })
+  _client = new Composio({ apiKey, toolkitVersions: { instagram: IG_TOOLKIT_VERSION } })
   return _client
 }
 

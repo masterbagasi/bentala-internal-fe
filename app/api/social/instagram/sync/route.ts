@@ -53,13 +53,19 @@ export async function POST(req: NextRequest) {
   for (const c of list) {
     const ctx = { userId: c.composio_user_id, connectedAccountId: c.connected_account_id }
     try {
-      // 1) Followers (daily sample) + 28-day account KPIs
-      const followers = metricMap(await ig.userInsights(ctx, ['follower_count'], 'day'))
-      const kpis = metricMap(await ig.userInsights(ctx, ['reach', 'views', 'total_interactions', 'accounts_engaged'], 'days_28'))
+      // 1) Total followers (daily snapshot) from profile + 28-day account KPIs.
+      // NOTE: the insights `follower_count` metric is NEW followers per period,
+      // not the total — the total lives on GET_USER_INFO.followers_count. We
+      // sample it daily so the trend accumulates real history over time.
+      const info = (await ig.userInfo(ctx)) as any
+      const followersTotal: number | null = info?.data?.followers_count ?? null
+      // total_value aggregates uniquely over the window (correct for reach etc.);
+      // without it several metrics are silently omitted.
+      const kpis = metricMap(await ig.userInsights(ctx, ['reach', 'views', 'total_interactions', 'accounts_engaged'], 'days_28', { metric_type: 'total_value' }))
 
       const insightRows: any[] = []
-      if (followers.follower_count != null)
-        insightRows.push({ brand: c.brand, ig_user_id: c.ig_user_id, metric: 'follower_count', period: 'day', day: now().slice(0, 10), value: followers.follower_count, fetched_at: now() })
+      if (followersTotal != null)
+        insightRows.push({ brand: c.brand, ig_user_id: c.ig_user_id, metric: 'follower_count', period: 'day', day: now().slice(0, 10), value: followersTotal, fetched_at: now() })
       for (const k of ['reach', 'views', 'total_interactions', 'accounts_engaged'])
         if (kpis[k] != null) insightRows.push({ brand: c.brand, ig_user_id: c.ig_user_id, metric: k, period: 'days_28', day: null, value: kpis[k], fetched_at: now() })
       if (insightRows.length)

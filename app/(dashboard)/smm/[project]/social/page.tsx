@@ -24,17 +24,18 @@ function useSocialConnected(slug: string): 'loading' | 'connected' | 'none' {
     let cancelled = false
     setState('loading')
     const sb = getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
-    sb.from('social_accounts')
-      .select('connections')
+    // A brand is "connected" when it has a real social_connections row (OAuth via
+    // Composio) with status 'connected'. (The legacy social_accounts table held
+    // manually-typed accounts; the live integration uses social_connections.)
+    sb.from('social_connections')
+      .select('status')
       .eq('brand', slug)
+      .eq('status', 'connected')
+      .limit(1)
       .then(
         ({ data }) => {
           if (cancelled) return
-          const connected = (data ?? []).some(
-            (a: { connections?: { status?: string }[] }) =>
-              Array.isArray(a.connections) && a.connections.some(c => c?.status === 'connected'),
-          )
-          setState(connected ? 'connected' : 'none')
+          setState((data ?? []).length > 0 ? 'connected' : 'none')
         },
         () => { if (!cancelled) setState('none') },
       )
