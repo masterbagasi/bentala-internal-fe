@@ -68,18 +68,38 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
     await sb().from('social_accounts').delete().eq('id', id)
   }
 
-  // OAuth-connect an Instagram account for this brand via Composio. Opens the
-  // Composio authorize page in a popup, polls until ACTIVE, then triggers a sync.
+  // OAuth-connect an Instagram account for this brand via Composio. The login
+  // tab is opened synchronously inside the click gesture (so the browser doesn't
+  // block it), then navigated to the Composio login URL. We poll until ACTIVE,
+  // then persist + sync. Tip: log in via an Incognito window to choose a
+  // specific account instead of reusing the browser's current IG session.
   async function connectInstagram() {
     if (connecting) return
     setConnecting(true)
+    // Open the tab NOW, in the user gesture — navigated to the URL once we have it.
+    const win = window.open('', '_blank')
     try {
       const r = await fetch('/api/social/instagram/connect', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brand }),
       })
-      if (!r.ok) throw new Error('connect failed')
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}))
+        win?.close()
+        setConnecting(false)
+        alert(t('Gagal memulai koneksi') + ': ' + (e.error || r.status) + '. ' + t('Pastikan server sudah di-restart (env Composio).'))
+        return
+      }
       const { redirectUrl, connectedAccountId, userId } = await r.json()
-      if (redirectUrl) window.open(redirectUrl, 'composio-instagram', 'width=600,height=760')
+      if (!redirectUrl) {
+        win?.close()
+        setConnecting(false)
+        alert(t('Tidak ada link login dari Composio.'))
+        return
+      }
+      // Move straight to the Instagram login page.
+      if (win) win.location.href = redirectUrl
+      else window.location.href = redirectUrl
+
       const qs = `brand=${encodeURIComponent(brand)}&connectedAccountId=${encodeURIComponent(connectedAccountId)}&userId=${encodeURIComponent(userId)}`
       const started = Date.now()
       const poll = setInterval(async () => {
@@ -97,6 +117,7 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
         } catch { /* keep polling */ }
       }, 2500)
     } catch {
+      win?.close()
       setConnecting(false)
     }
   }
