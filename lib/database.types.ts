@@ -263,6 +263,13 @@ export interface Database {
       content_pipeline: GenericTable
       feature_settings: GenericTable
       production_briefs: GenericTable
+      // Socmed Instagram live connect + read (Composio).
+      social_connections: GenericTable
+      ig_account_insights: GenericTable
+      ig_media: GenericTable
+      ig_media_insights: GenericTable
+      ig_demographics: GenericTable
+      ig_sync_state: GenericTable
     }
     Views: Record<string, never>
     Functions: Record<string, never>
