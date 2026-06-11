@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
+    "@composio/core": "^0.10.0",
     "@remotion/bundler": "^4.0.454",
     "@remotion/cli": "^4.0.454",
     "@remotion/player": "^4.0.454",
