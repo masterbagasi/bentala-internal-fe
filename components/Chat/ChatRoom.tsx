@@ -391,17 +391,18 @@ const CR_CSS = `
 }
 .cr-jump:hover { filter:brightness(1.08); }
 
-/* ── Composer ── */
+/* ── Composer — a single clean field; no outer ring/halo around it ── */
 .cr-composer { padding:12px 2px 2px; }
 .cr-input-wrap {
   display:flex; align-items:flex-end; gap:8px;
-  background:var(--bg3); border:1px solid var(--border); border-radius:16px;
-  padding:6px 6px 6px 14px; transition:border-color .15s, box-shadow .15s;
+  background:var(--bg3); border:1px solid var(--border); border-radius:14px;
+  padding:5px 5px 5px 14px; transition:border-color .15s; box-sizing:border-box;
 }
-.cr-input-wrap:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px rgba(11,61,231,0.18); }
+.cr-input-wrap:focus-within { border-color:var(--border-strong); }
 .cr-input {
   flex:1; resize:none; background:transparent; color:var(--text); border:none; outline:none;
-  font-size:13.5px; line-height:1.5; font-family:inherit; padding:6px 0; max-height:140px;
+  font-size:14px; line-height:1.45; font-family:inherit; padding:9px 0; max-height:140px;
+  box-sizing:border-box; display:block;
 }
 .cr-input::placeholder { color:var(--text3); }
 .cr-send {
