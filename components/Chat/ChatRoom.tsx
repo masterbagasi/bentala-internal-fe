@@ -13,7 +13,7 @@ interface Msg {
   attachment_path?: string | null; attachment_name?: string | null; attachment_type?: string | null; attachment_size?: number | null
 }
 
-interface Read { email: string; name: string | null; last_read_at: string }
+interface Read { email: string; last_read_at: string }
 
 function initials(name: string) {
   return name.split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || '?'
@@ -305,6 +305,10 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const seenIds = new Set<string>()
   const view = messages.filter(m => (seenIds.has(m.id) ? false : (seenIds.add(m.id), true)))
 
+  // Resolve a reader's display name from messages they've authored, else email.
+  const nameByEmail = new Map(messages.map(m => [m.author_email, m.author_name]))
+  const nameFor = (email: string) => nameByEmail.get(email) || email.split('@')[0]
+
   return (
     <div className="cr-root">
       <style>{CR_CSS}</style>
@@ -481,13 +485,13 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                 .sort((a, b) => b.last_read_at.localeCompare(a.last_read_at))
               if (seers.length === 0) return null
               return (
-                <div className="cr-seen" title={seers.map(r => r.name || r.email).join(', ')}>
+                <div className="cr-seen" title={seers.map(r => nameFor(r.email)).join(', ')}>
                   <svg className="cr-seen-eye" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="2.5" /></svg>
                   <span className="cr-seen-label">{t('Dibaca')}</span>
                   <span className="cr-seen-avs">
                     {seers.slice(0, 8).map(r => (
-                      <span key={r.email} className="cr-seen-av" title={`${r.name || r.email} · ${fmtTime(r.last_read_at)}`} style={{ background: avatarColor(r.name || r.email) }}>
-                        {initials(r.name || r.email.split('@')[0])}
+                      <span key={r.email} className="cr-seen-av" title={`${nameFor(r.email)} · ${fmtTime(r.last_read_at)}`} style={{ background: avatarColor(nameFor(r.email)) }}>
+                        {initials(nameFor(r.email))}
                       </span>
                     ))}
                   </span>
