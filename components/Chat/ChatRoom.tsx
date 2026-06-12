@@ -13,6 +13,8 @@ interface Msg {
   attachment_path?: string | null; attachment_name?: string | null; attachment_type?: string | null; attachment_size?: number | null
 }
 
+interface Read { email: string; name: string | null; last_read_at: string }
+
 function initials(name: string) {
   return name.split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || '?'
 }
@@ -65,6 +67,9 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const [selecting, setSelecting] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState<null | { kind: 'selected' | 'all' }>(null)
+  // Read receipts + transient action errors.
+  const [reads, setReads] = useState<Read[]>([])
+  const [opErr, setOpErr] = useState('')
 
   const listRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -81,6 +86,15 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
     if (el) el.scrollTop = el.scrollHeight
   }, [])
 
+  const loadReads = useCallback(() => {
+    fetch(`/api/chat/${encodeURIComponent(room)}/reads`)
+      .then(r => (r.ok ? r.json() : { reads: [] }))
+      .then((d: { reads?: Read[] }) => setReads(d.reads ?? []))
+      .catch(() => {})
+  }, [room])
+
+  function flashErr(msg: string) { setOpErr(msg); setTimeout(() => setOpErr(''), 4000) }
+
   // Initial load + realtime subscription (RLS scopes rows to this room).
   useEffect(() => {
     let cancelled = false
@@ -95,10 +109,14 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
         setLoading(false)
         requestAnimationFrame(scrollToBottom)
       })
-    fetch(`/api/chat/${encodeURIComponent(room)}/read`, { method: 'POST' })
+    fetch(`/api/chat/${encodeURIComponent(room)}/read`, { method: 'POST' }).then(loadReads)
+    loadReads()
 
     const channel = sb()
       .channel(`chat:${room}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_reads', filter: `room=eq.${room}` },
+        () => { if (!cancelled) loadReads() })
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room=eq.${room}` },
         payload => {
@@ -130,7 +148,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       .subscribe()
 
     return () => { cancelled = true; sb().removeChannel(channel) }
-  }, [room, scrollToBottom])
+  }, [room, scrollToBottom, loadReads])
 
   // Auto-scroll on new messages only if the user is already at the bottom.
   useEffect(() => {
@@ -219,27 +237,45 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   }
 
   // ── Per-message actions ──
+  // A mutation is "real" only if it returns OK JSON of the expected shape. A
+  // middleware auth-redirect would 200 the /login HTML, so verify and revert.
+  async function mutateOk(p: Promise<Response>, expectMessage: boolean): Promise<boolean> {
+    try {
+      const r = await p
+      if (!r.ok || !(r.headers.get('content-type') || '').includes('application/json')) return false
+      const d = await r.json().catch(() => null)
+      if (!d) return false
+      return expectMessage ? !!d.message : d.ok === true
+    } catch { return false }
+  }
+
   async function retract(id: string) {
     setMenuFor(null)
+    const snapshot = messages
     setMessages(prev => prev.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), body: '', attachment_path: null, attachment_type: null, attachment_name: null } : m))
-    await fetch(`/api/chat/${encodeURIComponent(room)}/${id}`, {
+    const ok = await mutateOk(fetch(`/api/chat/${encodeURIComponent(room)}/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'retract' }),
-    })
+    }), true)
+    if (!ok) { setMessages(snapshot); flashErr(t('Gagal menarik pesan')) }
   }
   async function hardDelete(id: string) {
     setMenuFor(null)
+    const snapshot = messages
     setMessages(prev => prev.filter(m => m.id !== id))
-    await fetch(`/api/chat/${encodeURIComponent(room)}/${id}`, { method: 'DELETE' })
+    const ok = await mutateOk(fetch(`/api/chat/${encodeURIComponent(room)}/${id}`, { method: 'DELETE' }), false)
+    if (!ok) { setMessages(snapshot); flashErr(t('Gagal menghapus pesan')) }
   }
   function startEdit(m: Msg) { setMenuFor(null); setEditing(m.id); setEditText(m.body) }
   async function saveEdit(id: string) {
     const body = editText.trim()
     if (!body) return
     setEditing(null)
+    const snapshot = messages
     setMessages(prev => prev.map(m => m.id === id ? { ...m, body, edited_at: new Date().toISOString() } : m))
-    await fetch(`/api/chat/${encodeURIComponent(room)}/${id}`, {
+    const ok = await mutateOk(fetch(`/api/chat/${encodeURIComponent(room)}/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }),
-    })
+    }), true)
+    if (!ok) { setMessages(snapshot); flashErr(t('Gagal mengedit pesan')) }
   }
 
   // ── Selection / clear ──
@@ -347,8 +383,6 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                         {!grouped && (
                           <div className="cr-meta">
                             <span className="cr-name">{mine ? t('Saya') : m.author_name}</span>
-                            <span className="cr-time">{fmtTime(m.created_at)}</span>
-                            {m.edited_at && !retracted && <span className="cr-edited">{t('(diedit)')}</span>}
                           </div>
                         )}
 
@@ -388,11 +422,15 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                                 </a>
                               )}
                               {m.body && <span className="cr-body-text">{m.body}</span>}
-                              {mine && (
-                                <span className={`cr-tick ${pendingMsg ? 'pending' : ''}`} aria-hidden>
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
-                                </span>
-                              )}
+                              <span className="cr-stamp">
+                                {m.edited_at && <span className="cr-stamp-edit">{t('(diedit)')} </span>}
+                                {fmtTime(m.created_at)}
+                                {mine && (
+                                  <span className={`cr-tick ${pendingMsg ? 'pending' : ''}`} aria-hidden>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                  </span>
+                                )}
+                              </span>
                             </div>
 
                             {hasMenu && (
@@ -417,9 +455,32 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                 </div>
               )
             })}
+            {(() => {
+              const last = view[view.length - 1]
+              if (!last) return null
+              const seers = reads
+                .filter(r => r.email !== meEmail && new Date(r.last_read_at).getTime() >= new Date(last.created_at).getTime())
+                .sort((a, b) => b.last_read_at.localeCompare(a.last_read_at))
+              if (seers.length === 0) return null
+              return (
+                <div className="cr-seen" title={seers.map(r => r.name || r.email).join(', ')}>
+                  <svg className="cr-seen-eye" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="2.5" /></svg>
+                  <span className="cr-seen-label">{t('Dibaca')}</span>
+                  <span className="cr-seen-avs">
+                    {seers.slice(0, 8).map(r => (
+                      <span key={r.email} className="cr-seen-av" title={`${r.name || r.email} · ${fmtTime(r.last_read_at)}`} style={{ background: avatarColor(r.name || r.email) }}>
+                        {initials(r.name || r.email.split('@')[0])}
+                      </span>
+                    ))}
+                  </span>
+                  {seers.length > 8 && <span className="cr-seen-more">+{seers.length - 8}</span>}
+                </div>
+              )
+            })()}
           </div>
         )}
 
+        {opErr && <div className="cr-op-err">{opErr}</div>}
         {menuFor && <div className="cr-menu-overlay" onClick={() => setMenuFor(null)} />}
 
         {pinned && !selecting && (
@@ -472,7 +533,6 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
             </button>
           </div>
           <div className="cr-hint-row">
-            <span className="cr-hint">{t('Enter kirim · Shift+Enter baris baru')}</span>
             {messages.length > 0 && <button className="cr-link-btn" onClick={() => setSelecting(true)}>{t('Pilih')}</button>}
           </div>
         </div>
@@ -576,8 +636,14 @@ const CR_CSS = `
 }
 .cr-bubble.mine.grouped { border-radius:16px; }
 .cr-body-text { }
-.cr-tick { display:inline-block; vertical-align:bottom; margin:0 -2px -2px 6px; color:rgba(255,255,255,0.85); transition:opacity .2s; }
-.cr-tick.pending { opacity:0.45; }
+/* Per-message time tucked at the bottom-right of every bubble. */
+.cr-stamp {
+  float:right; display:inline-flex; align-items:center; gap:3px;
+  margin:5px 0 -1px 10px; font-size:10px; line-height:1; opacity:0.6; white-space:nowrap; user-select:none;
+}
+.cr-stamp-edit { font-style:italic; opacity:0.85; }
+.cr-tick { display:inline-flex; color:currentColor; opacity:0.9; transition:opacity .2s; }
+.cr-tick.pending { opacity:0.4; }
 .cr-retracted { font-style:italic; color:var(--text3); background:transparent; border:1px dashed var(--border); box-shadow:none; }
 
 /* ── Attachments ── */
@@ -621,8 +687,10 @@ const CR_CSS = `
 .cr-edit-area { display:flex; flex-direction:column; gap:6px; max-width:100%; }
 .cr-edit-input {
   background:var(--bg3); color:var(--text); border:1px solid var(--accent); border-radius:12px;
-  padding:8px 12px; font-size:13.5px; line-height:1.5; font-family:inherit; resize:none; outline:none; min-width:200px;
+  padding:8px 12px; font-size:13.5px; line-height:1.5; font-family:inherit; resize:none; outline:none;
+  min-width:200px; min-height:0; box-shadow:none;
 }
+.cr-edit-input:focus { box-shadow:none; }
 .cr-edit-actions { display:flex; gap:6px; justify-content:flex-end; }
 
 /* ── Older button ── */
@@ -685,6 +753,7 @@ const CR_CSS = `
   padding:5px 5px 5px 6px; transition:border-color .15s; box-sizing:border-box;
 }
 .cr-input-wrap:focus-within { border-color:var(--border-strong); }
+.cr-input-wrap:hover { border-color:var(--border-strong); }
 .cr-attach-btn {
   flex-shrink:0; width:36px; height:36px; border-radius:10px; border:none; cursor:pointer;
   display:flex; align-items:center; justify-content:center; background:transparent; color:var(--text3);
@@ -693,9 +762,11 @@ const CR_CSS = `
 .cr-attach-btn:hover { background:var(--bg-hover); color:var(--text); }
 .cr-input {
   flex:1; resize:none; background:transparent; color:var(--text); border:none; outline:none;
-  font-size:14px; line-height:1.45; font-family:inherit; padding:9px 0; max-height:140px;
-  box-sizing:border-box; display:block;
+  font-size:14px; line-height:1.45; font-family:inherit; padding:8px 2px; max-height:140px;
+  min-height:0; height:38px; box-sizing:border-box; display:block;
 }
+/* Override global "textarea { min-height:70px }" + blue focus ring for the composer. */
+.cr-input:focus { box-shadow:none; border-color:transparent; }
 .cr-input::placeholder { color:var(--text3); }
 .cr-send {
   flex-shrink:0; width:36px; height:36px; border-radius:12px; border:none; cursor:pointer;
@@ -709,8 +780,7 @@ const CR_CSS = `
 .cr-send:disabled { opacity:0.4; cursor:default; background:var(--bg-hover); box-shadow:none; }
 .cr-spin { width:15px; height:15px; border-radius:50%; border:2px solid rgba(255,255,255,0.35); border-top-color:#fff; animation:cr-shimmer 0s, spin 0.65s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
-.cr-hint-row { display:flex; align-items:center; justify-content:space-between; margin-top:7px; padding:0 4px; }
-.cr-hint { font-size:10.5px; color:var(--text3); letter-spacing:0.01em; }
+.cr-hint-row { display:flex; align-items:center; justify-content:flex-end; min-height:18px; margin-top:6px; padding:0 4px; }
 .cr-link-btn { background:none; border:none; cursor:pointer; color:var(--text2); font-size:12px; font-weight:600; padding:2px 4px; }
 .cr-link-btn:hover { color:var(--accent); }
 .cr-link-btn.primary { color:var(--accent); }
@@ -725,6 +795,23 @@ const CR_CSS = `
 .cr-selbar-btn.primary { background:var(--accent); color:#fff; }
 .cr-selbar-btn.primary:disabled { opacity:0.4; cursor:default; }
 .cr-selbar-btn.danger { background:transparent; color:var(--accent2); border:1px solid var(--accent2); }
+
+/* ── Read receipts ── */
+.cr-seen { display:flex; align-items:center; gap:6px; justify-content:flex-end; margin:10px 6px 2px; color:var(--text3); }
+.cr-seen-eye { opacity:0.7; flex-shrink:0; }
+.cr-seen-label { font-size:11px; font-weight:600; }
+.cr-seen-avs { display:flex; }
+.cr-seen-av { width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:#fff; margin-left:-6px; border:1.5px solid var(--bg2); box-shadow:0 1px 2px rgba(0,0,0,0.3); }
+.cr-seen-av:first-child { margin-left:0; }
+.cr-seen-more { font-size:10.5px; color:var(--text3); margin-left:2px; }
+
+/* ── Transient action error ── */
+.cr-op-err {
+  position:sticky; bottom:8px; z-index:6; margin:0 auto; width:fit-content; max-width:92%;
+  background:var(--accent2); color:#fff; font-size:12.5px; font-weight:500;
+  padding:7px 14px; border-radius:999px; box-shadow:0 6px 18px rgba(0,0,0,0.35);
+  animation:cr-in 0.2s ease both;
+}
 
 @keyframes cr-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 @keyframes cr-shimmer { from { background-position:200% 0; } to { background-position:-200% 0; } }
