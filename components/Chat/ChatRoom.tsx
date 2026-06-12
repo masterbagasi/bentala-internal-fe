@@ -161,6 +161,11 @@ export function ChatRoom({ room, roomName, meEmail, meName }: { room: string; ro
     }
   }
 
+  // Safety net: never render the same message id twice, no matter how an echo
+  // and the optimistic copy raced into state. Keeps the first occurrence.
+  const seenIds = new Set<string>()
+  const view = messages.filter(m => (seenIds.has(m.id) ? false : (seenIds.add(m.id), true)))
+
   return (
     <div className="cr-root">
       <style>{CR_CSS}</style>
@@ -198,9 +203,9 @@ export function ChatRoom({ room, roomName, meEmail, meName }: { room: string; ro
                 </button>
               </div>
             )}
-            {messages.map((m, i) => {
+            {view.map((m, i) => {
               const mine = m.author_email === meEmail
-              const prev = messages[i - 1]
+              const prev = view[i - 1]
               const newDay = !prev || dayKey(prev.created_at) !== dayKey(m.created_at)
               const grouped = !newDay && !!prev && prev.author_email === m.author_email &&
                 new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < GROUP_WINDOW_MS
