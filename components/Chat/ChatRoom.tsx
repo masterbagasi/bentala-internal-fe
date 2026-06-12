@@ -72,7 +72,19 @@ export function ChatRoom({ room, roomName, meEmail, meName }: { room: string; ro
         payload => {
           if (cancelled) return
           const row = payload.new as Msg
-          setMessages(prev => (prev.some(m => m.id === row.id) ? prev : [...prev, row]))
+          setMessages(prev => {
+            // Already have the real row (e.g. our POST response landed first).
+            if (prev.some(m => m.id === row.id)) return prev
+            // Reconcile our own optimistic copy (tmp id) instead of appending a
+            // duplicate: match the oldest pending message with same author + body.
+            const idx = prev.findIndex(m => m.id.startsWith('tmp-') && m.author_email === row.author_email && m.body === row.body)
+            if (idx !== -1) {
+              const next = prev.slice()
+              next[idx] = row
+              return next
+            }
+            return [...prev, row]
+          })
           // Keep our own read marker fresh while the room is open.
           fetch(`/api/chat/${encodeURIComponent(room)}/read`, { method: 'POST' })
         })
@@ -137,7 +149,13 @@ export function ChatRoom({ room, roomName, meEmail, meName }: { room: string; ro
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }),
       })
       const d = (await r.json()) as { message?: Msg }
-      if (d.message) setMessages(prev => prev.map(m => (m.id === optimistic.id ? d.message! : m)))
+      if (d.message) setMessages(prev => {
+        const real = d.message!
+        // Realtime may have already swapped in the real row — just drop the
+        // optimistic placeholder so we never keep both.
+        if (prev.some(m => m.id === real.id)) return prev.filter(m => m.id !== optimistic.id)
+        return prev.map(m => (m.id === optimistic.id ? real : m))
+      })
     } catch {
       setMessages(prev => prev.map(m => (m.id === optimistic.id ? { ...m, body: m.body + ' ' + t('(gagal terkirim)') } : m)))
     }
