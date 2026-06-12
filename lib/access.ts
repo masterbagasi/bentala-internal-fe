@@ -93,6 +93,7 @@ export function socmedSections(
     out.push(
       { id: `smm.${p.slug}.social`,   label: 'Social Media', group: 'Socmed Management', subgroup: p.name, routes: [`/smm/${p.slug}/social`], landing: `/smm/${p.slug}/social` },
       { id: `smm.${p.slug}.projects`, label: 'Projects',     group: 'Socmed Management', subgroup: p.name, routes: [`/smm/${p.slug}`],        landing: `/smm/${p.slug}` },
+      { id: `smm.${p.slug}.chat`,     label: 'Chat',         group: 'Socmed Management', subgroup: p.name, routes: [`/smm/${p.slug}/chat`],   landing: `/smm/${p.slug}/chat` },
     )
   }
   return out
@@ -109,7 +110,7 @@ export function buildAccessSections(
 export const ALL_SECTION_IDS: string[] = STATIC_SECTIONS.map(s => s.id)
 
 // A dynamic socmed section id, e.g. "smm.bentala-x.projects".
-const SMM_ID_RE = /^smm\.([a-z0-9-]+)\.(social|projects)$/
+const SMM_ID_RE = /^smm\.([a-z0-9-]+)\.(social|projects|chat)$/
 
 /** Legacy top-level ids (older menu_access rows) → granular children. Lets old
  *  grants keep working after the move to per-item access. */
@@ -178,11 +179,12 @@ export function chatRoomFromPath(pathname: string): string | null {
   return m ? m[1] : null
 }
 
-/** A chat room is open to anyone with ANY access to that project (social OR
- *  projects). Pass the user's already-normalised sections. */
+/** A chat room is open to anyone with an explicit Chat grant for the project,
+ *  OR anyone with any other access to it (social/projects) so project members
+ *  keep chat without a separate grant. Pass already-normalised sections. */
 export function canAccessChat(allowed: Set<string> | string[], slug: string): boolean {
   const has = (id: string) => (Array.isArray(allowed) ? allowed.includes(id) : allowed.has(id))
-  return has(`smm.${slug}.social`) || has(`smm.${slug}.projects`)
+  return has(`smm.${slug}.chat`) || has(`smm.${slug}.social`) || has(`smm.${slug}.projects`)
 }
 
 /** Landing path for the first item the user may enter, or null. Handles dynamic
@@ -197,7 +199,7 @@ export function firstAllowedLanding(allowed: string[]): string | null {
   // Otherwise the first dynamic socmed grant.
   for (const id of allowed) {
     const m = SMM_ID_RE.exec(id)
-    if (m) return m[2] === 'social' ? `/smm/${m[1]}/social` : `/smm/${m[1]}`
+    if (m) return m[2] === 'social' ? `/smm/${m[1]}/social` : m[2] === 'chat' ? `/smm/${m[1]}/chat` : `/smm/${m[1]}`
   }
   return null
 }

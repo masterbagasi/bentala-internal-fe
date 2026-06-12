@@ -485,7 +485,7 @@ export function Sidebar() {
           const href = (e as NavItem).href
           const chatRoom = chatRoomFromPath(href)
           if (chatRoom !== null) {
-            // Chat inherits project access: social OR projects.
+            // Chat = explicit chat grant OR any project access (social/projects).
             if (canAccessChat(access.allowed, chatRoom)) out.push(e)
           } else {
             const secId = sectionForPath(href)
