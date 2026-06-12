@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isValidProvider, PROVIDER_ENV_VAR } from '@/lib/ai-config'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
 import { writeEnvVar } from '@/lib/env-local-writer'
+import { requireSectionOrSuper } from '@/lib/api-auth'
 
 // PUT /api/settings/ai/[provider]
 // Upsert provider config: api_key, model, enabled, notes.
@@ -10,6 +11,8 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { provider: string } },
 ) {
+  const auth = await requireSectionOrSuper('settings.ai')
+  if (auth instanceof NextResponse) return auth
   const provider = params.provider
   if (!isValidProvider(provider)) {
     return NextResponse.json({ error: 'Invalid provider' }, { status: 400 })

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { isValidProvider, getProviderConfig, type AIProvider } from '@/lib/ai-config'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
+import { requireSectionOrSuper } from '@/lib/api-auth'
 
 // POST /api/settings/ai/[provider]/test
 // Pings the provider with a minimal request to validate the API key + reachability.
@@ -10,6 +11,8 @@ export async function POST(
   _req: Request,
   { params }: { params: { provider: string } },
 ) {
+  const auth = await requireSectionOrSuper('settings.ai')
+  if (auth instanceof NextResponse) return auth
   const provider = params.provider
   if (!isValidProvider(provider)) {
     return NextResponse.json({ error: 'Invalid provider' }, { status: 400 })

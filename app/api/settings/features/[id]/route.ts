@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { isValidFeatureId, getFeatureDef } from '@/lib/ai-features'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
 import { writeFeatureSetting } from '@/lib/feature-settings-file'
+import { requireSectionOrSuper } from '@/lib/api-auth'
 
 // PUT /api/settings/features/[id]
 // Body: { provider?: string, model?: string | null }
@@ -10,6 +11,8 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const auth = await requireSectionOrSuper('settings.ai')
+  if (auth instanceof NextResponse) return auth
   const id = params.id
   if (!isValidFeatureId(id)) {
     return NextResponse.json({ error: 'Unknown feature' }, { status: 400 })
