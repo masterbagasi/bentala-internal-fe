@@ -41,14 +41,21 @@ export async function GET(req: NextRequest, { params }: { params: { room: string
 export async function POST(req: NextRequest, { params }: { params: { room: string } }) {
   const g = await gate(params.room)
   if ('error' in g) return g.error
-  const { body } = await req.json().catch(() => ({}))
-  const text = String(body ?? '').trim()
-  if (!text) return NextResponse.json({ error: 'empty' }, { status: 400 })
-  const row = {
+  const payload = await req.json().catch(() => ({}))
+  const text = String(payload.body ?? '').trim()
+  const hasAttachment = typeof payload.attachment_path === 'string' && payload.attachment_path.length > 0
+  if (!text && !hasAttachment) return NextResponse.json({ error: 'empty' }, { status: 400 })
+  const row: Record<string, unknown> = {
     room: params.room,
     author_email: g.user.email,
     author_name: displayName(g.user),
     body: text.slice(0, 4000),
+  }
+  if (hasAttachment) {
+    row.attachment_path = String(payload.attachment_path).slice(0, 500)
+    row.attachment_name = String(payload.attachment_name ?? 'file').slice(0, 255)
+    row.attachment_type = String(payload.attachment_type ?? 'application/octet-stream').slice(0, 128)
+    row.attachment_size = Number(payload.attachment_size) || 0
   }
   const { data, error } = await (g.supabase as any).from('chat_messages').insert(row).select('*').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
