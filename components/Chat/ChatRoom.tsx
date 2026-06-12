@@ -800,7 +800,6 @@ const CR_CSS = `
 .cr-send:disabled { opacity:0.4; cursor:default; background:var(--bg-hover); box-shadow:none; }
 .cr-spin { width:15px; height:15px; border-radius:50%; border:2px solid rgba(255,255,255,0.35); border-top-color:#fff; animation:cr-shimmer 0s, spin 0.65s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
-.cr-hint-row { display:flex; align-items:center; justify-content:flex-end; min-height:18px; margin-top:6px; padding:0 4px; }
 .cr-link-btn { background:none; border:none; cursor:pointer; color:var(--text2); font-size:12px; font-weight:600; padding:2px 4px; }
 .cr-link-btn:hover { color:var(--accent); }
 .cr-link-btn.primary { color:var(--accent); }
