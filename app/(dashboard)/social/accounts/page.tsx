@@ -6,7 +6,7 @@ export default function SocialAccountsPage() {
     <>
       <PageHeader title="Social Media — Accounts" />
       <div className="flex-1 overflow-y-auto min-h-0" style={{ padding: 24 }}>
-        <AccountsView />
+        <AccountsView brand="bpi" brandName="Bentala Project" />
       </div>
     </>
   )

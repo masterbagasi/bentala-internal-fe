@@ -7,12 +7,21 @@ import type { Database } from './database.types'
 // Failures don't break the chain (we swallow them for the *chain*, while still
 // returning the real result/rejection to the caller).
 let authLockChain: Promise<unknown> = Promise.resolve()
-function inMemoryLock<R>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> {
+function inMemoryLock<R>(_name: string, acquireTimeout: number, fn: () => Promise<R>): Promise<R> {
   const run = authLockChain.then(fn, fn)
-  authLockChain = run.then(noop, noop)
+  // Advance the chain when `fn` settles OR after a timeout — never let a single
+  // hung auth op (e.g. a token refresh whose network request stalls) block every
+  // later query in the tab. Without this guard the whole app hangs forever on
+  // "Loading…" (sidebar + data) because each query awaits the dead chain. The
+  // caller still receives `fn`'s real result/rejection; only the *chain* is
+  // released early. Normal (fast) auth ops keep their serialized behaviour.
+  const ms = acquireTimeout > 0 ? acquireTimeout : 10_000
+  authLockChain = new Promise<void>(resolve => {
+    const t = setTimeout(resolve, ms)
+    run.then(() => { clearTimeout(t); resolve() }, () => { clearTimeout(t); resolve() })
+  })
   return run
 }
-function noop() { /* keep the lock chain alive regardless of outcome */ }
 
 export function createClient(): SupabaseClient<Database> {
   // @supabase/ssr@0.6.1 mis-threads the Database generic into

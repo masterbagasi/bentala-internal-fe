@@ -39,6 +39,38 @@ export function metricMap(res: any): Record<string, number | null> {
   return out
 }
 
+// A daily time-series metric (period='day'): each metric carries values[] with
+// an end_time + value. Used for follower_count (daily follower gains).
+export function dailySeries(res: any): { day: string; value: number }[] {
+  const out: { day: string; value: number }[] = []
+  for (const m of metricRows(res)) {
+    for (const v of (m?.values ?? [])) {
+      const day = typeof v?.end_time === 'string' ? v.end_time.slice(0, 10) : null
+      const val = num(v?.value)
+      if (day && val != null) out.push({ day, value: val })
+    }
+  }
+  return out
+}
+
+// Reconstruct an absolute daily follower trend from IG's follower_count series
+// (which reports per-day GAINS, not totals) anchored to the known current total.
+// abs[day d] = currentTotal − (sum of gains on days after d). IG omits unfollows,
+// so the historical tail is approximate, but the curve is pinned to today's real
+// total. Returns ascending-by-day; always includes a `today` point at the total.
+export function reconstructFollowerSeries(
+  dailyGains: { day: string; value: number }[],
+  currentTotal: number,
+  today: string,
+): { day: string; value: number }[] {
+  const gains = [...dailyGains].filter(g => g.day <= today).sort((a, b) => (a.day < b.day ? -1 : 1))
+  const suffix: number[] = new Array(gains.length).fill(0)
+  for (let i = gains.length - 2; i >= 0; i--) suffix[i] = suffix[i + 1] + gains[i + 1].value
+  const series = gains.map((g, i) => ({ day: g.day, value: currentTotal - suffix[i] }))
+  if (!series.some(p => p.day === today)) series.push({ day: today, value: currentTotal })
+  return series
+}
+
 // Media list is under res.data.data; cursor under res.data.paging.cursors.after.
 export function mediaPage(res: any): { items: any[]; after: string | null } {
   const data = res?.data ?? {}

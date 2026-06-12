@@ -196,3 +196,37 @@ export function BtnDanger({
     </button>
   )
 }
+
+// ── Styled replacement for the native window.confirm() ──
+export function ConfirmDialog({
+  open, title, message, confirmLabel = 'OK', cancelLabel = 'Batal',
+  danger = false, onConfirm, onCancel,
+}: {
+  open: boolean
+  title?: React.ReactNode
+  message: React.ReactNode
+  confirmLabel?: string
+  cancelLabel?: string
+  danger?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <Modal
+      open={open}
+      onClose={onCancel}
+      title={title}
+      maxWidth={420}
+      footer={
+        <>
+          <BtnSecondary onClick={onCancel}>{cancelLabel}</BtnSecondary>
+          {danger
+            ? <BtnDanger onClick={onConfirm}>{confirmLabel}</BtnDanger>
+            : <BtnPrimary onClick={onConfirm}>{confirmLabel}</BtnPrimary>}
+        </>
+      }
+    >
+      <div className="text-sm" style={{ color: 'var(--text2)', lineHeight: 1.6 }}>{message}</div>
+    </Modal>
+  )
+}

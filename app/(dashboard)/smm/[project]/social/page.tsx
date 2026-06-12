@@ -87,7 +87,7 @@ export default function Page() {
         onTabChange={setTab}
         tabsRight={
           gated ? undefined
-          : tab === 'analytics' ? <SocialAnalyticsFilterButton subjectId={subjectId} setSubjectId={setSubjectId} platform={platform} setPlatform={setPlatform} />
+          : tab === 'analytics' ? <SocialAnalyticsFilterButton brand={slug} subjectId={subjectId} setSubjectId={setSubjectId} platform={platform} setPlatform={setPlatform} />
           : tab === 'reports' ? <SocialReportsFilterButton subjectId={subjectId} setSubjectId={setSubjectId} period={period} setPeriod={setPeriod} />
           : tab === 'plan' ? <SocialPlanFilterButton subjectId={subjectId} setSubjectId={setSubjectId} />
           : undefined}

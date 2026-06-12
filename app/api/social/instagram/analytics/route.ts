@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
       return {
         id: m.media_id, caption: m.caption, permalink: m.permalink,
         type: m.media_product_type ?? m.media_type, timestamp: m.timestamp,
+        cover: m.thumbnail_url ?? m.media_url ?? null,
         likes: m.like_count ?? 0, comments: m.comments_count ?? 0,
         reach: mi.reach ?? null, views: mi.views ?? null, saved: mi.saved ?? null, shares: mi.shares ?? null,
       }

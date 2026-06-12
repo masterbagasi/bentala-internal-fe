@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { PLATFORM_META, type Platform, type ConnStatus, type SubjectType, type Connection } from './mock'
 import { Card, PlatformChip, StatusDot, SubjectTypeBadge, fmtNum } from './ui'
+import { ConfirmDialog } from '@/components/shared/Modal'
 
 // Untyped client — `social_accounts` isn't in the generated Database types.
 const sb = () => getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
@@ -21,6 +22,29 @@ interface SocialAccount {
 const PLATFORM_KEYS = Object.keys(PLATFORM_META) as Platform[]
 const STATUS_KEYS: ConnStatus[] = ['connected', 'pending', 'public', 'error']
 
+// Platforms not yet wired to a live OAuth flow. Rendered with their real brand
+// colour so the picker reads as a real product surface, just disabled for now.
+const COMING_SOON: { name: string; mono: string; bg: string; monoSize?: number }[] = [
+  { name: 'TikTok', mono: '♪', bg: 'linear-gradient(135deg,#25F4EE 0%,#111 52%,#FE2C55 100%)' },
+  { name: 'Facebook', mono: 'f', bg: '#1877F2', monoSize: 15 },
+  { name: 'YouTube', mono: '▶', bg: '#FF0000', monoSize: 11 },
+  { name: 'X', mono: '𝕏', bg: '#000000' },
+  { name: 'LinkedIn', mono: 'in', bg: '#0A66C2', monoSize: 11 },
+]
+
+// Shared square icon tile for the platform picker.
+function PlatformTile({ bg, mono, monoSize = 13, dim }: { bg: string; mono: string; monoSize?: number; dim?: boolean }) {
+  return (
+    <span style={{
+      width: 30, height: 30, borderRadius: 9, flexShrink: 0, background: bg,
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: monoSize, fontWeight: 800, color: '#fff', letterSpacing: '-0.3px',
+      boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.12)',
+      opacity: dim ? 0.7 : 1,
+    }}>{mono}</span>
+  )
+}
+
 export function AccountsView({ brand, brandName }: { brand: string; brandName?: string }) {
   const t = useT()
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
@@ -29,6 +53,7 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
   const [connecting, setConnecting] = useState(false)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [connections, setConnections] = useState<{ username: string | null; status: string; ig_user_id: string | null; connected_account_id: string }[]>([])
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; confirmLabel: string; onConfirm: () => void } | null>(null)
 
   const load = useCallback(async () => {
     // Retry a couple of times: Supabase's gotrue navigator lock can throw a
@@ -57,13 +82,19 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
     setConnections((data as typeof connections | null) ?? [])
   }, [brand])
 
-  async function disconnect(connectedAccountId: string) {
-    if (!confirm(t('Putuskan & hapus data akun ini?'))) return
-    await fetch('/api/social/instagram/disconnect', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brand, connectedAccountId }),
+  function disconnect(connectedAccountId: string) {
+    setConfirmDialog({
+      message: t('Putuskan & hapus data akun ini?'),
+      confirmLabel: t('Putuskan'),
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        await fetch('/api/social/instagram/disconnect', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brand, connectedAccountId }),
+        })
+        loadConnections()
+        load()
+      },
     })
-    loadConnections()
-    load()
   }
 
   useEffect(() => {
@@ -72,10 +103,16 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
     loadConnections()
   }, [brand, load, loadConnections])
 
-  async function removeAccount(id: string) {
-    if (!confirm(t('Hapus akun ini?'))) return
-    setAccounts(prev => prev.filter(a => a.id !== id)) // optimistic
-    await sb().from('social_accounts').delete().eq('id', id)
+  function removeAccount(id: string) {
+    setConfirmDialog({
+      message: t('Hapus akun ini?'),
+      confirmLabel: t('Hapus'),
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        setAccounts(prev => prev.filter(a => a.id !== id)) // optimistic
+        await sb().from('social_accounts').delete().eq('id', id)
+      },
+    })
   }
 
   // OAuth-connect an Instagram account for this brand via Composio. The login
@@ -96,7 +133,7 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
         const e = await r.json().catch(() => ({}))
         win?.close()
         setConnecting(false)
-        alert(t('Gagal memulai koneksi') + ': ' + (e.error || r.status) + '. ' + t('Pastikan server sudah di-restart (env Composio).'))
+        alert(t('Gagal memulai koneksi') + ': ' + (e.error || r.status) + (e.code ? ` (${e.code})` : ''))
         return
       }
       const { redirectUrl, connectedAccountId, userId } = await r.json()
@@ -151,26 +188,41 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
             <>
               <div onClick={() => setAddMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} />
               <div style={{
-                position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 70, width: 230,
-                background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 6,
-                boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+                position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 70, width: 268,
+                background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 7,
+                boxShadow: '0 18px 50px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02)',
+                transformOrigin: 'top right', animation: 'menuPop 0.16s cubic-bezier(0.16,1,0.3,1)',
               }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text3)', padding: '6px 10px 8px' }}>
+                  {t('Pilih Platform')}
+                </div>
+
+                {/* Instagram — live */}
                 <button
                   onClick={() => { setAddMenuOpen(false); connectInstagram() }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', fontSize: 13, fontWeight: 600, color: 'var(--text)', cursor: 'pointer' }}
-                  onMouseOver={e => (e.currentTarget.style.background = 'var(--bg3)')}
-                  onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 10, padding: '8px 10px', fontSize: 13.5, fontWeight: 600, color: 'var(--text)', cursor: 'pointer', transition: 'background 0.12s' }}
+                  onMouseOver={e => { e.currentTarget.style.background = 'rgba(11,61,231,0.14)'; const a = e.currentTarget.querySelector('[data-arrow]') as HTMLElement | null; if (a) { a.style.opacity = '1'; a.style.transform = 'translateX(0)' } }}
+                  onMouseOut={e => { e.currentTarget.style.background = 'transparent'; const a = e.currentTarget.querySelector('[data-arrow]') as HTMLElement | null; if (a) { a.style.opacity = '0'; a.style.transform = 'translateX(-4px)' } }}
                 >
-                  <span style={{ width: 24, height: 24, borderRadius: 7, background: 'linear-gradient(135deg,#c4399a,#c47a1f)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff' }}>IG</span>
-                  Instagram
+                  <PlatformTile bg="linear-gradient(135deg,#f9ce34,#ee2a7b 52%,#6228d7)" mono="IG" monoSize={11} />
+                  <span style={{ flex: 1 }}>Instagram</span>
+                  <span data-arrow style={{ fontSize: 16, lineHeight: 1, color: 'var(--accent)', opacity: 0, transform: 'translateX(-4px)', transition: 'opacity 0.14s, transform 0.14s' }}>→</span>
                 </button>
-                {['TikTok', 'Facebook', 'YouTube', 'X', 'LinkedIn'].map(p => (
-                  <button key={p} disabled
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', fontSize: 13, fontWeight: 500, color: 'var(--text3)', cursor: 'not-allowed' }}>
-                    <span style={{ width: 24, height: 24, borderRadius: 7, background: 'var(--bg3)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{p.charAt(0)}</span>
-                    {p}
-                    <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--text3)' }}>{t('Segera')}</span>
-                  </button>
+
+                <div style={{ height: 1, background: 'var(--border)', margin: '7px 8px' }} />
+
+                {/* Coming soon */}
+                {COMING_SOON.map(p => (
+                  <div key={p.name}
+                    style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', borderRadius: 10, padding: '8px 10px', fontSize: 13.5, fontWeight: 500, color: 'var(--text3)', cursor: 'not-allowed' }}>
+                    <PlatformTile bg={p.bg} mono={p.mono} monoSize={p.monoSize} dim />
+                    <span style={{ flex: 1 }}>{p.name}</span>
+                    <span style={{
+                      fontSize: 9.5, fontWeight: 700, letterSpacing: '0.2px', whiteSpace: 'nowrap',
+                      padding: '3px 8px', borderRadius: 999, color: 'var(--text3)',
+                      background: 'var(--bg3)', border: '1px solid var(--border)',
+                    }}>Coming soon!</span>
+                  </div>
                 ))}
               </div>
             </>
@@ -260,6 +312,17 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
       )}
 
       {adding && <AddAccountModal brand={brand} brandName={brandName} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load() }} />}
+
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={t('Konfirmasi')}
+        message={confirmDialog?.message ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel ?? 'OK'}
+        cancelLabel={t('Batal')}
+        danger
+        onConfirm={() => confirmDialog?.onConfirm()}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

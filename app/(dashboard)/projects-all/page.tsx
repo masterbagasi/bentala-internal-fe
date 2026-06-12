@@ -4,7 +4,6 @@ import { useState, useRef } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
 import { BPIPage, BoardFilter, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
 import { PostHistoryButton } from '@/components/shared/PostHistory'
-import { ManageProjectsPanel } from '@/components/Socmed/ManageProjectsPanel'
 import { useT } from '@/lib/i18n/LanguageProvider'
 
 // "All Project" — same as a Projects board but combining posts from every
@@ -39,7 +38,6 @@ export default function AllProjectsPage() {
         }
       />
       <div className="flex-1 overflow-y-auto min-h-0">
-        <ManageProjectsPanel />
         <BPIPage ref={ref} entity="bpi" allProjects activeTab={tab as BPITabType} filters={bf.filters} currentUser="" />
       </div>
     </>

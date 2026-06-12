@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Chart, registerables } from 'chart.js'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import {
@@ -18,6 +18,30 @@ import {
 } from './sections'
 import { LiveAnalytics } from './LiveAnalytics'
 import type { IgAnalytics } from '@/lib/social/types'
+import { getSupabase } from '@/lib/supabase'
+
+// Real connected accounts for a brand (the ones actually logged in via Composio).
+interface LiveConn { username: string | null; platform: string | null; status: string; ig_user_id: string | null; connected_account_id: string }
+
+function useBrandConnections(brand?: string) {
+  const [conns, setConns] = useState<LiveConn[]>([])
+  const [loading, setLoading] = useState(!!brand)
+  useEffect(() => {
+    if (!brand) { setConns([]); setLoading(false); return }
+    let cancelled = false
+    setLoading(true)
+    const sb = getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
+    sb.from('social_connections')
+      .select('username,platform,status,ig_user_id,connected_account_id')
+      .eq('brand', brand)
+      .then(
+        ({ data }) => { if (!cancelled) { setConns((data as LiveConn[] | null) ?? []); setLoading(false) } },
+        () => { if (!cancelled) { setConns([]); setLoading(false) } },
+      )
+    return () => { cancelled = true }
+  }, [brand])
+  return { conns, loading }
+}
 
 Chart.register(...registerables)
 
@@ -87,26 +111,53 @@ export function AnalyticsView({
   const [contentType, setContentType] = useState<'all' | 'video' | 'photo'>('all')
 
   // Live Instagram data (cached via sync) for this brand's connected account.
+  // Realtime feel without hammering Instagram: poll the cheap analytics cache
+  // frequently, and auto-sync (the heavy Composio call) only when stale and the
+  // tab is visible — throttled so we respect IG rate limits.
   const [live, setLive] = useState<IgAnalytics | null>(null)
   const [refreshing, setRefreshing] = useState(false)
-  useEffect(() => {
+  const refreshingRef = useRef(false)
+  const liveRef = useRef<IgAnalytics | null>(null)
+  useEffect(() => { liveRef.current = live }, [live])
+
+  const loadCached = useCallback(async () => {
     if (!brand) return
-    let cancelled = false
-    fetch(`/api/social/instagram/analytics?brand=${encodeURIComponent(brand)}`)
-      .then(r => (r.ok ? r.json() : EMPTY_ANALYTICS))
-      .then(d => { if (!cancelled) setLive(d ?? EMPTY_ANALYTICS) })
-      .catch(() => { if (!cancelled) setLive(EMPTY_ANALYTICS) })
-    return () => { cancelled = true }
+    try {
+      const r = await fetch(`/api/social/instagram/analytics?brand=${encodeURIComponent(brand)}`)
+      const d = r.ok ? await r.json() : null
+      setLive(prev => (d as IgAnalytics) ?? prev ?? EMPTY_ANALYTICS)
+    } catch { setLive(prev => prev ?? EMPTY_ANALYTICS) }
   }, [brand])
-  async function refreshLive() {
-    if (!brand || refreshing) return
+
+  const refreshLive = useCallback(async () => {
+    if (!brand || refreshingRef.current) return
+    refreshingRef.current = true
     setRefreshing(true)
     try {
       await fetch(`/api/social/instagram/sync?brand=${encodeURIComponent(brand)}`, { method: 'POST' })
-      const r = await fetch(`/api/social/instagram/analytics?brand=${encodeURIComponent(brand)}`)
-      if (r.ok) setLive(await r.json())
-    } finally { setRefreshing(false) }
-  }
+      await loadCached()
+    } finally { refreshingRef.current = false; setRefreshing(false) }
+  }, [brand, loadCached])
+
+  useEffect(() => {
+    if (!brand) return
+    let cancelled = false
+    const POLL_MS = 30_000          // re-read the cheap cache
+    const SYNC_MS = 10 * 60_000     // heavy auto-sync cadence (visible-only)
+    const STALE_MS = 5 * 60_000     // consider data stale after this
+    const visible = () => document.visibilityState === 'visible'
+    const maybeSync = () => {
+      if (cancelled || !visible() || refreshingRef.current) return
+      const ts = liveRef.current?.lastSyncedAt
+      if (!ts || Date.now() - new Date(ts).getTime() > STALE_MS) refreshLive()
+    }
+    loadCached().then(() => { if (!cancelled) maybeSync() })   // first paint, then sync if stale
+    const poll = setInterval(() => { if (visible()) loadCached() }, POLL_MS)
+    const syncTimer = setInterval(maybeSync, SYNC_MS)
+    const onVisible = () => { if (visible()) { loadCached(); maybeSync() } }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { cancelled = true; clearInterval(poll); clearInterval(syncTimer); document.removeEventListener('visibilitychange', onVisible) }
+  }, [brand, loadCached, refreshLive])
 
   function changeSubject(id: string) {
     setSubjectId(id)
@@ -239,7 +290,7 @@ export function AnalyticsView({
   // which passes no brand.)
   if (brand) {
     if (!live) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{t('Memuat…')}</div>
-    return <LiveAnalytics data={live} view={view} onRefresh={refreshLive} refreshing={refreshing} />
+    return <LiveAnalytics data={live} view={view} range={range} onRefresh={refreshLive} refreshing={refreshing} />
   }
 
   return (
@@ -430,44 +481,130 @@ function SocialAnalyticsFilter({ subjectId, onSubject, platform, onPlatform, ava
 }
 
 // Self-contained Filter button + popup for the page's top-right (tab row).
-export function SocialAnalyticsFilterButton({ subjectId, setSubjectId, platform, setPlatform }: {
+// On a brand-scoped page this lists the REAL connected accounts (the ones
+// actually logged in), not the mock subjects.
+export function SocialAnalyticsFilterButton({ brand, setSubjectId, platform, setPlatform }: {
+  brand?: string
   subjectId: string
   setSubjectId: (id: string) => void
   platform: PlatformTab
   setPlatform: (p: PlatformTab) => void
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
-  const subject = SUBJECTS.find(s => s.id === subjectId) ?? SUBJECTS[0]
-  const availablePlatforms = subject.connections.map(c => c.platform)
-  const count = (platform !== 'all' ? 1 : 0)
+  const { conns, loading } = useBrandConnections(brand)
+  const [selected, setSelected] = useState<string | null>(null)
+  useEffect(() => {
+    if (conns.length && !conns.some(c => c.connected_account_id === selected)) {
+      setSelected(conns[0].connected_account_id)
+    }
+  }, [conns, selected])
+
+  // Platforms the brand actually has connected (only Instagram today).
+  const platforms = Array.from(
+    new Set(conns.map(c => (c.platform || 'instagram') as Platform)),
+  ).filter(p => p in PLATFORM_META) as Platform[]
+
+  const active = platform !== 'all'
   return (
     <div style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
           display: 'flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 8,
-          border: '1px solid', borderColor: count ? 'var(--accent)' : 'var(--border)',
-          background: count ? 'rgba(108,99,255,0.12)' : 'var(--bg3)',
-          color: count ? 'var(--accent)' : 'var(--text2)',
-          cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+          border: '1px solid', borderColor: open || active ? 'var(--accent)' : 'var(--border)',
+          background: open || active ? 'rgba(11,61,231,0.12)' : 'var(--bg3)',
+          color: open || active ? 'var(--accent)' : 'var(--text2)',
+          cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', transition: 'all 0.12s',
         }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
         </svg>
         Filter
+        {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />}
       </button>
       {open && (
-        <SocialAnalyticsFilter
-          subjectId={subjectId}
-          onSubject={(id) => { setSubjectId(id); setPlatform('all') }}
-          platform={platform}
-          onPlatform={setPlatform}
-          availablePlatforms={availablePlatforms}
-          onClose={() => setOpen(false)}
-        />
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 70, width: 296,
+            background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 8,
+            boxShadow: '0 18px 50px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02)',
+            transformOrigin: 'top right', animation: 'menuPop 0.16s cubic-bezier(0.16,1,0.3,1)',
+          }}>
+            <FilterLabel>{t('Akun')}</FilterLabel>
+            {loading ? (
+              <div style={{ padding: '8px 10px', fontSize: 12.5, color: 'var(--text3)' }}>{t('Memuat…')}</div>
+            ) : conns.length === 0 ? (
+              <div style={{ padding: '8px 10px', fontSize: 12.5, color: 'var(--text3)' }}>{t('Belum ada akun login')}</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 6 }}>
+                {conns.map(c => {
+                  const isOn = selected === c.connected_account_id
+                  return (
+                    <button key={c.connected_account_id}
+                      onClick={() => { setSelected(c.connected_account_id); setSubjectId(c.connected_account_id); setPlatform('all') }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 11, width: '100%', textAlign: 'left',
+                        border: `1px solid ${isOn ? 'var(--accent)' : 'transparent'}`,
+                        background: isOn ? 'rgba(11,61,231,0.12)' : 'transparent',
+                        borderRadius: 10, padding: '8px 10px', cursor: 'pointer', transition: 'background 0.12s',
+                      }}
+                      onMouseOver={e => { if (!isOn) e.currentTarget.style.background = 'var(--bg3)' }}
+                      onMouseOut={e => { if (!isOn) e.currentTarget.style.background = 'transparent' }}
+                    >
+                      <IgGlyph />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{c.username ?? '—'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Instagram</div>
+                      </div>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: c.status === 'connected' ? 'var(--accent3)' : 'var(--text3)', whiteSpace: 'nowrap' }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.status === 'connected' ? 'var(--accent3)' : 'var(--text3)' }} />
+                        {c.status === 'connected' ? t('Terhubung') : c.status}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {platforms.length > 0 && (
+              <>
+                <div style={{ height: 1, background: 'var(--border)', margin: '6px 6px 8px' }} />
+                <FilterLabel>Platform</FilterLabel>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '0 2px' }}>
+                  <SocialFilterChip label={t('Semua')} active={platform === 'all'} onClick={() => setPlatform('all')} />
+                  {platforms.map(p => (
+                    <SocialFilterChip key={p} label={PLATFORM_META[p].label} active={platform === p} onClick={() => setPlatform(p)} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
+  )
+}
+
+function FilterLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text3)', padding: '4px 10px 8px' }}>
+      {children}
+    </div>
+  )
+}
+
+function IgGlyph() {
+  return (
+    <span style={{
+      width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+      background: 'linear-gradient(135deg,#f9ce34,#ee2a7b 52%,#6228d7)',
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: '-0.3px',
+      boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.12)',
+    }}>IG</span>
   )
 }
 
@@ -478,8 +615,8 @@ export function SocialFilterChip({ label, active, onClick }: { label: string; ac
       style={{
         padding: '5px 11px', borderRadius: 16, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
         border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-        background: active ? 'rgba(108,99,255,0.15)' : 'var(--bg3)',
-        color: active ? 'var(--accent)' : 'var(--text2)', fontWeight: active ? 600 : 400,
+        background: active ? 'rgba(11,61,231,0.18)' : 'var(--bg3)',
+        color: active ? 'var(--text)' : 'var(--text2)', fontWeight: active ? 600 : 400,
       }}
     >
       {label}

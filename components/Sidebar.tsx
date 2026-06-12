@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { useState, useEffect, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { AccountButton } from '@/components/shared/AccountButton'
-import { isEffectiveSuperAdmin, normaliseSections, ALL_SECTION_IDS, sectionForPath } from '@/lib/access'
+import { isEffectiveSuperAdmin, normaliseSections, ALL_SECTION_IDS, sectionForPath, canAccessChat, chatRoomFromPath } from '@/lib/access'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 
@@ -155,6 +155,11 @@ const ShareIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
     <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
     <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+)
+const ChatBubbleIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" {...iconStroke}>
+    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
   </svg>
 )
 const ReportIcon = () => (
@@ -320,6 +325,27 @@ export function Sidebar() {
     }
   }, [])
 
+  // ── Chat unread counts ──
+  // Per-room unread message counts, keyed by project slug. Seeded from the API
+  // and kept live via a postgres_changes subscription on chat_messages: any
+  // INSERT re-fetches the authoritative counts. Re-runs on pathname change so
+  // entering a room (which marks it read) refreshes the badges.
+  const [unread, setUnread] = useState<Record<string, number>>({})
+  useEffect(() => {
+    let cancelled = false
+    const load = () => fetch('/api/chat/unread')
+      .then(r => (r.ok ? r.json() : { counts: {} }))
+      .then((d: { counts?: Record<string, number> }) => { if (!cancelled) setUnread(d.counts ?? {}) })
+      .catch(() => {})
+    load()
+    const supabase = getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
+    const channel = supabase
+      .channel('chat:unread')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => load())
+      .subscribe()
+    return () => { cancelled = true; supabase.removeChannel(channel) }
+  }, [pathname])
+
   function toggleSection(id: string) {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }))
   }
@@ -360,6 +386,7 @@ export function Sidebar() {
           items: [
             { href: `/smm/${p.slug}/social`, label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
             { href: `/smm/${p.slug}`,        label: 'Projects',     icon: <ListIcon />,  color: p.color },
+            { href: `/smm/${p.slug}/chat`,   label: 'Chat',         icon: <ChatBubbleIcon />, color: COLOR.blue },
           ],
         })),
       ],
@@ -456,9 +483,15 @@ export function Sidebar() {
           if (kids.length) out.push({ ...e, items: kids })
         } else {
           const href = (e as NavItem).href
-          const secId = sectionForPath(href)
-          // Routes with no managed section aren't gated; otherwise require grant.
-          if (secId === null || access.allowed.has(secId)) out.push(e)
+          const chatRoom = chatRoomFromPath(href)
+          if (chatRoom !== null) {
+            // Chat inherits project access: social OR projects.
+            if (canAccessChat(access.allowed, chatRoom)) out.push(e)
+          } else {
+            const secId = sectionForPath(href)
+            // Routes with no managed section aren't gated; otherwise require grant.
+            if (secId === null || access.allowed.has(secId)) out.push(e)
+          }
         }
       }
       return out
@@ -741,6 +774,7 @@ export function Sidebar() {
                           isActive={isActive}
                           collapsed={collapsed}
                           toggleSection={toggleSection}
+                          unread={unread}
                         />
                       )
                     }
@@ -751,6 +785,7 @@ export function Sidebar() {
                         item={item}
                         isExpanded={isExpanded}
                         active={isActive(item.href)}
+                        unread={unread}
                       />
                     )
                   })}
@@ -857,10 +892,12 @@ function NavLink({
   item,
   isExpanded,
   active,
+  unread,
 }: {
   item: NavItem
   isExpanded: boolean
   active: boolean
+  unread?: Record<string, number>
 }) {
   const t = useT()
   const color = item.color ?? COLOR.blue
@@ -908,6 +945,16 @@ function NavLink({
       >
         {t(item.label)}
       </span>
+      {isExpanded && (() => {
+        const room = chatRoomFromPath(item.href)
+        const n = room ? (unread?.[room] ?? 0) : 0
+        if (!n) return null
+        return (
+          <span style={{ marginLeft: 'auto', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: 'var(--accent2)', color: '#fff', fontSize: 10.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            {n > 9 ? '9+' : n}
+          </span>
+        )
+      })()}
     </Link>
   )
 }
@@ -918,12 +965,14 @@ function Subgroup({
   isActive,
   collapsed,
   toggleSection,
+  unread,
 }: {
   group: NavSubgroup
   isExpanded: boolean
   isActive: (href: string) => boolean
   collapsed: Record<string, boolean>
   toggleSection: (id: string) => void
+  unread?: Record<string, number>
 }) {
   const t = useT()
   const hasActiveChild = subgroupHasActive(group.items, isActive)
@@ -994,6 +1043,7 @@ function Subgroup({
                   isActive={isActive}
                   collapsed={collapsed}
                   toggleSection={toggleSection}
+                  unread={unread}
                 />
               )
             }
@@ -1004,6 +1054,7 @@ function Subgroup({
                 item={item}
                 isExpanded={isExpanded}
                 active={isActive(item.href)}
+                unread={unread}
               />
             )
           })}

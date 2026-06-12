@@ -19,6 +19,7 @@ export interface IgAnalytics {
   followersByDay: { day: string; value: number }[]
   posts: {
     id: string; caption: string | null; permalink: string | null; type: string | null
+    cover: string | null
     timestamp: string | null; likes: number; comments: number
     reach: number | null; views: number | null; saved: number | null; shares: number | null
   }[]

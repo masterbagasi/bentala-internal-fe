@@ -192,6 +192,16 @@ textarea { resize: vertical; min-height: 70px; }
   to   { opacity: 1; }
 }
 
+@keyframes menuPop {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.8); }
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

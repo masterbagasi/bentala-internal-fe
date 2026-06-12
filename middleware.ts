@@ -5,6 +5,8 @@ import {
   sectionForPath,
   firstAllowedLanding,
   normaliseSections,
+  chatRoomFromPath,
+  canAccessChat,
 } from '@/lib/access'
 
 export async function middleware(request: NextRequest) {
@@ -103,11 +105,20 @@ export async function middleware(request: NextRequest) {
       return redirectTo('/no-access')
     }
 
-    const section = sectionForPath(pathname)
-    if (section !== null && !allowed.includes(section)) {
-      const target = firstAllowedLanding(allowed) ?? '/no-access'
-      // Guard against redirecting a path to itself (no-op → loop).
-      if (target !== pathname) return redirectTo(target)
+    // Chat rooms inherit project access: social OR projects grants entry.
+    const chatRoom = chatRoomFromPath(pathname)
+    if (chatRoom !== null) {
+      if (!canAccessChat(allowed, chatRoom)) {
+        const target = firstAllowedLanding(allowed) ?? '/no-access'
+        if (target !== pathname) return redirectTo(target)
+      }
+    } else {
+      const section = sectionForPath(pathname)
+      if (section !== null && !allowed.includes(section)) {
+        const target = firstAllowedLanding(allowed) ?? '/no-access'
+        // Guard against redirecting a path to itself (no-op → loop).
+        if (target !== pathname) return redirectTo(target)
+      }
     }
   }
 

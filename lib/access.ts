@@ -148,6 +148,10 @@ function pathMatchesRoute(pathname: string, route: string): boolean {
  *  legacy /bpi,/bsi that redirect to them) are parsed by pattern so middleware
  *  needs no DB. Otherwise the longest matching static route wins. */
 export function sectionForPath(pathname: string): string | null {
+  // Chat rooms (/smm/<slug>/chat) are not a granular section — they inherit
+  // project access via canAccessChat(). Exclude them so they don't get
+  // mis-resolved to the project's "projects" section by the generic match below.
+  if (/^\/smm\/[a-z0-9-]+\/chat(\/|$)/.test(pathname)) return null
   // Dynamic socmed routes (post-redirect canonical form).
   const smm = /^\/smm\/([a-z0-9-]+)(\/social)?(\/|$)/.exec(pathname)
   if (smm) return smm[2] ? `smm.${smm[1]}.social` : `smm.${smm[1]}.projects`
@@ -166,6 +170,19 @@ export function sectionForPath(pathname: string): string | null {
     }
   }
   return bestId
+}
+
+/** Chat rooms live at /smm/<slug>/chat. Returns the slug, or null. */
+export function chatRoomFromPath(pathname: string): string | null {
+  const m = /^\/smm\/([a-z0-9-]+)\/chat(\/|$)/.exec(pathname)
+  return m ? m[1] : null
+}
+
+/** A chat room is open to anyone with ANY access to that project (social OR
+ *  projects). Pass the user's already-normalised sections. */
+export function canAccessChat(allowed: Set<string> | string[], slug: string): boolean {
+  const has = (id: string) => (Array.isArray(allowed) ? allowed.includes(id) : allowed.has(id))
+  return has(`smm.${slug}.social`) || has(`smm.${slug}.projects`)
 }
 
 /** Landing path for the first item the user may enter, or null. Handles dynamic

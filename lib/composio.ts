@@ -49,7 +49,7 @@ export const ig = {
   userMedia: (ctx: ExecCtx, after?: string) =>
     exec('INSTAGRAM_GET_IG_USER_MEDIA', ctx, {
       ig_user_id: 'me', limit: 100, ...(after ? { after } : {}),
-      fields: 'id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count',
+      fields: 'id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count,media_url,thumbnail_url',
     }),
 
   mediaInsights: (ctx: ExecCtx, mediaId: string, metric: string[]) =>
@@ -59,7 +59,10 @@ export const ig = {
 // ── Connections ──
 export async function startInstagramLink(slug: string, callbackUrl: string) {
   // Returns ConnectionRequest: { id, redirectUrl, status, waitForConnection() }
-  return composio().connectedAccounts.link(brandUserId(slug), igAuthConfigId(), { callbackUrl })
+  // allowMultiple: a brand may connect more than one IG account, and abandoned
+  // logins leave dangling connection requests under the same userId. Without it
+  // Composio rejects the link with MULTIPLE_CONNECTED_ACCOUNTS once any exist.
+  return composio().connectedAccounts.link(brandUserId(slug), igAuthConfigId(), { callbackUrl, allowMultiple: true })
 }
 
 export async function getConnection(connectedAccountId: string) {
