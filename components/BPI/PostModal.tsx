@@ -282,7 +282,8 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
         if (projectScope && !same(form.project, o.project)) upd.entity = finalEntity
       }
       if (Object.keys(upd).length > 0) {
-        const { error } = await supabase.from('posts').update(upd).eq('id', editId)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any).from('posts').update(upd).eq('id', editId)
         if (error) { setLoading(false); alert(t('Gagal menyimpan: ') + error.message); return }
       }
       // Optimistically update the store so the change shows immediately,
