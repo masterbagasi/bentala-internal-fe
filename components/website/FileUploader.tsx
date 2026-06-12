@@ -861,6 +861,7 @@ export function MultiFileUploader({
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [entries, setEntries] = useState<UploadEntry[]>([])
+  const [lightbox, setLightbox] = useState<string | null>(null) // in-app file preview popup
   const abortRefs = useRef<Map<string, () => void>>(new Map())
   // Mirror of `value` so deferred timeouts always append to latest array,
   // even when several uploads finish in quick succession.
@@ -1034,6 +1035,8 @@ export function MultiFileUploader({
                 }}
               >
                 <div
+                  onClick={() => setLightbox(url)}
+                  title={t('Lihat')}
                   style={{
                     width: 64,
                     height: 40,
@@ -1041,6 +1044,7 @@ export function MultiFileUploader({
                     overflow: 'hidden',
                     background: 'var(--bg2)',
                     flexShrink: 0,
+                    cursor: 'pointer',
                   }}
                 >
                   {isVideo ? (
@@ -1050,7 +1054,10 @@ export function MultiFileUploader({
                     <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   )}
                 </div>
-                <div style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div
+                  onClick={() => setLightbox(url)}
+                  style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                >
                   {url.split('/').pop()}
                 </div>
                 <button
@@ -1119,6 +1126,31 @@ export function MultiFileUploader({
         <div style={{ fontSize: 11, color: '#ff6b6b' }}>{error}</div>
       )}
       {hint && !error && <div style={{ fontSize: 11, color: 'var(--text2)', opacity: 0.7 }}>{hint}</div>}
+
+      {/* In-app file preview popup (no new tab) — works on mobile. */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        >
+          <button
+            type="button"
+            onClick={() => setLightbox(null)}
+            aria-label={t('Tutup')}
+            style={{ position: 'fixed', top: 14, right: 14, width: 42, height: 42, borderRadius: 21, background: 'rgba(255,255,255,0.16)', color: '#fff', border: 'none', fontSize: 20, cursor: 'pointer' }}
+          >
+            ✕
+          </button>
+          {/\.(mp4|webm|mov)(\?|$)/i.test(lightbox) ? (
+            <video src={lightbox} controls autoPlay onClick={e => e.stopPropagation()} style={{ maxWidth: '96vw', maxHeight: '88vh', borderRadius: 10 }} />
+          ) : /\.pdf(\?|$)/i.test(lightbox) ? (
+            <iframe src={lightbox} title="preview" onClick={e => e.stopPropagation()} style={{ width: '96vw', height: '88vh', border: 'none', borderRadius: 10, background: '#fff' }} />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={lightbox} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: '96vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 10 }} />
+          )}
+        </div>
+      )}
     </div>
   )
 }
