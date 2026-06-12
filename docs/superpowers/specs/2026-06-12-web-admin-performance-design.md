@@ -90,6 +90,37 @@ Ranked next steps: (1) verify API self-gating → exclude `/api` from middleware
 (2) client SWR cache for hot reads; (3) lazy-load the 3 heavy pages; (4) trim
 `select *`.
 
+## Phase 2 outcomes (2026-06-12)
+
+**Item 1 — exclude `/api` from middleware: REJECTED as unsafe.** Audit of all 49
+API routes found the app's API security *depends on the middleware*: most `/api/ai/*`
+(expensive external calls), proxies, render, and **3 RLS-bypassing admin routes**
+(`settings/ai/[provider]`, `settings/ai/[provider]/test`, `settings/features/[id]`)
+have **no auth of their own**. Removing middleware from `/api` would expose them.
+Worse, the audit revealed an *existing* bug: middleware only blocks unauthenticated
+users on `/api` (it never section-gates API paths), so any logged-in user could
+write AI provider API keys via those 3 routes.
+- **Fixed:** added `lib/api-auth.ts` (`requireUser` / `requireSuperAdmin` /
+  `requireSectionOrSuper`) and gated the 3 admin routes to super-admin OR
+  `settings.ai`. This is a security fix independent of perf.
+- The full `/api` exclusion remains possible only after adding self-auth to the
+  ~20 unauthenticated `/api/ai/*` + proxy routes — a separate hardening project.
+
+**Item 2 — client cache: mostly already done.** The hottest shared reads
+(`useSocmedProjects`, `/api/accounts`) already use module-level cache + inflight
+dedup, and the dashboard layout/sidebar persists across client navigations (no
+re-fetch per click). Remaining uncached reads are page-specific with modest
+per-page upside — not worth a broad refactor. Cache individual slow pages on
+demand using the same module-cache pattern.
+
+**The real remaining app-wide win:** middleware `supabase.auth.getUser()` makes a
+network round-trip to the Supabase Auth server on **every page navigation** (it
+blocks render). The documented fix is to migrate the project to **asymmetric JWT
+signing keys** (Supabase Dashboard → Auth → JWT Keys) and swap `getUser()` →
+`getClaims()` in middleware, which verifies the JWT **locally** (no round-trip,
+same security). Requires a one-time Supabase config change + testing — recommended
+as the next dedicated perf task.
+
 ## Out of scope
 
 - Visual redesign (covered elsewhere).
