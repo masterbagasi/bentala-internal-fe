@@ -60,6 +60,36 @@ regressions: each change is independently revertible.
   build invocation or stop dev first. Typecheck with `tsc` during iteration.
 - Keep changes scoped — no broad rewrites; targeted fixes ranked by measured impact.
 
+## Phase 1 findings (measured 2026-06-12)
+
+Production build (`next build`) + static audit:
+
+1. **Middleware is the #1 app-wide cost.** It matches every non-static request
+   (all pages AND all `/api/*` calls) and on each runs `supabase.auth.getUser()`
+   — a network round-trip to the Supabase Auth server — plus, for non-super
+   users, a `menu_access` Postgres query. So every navigation pays 1–2 remote
+   round-trips before render, and every API call paid the same.
+   - **Applied (safe):** skip the section-gate block (the `menu_access` query +
+     redirect logic, which only matches page paths) for `/api/*` requests.
+     Removes a DB query from every API call; `getUser` auth is unchanged.
+   - **Bigger win, needs audit:** drop `getUser()` from `/api/*` entirely by
+     excluding `/api` from the matcher — only safe once every API route is
+     confirmed to self-authenticate (some appear to rely on shared helpers /
+     RLS; a per-route pass is required before this).
+2. **No client cache library** (no SWR/react-query). Repeated navigations
+   re-fetch the same endpoints. A prior commit hand-cached `/api/accounts`,
+   confirming this axis. Recommend a small SWR-style cache for hot reads.
+3. **Bundle sizes are moderate** (most routes 170–270 kB First Load JS; shared
+   87 kB). A few heavy pages: `/website/home/hero` 340 kB, `/website/about/content`
+   337 kB, `/smm/[project]/social` 294 kB. Lazy-loading their heavy widgets
+   (`next/dynamic`) trims initial load, but this is a secondary win vs the
+   middleware round-trips.
+4. **`select *` in 7 API routes** — trim to needed columns on hot paths.
+
+Ranked next steps: (1) verify API self-gating → exclude `/api` from middleware;
+(2) client SWR cache for hot reads; (3) lazy-load the 3 heavy pages; (4) trim
+`select *`.
+
 ## Out of scope
 
 - Visual redesign (covered elsewhere).

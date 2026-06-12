@@ -61,6 +61,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
+  // API routes are authenticated by getUser() above and self-gate their data via
+  // RLS + per-route checks. The section gate below is for PAGE navigations only
+  // (sectionForPath never matches /api), so skip its extra menu_access query on
+  // every API call — a meaningful win since the dashboard fires many API calls.
+  if (pathname.startsWith('/api/')) {
+    return response
+  }
+
   // ── Per-account menu access gate ──────────────────────────────
   // The super admin (lib/access.ts) bypasses everything. Every other account
   // may only enter routes whose section is in their `menu_access` row. Default
