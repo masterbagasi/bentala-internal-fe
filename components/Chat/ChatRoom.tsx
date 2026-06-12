@@ -57,6 +57,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const [pinned, setPinned] = useState(false) // user scrolled up — show "jump to latest"
   // Message actions / edit.
   const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; up: boolean } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   // Attachments.
@@ -169,6 +170,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
     atBottomRef.current = atBottom
     setPinned(!atBottom)
+    if (menuFor) setMenuFor(null) // fixed-positioned menu shouldn't float while scrolling
   }
 
   function jumpToLatest() {
@@ -346,6 +348,9 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
               const newDay = !prev || dayKey(prev.created_at) !== dayKey(m.created_at)
               const grouped = !newDay && !!prev && prev.author_email === m.author_email &&
                 new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < GROUP_WINDOW_MS
+              // Name label repeats only when the author changes or the day changes —
+              // NOT on every time-gap. So a long run of your own messages shows "Me" once.
+              const showName = !prev || prev.author_email !== m.author_email || newDay
               const pendingMsg = m.id.startsWith('tmp-')
               const retracted = !!m.deleted_at
               const canDelete = mine || meSuper
@@ -380,7 +385,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                         )}
                       </span>
                       <div className="cr-col">
-                        {!grouped && (
+                        {showName && (
                           <div className="cr-meta">
                             <span className="cr-name">{mine ? t('Saya') : m.author_name}</span>
                           </div>
@@ -435,11 +440,24 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
 
                             {hasMenu && (
                               <div className="cr-actions-wrap">
-                                <button className="cr-actions" onClick={() => setMenuFor(menuFor === m.id ? null : m.id)} aria-label={t('Aksi')}>
+                                <button
+                                  className="cr-actions"
+                                  onClick={e => {
+                                    if (menuFor === m.id) { setMenuFor(null); return }
+                                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                                    const up = r.bottom + 132 > window.innerHeight
+                                    setMenuPos({ top: up ? r.top - 4 : r.bottom + 4, left: Math.min(r.left, window.innerWidth - 150), up })
+                                    setMenuFor(m.id)
+                                  }}
+                                  aria-label={t('Aksi')}
+                                >
                                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
                                 </button>
-                                {menuFor === m.id && (
-                                  <div className={`cr-menu ${mine ? 'right' : 'left'}`}>
+                                {menuFor === m.id && menuPos && (
+                                  <div
+                                    className="cr-menu"
+                                    style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, transform: menuPos.up ? 'translateY(-100%)' : 'none' }}
+                                  >
                                     {mine && <button onClick={() => startEdit(m)}>{t('Edit')}</button>}
                                     {mine && <button onClick={() => retract(m.id)}>{t('Tarik')}</button>}
                                     {(meSuper && !mine) && <button className="danger" onClick={() => hardDelete(m.id)}>{t('Hapus')}</button>}
@@ -670,11 +688,12 @@ const CR_CSS = `
 .cr-row:hover .cr-actions { opacity:1; }
 .cr-actions:hover { background:var(--bg-hover); color:var(--text); }
 .cr-menu {
-  position:absolute; top:calc(100% + 4px); z-index:20; min-width:130px;
+  z-index:30; min-width:140px;
   background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:4px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.4);
+  box-shadow:0 10px 30px rgba(0,0,0,0.45);
+  animation:cr-fade 0.12s ease both;
 }
-.cr-menu.left { left:0; } .cr-menu.right { right:0; }
+@keyframes cr-fade { from { opacity:0; } to { opacity:1; } }
 .cr-menu button {
   display:block; width:100%; text-align:left; background:none; border:none; cursor:pointer;
   padding:7px 10px; border-radius:7px; font-size:13px; color:var(--text);

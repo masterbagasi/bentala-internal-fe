@@ -129,6 +129,9 @@ export function FileUploader({
 
     try {
       const result = await promise
+      // Commit the URL to the parent IMMEDIATELY so a Save right after upload
+      // never loses the file. The row animation below is purely visual.
+      onChange(result.url)
       // Stage 1: mark done — green check shows for 2 seconds.
       setEntries((xs) =>
         xs.map((e) => (e.id === id ? { ...e, loaded: e.size, status: 'done' } : e)),
@@ -136,10 +139,8 @@ export function FileUploader({
       // Stage 2: after 2s, trigger leaving animation (CSS transitions on opacity/height).
       setTimeout(() => {
         setEntries((xs) => xs.map((e) => (e.id === id ? { ...e, status: 'done-leaving' } : e)))
-        // Stage 3: after CSS transition (~280ms), commit URL to value and remove entry.
-        // The new file row uses .rt-file-row-enter to fade-in from the same position.
+        // Stage 3: after CSS transition (~280ms), remove the entry row.
         setTimeout(() => {
-          onChange(result.url)
           setEntries((xs) => xs.filter((e) => e.id !== id))
         }, 300)
       }, 2000)
@@ -911,19 +912,22 @@ export function MultiFileUploader({
 
     try {
       const result = await promise
+      // Append the URL to the value list IMMEDIATELY so a Save right after
+      // upload never loses the file. valueRef is updated synchronously so
+      // back-to-back uploads in one batch all land. Animation below is visual.
+      if (!valueRef.current.includes(result.url)) {
+        const next = [...valueRef.current, result.url]
+        valueRef.current = next
+        onChange(next)
+      }
       // Stage 1: mark done — green check shows for 2 seconds.
       setEntries((xs) =>
         xs.map((e) => (e.id === id ? { ...e, loaded: e.size, status: 'done' } : e)),
       )
-      // Stage 2: after 2s, fade out the row.
+      // Stage 2: after 2s, fade out the row, then remove it.
       setTimeout(() => {
         setEntries((xs) => xs.map((e) => (e.id === id ? { ...e, status: 'done-leaving' } : e)))
-        // Stage 3: after CSS transition, append URL to value list (with its
-        // own entrance animation) and clear the entry.
         setTimeout(() => {
-          if (!valueRef.current.includes(result.url)) {
-            onChange([...valueRef.current, result.url])
-          }
           setEntries((xs) => xs.filter((e) => e.id !== id))
         }, 300)
       }, 2000)
