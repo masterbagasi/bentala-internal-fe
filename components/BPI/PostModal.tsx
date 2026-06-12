@@ -253,11 +253,42 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
     }
 
     if (editId) {
-      await supabase.from('posts').update(data).eq('id', editId)
+      // CRITICAL: only write fields the user actually changed. A full-object
+      // update can blank a field that wasn't loaded into the form (data loss).
+      // Diffing against the originally-loaded values makes a save incapable of
+      // overwriting an untouched field (e.g. caption/brief stay intact).
+      const o = originalForm
+      const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+      let upd: Record<string, unknown> = data
+      if (o) {
+        upd = {}
+        if (!same(form.title.trim(), (o.title || '').trim())) upd.title = data.title
+        if (!same(form.caption, o.caption)) upd.caption = data.caption
+        if (!same(form.headline, o.headline)) upd.headline = data.headline
+        if (!same(form.brief, o.brief)) upd.brief = data.brief
+        if (!same(form.hashtags, o.hashtags)) upd.hashtags = data.hashtags
+        if (!same(form.notes, o.notes)) upd.notes = data.notes
+        if (!same(form.date, o.date)) upd.date = data.date
+        if (!same(form.status, o.status)) upd.status = data.status
+        if (!same(form.ratio, o.ratio)) upd.ratio = data.ratio
+        if (!same(form.platforms, o.platforms)) upd.platforms = data.platforms
+        if (!same(form.content_types, o.content_types)) { upd.content_types = data.content_types; upd.pics = data.pics }
+        if (!same(form.tagged, o.tagged)) upd.tagged = data.tagged
+        if (!same(form.files, o.files)) upd.files = data.files
+        if (!same(form.video_link, o.video_link)) upd.video_link = data.video_link
+        if (!same(form.design_link, o.design_link)) upd.design_link = data.design_link
+        if (!same(form.video_file_url, o.video_file_url)) upd.video_file_url = data.video_file_url
+        if (!same(form.design_file_url, o.design_file_url)) upd.design_file_url = data.design_file_url
+        if (projectScope && !same(form.project, o.project)) upd.entity = finalEntity
+      }
+      if (Object.keys(upd).length > 0) {
+        const { error } = await supabase.from('posts').update(upd).eq('id', editId)
+        if (error) { setLoading(false); alert(t('Gagal menyimpan: ') + error.message); return }
+      }
       // Optimistically update the store so the change shows immediately,
       // without waiting for the realtime echo or a page reload.
       const existing = posts.find(p => p.id === editId)
-      if (existing) upsertPost({ ...existing, ...data, id: editId } as Post)
+      if (existing) upsertPost({ ...existing, ...upd, id: editId } as Post)
       logActivity(`Post diupdate: "${form.title}"`)
       await logPostChanges(editId)
     } else {
