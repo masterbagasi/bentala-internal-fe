@@ -201,11 +201,13 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     const next = [...cur, url]
     upsertPost({ ...latest, files: next }) // optimistic (synchronous)
     // MUST await — a Supabase query builder is lazy; `void`-ing it never sends
-    // the request, so the upload would vanish on refresh. Revert if it fails.
-    const { error } = await getSupabase().from('posts').update({ files: next }).eq('id', postId)
-    if (error) {
-      upsertPost({ ...latest, files: cur })
-      alert(t('Gagal menyimpan file: ') + error.message)
+    // the request, so the upload would vanish on refresh. .select() also lets us
+    // detect a silent 0-row write (RLS / wrong id) that returns no error.
+    const { data, error } = await getSupabase()
+      .from('posts').update({ files: next }).eq('id', postId).select('id')
+    if (error || !data || data.length === 0) {
+      upsertPost({ ...latest, files: cur }) // revert optimistic
+      alert(t('Gagal menyimpan file: ') + (error?.message || t('tidak tersimpan ke database')))
     }
   }
 
