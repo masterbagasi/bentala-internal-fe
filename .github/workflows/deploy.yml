@@ -1,0 +1,33 @@
+name: Deploy to Vercel
+
+# Auto-deploy production on every push to main. This works even if the native
+# Vercel ↔ GitHub integration is disconnected: it just POSTs to a Vercel
+# "Deploy Hook" URL, which triggers a production build from the latest main.
+#
+# One-time setup (no code needed afterwards):
+#   1. Vercel → your project → Settings → Git → Deploy Hooks →
+#      create a hook for the `main` branch → copy the URL.
+#   2. GitHub → this repo → Settings → Secrets and variables → Actions →
+#      New repository secret → name: VERCEL_DEPLOY_HOOK → value: <the URL>.
+# After that, every push to main auto-deploys for everyone.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {} # allow manual "Run workflow" from the Actions tab too
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel production deploy
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::warning::VERCEL_DEPLOY_HOOK secret is not set — skipping. Add it in repo Settings → Secrets → Actions."
+            exit 0
+          fi
+          echo "Triggering Vercel deploy hook…"
+          curl -fsSL -X POST "$HOOK"
+          echo "Deploy triggered."
