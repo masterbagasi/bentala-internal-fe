@@ -193,14 +193,20 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
 
   // Append a finished upload's URL to posts.files, reading the latest list from
   // the store so concurrent uploads don't overwrite each other.
-  function appendUrl(url: string) {
+  async function appendUrl(url: string) {
     const latest = useStore.getState().posts.find(p => p.id === postId)
     if (!latest) return
     const cur = latest.files || []
     if (cur.includes(url)) return
     const next = [...cur, url]
     upsertPost({ ...latest, files: next }) // optimistic (synchronous)
-    void getSupabase().from('posts').update({ files: next }).eq('id', postId)
+    // MUST await — a Supabase query builder is lazy; `void`-ing it never sends
+    // the request, so the upload would vanish on refresh. Revert if it fails.
+    const { error } = await getSupabase().from('posts').update({ files: next }).eq('id', postId)
+    if (error) {
+      upsertPost({ ...latest, files: cur })
+      alert(t('Gagal menyimpan file: ') + error.message)
+    }
   }
 
   // Upload each picked file with live progress + a per-file cancel handle.
