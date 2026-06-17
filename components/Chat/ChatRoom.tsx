@@ -204,7 +204,8 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
     loadReads()
     loadReactions()
 
-    const channel = sb()
+    const supabase = sb()
+    const buildChannel = () => supabase
       .channel(`chat:${room}`)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'chat_reads', filter: `room=eq.${room}` },
@@ -242,7 +243,27 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
         })
       .subscribe()
 
-    return () => { cancelled = true; sb().removeChannel(channel) }
+    // CRITICAL: chat RLS (can_access_chat_room → auth.jwt()->>'email') means
+    // realtime only delivers events when the socket carries the user's JWT.
+    // Without setting it, an unauthenticated socket gets NOTHING, so other
+    // accounts never receive new messages until they refresh. Set the token
+    // before subscribing, and refresh it on every auth change (token expiry).
+    let channel: ReturnType<typeof buildChannel> | null = null
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return
+      const token = data.session?.access_token
+      if (token) (supabase.realtime as { setAuth: (t: string) => void }).setAuth(token)
+      channel = buildChannel()
+    })
+    const { data: authSub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session?.access_token) (supabase.realtime as { setAuth: (t: string) => void }).setAuth(session.access_token)
+    })
+
+    return () => {
+      cancelled = true
+      authSub.subscription.unsubscribe()
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [room, scrollToBottom, loadReads, loadReactions])
 
   // Auto-scroll on new messages only if the user is already at the bottom.
