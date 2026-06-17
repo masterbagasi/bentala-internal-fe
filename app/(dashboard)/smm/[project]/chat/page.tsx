@@ -8,9 +8,11 @@ import { getSupabase } from '@/lib/supabase'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { isEffectiveSuperAdmin } from '@/lib/access'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 export default function ChatPage() {
   const params = useParams()
+  const isMobile = useIsMobile()
   const slug = String(params.project)
   const t = useT()
   const projects = useSocmedProjects(false)
@@ -33,7 +35,7 @@ export default function ChatPage() {
   return (
     <>
       <PageHeader title={roomName} />
-      <div className="flex-1 overflow-hidden min-h-0" style={{ padding: 24, display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-1 overflow-hidden min-h-0" style={{ padding: isMobile ? '8px 10px 0' : 24, display: 'flex', flexDirection: 'column' }}>
         {email
           ? <ChatRoom room={slug} roomName={roomName} meEmail={email} meName={name} meSuper={meSuper} />
           : <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{t('Memuat…')}</div>}

@@ -585,6 +585,15 @@ export function Sidebar() {
       main.style.marginLeft = '0px'
       main.style.marginTop = 'calc(52px + env(safe-area-inset-top, 0px))'
       main.style.paddingLeft = '10px'
+      // CRITICAL: `main` is h-screen (100vh). With the 52px top-bar margin on
+      // top, a full 100vh would push main's bottom *below* the visible
+      // viewport — hiding the bottom of every page (e.g. the chat composer)
+      // behind the browser chrome, and leaving 52px of page that scrolls (so
+      // sticky page headers drift). Pin main to the real visible height using
+      // dvh (which tracks the browser's show/hide chrome) minus the top bar,
+      // so each page's internal scroller is the ONLY thing that scrolls.
+      main.style.height = 'calc(100dvh - 52px - env(safe-area-inset-top, 0px))'
+      main.style.paddingBottom = 'calc(10px + env(safe-area-inset-bottom, 0px))'
       return
     }
     // Desktop: clear the floating rail's width PLUS the 10px gap on each
@@ -593,6 +602,9 @@ export function Sidebar() {
     main.style.marginLeft = `calc(${w} + 20px)`
     main.style.marginTop = '0px'
     main.style.paddingLeft = '0px'
+    // Restore the h-screen height + default bottom padding for desktop.
+    main.style.height = ''
+    main.style.paddingBottom = '10px'
   }, [isExpanded, isMobile])
 
   function toggleSidebar() {
