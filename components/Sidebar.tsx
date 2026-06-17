@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { initNotificationSound, playNotificationSound } from '@/lib/notificationSound'
 import { getSupabase } from '@/lib/supabase'
 import { AccountButton } from '@/components/shared/AccountButton'
 import { isEffectiveSuperAdmin, normaliseSections, ALL_SECTION_IDS, sectionForPath, canAccessChat, chatRoomFromPath } from '@/lib/access'
@@ -324,11 +325,16 @@ export function Sidebar() {
     allowed: Set<string>
   }>({ loading: true, isSuper: false, allowed: new Set() })
 
+  // My email — used to skip the notification sound for my own messages.
+  const meEmailRef = useRef<string | null>(null)
+  useEffect(() => { initNotificationSound() }, [])
+
   useEffect(() => {
     let cancelled = false
     const supabase = getSupabase()
     supabase.auth.getUser().then(async ({ data }) => {
       const email = data.user?.email
+      meEmailRef.current = (email ?? '').toLowerCase() || null
       if (isEffectiveSuperAdmin(email, data.user?.app_metadata?.role)) {
         if (!cancelled) setAccess({ loading: false, isSuper: true, allowed: new Set(ALL_SECTION_IDS) })
         return
@@ -367,7 +373,13 @@ export function Sidebar() {
     const supabase = getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
     const channel = supabase
       .channel('chat:unread')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => load())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
+        load()
+        // Ring the notification chime for an incoming message from someone else.
+        const row = payload.new as { author_email?: string | null } | undefined
+        const author = (row?.author_email ?? '').toLowerCase()
+        if (author && author !== meEmailRef.current) playNotificationSound()
+      })
       .subscribe()
     return () => { cancelled = true; supabase.removeChannel(channel) }
   }, [pathname])

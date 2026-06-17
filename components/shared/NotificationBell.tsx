@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useStore } from '@/hooks/useStore'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
+import { playNotificationSound } from '@/lib/notificationSound'
 import type { Post } from '@/lib/types'
 
 const STORAGE_KEY = 'bentala_notif_last_seen'
@@ -121,6 +122,8 @@ export function NotificationBell() {
           if (cancelled) return
           const row = payload.new
           if (!(row.mentions ?? []).map(x => x.toLowerCase()).includes(me.email)) return
+          // Don't chime for my own comment mentioning myself.
+          if ((row.author_email ?? '').toLowerCase() !== me.email) playNotificationSound()
           setMyMentions(prev => (prev.some(r => r.id === row.id) ? prev : [row, ...prev]))
         },
       )
