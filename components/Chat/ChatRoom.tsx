@@ -505,7 +505,11 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
               const pendingMsg = m.id.startsWith('tmp-')
               const retracted = !!m.deleted_at
               const canDelete = mine || meSuper
-              const hasMenu = !selecting && !retracted && !pendingMsg && (mine || meSuper)
+              // The menu is available on EVERY message (so anyone can Reply /
+              // React / Info / Select on others' messages). The menu's own items
+              // stay gated: Edit/Unsend only for the author, Hapus only for a
+              // super admin on someone else's message.
+              const hasMenu = !selecting && !retracted && !pendingMsg
               const isImage = !!m.attachment_path && (m.attachment_type ?? '').startsWith('image/')
               const isFile = !!m.attachment_path && !isImage
 
