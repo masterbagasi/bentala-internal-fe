@@ -36,6 +36,13 @@ const ROLE_LABEL: Record<'super_admin' | 'admin' | 'user', string> = {
   super_admin: 'Super Admin', admin: 'Admin', user: 'User',
 }
 
+// Group display order — mirrors the sidebar/navbar so the access panel reads the
+// same way (Chat right under Dashboard). Groups not listed fall to the end.
+const GROUP_NAV_ORDER = [
+  'Dashboard', 'Chat', 'Website', 'Socmed Management', 'Social Media',
+  'Client', 'Projects', 'AI Studio', 'Team', 'Settings',
+]
+
 function initials(name: string): string {
   return (
     name
@@ -217,15 +224,22 @@ export default function AccessControlClient() {
 
   // group (ordered) → subgroup-key (ordered) → items.
   const grouped = useMemo(() => {
-    const groupOrder: string[] = []
     const map = new Map<string, Map<string, SectionMeta[]>>()
     for (const s of sections) {
-      if (!map.has(s.group)) { map.set(s.group, new Map()); groupOrder.push(s.group) }
+      if (!map.has(s.group)) map.set(s.group, new Map())
       const subs = map.get(s.group)!
       const key = s.subgroup ?? ''
       if (!subs.has(key)) subs.set(key, [])
       subs.get(key)!.push(s)
     }
+    // Order groups to mirror the sidebar/navbar (Chat sits under Dashboard).
+    // Unknown groups keep their natural insertion order after the known ones.
+    const seen = Array.from(map.keys())
+    const rank = (g: string) => {
+      const i = GROUP_NAV_ORDER.indexOf(g)
+      return i === -1 ? GROUP_NAV_ORDER.length + seen.indexOf(g) : i
+    }
+    const groupOrder = seen.slice().sort((a, b) => rank(a) - rank(b))
     return { groupOrder, map }
   }, [sections])
 

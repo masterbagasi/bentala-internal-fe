@@ -119,7 +119,12 @@ export async function GET() {
           role,
           locked: hardcoded, // hardcoded super admin — role can't be changed
           isSuperAdmin: eff,
-          sections: eff ? SECTIONS.map(s => s.id) : byEmail.get(a.email.toLowerCase()) ?? [],
+          // Show the account's actual stored grants so it's editable (incl. the
+          // admin's own account). A super admin with no row yet falls back to
+          // "all" — but super status is governed by isEffectiveSuperAdmin
+          // (hardcoded email / app role), NOT this list, so toggling it can
+          // never lock a super admin out.
+          sections: byEmail.get(a.email.toLowerCase()) ?? (eff ? SECTIONS.map(s => s.id) : []),
         }
       })
       .sort((a, b) => a.email.localeCompare(b.email))
@@ -149,15 +154,11 @@ export async function POST(req: NextRequest) {
   if (!email || !email.includes('@')) {
     return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
   }
-  // The hardcoded super admin's access is implicit (full) — saving is a no-op.
-  if (isSuperAdmin(email)) {
-    const admin = createSupabaseAdmin()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: projRows } = await (admin as any).from('socmed_projects').select('slug, name').order('sort_order', { ascending: true })
-    const ids = buildAccessSections((projRows ?? []) as { slug: string; name: string }[]).map(s => s.id)
-    return NextResponse.json({ ok: true, email, sections: ids })
-  }
-
+  // NOTE: super admins (incl. the hardcoded one) CAN now persist their own
+  // section grants here — useful for managing your own account. This does not
+  // affect their privileges: isEffectiveSuperAdmin (hardcoded email / app role)
+  // always grants full access regardless of what's stored, so a super admin
+  // cannot lock themselves out by editing these toggles.
   const sections = normaliseSections(body.sections)
 
   try {
