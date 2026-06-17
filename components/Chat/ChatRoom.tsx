@@ -13,6 +13,7 @@ interface Msg {
   id: string; room: string; author_email: string; author_name: string; body: string; created_at: string
   edited_at?: string | null; deleted_at?: string | null
   attachment_path?: string | null; attachment_name?: string | null; attachment_type?: string | null; attachment_size?: number | null
+  reply_to?: string | null
 }
 
 interface Read { email: string; last_read_at: string }
@@ -74,6 +75,8 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const [infoFor, setInfoFor] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
+  // Message currently being replied to (quoted above the composer).
+  const [replyingTo, setReplyingTo] = useState<Msg | null>(null)
   // Attachments.
   const [pending, setPending] = useState<File | null>(null)
   const [converting, setConverting] = useState(false)
@@ -289,6 +292,8 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   async function send() {
     const body = text.trim()
     if (!body && !pending) return
+    const replyId = replyingTo?.id ?? null
+    setReplyingTo(null)
 
     let attach: { attachment_path: string; attachment_name: string; attachment_type: string; attachment_size: number } | null = null
     if (pending) {
@@ -311,14 +316,14 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
     setText('')
     const optimistic: Msg = {
       id: `tmp-${Date.now()}`, room, author_email: meEmail, author_name: meName,
-      body, created_at: new Date().toISOString(), ...(attach ?? {}),
+      body, created_at: new Date().toISOString(), reply_to: replyId, ...(attach ?? {}),
     }
     atBottomRef.current = true
     setMessages(prev => [...prev, optimistic])
     try {
       const r = await fetch(`/api/chat/${encodeURIComponent(room)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body, ...(attach ?? {}) }),
+        body: JSON.stringify({ body, reply_to: replyId, ...(attach ?? {}) }),
       })
       const d = (await r.json()) as { message?: Msg }
       if (d.message) setMessages(prev => {
@@ -361,6 +366,13 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
     if (!ok) { setMessages(snapshot); flashErr(t('Gagal menghapus pesan')) }
   }
   function startEdit(m: Msg) { setMenuFor(null); setEditing(m.id); setEditText(m.body) }
+  function startReply(m: Msg) { setMenuFor(null); setEditing(null); setReplyingTo(m); setTimeout(() => taRef.current?.focus(), 0) }
+  // Short one-line preview of a message for the reply quote.
+  const msgSnippet = (m: Msg) =>
+    m.deleted_at ? t('Pesan ini ditarik')
+      : m.body ? m.body
+      : m.attachment_path ? ((m.attachment_type ?? '').startsWith('image/') ? `📷 ${t('Foto')}` : `📎 ${m.attachment_name ?? t('Lampiran')}`)
+      : ''
   async function saveEdit(id: string) {
     const body = editText.trim()
     if (!body) return
@@ -475,6 +487,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
               return (
                 <div
                   key={m.id}
+                  data-mid={m.id}
                   className={`cr-msg ${selecting ? 'selecting' : ''} ${selected.has(m.id) ? 'sel' : ''} ${selecting && !canDelete ? 'nosel' : ''}`}
                   onClick={selecting && canDelete ? () => toggleSel(m.id) : undefined}
                 >
@@ -529,6 +542,25 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                           <>
                           <div className="cr-bubble-row">
                             <div className={`cr-bubble ${mine ? 'mine' : ''} ${grouped ? 'grouped' : ''}`} title={fmtTime(m.created_at)}>
+                              {m.reply_to && (() => {
+                                const orig = messages.find(x => x.id === m.reply_to)
+                                return (
+                                  <button
+                                    type="button"
+                                    className="cr-quote"
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      const el = listRef.current?.querySelector(`[data-mid="${m.reply_to}"]`)
+                                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                                      el?.classList.add('cr-flash')
+                                      setTimeout(() => el?.classList.remove('cr-flash'), 1300)
+                                    }}
+                                  >
+                                    <span className="cr-quote-author">{orig ? (orig.author_email === meEmail ? t('Saya') : nameFor(orig.author_email)) : t('Pesan')}</span>
+                                    <span className="cr-quote-snippet">{orig ? msgSnippet(orig) : t('Pesan tidak tersedia')}</span>
+                                  </button>
+                                )
+                              })()}
                               {isImage && (
                                 /* eslint-disable-next-line @next/next/no-img-element */
                                 <img className="cr-img" src={fileUrl(m)} alt={m.attachment_name ?? ''} loading="lazy"
@@ -665,6 +697,10 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                   >{e}</button>
                 ))}
               </div>
+              <button onClick={() => startReply(m)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-1a4 4 0 0 0-4-4H4" /></svg>
+                {t('Balas')}
+              </button>
               {canEdit && (
                 <button onClick={() => startEdit(m)}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>
@@ -806,6 +842,18 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
             </div>
           )}
           {attachErr && <div className="cr-attach-err">{attachErr}</div>}
+          {replyingTo && (
+            <div className="cr-reply-preview">
+              <span className="cr-reply-bar" />
+              <div className="cr-reply-text">
+                <span className="cr-reply-author">{replyingTo.author_email === meEmail ? t('Saya') : nameFor(replyingTo.author_email)}</span>
+                <span className="cr-reply-snippet">{msgSnippet(replyingTo)}</span>
+              </div>
+              <button className="cr-reply-close" onClick={() => setReplyingTo(null)} aria-label={t('Batal balas')}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+          )}
           <div className="cr-input-wrap">
             <input ref={fileRef} type="file" accept={ACCEPT} hidden onChange={e => { pickFile(e.target.files?.[0] ?? null); e.target.value = '' }} />
             <button className="cr-attach-btn" onClick={() => fileRef.current?.click()} aria-label={t('Lampirkan file')} title={t('Lampirkan file')}>
@@ -1044,6 +1092,26 @@ const CR_CSS = `
 .cr-reaction-emoji { font-size:13px; }
 .cr-reaction-count { font-size:11px; font-weight:700; color:var(--text2); font-variant-numeric:tabular-nums; }
 .cr-reaction.mine .cr-reaction-count { color:var(--accent); }
+
+/* ── Reply quote ── */
+/* Composer preview (above the input). */
+.cr-reply-preview { display:flex; align-items:center; gap:10px; margin:0 0 8px; padding:8px 12px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; }
+.cr-reply-bar { width:3px; align-self:stretch; min-height:30px; border-radius:2px; background:var(--accent3); flex-shrink:0; }
+.cr-reply-text { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.cr-reply-author { font-size:12.5px; font-weight:700; color:var(--accent3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cr-reply-snippet { font-size:12.5px; color:var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cr-reply-close { flex-shrink:0; width:28px; height:28px; border-radius:50%; border:none; background:var(--bg3); color:var(--text2); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .12s, color .12s; }
+.cr-reply-close:hover { background:var(--bg-hover); color:var(--text); }
+/* Quote inside a message bubble. */
+.cr-quote { display:flex; flex-direction:column; gap:1px; width:100%; text-align:left; margin:0 0 6px; padding:5px 9px; border:none; cursor:pointer; border-left:3px solid var(--accent3); background:rgba(255,255,255,0.07); border-radius:6px; }
+.cr-bubble.mine .cr-quote { background:rgba(255,255,255,0.16); border-left-color:rgba(255,255,255,0.9); }
+.cr-quote:hover { filter:brightness(1.12); }
+.cr-quote-author { font-size:12px; font-weight:700; color:var(--accent3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cr-bubble.mine .cr-quote-author { color:#fff; }
+.cr-quote-snippet { font-size:12px; opacity:0.85; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px; }
+/* Flash highlight when jumping to a quoted message. */
+.cr-flash .cr-bubble { animation:cr-flash-anim 1.3s ease; }
+@keyframes cr-flash-anim { 0%,100% { box-shadow:none; } 30% { box-shadow:0 0 0 3px var(--accent3); } }
 
 /* Roomier tap targets for the action menu on touch devices. */
 @media (hover: none) {

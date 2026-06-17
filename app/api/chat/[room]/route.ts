@@ -57,6 +57,11 @@ export async function POST(req: NextRequest, { params }: { params: { room: strin
     row.attachment_type = String(payload.attachment_type ?? 'application/octet-stream').slice(0, 128)
     row.attachment_size = Number(payload.attachment_size) || 0
   }
+  // Reply target — a uuid of another message (FK enforces it exists; on-delete
+  // set null keeps replies when the original is hard-deleted).
+  if (typeof payload.reply_to === 'string' && /^[0-9a-f-]{36}$/i.test(payload.reply_to)) {
+    row.reply_to = payload.reply_to
+  }
   const { data, error } = await (g.supabase as any).from('chat_messages').insert(row).select('*').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ message: data })
