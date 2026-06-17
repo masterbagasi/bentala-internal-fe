@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { AudioScript } from '@/lib/types'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const DURASI_OPTIONS = [
   { key: '15 detik', label: '15 dtk' },
@@ -67,6 +68,7 @@ function CopyButton({ text }: { text: string }) {
 
 export default function AudioStudio() {
   const t = useT()
+  const isMobile = useIsMobile()
   const [mode, setMode] = useState<'topic' | 'script'>('topic')
   const [topik, setTopik] = useState('')
   const [scriptRaw, setScriptRaw] = useState('')
@@ -104,9 +106,9 @@ export default function AudioStudio() {
   }
 
   return (
-    <div style={{ display: 'flex', gap: 20, height: 'calc(100vh - 180px)', minHeight: 500 }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 16 : 20, height: isMobile ? 'auto' : 'calc(100vh - 180px)', minHeight: isMobile ? 0 : 500 }}>
       {/* Left — Form */}
-      <div style={{ width: 320, flexShrink: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto' }}>
+      <div style={{ width: isMobile ? '100%' : 320, flexShrink: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto' }}>
         {/* Mode toggle */}
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Mode</div>
@@ -200,7 +202,7 @@ export default function AudioStudio() {
       </div>
 
       {/* Right — Output */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
+      <div style={{ flex: 1, minHeight: isMobile ? '50vh' : 0, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
         {error && (
           <div style={{ padding: '12px 16px', background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 10, color: '#ff6b6b', fontSize: 13 }}>
             {error}

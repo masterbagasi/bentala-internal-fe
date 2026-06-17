@@ -52,7 +52,7 @@ export default function AIHistoryPanel({ tool, onRestore, onClose }: Props) {
 
       {/* Panel */}
       <div style={{
-        position: 'relative', width: 360, height: '100%',
+        position: 'relative', width: 360, maxWidth: '88vw', height: '100%',
         background: 'var(--bg2)', borderLeft: '1px solid var(--border)',
         display: 'flex', flexDirection: 'column',
         animation: 'slideIn 0.2s ease',

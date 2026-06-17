@@ -135,7 +135,7 @@ export default function PipelineHub() {
         >
           <div style={{
             background: 'var(--bg2)', border: '1px solid var(--border)',
-            borderRadius: 12, padding: 24, width: 400,
+            borderRadius: 12, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
             display: 'flex', flexDirection: 'column', gap: 16,
           }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{t('Konten Baru')}</div>
