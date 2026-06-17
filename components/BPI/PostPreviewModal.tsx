@@ -15,6 +15,34 @@ import { uploadFileResumable } from '@/lib/storage'
 import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
 import { RevisiModal, RevisiSection } from '@/components/BPI/RevisiModal'
 import type { PostRevision } from '@/lib/types'
+import { useIsMobile } from '@/hooks/useIsMobile'
+
+// Download a file WITHOUT navigating away / opening a new tab. Fetches the
+// bytes as a blob and clicks a synthetic <a download>, so the user stays on
+// the current page (important on mobile, where target=_blank swaps tabs).
+// Falls back to opening the URL only if the fetch is blocked (e.g. a CORS-
+// restricted external link like Google Drive, which can't be blob-fetched).
+async function downloadFileNoNav(url: string, filename: string) {
+  try {
+    const res = await fetch(url, { credentials: 'omit' })
+    if (!res.ok) throw new Error(String(res.status))
+    const blob = await res.blob()
+    const objUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = objUrl
+    a.download = filename || 'file'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(objUrl), 4000)
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
+
+// Module-level cache of resolved link titles (e.g. the real Google Drive file
+// name) keyed by URL, so we only hit /api/og-preview once per link per session.
+const linkNameCache = new Map<string, string>()
 
 interface PostPreviewModalProps {
   open: boolean
@@ -27,6 +55,7 @@ interface PostPreviewModalProps {
 
 export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true }: PostPreviewModalProps) {
   const t = useT()
+  const isMobile = useIsMobile()
   const { posts, upsertPost } = useStore()
   const post = posts.find(p => p.id === postId)
   // Hooks must run before any early return (rules of hooks).
@@ -67,6 +96,37 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
 
   // In-app file preview popup.
   const [preview, setPreview] = useState<{ url: string; label: string } | null>(null)
+
+  // Real names for pasted external links (e.g. the actual Google Drive file
+  // name instead of the random id in the URL). Resolved lazily via the
+  // og-preview endpoint and cached module-side so reopening is instant.
+  const [linkNames, setLinkNames] = useState<Record<string, string>>(() =>
+    Object.fromEntries(linkNameCache.entries()),
+  )
+  useEffect(() => {
+    if (!open) return
+    const urls = (post?.files || []).filter(
+      u => isSafeHttpUrl(u) && previewKind(u) === 'other' && !linkNameCache.has(u),
+    )
+    if (!urls.length) return
+    let cancelled = false
+    urls.forEach(async u => {
+      try {
+        const r = await fetch(`/api/og-preview?url=${encodeURIComponent(u)}`)
+        if (!r.ok) return
+        const d = (await r.json()) as { title?: string }
+        const title = d?.title?.trim()
+        if (!title) return
+        // Strip the trailing " - Google Drive" / " - Figma" provider suffix.
+        const clean = title.replace(/\s*[-–|]\s*(Google Drive|Figma|Dropbox)\s*$/i, '').trim() || title
+        linkNameCache.set(u, clean)
+        if (!cancelled) setLinkNames(prev => ({ ...prev, [u]: clean }))
+      } catch {
+        /* ignore — falls back to attachLabel(url) */
+      }
+    })
+    return () => { cancelled = true }
+  }, [open, post?.files])
   // Paste-a-link input + in-flight uploads (per-file progress + cancel).
   const [linkInput, setLinkInput] = useState('')
   const [uploads, setUploads] = useState<{ id: string; name: string; progress: number; abort: () => void }[]>([])
@@ -143,7 +203,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
   const addAttach = (url: string | null | undefined, src: AttachSrc, icon?: string, label?: string, at?: number) => {
     if (!url || seenUrls.has(url)) return
     seenUrls.add(url)
-    attachments.push({ icon: icon ?? attachIcon(url), label: label ?? attachLabel(url), url, src, at: at ?? uploadTimeFromUrl(url) })
+    attachments.push({ icon: icon ?? attachIcon(url), label: label ?? linkNames[url] ?? attachLabel(url), url, src, at: at ?? uploadTimeFromUrl(url) })
   }
   addAttach(post.video_link, { kind: 'field', field: 'video_link' }, '🎬', 'Video')
   addAttach(post.design_link, { kind: 'field', field: 'design_link' }, '🎨', 'Design')
@@ -502,16 +562,14 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
         maxWidth={760}
         headerRight={
           isSafeHttpUrl(preview.url) ? (
-            <a
-              href={preview.url}
-              download
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => downloadFileNoNav(preview.url, preview.label)}
               title="Download"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: isMobile ? '7px 10px' : '6px 12px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer' }}
             >
-              ⬇ Download
-            </a>
+              ⬇{isMobile ? '' : ' Download'}
+            </button>
           ) : undefined
         }
       >
@@ -628,13 +686,13 @@ function AttachPreviewBody({ url, label }: { url: string; label: string }) {
   const kind = previewKind(url)
   if (kind === 'image') {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={label} style={{ maxWidth: '100%', maxHeight: '70vh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
+    return <img src={url} alt={label} style={{ maxWidth: '100%', maxHeight: '72dvh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
   }
   if (kind === 'video') {
-    return <video src={url} controls autoPlay style={{ width: '100%', maxHeight: '70vh', borderRadius: 8, background: '#000' }} />
+    return <video src={url} controls autoPlay style={{ width: '100%', maxHeight: '72dvh', borderRadius: 8, background: '#000' }} />
   }
   if (kind === 'pdf') {
-    return <iframe src={url} title={label} style={{ width: '100%', height: '70vh', border: 'none', borderRadius: 8, background: '#fff' }} />
+    return <iframe src={url} title={label} style={{ width: '100%', height: '72dvh', border: 'none', borderRadius: 8, background: '#fff' }} />
   }
   return (
     <div style={{ textAlign: 'center', padding: 24, fontSize: 13, color: 'var(--text2)' }}>
@@ -751,19 +809,16 @@ function AttachCard({ icon, label, url, time, onOpen, onDelete }: { icon: string
             {label}
           </span>
           {isSafeHttpUrl(url) && (
-            <a
-              href={url}
-              download
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); void downloadFileNoNav(url, label) }}
               title="Download"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, color: 'var(--text2)', flexShrink: 0 }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, color: 'var(--text2)', flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer' }}
               onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg2)' }}
               onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'none' }}
             >
               <PvDownloadIcon />
-            </a>
+            </button>
           )}
           <button
             onClick={e => { e.stopPropagation(); onDelete() }}
