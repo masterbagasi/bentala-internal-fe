@@ -18,21 +18,16 @@ const MONTH_LABELS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','
 const WS_MAP: Record<string, string> = { 'ws-fz': 'Video Production', 'ws-rn': 'Design Studio' }
 
 export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
-  const { posts, calState, calView, setCalState, setCalView } = useStore()
+  const { posts, calState, setCalState } = useStore()
   const [platformFilter, setPlatformFilter] = useState('all')
   const [previewPostId, setPreviewPostId] = useState<string | null>(null)
   const [addDate, setAddDate] = useState<string | null>(null)
   const [dayPopup, setDayPopup] = useState<{ date: string; x: number; y: number } | null>(null)
 
   const current = calState[entity] || new Date()
-  const viewCount = calView[entity] || 1
 
   function changeMonth(dir: number) {
     setCalState(entity, new Date(current.getFullYear(), current.getMonth() + dir, 1))
-  }
-
-  function setView(n: number) {
-    setCalView(entity, n)
   }
 
   // Get posts for this entity
@@ -51,19 +46,10 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
 
   const entityPosts = getEntityPosts(platformFilter)
 
-  // Build months array
-  const months: Array<{ year: number; month: number }> = []
-  for (let i = 0; i < viewCount; i++) {
-    const d = new Date(current.getFullYear(), current.getMonth() + i, 1)
-    months.push({ year: d.getFullYear(), month: d.getMonth() })
-  }
+  // Single-month view.
+  const months = [{ year: current.getFullYear(), month: current.getMonth() }]
 
-  const labelFmt = (y: number, m: number) =>
-    `${MONTH_LABELS[m]} ${y}`
-
-  const navLabel = viewCount === 1
-    ? labelFmt(months[0].year, months[0].month)
-    : `${labelFmt(months[0].year, months[0].month)} — ${labelFmt(months[months.length-1].year, months[months.length-1].month)}`
+  const navLabel = `${MONTH_LABELS[months[0].month]} ${months[0].year}`
 
   const isWs = entity.startsWith('ws-')
 
@@ -83,22 +69,6 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
     <div>
       {/* Calendar Nav */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        {/* View selector */}
-        <div style={{ display: 'flex', gap: 2, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: 3 }}>
-          {[1,2,3,4].map(n => (
-            <button key={n} onClick={() => setView(n)}
-              style={{
-                width: 28, height: 26, borderRadius: 6, border: 'none',
-                background: viewCount === n ? 'var(--accent)' : 'transparent',
-                color: viewCount === n ? '#fff' : 'var(--text2)',
-                fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-
         {/* Month/Year selects */}
         <select
           value={current.getMonth()}
@@ -132,7 +102,7 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
       </div>
 
       {/* Calendar months grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(viewCount, 3)}, 1fr)`, gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, maxWidth: 1100 }}>
         {months.map(({ year, month }) => (
           <MonthPanel
             key={`${year}-${month}`}
@@ -230,7 +200,7 @@ function MonthPanel({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
         {cells.map((c, i) => {
           if (!c.cur) return (
-            <div key={i} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, minHeight: 70, padding: 6, opacity: 0.4 }}>
+            <div key={i} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, minHeight: 96, padding: 6, opacity: 0.4 }}>
               <div style={{ fontSize: 12, fontWeight: 600 }}>{c.day}</div>
             </div>
           )
@@ -246,7 +216,7 @@ function MonthPanel({
               style={{
                 background: 'var(--bg3)',
                 border: `1px solid ${isToday ? 'var(--accent)' : 'var(--border)'}`,
-                borderRadius: 6, minHeight: 70, padding: 6,
+                borderRadius: 6, minHeight: 96, padding: 6,
                 fontSize: 11, cursor: 'pointer',
                 transition: 'border-color 0.15s, background 0.15s',
                 position: 'relative',
@@ -267,7 +237,7 @@ function MonthPanel({
                   className="cal-day-add"
                 >+</span>
               </div>
-              {dayPosts.slice(0, 3).map(p => (
+              {dayPosts.slice(0, 4).map(p => (
                 <div
                   key={p.id}
                   onClick={(e) => onPostClick(e, p.id)}
@@ -282,8 +252,8 @@ function MonthPanel({
                   {p.title}
                 </div>
               ))}
-              {dayPosts.length > 3 && (
-                <div style={{ fontSize: 10, color: 'var(--text2)' }}>+{dayPosts.length - 3} {t('lagi')}</div>
+              {dayPosts.length > 4 && (
+                <div style={{ fontSize: 10, color: 'var(--text2)' }}>+{dayPosts.length - 4} {t('lagi')}</div>
               )}
             </div>
           )

@@ -70,7 +70,16 @@ function smmUpdates(p: Post, colKey: string): Partial<Post> {
       ...(hasVideo(p) ? { video_status: 'review' } : {}),
       ...(hasDesign(p) ? { design_status: 'review' } : {}),
     }
-    default: return { status: colKey as Post['status'] } // todo / brief / ready / published
+    // Ready to Post / Published → every track is automatically marked Done, so
+    // the Video Production / Design Studio boards move the card to their Done
+    // column (you can't drag a card to Done there by hand).
+    case 'ready':
+    case 'published': return {
+      status: colKey as Post['status'],
+      ...(hasVideo(p) ? { video_status: 'done' } : {}),
+      ...(hasDesign(p) ? { design_status: 'done' } : {}),
+    }
+    default: return { status: colKey as Post['status'] } // todo / brief
   }
 }
 import { formatDate, byPostDateAsc } from '@/lib/utils'
@@ -153,6 +162,11 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       picScope === VP_PIC ? 'video' : picScope === DS_PIC ? 'design' : null
 
     async function moveOnBoard(post: Post, colKey: string) {
+      // Video Production / Design Studio: you can't drop INTO Revisi or Done.
+      // Revisi is set only from the Socmed Management board (opens the revision
+      // popup); Done is set automatically when the post goes Ready/Published.
+      // Cards can still be dragged OUT of Revisi (→ Production, Review, …).
+      if (boardTrack && (colKey === 'done' || colKey === 'revisi')) return
       // Socmed Management → Revisi opens the revision popup instead of moving
       // straight away; the status/track flip happens when the revision is saved.
       if (!boardTrack && colKey === 'revisi') { setRevisiPost(post); return }
@@ -241,6 +255,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               accounts={accounts}
               showTrackStatus={!boardTrack}
               colSet={boardTrack ? WS_STATUS_COLS : SMM_STATUS_COLS}
+              noDropCols={boardTrack ? ['revisi', 'done'] : undefined}
               colOf={
                 boardTrack === 'video' ? (p => trackColKey(p.video_status))
                 : boardTrack === 'design' ? (p => trackColKey(p.design_status))
@@ -359,7 +374,12 @@ function ListView({
                   done={p.status === 'published' || p.status === 'done'}
                   onChange={async (done) => {
                     const supabase = getSupabase()
-                    await supabase.from('posts').update({ status: done ? 'published' : 'ready' }).eq('id', p.id)
+                    // Ready/Published → mark every track Done too (keeps the VP/DS boards in sync).
+                    await supabase.from('posts').update({
+                      status: done ? 'published' : 'ready',
+                      ...(hasVideo(p) ? { video_status: 'done' } : {}),
+                      ...(hasDesign(p) ? { design_status: 'done' } : {}),
+                    }).eq('id', p.id)
                   }}
                 />
               </td>
@@ -409,7 +429,7 @@ type AccountDir = Record<string, { name: string; avatarUrl: string | null }>
 
 function KanbanBoard({
   posts, currentUser, statusFilter, onEdit, onDelete, onCardClick,
-  colSet, colOf, onMove, canEdit = true, accounts, showTrackStatus = false,
+  colSet, colOf, onMove, canEdit = true, accounts, showTrackStatus = false, noDropCols,
 }: {
   posts: Post[]
   currentUser: string
@@ -428,6 +448,8 @@ function KanbanBoard({
   accounts?: AccountDir
   /** Socmed Management board: show per-track status chips on dual-track cards. */
   showTrackStatus?: boolean
+  /** Columns nobody can drop into (e.g. Done on the VP/DS boards — auto-only). */
+  noDropCols?: readonly string[]
 }) {
   // When statuses are filtered, only show those columns.
   const t = useT()
@@ -532,7 +554,7 @@ function KanbanBoard({
     }}>
       {cols.map(col => {
         const colPosts = posts.filter(p => keyOf(p) === col.key).slice().sort(byPostDateAsc)
-        const isLocked = 'locked' in col && col.locked && currentUser === 'Naufal'
+        const isLocked = ('locked' in col && col.locked && currentUser === 'Naufal') || (noDropCols?.includes(col.key) ?? false)
         const isOver = dragOverCol === col.key
         const active = isOver && !isLocked
         const blocked = isOver && isLocked

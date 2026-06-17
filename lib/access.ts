@@ -93,8 +93,14 @@ export function socmedSections(
     out.push(
       { id: `smm.${p.slug}.social`,   label: 'Social Media', group: 'Socmed Management', subgroup: p.name, routes: [`/smm/${p.slug}/social`], landing: `/smm/${p.slug}/social` },
       { id: `smm.${p.slug}.projects`, label: 'Projects',     group: 'Socmed Management', subgroup: p.name, routes: [`/smm/${p.slug}`],        landing: `/smm/${p.slug}` },
-      { id: `smm.${p.slug}.chat`,     label: 'Chat',         group: 'Socmed Management', subgroup: p.name, routes: [`/smm/${p.slug}/chat`],   landing: `/smm/${p.slug}/chat` },
     )
+  }
+  // Chat is its own group so an admin manages "who can chat in which group" in
+  // one place — one toggle per Socmed Management project, labelled by name. It is
+  // an INDEPENDENT grant (see canAccessChat): granting Social/Projects no longer
+  // implies chat, so access can be given or withheld per account, per group.
+  for (const p of projects) {
+    out.push({ id: `smm.${p.slug}.chat`, label: p.name, group: 'Chat', routes: [`/smm/${p.slug}/chat`], landing: `/smm/${p.slug}/chat` })
   }
   return out
 }
@@ -116,9 +122,9 @@ const SMM_ID_RE = /^smm\.([a-z0-9-]+)\.(social|projects|chat)$/
  *  grants keep working after the move to per-item access. */
 const LEGACY_ALIASES: Record<string, string[]> = {
   website:  ['website.home', 'website.about', 'website.news', 'website.seo', 'website.navbar', 'website.visitors'],
-  smm:      ['smm.all', 'smm.bpi.social', 'smm.bpi.projects', 'smm.bsi.social', 'smm.bsi.projects'],
-  bpi:      ['smm.bpi.social', 'smm.bpi.projects'],
-  bsi:      ['smm.bsi.social', 'smm.bsi.projects'],
+  smm:      ['smm.all', 'smm.bpi.social', 'smm.bpi.projects', 'smm.bpi.chat', 'smm.bsi.social', 'smm.bsi.projects', 'smm.bsi.chat'],
+  bpi:      ['smm.bpi.social', 'smm.bpi.projects', 'smm.bpi.chat'],
+  bsi:      ['smm.bsi.social', 'smm.bsi.projects', 'smm.bsi.chat'],
   social:   ['social.accounts', 'social.analytics', 'social.reports', 'social.plan'],
   client:   ['client.leads', 'client.crm', 'client.invoices'],
   projects: ['projects.all', 'projects.tasks', 'projects.vp', 'projects.ds'],
@@ -179,12 +185,14 @@ export function chatRoomFromPath(pathname: string): string | null {
   return m ? m[1] : null
 }
 
-/** A chat room is open to anyone with an explicit Chat grant for the project,
- *  OR anyone with any other access to it (social/projects) so project members
- *  keep chat without a separate grant. Pass already-normalised sections. */
+/** Chat is an INDEPENDENT grant: a room is open only to accounts that hold the
+ *  project's explicit Chat grant (smm.<slug>.chat). Social/Projects access no
+ *  longer implies chat, so an admin can decide per account who may chat in each
+ *  group (managed under the "Chat" group in the access page). Pass normalised
+ *  sections. Super admins short-circuit this everywhere they're checked. */
 export function canAccessChat(allowed: Set<string> | string[], slug: string): boolean {
   const has = (id: string) => (Array.isArray(allowed) ? allowed.includes(id) : allowed.has(id))
-  return has(`smm.${slug}.chat`) || has(`smm.${slug}.social`) || has(`smm.${slug}.projects`)
+  return has(`smm.${slug}.chat`)
 }
 
 /** Landing path for the first item the user may enter, or null. Handles dynamic

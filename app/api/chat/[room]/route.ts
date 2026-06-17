@@ -62,6 +62,10 @@ export async function POST(req: NextRequest, { params }: { params: { room: strin
   if (typeof payload.reply_to === 'string' && /^[0-9a-f-]{36}$/i.test(payload.reply_to)) {
     row.reply_to = payload.reply_to
   }
+  // @mention emails (for notifications) — cap and sanitise.
+  if (Array.isArray(payload.mentions)) {
+    row.mentions = payload.mentions.filter((e: unknown) => typeof e === 'string').slice(0, 30)
+  }
   const { data, error } = await (g.supabase as any).from('chat_messages').insert(row).select('*').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ message: data })

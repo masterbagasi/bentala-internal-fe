@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { ConfirmDialog, Modal } from '@/components/shared/Modal'
@@ -14,6 +14,36 @@ interface Msg {
   edited_at?: string | null; deleted_at?: string | null
   attachment_path?: string | null; attachment_name?: string | null; attachment_type?: string | null; attachment_size?: number | null
   reply_to?: string | null
+  mentions?: string[] | null
+  // Client-only: local object-URL preview shown on an optimistic message while
+  // its attachment is still uploading, and a flag that clears the spinner the
+  // moment the upload finishes (not when the whole message round-trip ends).
+  _preview?: string
+  _uploading?: boolean
+}
+
+type Attach = { attachment_path: string; attachment_name: string; attachment_type: string; attachment_size: number }
+interface PendingItem { id: string; file: File; preview: string; pct: number; attach: Attach | null; error: boolean }
+
+// Upload a chat attachment with progress via XHR (fetch can't report upload %).
+function uploadWithProgress(room: string, file: File, onProgress: (pct: number) => void): Promise<Attach> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    const fd = new FormData()
+    fd.append('file', file)
+    xhr.open('POST', `/api/chat/${encodeURIComponent(room)}/upload`)
+    xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100))) }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100)
+        try { resolve(JSON.parse(xhr.responseText) as Attach) } catch { reject({ status: xhr.status, body: xhr.responseText }) }
+      } else {
+        reject({ status: xhr.status, body: xhr.responseText })
+      }
+    }
+    xhr.onerror = () => reject({ status: 0, body: '' })
+    xhr.send(fd)
+  })
 }
 
 interface Read { email: string; last_read_at: string }
@@ -89,25 +119,76 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const [pinned, setPinned] = useState(false) // user scrolled up — show "jump to latest"
   // In-app attachment preview (styled popup, consistent with the rest of the
   // app) — replaces opening the file in a new tab / the OS download sheet.
-  const [lightbox, setLightbox] = useState<{ url: string; name: string; type: string } | null>(null)
+  // Lightbox holds a navigable list of items (1 for a sent message, all pending
+  // attachments for the composer) so you can slide left/right between them.
+  type LbItem = { url: string; name: string; type: string; msg?: Msg }
+  const [lightbox, setLightbox] = useState<{ items: LbItem[]; index: number } | null>(null)
+  // Tapping a chat avatar opens that person's profile photo in a preview popup.
+  const [profileView, setProfileView] = useState<{ email: string } | null>(null)
+  const [gallery, setGallery] = useState(false) // "All media" grid open?
+  const lbTouch = useRef<number | null>(null)
+  // In-chat search.
+  const [searching, setSearching] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [matchIdx, setMatchIdx] = useState(0)
+  const [calOpen, setCalOpen] = useState(false)
+  const [calMonth, setCalMonth] = useState(() => new Date())
+  // Arrow keys navigate the lightbox on desktop.
+  useEffect(() => {
+    if (!lightbox || lightbox.items.length < 2) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const d = e.key === 'ArrowRight' ? 1 : -1
+        setLightbox(lb => (lb ? { ...lb, index: ((lb.index + d) % lb.items.length + lb.items.length) % lb.items.length } : lb))
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightbox])
   // Message actions / edit.
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   // Message whose read-receipt info popup is open.
   const [infoFor, setInfoFor] = useState<string | null>(null)
+  // Message whose reaction-details popup is open, + the selected emoji tab.
+  const [reactInfoFor, setReactInfoFor] = useState<string | null>(null)
+  const [reactInfoTab, setReactInfoTab] = useState<string>('all')
   const [editing, setEditing] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   // Message currently being replied to (quoted above the composer).
   const [replyingTo, setReplyingTo] = useState<Msg | null>(null)
+  // Members with access to this room — for @mentions.
+  const [members, setMembers] = useState<{ email: string; name: string; avatarUrl: string | null }[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/chat/${encodeURIComponent(room)}/members`)
+      .then(r => (r.ok ? r.json() : { members: [] }))
+      .then((d: { members?: { email: string; name: string; avatarUrl: string | null }[] }) => { if (!cancelled) setMembers(d.members ?? []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [room])
+  // Active @mention autocomplete (query typed after '@', and the '@' position).
+  const [mention, setMention] = useState<{ q: string; at: number } | null>(null)
+  const [mentionSel, setMentionSel] = useState(0)
+  // Regex that matches "@<member name>" for highlighting (longest name first).
+  const mentionRe = useMemo(() => {
+    const names = members.map(m => m.name).filter(Boolean).sort((a, b) => b.length - a.length)
+    if (!names.length) return null
+    const esc = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    return new RegExp(`@(${esc.join('|')})`, 'g')
+  }, [members])
   // Attachments.
-  const [pending, setPending] = useState<File | null>(null)
+  // Pending attachments (multiple). Each uploads in the background the moment
+  // it's attached, so hitting Send is instant. `pct` drives the progress bar,
+  // `attach` is set when the upload finishes, `error` on failure.
+  const [pendingFiles, setPendingFiles] = useState<PendingItem[]>([])
+  const uploadsRef = useRef<Map<string, Promise<Attach>>>(new Map())
   const [converting, setConverting] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [attachErr, setAttachErr] = useState('')
   // Selection / clear.
   const [selecting, setSelecting] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [confirm, setConfirm] = useState<null | { kind: 'selected' | 'all' }>(null)
+  const [confirm, setConfirm] = useState<null | { kind: 'selected' | 'all' } | { kind: 'unsend'; id: string }>(null)
   // Read receipts + transient action errors.
   const [reads, setReads] = useState<Read[]>([])
   // Emoji reactions for every message in the room.
@@ -308,78 +389,199 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   }
 
   // ── Compose / send ──
-  async function pickFile(f: File | null) {
+  // Attach one or more files. Each is HEIC-converted if needed, validated, and
+  // its upload is kicked off immediately in the background.
+  async function addFiles(files: FileList | File[] | null) {
     setAttachErr('')
-    if (!f) return
-    // iOS shares photos as HEIC, which browsers can't display and the bucket
-    // may reject. Convert to JPEG up front so it both uploads and previews.
-    const isHeic = /heic|heif/i.test(f.type) || /\.(heic|heif)$/i.test(f.name)
-    if (isHeic) {
-      try {
-        setConverting(true)
-        // Use `heic-to` (maintained libheif build) — heic2any mangled the
-        // chroma on some photos (green/yellow cast). Decode to PNG, then
-        // re-encode to a clean JPEG with the browser's own canvas encoder.
-        const { heicTo } = await import('heic-to')
-        const png = await heicTo({ blob: f, type: 'image/png' })
-        const jpeg = await blobToJpeg(png as Blob, 0.9)
-        f = new File([jpeg], f.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' })
-      } catch {
+    const list = files ? Array.from(files) : []
+    for (let f of list) {
+      const isHeic = /heic|heif/i.test(f.type) || /\.(heic|heif)$/i.test(f.name)
+      if (isHeic) {
+        try {
+          setConverting(true)
+          const { heicTo } = await import('heic-to')
+          const png = await heicTo({ blob: f, type: 'image/png' })
+          const jpeg = await blobToJpeg(png as Blob, 0.9)
+          f = new File([jpeg], f.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' })
+        } catch {
+          setConverting(false)
+          setAttachErr(t('Gagal mengonversi foto HEIC'))
+          continue
+        }
         setConverting(false)
-        setAttachErr(t('Gagal mengonversi foto HEIC'))
-        return
       }
-      setConverting(false)
+      if (f.size > MAX_BYTES) { setAttachErr(t('File terlalu besar (maks 10MB)')); continue }
+      const id = crypto.randomUUID()
+      const file = f
+      // Object-URL for every file (image thumbnail AND the click-to-preview).
+      const preview = URL.createObjectURL(file)
+      setPendingFiles(prev => [...prev, { id, file, preview, pct: 0, attach: null, error: false }])
+      // Upload NOW so Send is instant.
+      const p = uploadWithProgress(room, file, pct => setPendingFiles(prev => prev.map(it => (it.id === id ? { ...it, pct } : it))))
+      uploadsRef.current.set(id, p)
+      p.then(attach => setPendingFiles(prev => prev.map(it => (it.id === id ? { ...it, attach, pct: 100 } : it))))
+       .catch(() => setPendingFiles(prev => prev.map(it => (it.id === id ? { ...it, error: true } : it))))
     }
-    if (f.size > MAX_BYTES) { setAttachErr(t('File terlalu besar (maks 10MB)')); return }
-    setPending(f)
   }
 
-  async function send() {
-    const body = text.trim()
-    if (!body && !pending) return
-    const replyId = replyingTo?.id ?? null
-    setReplyingTo(null)
+  function removePending(id: string) {
+    setPendingFiles(prev => {
+      const it = prev.find(x => x.id === id)
+      if (it?.preview) URL.revokeObjectURL(it.preview)
+      return prev.filter(x => x.id !== id)
+    })
+    uploadsRef.current.delete(id)
+  }
 
-    let attach: { attachment_path: string; attachment_name: string; attachment_type: string; attachment_size: number } | null = null
-    if (pending) {
-      setUploading(true)
-      const fd = new FormData(); fd.append('file', pending)
-      const ur = await fetch(`/api/chat/${encodeURIComponent(room)}/upload`, { method: 'POST', body: fd })
-      setUploading(false)
-      if (!ur.ok) {
-        // Surface the real reason instead of always blaming the file type.
-        const reason = await ur.json().catch(() => null)
-        if (ur.status === 415) setAttachErr(t('Tipe file tidak didukung'))
-        else if (ur.status === 413) setAttachErr(t('File terlalu besar (maks 10MB)'))
-        else setAttachErr(t('Gagal mengunggah file') + (reason?.error ? `: ${reason.error}` : ''))
-        return
-      }
-      attach = await ur.json()
-      setPending(null)
-    }
-
-    setText('')
+  // Post one message (optionally with one attachment), optimistic + reconcile.
+  async function sendOne(body: string, item: PendingItem | null, replyId: string | null) {
+    const tmpId = `tmp-${crypto.randomUUID()}`
+    const uploadPromise = item ? uploadsRef.current.get(item.id) ?? null : null
+    const preview = item?.preview ?? null
     const optimistic: Msg = {
-      id: `tmp-${Date.now()}`, room, author_email: meEmail, author_name: meName,
-      body, created_at: new Date().toISOString(), reply_to: replyId, ...(attach ?? {}),
+      id: tmpId, room, author_email: meEmail, author_name: meName,
+      body, created_at: new Date().toISOString(), reply_to: replyId,
+      ...(item ? { attachment_name: item.file.name, attachment_type: item.file.type, attachment_size: item.file.size, _preview: preview ?? undefined, _uploading: !item.attach } : {}),
     }
     atBottomRef.current = true
     setMessages(prev => [...prev, optimistic])
+
+    let attach: Attach | null = item?.attach ?? null
+    if (item && !attach && uploadPromise) {
+      try { attach = await uploadPromise }
+      catch (err) {
+        const status = (err as { status?: number })?.status
+        flashErr(status === 415 ? t('Tipe file tidak didukung') : status === 413 ? t('File terlalu besar (maks 10MB)') : t('Gagal mengunggah file'))
+        setMessages(prev => prev.filter(m => m.id !== tmpId))
+        if (preview) URL.revokeObjectURL(preview)
+        return
+      }
+    }
+    // Upload done → drop the in-bubble spinner immediately.
+    if (item) setMessages(prev => prev.map(m => (m.id === tmpId ? { ...m, _uploading: false } : m)))
+
     try {
       const r = await fetch(`/api/chat/${encodeURIComponent(room)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body, reply_to: replyId, ...(attach ?? {}) }),
+        body: JSON.stringify({ body, reply_to: replyId, mentions: extractMentions(body), ...(attach ?? {}) }),
       })
       const d = (await r.json()) as { message?: Msg }
       if (d.message) setMessages(prev => {
         const real = d.message!
-        if (prev.some(m => m.id === real.id)) return prev.filter(m => m.id !== optimistic.id)
-        return prev.map(m => (m.id === optimistic.id ? real : m))
+        if (prev.some(m => m.id === real.id)) return prev.filter(m => m.id !== tmpId)
+        // Keep the local preview so the <img> src doesn't reload (no flash).
+        return prev.map(m => (m.id === tmpId ? { ...real, _preview: preview ?? undefined } : m))
       })
     } catch {
-      setMessages(prev => prev.map(m => (m.id === optimistic.id ? { ...m, body: m.body + ' ' + t('(gagal terkirim)') } : m)))
+      setMessages(prev => prev.map(m => (m.id === tmpId ? { ...m, body: m.body + ' ' + t('(gagal terkirim)') } : m)))
     }
+    if (item) uploadsRef.current.delete(item.id)
+  }
+
+  function send() {
+    const body = text.trim()
+    const items = pendingFiles
+    if (!body && items.length === 0) return
+    const replyId = replyingTo?.id ?? null
+    setReplyingTo(null)
+    setText('')
+    setPendingFiles([])      // clear composer (previews stay alive on the optimistic bubbles)
+
+    if (items.length === 0) {
+      void sendOne(body, null, replyId)
+      return
+    }
+    // One message per file; the caption (+ reply) rides the FIRST attachment.
+    items.forEach((item, i) => { void sendOne(i === 0 ? body : '', item, i === 0 ? replyId : null) })
+  }
+
+  // ── @mentions ──
+  const mentionMatches = mention
+    ? members.filter(mm => {
+        const q = mention.q.toLowerCase()
+        return mm.name.toLowerCase().includes(q) || mm.email.toLowerCase().startsWith(q)
+      }).slice(0, 6)
+    : []
+
+  function onTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    setText(val)
+    const pos = e.target.selectionStart ?? val.length
+    const m = val.slice(0, pos).match(/(?:^|\s)@([^\s@]*)$/)
+    if (m) { setMention({ q: m[1], at: pos - m[1].length - 1 }); setMentionSel(0) }
+    else setMention(null)
+  }
+
+  function insertMention(member: { name: string }) {
+    if (!mention) return
+    const ta = taRef.current
+    const pos = ta?.selectionStart ?? text.length
+    const before = text.slice(0, mention.at)
+    const after = text.slice(pos)
+    const inserted = `@${member.name} `
+    setText(before + inserted + after)
+    setMention(null)
+    requestAnimationFrame(() => {
+      ta?.focus()
+      const c = (before + inserted).length
+      ta?.setSelectionRange(c, c)
+    })
+  }
+
+  // Emails of members @mentioned in a body (for notifications).
+  function extractMentions(body: string): string[] {
+    if (!body || !mentionRe) return []
+    mentionRe.lastIndex = 0
+    const emails = new Set<string>()
+    let m: RegExpExecArray | null
+    while ((m = mentionRe.exec(body)) !== null) {
+      const mem = members.find(x => x.name === m![1])
+      if (mem) emails.add(mem.email)
+    }
+    return Array.from(emails)
+  }
+
+  // Render a message body with @mentions of known members highlighted.
+  // Highlight the active search query inside a plain string segment.
+  function highlightSearch(text: string, kb: number): React.ReactNode {
+    const q = searching ? searchQ : ''
+    if (!q) return text
+    const lower = text.toLowerCase()
+    if (lower.indexOf(q) === -1) return text
+    const out: React.ReactNode[] = []
+    let i = 0, k = 0
+    let idx = lower.indexOf(q, i)
+    while (idx !== -1) {
+      if (idx > i) out.push(text.slice(i, idx))
+      out.push(<mark key={`h${kb}-${k++}`} className="cr-hl">{text.slice(idx, idx + q.length)}</mark>)
+      i = idx + q.length
+      idx = lower.indexOf(q, i)
+    }
+    if (i < text.length) out.push(text.slice(i))
+    return out
+  }
+
+  // Render a message body with @mentions highlighted and search terms marked.
+  function renderBody(body: string): React.ReactNode {
+    if (!body) return body
+    const segs: React.ReactNode[] = []
+    let key = 0
+    if (mentionRe) {
+      mentionRe.lastIndex = 0
+      let last = 0
+      let m: RegExpExecArray | null
+      while ((m = mentionRe.exec(body)) !== null) {
+        if (m.index > last) segs.push(highlightSearch(body.slice(last, m.index), key++))
+        const name = m[1]
+        const mem = members.find(x => x.name === name)
+        segs.push(<span key={`m${key++}`} className={`cr-mention${mem?.email === meEmail ? ' me' : ''}`}>@{name}</span>)
+        last = m.index + m[0].length
+      }
+      if (last < body.length) segs.push(highlightSearch(body.slice(last), key++))
+    } else {
+      segs.push(highlightSearch(body, key++))
+    }
+    return segs
   }
 
   // ── Per-message actions ──
@@ -456,6 +658,75 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const seenIds = new Set<string>()
   const view = messages.filter(m => (seenIds.has(m.id) ? false : (seenIds.add(m.id), true)))
 
+  // ── In-chat search ──
+  const searchQ = searchQuery.trim().toLowerCase()
+  const matchIds = searchQ
+    ? view.filter(m => !m.deleted_at && (m.body ?? '').toLowerCase().includes(searchQ)).map(m => m.id)
+    : []
+  function scrollToMid(id: string) {
+    const el = listRef.current?.querySelector(`[data-mid="${id}"]`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el?.classList.add('cr-flash')
+    setTimeout(() => el?.classList.remove('cr-flash'), 1300)
+  }
+  function runSearch(q: string) {
+    setSearchQuery(q)
+    const ql = q.trim().toLowerCase()
+    if (!ql) { setMatchIdx(0); return }
+    const ids = view.filter(m => !m.deleted_at && (m.body ?? '').toLowerCase().includes(ql)).map(m => m.id)
+    const last = ids.length - 1
+    setMatchIdx(last < 0 ? 0 : last)
+    if (last >= 0) requestAnimationFrame(() => scrollToMid(ids[last]))
+  }
+  function gotoMatch(delta: number) {
+    if (!matchIds.length) return
+    const i = Math.max(0, Math.min(matchIdx + delta, matchIds.length - 1))
+    setMatchIdx(i)
+    scrollToMid(matchIds[i])
+  }
+  function closeSearch() { setSearching(false); setSearchQuery(''); setMatchIdx(0); setCalOpen(false) }
+  function jumpToDate(d: Date) {
+    setCalOpen(false)
+    const start = new Date(d); start.setHours(0, 0, 0, 0)
+    const m = view.find(mm => new Date(mm.created_at).getTime() >= start.getTime())
+    if (m) scrollToMid(m.id)
+    else flashErr(t('Tidak ada pesan pada/ setelah tanggal itu.'))
+  }
+
+  const imgUrl = (m: Msg) => m._preview ?? fileUrl(m)
+  const isImgOnly = (m: Msg) =>
+    !m.deleted_at && !m.body && (m.attachment_type ?? '').startsWith('image/') &&
+    (!!m.attachment_path || !!m._preview)
+
+  // Group consecutive image-only messages from the same author into an album
+  // (WhatsApp-style collage). `anchors` maps the first message's id → the run;
+  // `skip` are the follow-up images (rendered inside the album, not on their own).
+  const album = (() => {
+    const anchors = new Map<string, Msg[]>()
+    const skip = new Set<string>()
+    let i = 0
+    while (i < view.length) {
+      const m = view[i]
+      if (isImgOnly(m)) {
+        const run = [m]
+        let j = i + 1
+        while (j < view.length && isImgOnly(view[j]) && view[j].author_email === m.author_email) { run.push(view[j]); j++ }
+        if (run.length >= 2) {
+          anchors.set(m.id, run)
+          for (let k = 1; k < run.length; k++) skip.add(run[k].id)
+          i = j; continue
+        }
+      }
+      i++
+    }
+    return { anchors, skip }
+  })()
+
+  // Every image in the room (newest last) — for the "All media" gallery.
+  const allMedia: LbItem[] = view
+    .filter(m => !m.deleted_at && (m.attachment_type ?? '').startsWith('image/') && (!!m.attachment_path || !!m._preview))
+    .map(m => ({ url: imgUrl(m), name: m.attachment_name ?? 'image', type: m.attachment_type ?? 'image/jpeg', msg: m }))
+
   // Resolve a reader's display name from messages they've authored, else email.
   const nameByEmail = new Map(messages.map(m => [m.author_email, m.author_name]))
   const nameFor = (email: string) =>
@@ -480,6 +751,49 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   return (
     <div className="cr-root">
       <style>{CR_CSS}</style>
+
+      {/* ── Search bar ── */}
+      {searching ? (
+        <div className="cr-search">
+          <div className="cr-search-cal-wrap">
+            <button className={`cr-search-icon ${calOpen ? 'on' : ''}`} onClick={() => setCalOpen(v => !v)} title={t('Cari tanggal')}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><circle cx="16.5" cy="16.5" r="2.5" /><line x1="18.3" y1="18.3" x2="20" y2="20" /></svg>
+            </button>
+            {calOpen && (
+              <div className="cr-cal">
+                <MiniCalendar month={calMonth} onMonth={setCalMonth} onPick={jumpToDate} />
+              </div>
+            )}
+          </div>
+          <div className="cr-search-field">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+            <input
+              autoFocus
+              value={searchQuery}
+              onChange={e => runSearch(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); gotoMatch(e.shiftKey ? 1 : -1) }
+                if (e.key === 'Escape') closeSearch()
+              }}
+              placeholder={t('Cari di chat ini…')}
+            />
+          </div>
+          {searchQ && (
+            <span className="cr-search-count">{matchIds.length ? `${matchIdx + 1} ${t('dari')} ${matchIds.length}` : t('Tidak ada')}</span>
+          )}
+          <button className="cr-search-nav" disabled={!matchIds.length || matchIdx <= 0} onClick={() => gotoMatch(-1)} title={t('Sebelumnya')}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15" /></svg>
+          </button>
+          <button className="cr-search-nav" disabled={!matchIds.length || matchIdx >= matchIds.length - 1} onClick={() => gotoMatch(1)} title={t('Berikutnya')}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+          </button>
+          <button className="cr-search-done" onClick={closeSearch}>{t('Selesai')}</button>
+        </div>
+      ) : (
+        <button className="cr-search-open" onClick={() => setSearching(true)} title={t('Cari pesan')}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+        </button>
+      )}
 
       {/* ── Message stream ── */}
       <div ref={listRef} onScroll={onScroll} className="cr-stream">
@@ -515,6 +829,8 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
               </div>
             )}
             {view.map((m, i) => {
+              if (album.skip.has(m.id)) return null // rendered inside its album anchor
+              const albumMsgs = album.anchors.get(m.id) // non-null → this message anchors an album
               const mine = m.author_email === meEmail
               const prev = view[i - 1]
               const newDay = !prev || dayKey(prev.created_at) !== dayKey(m.created_at)
@@ -531,8 +847,13 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
               // stay gated: Edit/Unsend only for the author, Hapus only for a
               // super admin on someone else's message.
               const hasMenu = !selecting && !retracted && !pendingMsg
-              const isImage = !!m.attachment_path && (m.attachment_type ?? '').startsWith('image/')
-              const isFile = !!m.attachment_path && !isImage
+              // An optimistic (tmp) message carries attachment_name + _preview
+              // before it has a stored attachment_path, so treat both as having
+              // an attachment.
+              const hasAttach = !!m.attachment_path || !!m._preview || (!!m.attachment_name && m.id.startsWith('tmp-'))
+              const isImage = hasAttach && (m.attachment_type ?? '').startsWith('image/')
+              const isFile = hasAttach && !isImage
+              const uploadingMsg = m._uploading === true
 
               return (
                 <div
@@ -556,11 +877,13 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                     <div className={`cr-row ${mine ? 'mine' : ''}`} style={{ marginTop: grouped ? 2 : 14 }}>
                       <span className="cr-av-slot">
                         {!grouped && (
-                          avatarFor(m.author_email)
-                            ? personAvatar(m.author_email, 32)
-                            : <span className="cr-av" style={{ background: mine ? 'linear-gradient(150deg, #2f63ff, #0B3DE7)' : avatarColor(m.author_name) }}>
-                                {initials(m.author_name)}
-                              </span>
+                          <button type="button" className="cr-av-btn" title={m.author_name} onClick={() => setProfileView({ email: m.author_email })}>
+                            {avatarFor(m.author_email)
+                              ? personAvatar(m.author_email, 32)
+                              : <span className="cr-av" style={{ background: mine ? 'linear-gradient(150deg, #2f63ff, #0B3DE7)' : avatarColor(m.author_name) }}>
+                                  {initials(m.author_name)}
+                                </span>}
+                          </button>
                         )}
                       </span>
                       <div className="cr-col">
@@ -591,41 +914,76 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                         ) : (
                           <>
                           <div className="cr-bubble-row">
-                            <div className={`cr-bubble ${mine ? 'mine' : ''} ${grouped ? 'grouped' : ''}`} title={fmtTime(m.created_at)}>
+                            <div className={`cr-bubble ${mine ? 'mine' : ''} ${grouped ? 'grouped' : ''} ${(albumMsgs || isImage) ? 'has-media' : ''} ${albumMsgs ? 'album media-only' : (isImage && !m.body ? 'media-only' : '')} ${(m.mentions ?? []).includes(meEmail) ? 'mentions-me' : ''}`} title={fmtTime(m.created_at)}>
                               {m.reply_to && (() => {
                                 const orig = messages.find(x => x.id === m.reply_to)
+                                const origImg = orig && (orig.attachment_type ?? '').startsWith('image/') && (!!orig.attachment_path || !!orig._preview)
                                 return (
                                   <button
                                     type="button"
-                                    className="cr-quote"
+                                    className={`cr-quote ${origImg ? 'has-thumb' : ''}`}
                                     onClick={e => {
                                       e.stopPropagation()
+                                      // Move to the original message first (scroll + flash)…
                                       const el = listRef.current?.querySelector(`[data-mid="${m.reply_to}"]`)
                                       el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
                                       el?.classList.add('cr-flash')
                                       setTimeout(() => el?.classList.remove('cr-flash'), 1300)
+                                      // …then, once we've arrived, auto-open its image preview.
+                                      if (origImg && orig) {
+                                        setTimeout(() => setLightbox({ items: [{ url: imgUrl(orig), name: orig.attachment_name ?? 'image', type: orig.attachment_type ?? 'image/jpeg', msg: orig }], index: 0 }), 520)
+                                      }
                                     }}
                                   >
-                                    <span className="cr-quote-author">{orig ? (orig.author_email === meEmail ? t('Saya') : nameFor(orig.author_email)) : t('Pesan')}</span>
-                                    <span className="cr-quote-snippet">{orig ? msgSnippet(orig) : t('Pesan tidak tersedia')}</span>
+                                    <span className="cr-quote-text">
+                                      <span className="cr-quote-author">{orig ? (orig.author_email === meEmail ? t('Saya') : nameFor(orig.author_email)) : t('Pesan')}</span>
+                                      <span className="cr-quote-snippet">{orig ? msgSnippet(orig) : t('Pesan tidak tersedia')}</span>
+                                    </span>
+                                    {origImg && orig && (
+                                      /* eslint-disable-next-line @next/next/no-img-element */
+                                      <img className="cr-quote-thumb" src={imgUrl(orig)} alt="" />
+                                    )}
                                   </button>
                                 )
                               })()}
-                              {isImage && (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img className="cr-img" src={fileUrl(m)} alt={m.attachment_name ?? ''} loading="lazy"
-                                  onClick={e => { e.stopPropagation(); setLightbox({ url: fileUrl(m), name: m.attachment_name ?? 'image', type: m.attachment_type ?? '' }) }} />
+                              {albumMsgs && (() => {
+                                const items = albumMsgs.map(a => ({ url: imgUrl(a), name: a.attachment_name ?? 'image', type: a.attachment_type ?? 'image/jpeg', msg: a }))
+                                const open = (idx: number) => setLightbox({ items, index: idx })
+                                const shown = Math.min(4, albumMsgs.length)
+                                const extra = albumMsgs.length - 4
+                                return (
+                                  <div className={`cr-album cr-album-${shown === albumMsgs.length ? shown : 4} ${albumMsgs.length === 3 ? 'three' : ''}`}>
+                                    {albumMsgs.slice(0, 4).map((a, idx) => (
+                                      <button key={a.id} type="button" className="cr-album-tile" onClick={e => { e.stopPropagation(); open(idx) }}>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={imgUrl(a)} alt="" loading="lazy" />
+                                        {idx === 3 && extra > 0 && <span className="cr-album-more">+{extra}</span>}
+                                        {a.id.startsWith('tmp-') && a._uploading && <span className="cr-img-uploading"><span className="cr-spin" /></span>}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )
+                              })()}
+                              {!albumMsgs && isImage && (
+                                <span className="cr-img-wrap">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img className="cr-img" src={m._preview ?? fileUrl(m)} alt={m.attachment_name ?? ''} loading="lazy"
+                                    onClick={e => { e.stopPropagation(); if (!uploadingMsg) setLightbox({ items: [{ url: m._preview ?? fileUrl(m), name: m.attachment_name ?? 'image', type: m.attachment_type ?? '', msg: m }], index: 0 }) }} />
+                                  {uploadingMsg && <span className="cr-img-uploading"><span className="cr-spin" /></span>}
+                                </span>
                               )}
                               {isFile && (
-                                <button type="button" className="cr-file-chip" onClick={e => { e.stopPropagation(); setLightbox({ url: fileUrl(m), name: m.attachment_name ?? 'file', type: m.attachment_type ?? '' }) }}>
-                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+                                <button type="button" className="cr-file-chip" onClick={e => { e.stopPropagation(); if (!uploadingMsg) setLightbox({ items: [{ url: fileUrl(m), name: m.attachment_name ?? 'file', type: m.attachment_type ?? '', msg: m }], index: 0 }) }}>
+                                  {uploadingMsg
+                                    ? <span className="cr-spin" />
+                                    : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>}
                                   <span className="cr-file-meta">
                                     <span className="cr-file-name">{m.attachment_name}</span>
                                     <span className="cr-file-size">{fmtSize(m.attachment_size ?? 0)}</span>
                                   </span>
                                 </button>
                               )}
-                              {m.body && <span className="cr-body-text">{m.body}</span>}
+                              {m.body && <span className="cr-body-text">{renderBody(m.body)}</span>}
                               <span className="cr-stamp">
                                 {m.edited_at && <span className="cr-stamp-edit">{t('(diedit)')} </span>}
                                 {fmtTime(m.created_at)}
@@ -677,7 +1035,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                             return (
                               <div className="cr-reactions">
                                 {Array.from(groups.entries()).map(([emoji, gr]) => (
-                                  <button key={emoji} type="button" className={`cr-reaction ${gr.mine ? 'mine' : ''}`} onClick={() => react(m.id, emoji)} title={t('Reaksi')}>
+                                  <button key={emoji} type="button" className={`cr-reaction ${gr.mine ? 'mine' : ''}`} onClick={e => { e.stopPropagation(); setReactInfoTab('all'); setReactInfoFor(m.id) }} title={t('Lihat reaksi')}>
                                     <span className="cr-reaction-emoji">{emoji}</span>
                                     {gr.count > 1 && <span className="cr-reaction-count">{gr.count}</span>}
                                   </button>
@@ -758,7 +1116,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                 </button>
               )}
               {canUnsend && (
-                <button onClick={() => retract(m.id)}>
+                <button onClick={() => { setMenuFor(null); setConfirm({ kind: 'unsend', id: m.id }) }}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 5 5v2" /></svg>
                   {t('Tarik')}
                 </button>
@@ -834,26 +1192,155 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
           )
         })()}
 
+        {/* Reaction details — who reacted and with what (tap a reaction pill). */}
+        {reactInfoFor && (() => {
+          const rs = reactions.filter(r => r.message_id === reactInfoFor)
+          if (!rs.length) return null
+          const byEmoji = new Map<string, Reaction[]>()
+          for (const r of rs) { const arr = byEmoji.get(r.emoji) ?? []; arr.push(r); byEmoji.set(r.emoji, arr) }
+          const tabs: { key: string; label: React.ReactNode }[] = [
+            { key: 'all', label: `${t('Semua')} ${rs.length}` },
+            ...Array.from(byEmoji.entries()).map(([e, arr]) => ({ key: e, label: <>{e} {arr.length}</> })),
+          ]
+          const shown = reactInfoTab === 'all' ? rs : rs.filter(r => r.emoji === reactInfoTab)
+          return (
+            <Modal open onClose={() => setReactInfoFor(null)} title={t('Reaksi')} maxWidth={400}>
+              <div className="cr-reactinfo-tabs">
+                {tabs.map(tb => (
+                  <button key={String(tb.key)} className={`cr-reactinfo-tab ${reactInfoTab === tb.key ? 'active' : ''}`} onClick={() => setReactInfoTab(tb.key)}>
+                    {tb.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ padding: '2px 0 4px' }}>
+                {shown.map(r => {
+                  const isMine = r.user_email === meEmail
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      className="cr-info-row cr-reactinfo-row"
+                      onClick={isMine ? () => { react(reactInfoFor, r.emoji); setReactInfoFor(null) } : undefined}
+                      title={isMine ? t('Ketuk untuk menghapus reaksimu') : undefined}
+                    >
+                      {personAvatar(r.user_email, 38)}
+                      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1, textAlign: 'left' }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{isMine ? t('Saya') : nameFor(r.user_email)}</span>
+                        {isMine && <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>{t('Ketuk untuk menghapus')}</span>}
+                      </span>
+                      <span style={{ fontSize: 22, lineHeight: 1, flexShrink: 0 }}>{r.emoji}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </Modal>
+          )
+        })()}
+
         {/* In-app attachment preview — styled like every other popup in the app
-            (shared Modal), with a download that doesn't leave the page. */}
-        {lightbox && (
-          <Modal
-            open={!!lightbox}
-            onClose={() => setLightbox(null)}
-            title={lightbox.name}
-            maxWidth={760}
-            headerRight={
-              <button
-                type="button"
-                onClick={() => downloadFileNoNav(lightbox.url, lightbox.name)}
-                title="Download"
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer' }}
+            (shared Modal). Navigable: slide/click left & right through all the
+            attached files (wraps around, no limit). */}
+        {profileView && (() => {
+          const url = avatarFor(profileView.email)
+          const nm = nameFor(profileView.email)
+          return (
+            <div className="cr-profile-overlay" onClick={() => setProfileView(null)}>
+              <button className="cr-profile-close" onClick={() => setProfileView(null)} aria-label={t('Tutup')}>✕</button>
+              <div className="cr-profile-card" onClick={e => e.stopPropagation()}>
+                {url
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={url} alt={nm} className="cr-profile-img" referrerPolicy="no-referrer" />
+                  : <div className="cr-profile-fallback" style={{ background: avatarColor(nm) }}>{initials(nm)}</div>}
+                <div className="cr-profile-name">{nm}</div>
+                <div className="cr-profile-email">{profileView.email}</div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {lightbox && (() => {
+          const n = lightbox.items.length
+          const cur = lightbox.items[lightbox.index]
+          const go = (d: number) => setLightbox(lb => (lb ? { ...lb, index: ((lb.index + d) % n + n) % n } : lb))
+          return (
+            <Modal
+              open
+              onClose={() => setLightbox(null)}
+              title={cur.name}
+              maxWidth={760}
+              headerRight={
+                <button
+                  type="button"
+                  onClick={() => downloadFileNoNav(cur.url, cur.name)}
+                  title="Download"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer' }}
+                >
+                  ⬇ Download
+                </button>
+              }
+            >
+              <div
+                style={{ position: 'relative' }}
+                onTouchStart={e => { lbTouch.current = e.touches[0]?.clientX ?? null }}
+                onTouchEnd={e => {
+                  const x0 = lbTouch.current; lbTouch.current = null
+                  if (x0 == null || n < 2) return
+                  const dx = (e.changedTouches[0]?.clientX ?? x0) - x0
+                  if (Math.abs(dx) > 45) go(dx < 0 ? 1 : -1)
+                }}
               >
-                ⬇ Download
-              </button>
-            }
-          >
-            <ChatAttachPreview url={lightbox.url} name={lightbox.name} type={lightbox.type} />
+                <ChatAttachPreview url={cur.url} name={cur.name} type={cur.type} />
+                {n > 1 && (
+                  <>
+                    <button type="button" className="cr-lb-nav left" onClick={() => go(-1)} aria-label={t('Sebelumnya')}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                    </button>
+                    <button type="button" className="cr-lb-nav right" onClick={() => go(1)} aria-label={t('Berikutnya')}>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                    </button>
+                    <div className="cr-lb-count">{lightbox.index + 1} / {n}</div>
+                  </>
+                )}
+              </div>
+              {/* Filmstrip + All media (WhatsApp-style). */}
+              <div className="cr-lb-strip">
+                <button type="button" className="cr-lb-allmedia" onClick={() => setGallery(true)}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+                  All Media
+                </button>
+                <div className="cr-lb-thumbs no-scrollbar">
+                  {lightbox.items.map((it, idx) => (
+                    <button key={idx} type="button" className={`cr-lb-thumb ${idx === lightbox.index ? 'active' : ''}`} onClick={() => setLightbox(lb => (lb ? { ...lb, index: idx } : lb))}>
+                      {it.type.startsWith('image/')
+                        ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={it.url} alt="" />
+                        : <span className="cr-lb-thumb-file"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg></span>}
+                    </button>
+                  ))}
+                </div>
+                {cur.msg && (
+                  <button type="button" className="cr-lb-reply" onClick={() => { if (cur.msg) startReply(cur.msg); setLightbox(null) }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 17 4 12 9 7" /><path d="M20 18v-1a4 4 0 0 0-4-4H4" /></svg>
+                    {t('Balas')}
+                  </button>
+                )}
+              </div>
+            </Modal>
+          )
+        })()}
+
+        {/* All-media gallery grid (every image in the room). */}
+        {gallery && (
+          <Modal open onClose={() => setGallery(false)} title="All Media" maxWidth={760}>
+            {allMedia.length === 0
+              ? <div style={{ padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{t('Belum ada media.')}</div>
+              : <div className="cr-gallery-grid">
+                  {allMedia.map((it, idx) => (
+                    <button key={idx} type="button" className="cr-gallery-cell" onClick={() => { setGallery(false); setLightbox({ items: allMedia, index: idx }) }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={it.url} alt="" loading="lazy" />
+                    </button>
+                  ))}
+                </div>}
           </Modal>
         )}
 
@@ -883,12 +1370,34 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
               <span className="cr-pending-name">{t('Mengonversi foto…')}</span>
             </div>
           )}
-          {pending && !converting && (
-            <div className="cr-pending-chip">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
-              <span className="cr-pending-name">{pending.name}</span>
-              <span className="cr-pending-size">{fmtSize(pending.size)}</span>
-              <button onClick={() => setPending(null)} aria-label={t('Hapus')}>✕</button>
+          {pendingFiles.length > 0 && (
+            <div className="cr-attach-list">
+              {pendingFiles.map((it, idx) => (
+                <div key={it.id} className="cr-attach-card">
+                  {/* Tap to preview — opens a gallery of all attached files. */}
+                  <button
+                    type="button"
+                    className="cr-attach-open"
+                    title={t('Pratinjau')}
+                    onClick={() => setLightbox({ items: pendingFiles.map(p => ({ url: p.preview, name: p.file.name, type: p.file.type })), index: idx })}
+                  >
+                    {it.file.type.startsWith('image/')
+                      ? // eslint-disable-next-line @next/next/no-img-element
+                        <img className="cr-attach-thumb" src={it.preview} alt={it.file.name} />
+                      : <span className="cr-attach-thumb cr-attach-thumb-file">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+                        </span>}
+                  </button>
+                  {/* Progress ring overlay until upload finishes. */}
+                  {!it.attach && !it.error && (
+                    <span className="cr-attach-progress"><span className="cr-spin" /><span className="cr-attach-pct">{it.pct}%</span></span>
+                  )}
+                  {it.error && <span className="cr-attach-progress cr-attach-failed">!</span>}
+                  <button className="cr-attach-x" onClick={() => removePending(it.id)} aria-label={t('Hapus')}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                  </button>
+                </div>
+              ))}
             </div>
           )}
           {attachErr && <div className="cr-attach-err">{attachErr}</div>}
@@ -899,27 +1408,55 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                 <span className="cr-reply-author">{replyingTo.author_email === meEmail ? t('Saya') : nameFor(replyingTo.author_email)}</span>
                 <span className="cr-reply-snippet">{msgSnippet(replyingTo)}</span>
               </div>
+              {(replyingTo.attachment_type ?? '').startsWith('image/') && (!!replyingTo.attachment_path || !!replyingTo._preview) && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img className="cr-reply-thumb" src={imgUrl(replyingTo)} alt="" />
+              )}
               <button className="cr-reply-close" onClick={() => setReplyingTo(null)} aria-label={t('Batal balas')}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
           )}
+          {mention && mentionMatches.length > 0 && (
+            <div className="cr-mention-list">
+              {mentionMatches.map((mm, i) => (
+                <button
+                  key={mm.email}
+                  type="button"
+                  className={`cr-mention-item ${i === mentionSel ? 'active' : ''}`}
+                  onMouseEnter={() => setMentionSel(i)}
+                  onMouseDown={e => { e.preventDefault(); insertMention(mm) }}
+                >
+                  {personAvatar(mm.email, 30)}
+                  <span className="cr-mention-name">{mm.name}{mm.email === meEmail ? ` (${t('Saya')})` : ''}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="cr-input-wrap">
-            <input ref={fileRef} type="file" accept={ACCEPT} hidden onChange={e => { pickFile(e.target.files?.[0] ?? null); e.target.value = '' }} />
+            <input ref={fileRef} type="file" accept={ACCEPT} hidden multiple onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
             <button className="cr-attach-btn" onClick={() => fileRef.current?.click()} aria-label={t('Lampirkan file')} title={t('Lampirkan file')}>
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
             </button>
             <textarea
               ref={taRef}
               value={text}
-              onChange={e => setText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !isMobile) { e.preventDefault(); send() } }}
+              onChange={onTextChange}
+              onKeyDown={e => {
+                if (mention && mentionMatches.length > 0) {
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setMentionSel(s => Math.min(s + 1, mentionMatches.length - 1)); return }
+                  if (e.key === 'ArrowUp') { e.preventDefault(); setMentionSel(s => Math.max(s - 1, 0)); return }
+                  if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(mentionMatches[mentionSel] ?? mentionMatches[0]); return }
+                  if (e.key === 'Escape') { e.preventDefault(); setMention(null); return }
+                }
+                if (e.key === 'Enter' && !e.shiftKey && !isMobile) { e.preventDefault(); send() }
+              }}
               placeholder={t('Tulis pesan…')}
               rows={1}
               className="cr-input"
             />
-            <button onClick={send} disabled={(!text.trim() && !pending) || uploading} className="cr-send" aria-label={t('Kirim')}>
-              {uploading
+            <button onClick={send} disabled={(!text.trim() && pendingFiles.length === 0) || converting} className="cr-send" aria-label={t('Kirim')}>
+              {converting
                 ? <span className="cr-spin" />
                 : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></svg>}
             </button>
@@ -930,13 +1467,19 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       <ConfirmDialog
         open={!!confirm}
         danger
-        title={confirm?.kind === 'all' ? t('Kosongkan room') : t('Hapus pesan terpilih')}
+        title={confirm?.kind === 'all' ? t('Kosongkan room') : confirm?.kind === 'unsend' ? t('Tarik pesan?') : t('Hapus pesan terpilih')}
         message={confirm?.kind === 'all'
           ? t('Kosongkan seluruh room? Semua pesan akan terhapus permanen.')
-          : `${t('Hapus')} ${selected.size} ${t('pesan terpilih')}? ${t('Tindakan ini permanen.')}`}
-        confirmLabel={t('Hapus')}
+          : confirm?.kind === 'unsend'
+            ? t('Tarik pesan ini? Pesan akan hilang untuk semua orang di room.')
+            : `${t('Hapus')} ${selected.size} ${t('pesan terpilih')}? ${t('Tindakan ini permanen.')}`}
+        confirmLabel={confirm?.kind === 'unsend' ? t('Tarik') : t('Hapus')}
         cancelLabel={t('Batal')}
-        onConfirm={() => (confirm?.kind === 'all' ? clearAll() : clearSelected())}
+        onConfirm={() => {
+          if (confirm?.kind === 'all') clearAll()
+          else if (confirm?.kind === 'unsend') { void retract(confirm.id); setConfirm(null) }
+          else clearSelected()
+        }}
         onCancel={() => setConfirm(null)}
       />
     </div>
@@ -945,6 +1488,38 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
 
 // Renders an attachment inside the preview popup by kind. Mirrors the
 // PostPreviewModal preview so chat files open in the same styled popup.
+// Compact month calendar for the chat search → jump to a date.
+function MiniCalendar({ month, onMonth, onPick }: { month: Date; onMonth: (d: Date) => void; onPick: (d: Date) => void }) {
+  const y = month.getFullYear(), mo = month.getMonth()
+  const startDow = new Date(y, mo, 1).getDay()
+  const daysInMonth = new Date(y, mo + 1, 0).getDate()
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const title = month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const cells: (number | null)[] = []
+  for (let i = 0; i < startDow; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+  return (
+    <div className="cr-cal-inner">
+      <div className="cr-cal-head">
+        <span className="cr-cal-title">{title}</span>
+        <span className="cr-cal-navs">
+          <button type="button" onClick={() => onMonth(new Date(y, mo - 1, 1))} aria-label="Prev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg></button>
+          <button type="button" onClick={() => onMonth(new Date(y, mo + 1, 1))} aria-label="Next"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg></button>
+        </span>
+      </div>
+      <div className="cr-cal-grid">
+        {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => <span key={d} className="cr-cal-dow">{d}</span>)}
+        {cells.map((c, i) => {
+          if (c === null) return <span key={`e${i}`} />
+          const date = new Date(y, mo, c)
+          const isToday = date.getTime() === today.getTime()
+          return <button key={i} type="button" className={`cr-cal-day ${isToday ? 'today' : ''}`} onClick={() => onPick(date)}>{c}</button>
+        })}
+      </div>
+    </div>
+  )
+}
+
 function ChatAttachPreview({ url, name, type }: { url: string; name: string; type: string }) {
   const t = useT()
   if (type.startsWith('image/')) {
@@ -965,7 +1540,39 @@ function ChatAttachPreview({ url, name, type }: { url: string; name: string; typ
 }
 
 const CR_CSS = `
-.cr-root { display:flex; flex-direction:column; height:100%; min-height:0; }
+.cr-root { display:flex; flex-direction:column; height:100%; min-height:0; position:relative; }
+
+/* ── Search ── */
+.cr-search { display:flex; align-items:center; gap:8px; flex-shrink:0; margin-bottom:8px; padding:6px; background:var(--bg2); border:1px solid var(--border); border-radius:14px; position:relative; }
+.cr-search-cal-wrap { position:relative; flex-shrink:0; }
+.cr-search-icon { width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:var(--bg3); color:var(--text2); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:color .12s, border-color .12s; }
+.cr-search-icon.on, .cr-search-icon:hover { color:var(--accent3); border-color:var(--accent3); }
+.cr-search-field { flex:1; min-width:0; display:flex; align-items:center; gap:8px; padding:0 12px; height:34px; border-radius:9px; background:var(--bg3); border:1px solid var(--border); color:var(--text2); }
+.cr-search-field input { flex:1; min-width:0; background:none; border:none; outline:none; color:var(--text); font-size:13.5px; font-family:inherit; }
+.cr-search-count { flex-shrink:0; font-size:12.5px; color:var(--text2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.cr-search-nav { flex-shrink:0; width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--bg3); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.cr-search-nav:disabled { opacity:0.35; cursor:default; }
+.cr-search-nav:not(:disabled):hover { background:var(--bg-hover); }
+.cr-search-done { flex-shrink:0; padding:7px 12px; border:none; background:none; color:var(--accent3); font-size:13.5px; font-weight:700; cursor:pointer; border-radius:8px; }
+.cr-search-done:hover { background:rgba(67,217,162,0.12); }
+.cr-search-open { position:absolute; top:14px; right:14px; z-index:6; width:34px; height:34px; border-radius:50%; border:1px solid var(--border); background:var(--bg3); color:var(--text2); cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.35); transition:color .12s, background .12s; }
+.cr-search-open:hover { color:var(--text); background:var(--bg-hover); }
+/* Calendar */
+.cr-cal { position:absolute; top:calc(100% + 8px); left:0; z-index:40; }
+.cr-cal-inner { width:300px; max-width:84vw; background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:14px; box-shadow:0 16px 44px rgba(0,0,0,0.55); }
+.cr-cal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.cr-cal-title { font-size:15px; font-weight:700; color:var(--text); }
+.cr-cal-navs { display:flex; gap:4px; }
+.cr-cal-navs button { width:28px; height:28px; border-radius:7px; border:none; background:none; color:var(--accent3); cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.cr-cal-navs button:hover { background:var(--bg-hover); }
+.cr-cal-grid { display:grid; grid-template-columns:repeat(7, 1fr); gap:2px; }
+.cr-cal-dow { text-align:center; font-size:10.5px; font-weight:700; color:var(--text3); padding:4px 0 6px; }
+.cr-cal-day { aspect-ratio:1 / 1; border:none; background:none; color:var(--text); font-size:13px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.cr-cal-day:hover { background:var(--bg-hover); }
+.cr-cal-day.today { color:var(--accent3); font-weight:700; box-shadow:inset 0 0 0 1.5px var(--accent3); }
+/* Search highlight */
+.cr-hl { background:rgba(255,210,90,0.42); color:inherit; border-radius:3px; padding:0 1px; }
+.cr-bubble.mine .cr-hl { background:rgba(255,255,255,0.42); color:#0b2a6b; }
 
 /* ── Stream ── */
 .cr-stream {
@@ -1010,6 +1617,21 @@ const CR_CSS = `
 .cr-row { display:flex; flex-direction:row; gap:9px; align-items:flex-end; animation:cr-in 0.26s cubic-bezier(.2,.7,.3,1) both; }
 .cr-row.mine { flex-direction:row-reverse; }
 .cr-av-slot { width:32px; flex-shrink:0; }
+.cr-av-btn { background:none; border:none; padding:0; margin:0; cursor:pointer; display:flex; border-radius:50%; transition:transform 0.12s ease, box-shadow 0.12s ease; }
+.cr-av-btn:hover { transform:scale(1.06); box-shadow:0 0 0 2px var(--accent); }
+.cr-av-btn:active { transform:scale(0.97); }
+
+/* Profile-photo preview popup (tap an avatar) */
+.cr-profile-overlay { position:fixed; inset:0; z-index:1200; background:rgba(6,8,14,0.82); backdrop-filter:blur(6px); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; animation:cr-fade 0.16s ease; }
+.cr-profile-close { position:absolute; top:16px; right:18px; width:40px; height:40px; border-radius:50%; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.08); color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.cr-profile-close:hover { background:rgba(255,255,255,0.16); }
+.cr-profile-card { display:flex; flex-direction:column; align-items:center; gap:6px; animation:cr-pop 0.18s ease; }
+.cr-profile-img, .cr-profile-fallback { width:min(78vw, 300px); height:min(78vw, 300px); border-radius:50%; object-fit:cover; box-shadow:0 18px 60px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.12); }
+.cr-profile-fallback { display:flex; align-items:center; justify-content:center; color:#fff; font-size:84px; font-weight:800; }
+.cr-profile-name { margin-top:14px; font-size:18px; font-weight:800; color:#fff; text-align:center; }
+.cr-profile-email { font-size:13px; color:rgba(255,255,255,0.6); text-align:center; }
+@keyframes cr-fade { from { opacity:0 } to { opacity:1 } }
+@keyframes cr-pop { from { opacity:0; transform:scale(0.92) } to { opacity:1; transform:scale(1) } }
 .cr-av {
   width:32px; height:32px; border-radius:50%;
   display:inline-flex; align-items:center; justify-content:center;
@@ -1057,8 +1679,30 @@ const CR_CSS = `
 .cr-retracted { font-style:italic; color:var(--text3); background:transparent; border:1px dashed var(--border); box-shadow:none; }
 
 /* ── Attachments ── */
-.cr-img { display:block; max-width:260px; max-height:300px; border-radius:10px; cursor:pointer; margin-bottom:2px; }
-.cr-bubble .cr-img:not(:only-child) { margin-bottom:6px; }
+/* Preserve aspect ratio (no crop) — caps width, lets tall screenshots stay
+   complete; the bubble shrinks to the photo. */
+.cr-img { display:block; max-width:250px; max-height:380px; width:auto; height:auto; border-radius:11px; cursor:pointer; }
+
+/* Image messages — WhatsApp-style: a thin bubble frame, the photo fills it
+   edge-to-edge with rounded corners, and (when there's no caption) the time
+   overlays the bottom-right of the photo on a soft scrim. */
+.cr-bubble.has-media { padding:3px; overflow:hidden; }
+.cr-bubble.has-media .cr-img { border-radius:13px; }
+.cr-bubble.mine.has-media { border-radius:15px 15px 6px 15px; }
+.cr-bubble.has-media:not(.mine) { border-radius:15px 15px 15px 6px; }
+.cr-bubble.has-media.grouped { border-radius:15px; }
+/* Caption (image + text): give the text room and a touch of padding. */
+.cr-bubble.has-media .cr-body-text { display:block; padding:5px 8px 0; }
+.cr-bubble.has-media:not(.media-only) .cr-stamp { margin-right:7px; margin-bottom:2px; }
+.cr-bubble.has-media .cr-quote { margin:3px 3px 5px; }
+/* Image-only: overlay the timestamp on the photo. */
+.cr-bubble.media-only .cr-img { display:block; }
+.cr-bubble.media-only .cr-stamp {
+  position:absolute; right:8px; bottom:8px; float:none; margin:0;
+  padding:2px 8px; border-radius:11px; font-size:10.5px; opacity:1; color:#fff;
+  background:rgba(0,0,0,0.42); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+}
+.cr-bubble.media-only .cr-tick { opacity:1; }
 .cr-file-chip {
   display:flex; align-items:center; gap:10px; text-decoration:none;
   padding:8px 10px; border-radius:10px; margin:-1px 0 4px;
@@ -1128,20 +1772,30 @@ const CR_CSS = `
 .cr-react-bar button.active { background:var(--accent); }
 
 /* Reaction pills under a message bubble. */
-.cr-reactions { display:flex; flex-wrap:wrap; gap:4px; margin:4px 2px 0; }
+/* Reaction pills hang off the bubble's bottom edge (negative margin pulls them
+   up to overlap it) with a bg-coloured ring so they read as "stuck on". */
+.cr-reactions { display:flex; flex-wrap:wrap; gap:3px; margin:-13px 8px 1px; position:relative; z-index:3; }
 .cr-row.mine .cr-reactions { justify-content:flex-end; }
 .cr-reaction {
   display:inline-flex; align-items:center; gap:3px; padding:2px 7px;
-  border:1px solid var(--border); background:var(--bg3); border-radius:999px;
+  border:2px solid var(--bg2); background:var(--bg3); border-radius:999px;
   cursor:pointer; font-size:12px; line-height:1.4; color:var(--text);
+  box-shadow:0 1px 3px rgba(0,0,0,0.35);
   transition:background .12s ease, border-color .12s ease, transform .08s ease;
 }
 .cr-reaction:hover { background:var(--bg-hover); }
 .cr-reaction:active { transform:scale(0.94); }
-.cr-reaction.mine { background:rgba(11,61,231,0.18); border-color:var(--accent); }
-.cr-reaction-emoji { font-size:13px; }
-.cr-reaction-count { font-size:11px; font-weight:700; color:var(--text2); font-variant-numeric:tabular-nums; }
-.cr-reaction.mine .cr-reaction-count { color:var(--accent); }
+.cr-reaction.mine { background:rgba(11,61,231,0.32); }
+.cr-reaction-emoji { font-size:14px; }
+.cr-reaction-count { font-size:11px; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums; }
+
+/* Reaction-details popup. */
+.cr-reactinfo-tabs { display:flex; gap:6px; flex-wrap:wrap; padding:2px 0 12px; border-bottom:1px solid var(--border); margin-bottom:6px; }
+.cr-reactinfo-tab { padding:6px 13px; border-radius:999px; border:1px solid var(--border); background:var(--bg3); color:var(--text2); font-size:13px; font-weight:600; cursor:pointer; transition:background .12s, color .12s, border-color .12s; }
+.cr-reactinfo-tab:hover { background:var(--bg-hover); color:var(--text); }
+.cr-reactinfo-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.cr-reactinfo-row { width:100%; background:none; border:none; cursor:default; }
+.cr-reactinfo-row[title] { cursor:pointer; }
 
 /* ── Reply quote ── */
 /* Composer preview (above the input). */
@@ -1153,7 +1807,11 @@ const CR_CSS = `
 .cr-reply-close { flex-shrink:0; width:28px; height:28px; border-radius:50%; border:none; background:var(--bg3); color:var(--text2); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .12s, color .12s; }
 .cr-reply-close:hover { background:var(--bg-hover); color:var(--text); }
 /* Quote inside a message bubble. */
-.cr-quote { display:flex; flex-direction:column; gap:1px; width:100%; text-align:left; margin:0 0 6px; padding:5px 9px; border:none; cursor:pointer; border-left:3px solid var(--accent3); background:rgba(255,255,255,0.07); border-radius:6px; }
+.cr-quote { display:flex; align-items:center; gap:8px; width:100%; text-align:left; margin:0 0 6px; padding:5px 9px; border:none; cursor:pointer; border-left:3px solid var(--accent3); background:rgba(255,255,255,0.07); border-radius:6px; overflow:hidden; }
+.cr-quote.has-thumb { padding:4px 4px 4px 9px; }
+.cr-quote-text { display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
+.cr-quote-thumb { width:42px; height:42px; border-radius:5px; object-fit:cover; flex-shrink:0; }
+.cr-reply-thumb { width:42px; height:42px; border-radius:7px; object-fit:cover; flex-shrink:0; }
 .cr-bubble.mine .cr-quote { background:rgba(255,255,255,0.16); border-left-color:rgba(255,255,255,0.9); }
 .cr-quote:hover { filter:brightness(1.12); }
 .cr-quote-author { font-size:12px; font-weight:700; color:var(--accent3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -1162,6 +1820,23 @@ const CR_CSS = `
 /* Flash highlight when jumping to a quoted message. */
 .cr-flash .cr-bubble { animation:cr-flash-anim 1.3s ease; }
 @keyframes cr-flash-anim { 0%,100% { box-shadow:none; } 30% { box-shadow:0 0 0 3px var(--accent3); } }
+
+/* ── @mentions ── */
+/* Distinct text colour only — no chip/background. High contrast on both the
+   dark bubble (bright blue) and my own blue bubble (bright aqua, clearly
+   different from the white body text). Cool = others, warm/amber = you. */
+.cr-mention { color:#79aaff; font-weight:700; }
+.cr-bubble.mine .cr-mention { color:#8af3ff; font-weight:800; text-shadow:0 1px 1px rgba(0,0,0,0.25); }
+.cr-mention.me { color:#ffc23d; }
+.cr-bubble.mine .cr-mention.me { color:#ffe08a; text-shadow:0 1px 1px rgba(0,0,0,0.25); }
+/* The whole bubble gets an amber edge when a message tags me. */
+.cr-bubble.mentions-me { box-shadow:inset 3px 0 0 #ffce5a, 0 1px 2px rgba(0,0,0,0.2); }
+.cr-bubble.mine.mentions-me { box-shadow:inset -3px 0 0 #ffd56e, 0 2px 10px rgba(11,61,231,0.32); }
+/* Autocomplete dropdown above the composer. */
+.cr-mention-list { display:flex; flex-direction:column; gap:1px; margin:0 0 8px; padding:5px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 34px rgba(0,0,0,0.5); max-height:232px; overflow-y:auto; }
+.cr-mention-item { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:none; border:none; cursor:pointer; padding:7px 9px; border-radius:9px; transition:background .1s ease; }
+.cr-mention-item.active { background:rgba(255,255,255,0.08); }
+.cr-mention-name { font-size:13.5px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* Roomier tap targets for the action menu on touch devices. */
 @media (hover: none) {
@@ -1237,6 +1912,54 @@ const CR_CSS = `
 .cr-pending-chip button { background:none; border:none; color:var(--text3); cursor:pointer; font-size:13px; padding:0 2px; }
 .cr-pending-chip button:hover { color:var(--text); }
 .cr-attach-err { color:var(--accent2); font-size:12px; margin:0 0 8px 2px; }
+
+/* Composer attachment previews — a row of thumbnails (multiple files). */
+.cr-attach-list { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 8px; }
+.cr-attach-card { position:relative; width:64px; height:64px; flex-shrink:0; }
+.cr-attach-thumb { width:64px; height:64px; border-radius:11px; object-fit:cover; background:var(--bg3); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1); display:block; }
+.cr-attach-thumb-file { display:inline-flex; align-items:center; justify-content:center; color:var(--text2); }
+.cr-attach-progress { position:absolute; inset:0; border-radius:11px; background:rgba(0,0,0,0.5); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
+.cr-attach-pct { font-size:10px; font-weight:700; color:#fff; }
+.cr-attach-failed { color:#ff6b6b; font-size:22px; font-weight:800; background:rgba(0,0,0,0.55); }
+.cr-attach-x { position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; border:2px solid var(--bg2); background:var(--bg-hover); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; box-shadow:0 1px 4px rgba(0,0,0,0.4); z-index:2; }
+.cr-attach-x:hover { background:#ff6b6b; }
+.cr-attach-open { display:block; width:64px; height:64px; padding:0; border:none; background:none; cursor:pointer; border-radius:11px; overflow:hidden; }
+
+/* Lightbox prev/next navigation. */
+.cr-lb-nav { position:absolute; top:50%; transform:translateY(-50%); width:40px; height:40px; border-radius:50%; border:none; background:rgba(0,0,0,0.5); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px); transition:background .12s; }
+.cr-lb-nav:hover { background:rgba(0,0,0,0.7); }
+.cr-lb-nav.left { left:8px; }
+.cr-lb-nav.right { right:8px; }
+.cr-lb-count { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.6); color:#fff; font-size:12px; font-weight:600; padding:3px 11px; border-radius:20px; backdrop-filter:blur(4px); }
+/* Lightbox filmstrip + All media. */
+.cr-lb-strip { display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
+.cr-lb-allmedia { flex-shrink:0; display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:9px; border:1px solid var(--border); background:var(--bg3); color:var(--text); font-size:12.5px; font-weight:600; cursor:pointer; transition:background .12s; }
+.cr-lb-allmedia:hover { background:var(--bg-hover); }
+.cr-lb-thumbs { display:flex; gap:6px; overflow-x:auto; padding:2px; flex:1; min-width:0; }
+.cr-lb-reply { flex-shrink:0; display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:9px; border:none; background:var(--accent); color:#fff; font-size:12.5px; font-weight:600; cursor:pointer; transition:filter .12s; }
+.cr-lb-reply:hover { filter:brightness(1.08); }
+.cr-lb-thumb { flex-shrink:0; width:46px; height:46px; border-radius:8px; overflow:hidden; border:2px solid transparent; padding:0; cursor:pointer; background:var(--bg3); }
+.cr-lb-thumb.active { border-color:var(--accent); }
+.cr-lb-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.cr-lb-thumb-file { display:flex; width:100%; height:100%; align-items:center; justify-content:center; color:var(--text2); }
+/* All-media gallery grid. */
+.cr-gallery-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:3px; }
+@media (max-width: 560px) { .cr-gallery-grid { grid-template-columns:repeat(3, 1fr); } }
+.cr-gallery-cell { aspect-ratio:1 / 1; padding:0; border:none; cursor:pointer; background:var(--bg3); overflow:hidden; border-radius:2px; }
+.cr-gallery-cell img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .15s ease; }
+.cr-gallery-cell:hover img { transform:scale(1.05); }
+
+/* In-bubble image while its upload finishes. */
+.cr-img-wrap { position:relative; display:block; line-height:0; border-radius:13px; overflow:hidden; }
+.cr-img-uploading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.32); }
+
+/* Image album collage (WhatsApp-style). */
+.cr-album { display:grid; gap:3px; width:264px; max-width:74vw; border-radius:12px; overflow:hidden; }
+.cr-album-2, .cr-album-3, .cr-album-4 { grid-template-columns:1fr 1fr; }
+.cr-album-3.three .cr-album-tile:first-child { grid-column:1 / -1; aspect-ratio:2 / 1; }
+.cr-album-tile { position:relative; padding:0; border:none; cursor:pointer; background:var(--bg3); aspect-ratio:1 / 1; overflow:hidden; }
+.cr-album-tile img { width:100%; height:100%; object-fit:cover; display:block; }
+.cr-album-more { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.52); color:#fff; font-size:25px; font-weight:700; }
 .cr-input-wrap {
   display:flex; align-items:flex-end; gap:6px;
   background:var(--bg3); border:1px solid var(--border); border-radius:14px;

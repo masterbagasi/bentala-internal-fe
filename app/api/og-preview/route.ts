@@ -59,6 +59,13 @@ function extractMeta(html: string, key: string): string | null {
   return null
 }
 
+// Plain <title> tag — last-resort name source. Google Drive file pages put the
+// filename here ("filename.ext - Google Drive"); the client strips the suffix.
+function extractTitleTag(html: string): string | null {
+  const m = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+  return m ? decodeHtmlEntities(m[1].trim()) || null : null
+}
+
 function findImageInJson(node: unknown): string | null {
   if (!node) return null
   if (typeof node === 'string' && /^https?:\/\/[^\s"']+\.(?:jpg|jpeg|png|webp|gif)/i.test(node))
@@ -276,6 +283,7 @@ function parseOg(html: string, base: URL): { thumbnail: string | null; video: st
   const ogTitle =
     extractMeta(html, 'og:title') ||
     extractMeta(html, 'twitter:title') ||
+    extractTitleTag(html) ||
     null
   const ogType = extractMeta(html, 'og:type') || null
   return {
@@ -287,6 +295,10 @@ function parseOg(html: string, base: URL): { thumbnail: string | null; video: st
 }
 
 async function scrapeWithRetries(targetUrl: URL): Promise<OgResult | null> {
+  // Remember the first title-only hit. Some providers (notably Google Drive
+  // files) expose no og:image but DO expose the filename as the title — we
+  // still want to return that so the link can be labelled with its real name.
+  let titleOnly: OgResult | null = null
   for (const ua of USER_AGENTS) {
     const html = await fetchHtml(targetUrl.toString(), ua)
     if (!html) continue
@@ -300,8 +312,17 @@ async function scrapeWithRetries(targetUrl: URL): Promise<OgResult | null> {
         source: `scrape:${ua.split(' ')[0].replace(/[();]/g, '')}`,
       }
     }
+    if (!titleOnly && parsed.title) {
+      titleOnly = {
+        thumbnail_url: null,
+        video_url: parsed.video,
+        title: parsed.title,
+        og_type: parsed.type,
+        source: `scrape-title:${ua.split(' ')[0].replace(/[();]/g, '')}`,
+      }
+    }
   }
-  return null
+  return titleOnly
 }
 
 export async function GET(req: Request) {

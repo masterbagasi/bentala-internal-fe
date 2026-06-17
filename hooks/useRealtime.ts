@@ -20,8 +20,9 @@ export function useRealtime() {
 
   useEffect(() => {
     const supabase = getSupabase()
+    let cancelled = false
 
-    const channel = supabase
+    const buildChannel = () => supabase
       .channel('bentala-realtime')
 
       // Posts
@@ -62,8 +63,27 @@ export function useRealtime() {
 
       .subscribe()
 
+    // CRITICAL: posts / tasks / clients RLS is authenticated-only. Supabase
+    // realtime only delivers change-events when the socket carries the user's
+    // JWT. Without setAuth the socket is anon and receives NOTHING, so new or
+    // updated posts never appear until the user manually refreshes. Set the
+    // token BEFORE subscribing, and refresh it on every auth change (token
+    // expiry) so the live stream never silently goes stale.
+    let channel: ReturnType<typeof buildChannel> | null = null
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return
+      const token = data.session?.access_token
+      if (token) (supabase.realtime as { setAuth: (t: string) => void }).setAuth(token)
+      channel = buildChannel()
+    })
+    const { data: authSub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session?.access_token) (supabase.realtime as { setAuth: (t: string) => void }).setAuth(session.access_token)
+    })
+
     return () => {
-      supabase.removeChannel(channel)
+      cancelled = true
+      authSub.subscription.unsubscribe()
+      if (channel) supabase.removeChannel(channel)
     }
   }, [upsertPost, removePost, upsertClient, removeClient, upsertTask, removeTask, addActivity])
 }

@@ -176,17 +176,26 @@ export function RevisiModal({ open, post, editing, applyStatus = true, onClose, 
         ? existing.map(r => (r.id === rec.id ? rec : r))
         : [...existing, rec]
 
-      const updates: Record<string, unknown> = { revisions: nextRevs }
-      // Create from a status change / drag → flip the post + tracks to revisi.
+      // Atomic insert-or-replace of THIS revision (by id) so a revision another
+      // user adds at the same time is never dropped by a stale read-modify-write.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: revData, error: upErr } = await (sb() as any)
+        .rpc('post_revision_upsert', { p_id: post.id, p_rev: rec })
+      if (upErr) throw upErr
+
+      // Status/track flip (drag → revisi) is a separate partial write — these
+      // are scalar fields, not a shared list, so last-write-wins is fine here.
+      const statusUpd: Record<string, unknown> = {}
       if (applyStatus && !editing) {
-        updates.status = 'revisi'
-        if (selected.includes('video')) updates.video_status = 'revisi'
-        if (selected.includes('design')) updates.design_status = 'revisi'
+        statusUpd.status = 'revisi'
+        if (selected.includes('video')) statusUpd.video_status = 'revisi'
+        if (selected.includes('design')) statusUpd.design_status = 'revisi'
+        const { error: stErr } = await sb().from('posts').update(statusUpd).eq('id', post.id)
+        if (stErr) throw stErr
       }
 
-      const { error: upErr } = await sb().from('posts').update(updates).eq('id', post.id)
-      if (upErr) throw upErr
-      const updatedPost = { ...post, ...updates } as Post
+      const fresh = useStore.getState().posts.find(p => p.id === post.id) ?? post
+      const updatedPost = { ...fresh, ...statusUpd, revisions: (revData ?? nextRevs) as PostRevision[] } as Post
       upsertPost(updatedPost)
 
       // Log to the post's activity feed.

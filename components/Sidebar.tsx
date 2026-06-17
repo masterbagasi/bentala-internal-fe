@@ -393,6 +393,9 @@ export function Sidebar() {
       id: 'overview',
       items: [
         { href: '/', label: 'Dashboard', icon: <DashboardIcon />, color: COLOR.blue },
+        // Unified chat — a top-level item right under Dashboard (not nested in a
+        // section). Lists every Socmed Management room the user can access.
+        { href: '/chat', label: 'Chat', icon: <ChatBubbleIcon />, color: COLOR.blue },
       ],
     },
     {
@@ -424,7 +427,6 @@ export function Sidebar() {
           items: [
             { href: `/smm/${p.slug}/social`, label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
             { href: `/smm/${p.slug}`,        label: 'Projects',     icon: <ListIcon />,  color: p.color },
-            { href: `/smm/${p.slug}/chat`,   label: 'Chat',         icon: <ChatBubbleIcon />, color: COLOR.blue },
           ],
         })),
       ],
@@ -521,6 +523,11 @@ export function Sidebar() {
           if (kids.length) out.push({ ...e, items: kids })
         } else {
           const href = (e as NavItem).href
+          if (href === '/chat') {
+            // Unified Chat tab — visible if the user can chat in ANY project.
+            if (smmProjects.some(p => canAccessChat(access.allowed, p.slug))) out.push(e)
+            continue
+          }
           const chatRoom = chatRoomFromPath(href)
           if (chatRoom !== null) {
             // Chat = explicit chat grant OR any project access (social/projects).
@@ -537,7 +544,7 @@ export function Sidebar() {
     return sections
       .map(sec => ({ ...sec, items: filterItems(sec.items) }))
       .filter(sec => sec.items.length > 0)
-  }, [sections, access])
+  }, [sections, access, smmProjects])
 
   const filteredSections = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -1079,8 +1086,12 @@ function NavLink({
         {t(item.label)}
       </span>
       {isExpanded && (() => {
+        // Unified Chat tab shows the SUM of unread across every room; a normal
+        // per-room chat link shows just its own count.
         const room = chatRoomFromPath(item.href)
-        const n = room ? (unread?.[room] ?? 0) : 0
+        const n = item.href === '/chat'
+          ? Object.values(unread ?? {}).reduce((a, b) => a + (b || 0), 0)
+          : room ? (unread?.[room] ?? 0) : 0
         if (!n) return null
         return (
           <span style={{ marginLeft: 'auto', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: 'var(--accent2)', color: '#fff', fontSize: 10.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>

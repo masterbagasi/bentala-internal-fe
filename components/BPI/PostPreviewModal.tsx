@@ -105,6 +105,40 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     })
     return () => { cancelled = true }
   }, [open, post?.files])
+
+  // Attach time for links: a pasted link carries no timestamp in its URL (unlike
+  // an uploaded file, whose name starts with the upload ms). Recover WHEN each
+  // url was first added from the post_history audit trail, so links show their
+  // attached date/time exactly like uploaded files.
+  const [attachTimes, setAttachTimes] = useState<Record<string, number>>({})
+  useEffect(() => {
+    if (!open || !postId) return
+    let cancelled = false
+    void (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (getSupabase() as any)
+        .from('post_history').select('created_at, changes')
+        .eq('post_id', postId).order('created_at', { ascending: true })
+      if (cancelled || !Array.isArray(data)) return
+      const map: Record<string, number> = {}
+      // `data` is ascending by time, so the FIRST row whose files snapshot ("to")
+      // contains a url is the earliest moment we can prove it was attached. We do
+      // NOT require the url to be absent from "from": some links were added
+      // without a recorded from→to diff (so they already sit in the earliest
+      // logged snapshot). Taking the earliest "to" still yields a real timestamp.
+      for (const row of data as { created_at: string; changes: { files?: { to?: unknown } } | null }[]) {
+        const to = row.changes?.files?.to
+        if (!Array.isArray(to)) continue
+        const ts = new Date(row.created_at).getTime()
+        if (!Number.isFinite(ts)) continue
+        for (const u of to) {
+          if (typeof u === 'string' && map[u] == null) map[u] = ts
+        }
+      }
+      if (!cancelled) setAttachTimes(map)
+    })()
+    return () => { cancelled = true }
+  }, [open, postId])
   // Paste-a-link input + in-flight uploads (per-file progress + cancel).
   const [linkInput, setLinkInput] = useState('')
   const [uploads, setUploads] = useState<{ id: string; name: string; progress: number; abort: () => void }[]>([])
@@ -178,10 +212,17 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     | { kind: 'row'; rowId: string }
   const attachments: { icon: string; label: string; url: string; src: AttachSrc; at?: number }[] = []
   const seenUrls = new Set<string>()
+  // Last-resort time so EVERY attachment shows a date/time, no exceptions: the
+  // post's own creation time. Real per-file times (upload ms in the filename, or
+  // the audit-trail attach time) take precedence over this.
+  const postCreatedMs = (() => {
+    const ms = post.created_at ? new Date(post.created_at).getTime() : NaN
+    return Number.isFinite(ms) ? ms : undefined
+  })()
   const addAttach = (url: string | null | undefined, src: AttachSrc, icon?: string, label?: string, at?: number) => {
     if (!url || seenUrls.has(url)) return
     seenUrls.add(url)
-    attachments.push({ icon: icon ?? attachIcon(url), label: label ?? linkNames[url] ?? attachLabel(url), url, src, at: at ?? uploadTimeFromUrl(url) })
+    attachments.push({ icon: icon ?? attachIcon(url), label: label ?? linkNames[url] ?? attachLabel(url), url, src, at: at ?? uploadTimeFromUrl(url) ?? attachTimes[url] ?? postCreatedMs })
   }
   addAttach(post.video_link, { kind: 'field', field: 'video_link' }, '🎬', 'Video')
   addAttach(post.design_link, { kind: 'field', field: 'design_link' }, '🎨', 'Design')
@@ -189,29 +230,25 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
   addAttach(post.design_file_url, { kind: 'field', field: 'design_file_url' }, '🎨', 'Design')
   ;(post.files || []).forEach((f, i) => addAttach(f, { kind: 'files', fileIdx: i }))
   for (const f of extraFiles) addAttach(f.url, { kind: 'row', rowId: f.id }, undefined, f.name, f.createdAt ? new Date(f.createdAt).getTime() : undefined)
-  // Newest upload first. Items with no derivable timestamp (e.g. pasted links) sink to the bottom.
+  // Newest attachment always first. Every item now resolves a time (upload ms,
+  // audit-trail attach time, or the post's creation time as a last resort), so
+  // the order is a clean newest→oldest with nothing sinking to the bottom.
   attachments.sort((a, b) => (b.at ?? -1) - (a.at ?? -1))
 
   // Files that can be previewed in-app (image/video/pdf) — links are excluded,
   // so the preview popup can page left/right through actual files only.
   const previewFiles = attachments.filter(a => previewKind(a.url) !== 'other')
 
-  // Persist the posts.files list (links + uploaded file URLs).
-  async function saveFiles(urls: string[]) {
-    if (!post) return
-    const { error } = await getSupabase().from('posts').update({ files: urls }).eq('id', post.id)
-    if (error) { alert(t('Gagal menyimpan: ') + error.message); return }
-    upsertPost({ ...post, files: urls } as Post)
-  }
-
   // Remove a revision entry from posts.revisions (Socmed Management only).
+  // Atomic delete-by-id so a revision added concurrently by someone else is
+  // never dropped along with this one.
   async function deleteRevisi(rev: PostRevision) {
     if (!post || !window.confirm(t('Hapus revisi ini?'))) return
-    const next = (post.revisions ?? []).filter(r => r.id !== rev.id)
-    const sb = getSupabase() as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
-    const { error } = await sb.from('posts').update({ revisions: next }).eq('id', post.id)
+    const sb = getSupabase() as any // eslint-disable-line @typescript-eslint/no-explicit-any
+    const { data, error } = await sb.rpc('post_revision_delete', { p_id: post.id, p_rev_id: rev.id })
     if (error) { alert(t('Gagal menghapus: ') + error.message); return }
-    upsertPost({ ...post, revisions: next } as Post)
+    const fresh = useStore.getState().posts.find(p => p.id === post.id) ?? post
+    upsertPost({ ...fresh, revisions: (data ?? []) as PostRevision[] } as Post)
     if (comments.me.email) {
       await sb.from('post_comments').insert({
         post_id: post.id, type: 'activity', author_email: comments.me.email, author_name: comments.me.name,
@@ -220,33 +257,35 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     }
   }
 
-  // Add a pasted link (Drive / Figma / etc.) to the attachments.
+  // Add a pasted link (Drive / Figma / etc.) — atomic, deduped server-side.
   function addLink() {
     const v = linkInput.trim()
     if (!v || !post) return
-    const cur = post.files || []
-    if (!cur.includes(v)) void saveFiles([...cur, v])
+    void appendUrl(v)
     setLinkInput('')
   }
 
-  // Append a finished upload's URL to posts.files, reading the latest list from
-  // the store so concurrent uploads don't overwrite each other.
+  // Append a file/link URL to posts.files. Uses an ATOMIC, server-side,
+  // deduped append (post_files_add) so two uploads finishing at the same time
+  // can never overwrite each other — the merge happens under the row lock, not
+  // as a read-modify-write of a possibly-stale in-memory list. Returns the
+  // authoritative new list, which we write back to the store.
   async function appendUrl(url: string) {
     const latest = useStore.getState().posts.find(p => p.id === postId)
     if (!latest) return
     const cur = latest.files || []
-    if (cur.includes(url)) return
-    const next = [...cur, url]
-    upsertPost({ ...latest, files: next }) // optimistic (synchronous)
-    // MUST await — a Supabase query builder is lazy; `void`-ing it never sends
-    // the request, so the upload would vanish on refresh. .select() also lets us
-    // detect a silent 0-row write (RLS / wrong id) that returns no error.
-    const { data, error } = await getSupabase()
-      .from('posts').update({ files: next }).eq('id', postId).select('id')
-    if (error || !data || data.length === 0) {
-      upsertPost({ ...latest, files: cur }) // revert optimistic
+    if (!cur.includes(url)) upsertPost({ ...latest, files: [...cur, url] }) // optimistic
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (getSupabase() as any)
+      .rpc('post_files_add', { p_id: postId, p_url: url })
+    if (error || data == null) {
+      const reverted = useStore.getState().posts.find(p => p.id === postId)
+      if (reverted) upsertPost({ ...reverted, files: cur }) // revert optimistic
       alert(t('Gagal menyimpan file: ') + (error?.message || t('tidak tersimpan ke database')))
+      return
     }
+    const fresh = useStore.getState().posts.find(p => p.id === postId)
+    if (fresh) upsertPost({ ...fresh, files: data as string[] }) // authoritative
   }
 
   // Upload each picked file with live progress + a per-file cancel handle.
@@ -288,10 +327,12 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
         try { await deleteFile(att.url) } catch { /* best-effort */ }
         setExtraFiles(prev => prev.filter(f => f.id !== (att.src as { rowId: string }).rowId))
       } else if (att.src.kind === 'files') {
-        const next = (post.files || []).filter((_, i) => i !== (att.src as { fileIdx: number }).fileIdx)
-        const { error } = await sb.from('posts').update({ files: next }).eq('id', post.id)
+        // Atomic remove BY VALUE (not index) — a list reordered/extended by a
+        // concurrent upload can never cause the wrong file to be deleted.
+        const { data, error } = await (sb as any).rpc('post_files_remove', { p_id: post.id, p_url: att.url })
         if (error) throw error
-        upsertPost({ ...post, files: next } as Post)
+        const fresh = useStore.getState().posts.find(p => p.id === post.id) ?? post
+        upsertPost({ ...fresh, files: (data ?? (fresh.files || []).filter(f => f !== att.url)) as string[] } as Post)
       } else {
         const field = att.src.field
         const { error } = await sb.from('posts').update({ [field]: '' }).eq('id', post.id)
@@ -494,7 +535,6 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
             {attachments.map(a => (
               <AttachCard
                 key={a.url}
-                icon={a.icon}
                 label={a.label}
                 url={a.url}
                 time={a.at ? formatUploadTime(a.at) : undefined}
@@ -746,10 +786,115 @@ function UploadingCard({ name, progress, onCancel, cancelLabel }: { name: string
   )
 }
 
-function AttachCard({ icon, label, url, time, onOpen, onDelete }: { icon: string; label: string; url: string; time?: string; onOpen: () => void; onDelete: () => void }) {
+// ── Brand logos for known link providers, so a pasted Instagram / Drive / etc.
+//    link shows its real logo instead of a generic icon. All rendered at a
+//    consistent size inside the same fixed thumbnail box as image previews. ──
+function IgLogo() {
+  return (
+    <svg width="58" height="58" viewBox="0 0 48 48" aria-hidden="true">
+      <defs>
+        <radialGradient id="ig-grad" cx="30%" cy="100%" r="125%">
+          <stop offset="0%" stopColor="#FFDD77" />
+          <stop offset="22%" stopColor="#FA8E37" />
+          <stop offset="48%" stopColor="#E8417A" />
+          <stop offset="74%" stopColor="#C32EAF" />
+          <stop offset="100%" stopColor="#7A2FD6" />
+        </radialGradient>
+      </defs>
+      <rect x="3" y="3" width="42" height="42" rx="12" fill="url(#ig-grad)" />
+      <rect x="13" y="13" width="22" height="22" rx="7" fill="none" stroke="#fff" strokeWidth="3" />
+      <circle cx="24" cy="24" r="6" fill="none" stroke="#fff" strokeWidth="3" />
+      <circle cx="32.6" cy="15.4" r="2.2" fill="#fff" />
+    </svg>
+  )
+}
+function DriveLogo() {
+  return (
+    <svg width="56" height="50" viewBox="0 0 87.3 78" aria-hidden="true">
+      <path fill="#0066da" d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8H0c0 1.55.4 3.1 1.2 4.5z" />
+      <path fill="#00ac47" d="M43.65 25L29.9 1.2c-1.35.8-2.5 1.9-3.3 3.3L1.2 48.5C.4 49.9 0 51.45 0 53h27.5z" />
+      <path fill="#ea4335" d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H67.3l5.85 11.5z" />
+      <path fill="#00832d" d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.9 0H34.4c-1.6 0-3.15.45-4.5 1.2z" />
+      <path fill="#2684fc" d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" />
+      <path fill="#ffba00" d="M73.4 26.5L60.7 4.5c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25l16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" />
+    </svg>
+  )
+}
+function YtLogo() {
+  return (
+    <svg width="58" height="42" viewBox="0 0 48 34" aria-hidden="true">
+      <rect x="1" y="1" width="46" height="32" rx="9" fill="#FF0000" />
+      <path d="M20 10.5L33 17L20 23.5z" fill="#fff" />
+    </svg>
+  )
+}
+function TiktokLogo() {
+  return (
+    <svg width="50" height="56" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#fff" d="M33 4c.6 4.6 3.2 7.35 7.6 7.65v5.2c-2.55.25-4.9-.55-7.6-2.15v10.85c0 8.05-6 13.25-13 11.85-4.4-.9-7.3-4.6-7.3-9.1 0-5.4 4.35-9.35 9.75-8.95.5.04 1.05.12 1.55.24v5.5c-.5-.16-1.05-.27-1.55-.3-2.35-.13-4.25 1.5-4.25 3.8 0 2.1 1.65 3.7 3.75 3.7 2.2 0 3.8-1.6 3.8-4.3V4z" />
+    </svg>
+  )
+}
+function FigmaLogo() {
+  return (
+    <svg width="36" height="54" viewBox="0 0 38 57" aria-hidden="true">
+      <path fill="#1abcfe" d="M19 28.5a9.5 9.5 0 1 1 9.5 9.5A9.5 9.5 0 0 1 19 28.5z" />
+      <path fill="#0acf83" d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z" />
+      <path fill="#ff7262" d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19z" />
+      <path fill="#f24e1e" d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z" />
+      <path fill="#a259ff" d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z" />
+    </svg>
+  )
+}
+function GlyphVideo() {
+  return (
+    <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2.5" y="5" width="13" height="14" rx="2.5" />
+      <path d="M15.5 9.5L21 6.5v11l-5.5-3z" fill="var(--text2)" stroke="none" />
+    </svg>
+  )
+}
+function GlyphPdf() {
+  return (
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 2.5h7l5 5V21a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 5 21V4A1.5 1.5 0 0 1 6 2.5z" />
+      <path d="M13 2.5V8h5" />
+    </svg>
+  )
+}
+function GlyphLink() {
+  return (
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 15l6-6" />
+      <path d="M11 6.5L12.5 5a4 4 0 0 1 5.6 5.6L16.5 12" />
+      <path d="M13 17.5L11.5 19a4 4 0 0 1-5.6-5.6L7.5 12" />
+    </svg>
+  )
+}
+// Pick the visual mark for an attachment: a brand logo for known providers, a
+// file glyph for video/pdf, or a generic link icon. `tint` colours the thumb
+// background so every card reads as "full" (no tiny lonely icon); `short` is
+// the bottom-left badge (e.g. IG / DRIVE / LINK).
+function markFor(url: string): { node: React.ReactNode; tint: string; short: string } {
+  let host = ''
+  try { host = new URL(url).hostname.replace(/^www\./, '').toLowerCase() } catch { /* not a URL */ }
+  if (host.includes('instagram.com')) return { node: <IgLogo />, tint: 'rgba(214,41,118,0.20)', short: 'IG' }
+  if (host.includes('drive.google.com') || host.includes('docs.google.com')) return { node: <DriveLogo />, tint: 'rgba(38,132,252,0.16)', short: 'DRIVE' }
+  if (host.includes('youtube.com') || host === 'youtu.be') return { node: <YtLogo />, tint: 'rgba(255,0,0,0.15)', short: 'YT' }
+  if (host.includes('tiktok.com')) return { node: <TiktokLogo />, tint: 'rgba(255,255,255,0.08)', short: 'TIKTOK' }
+  if (host.includes('figma.com')) return { node: <FigmaLogo />, tint: 'rgba(162,89,255,0.16)', short: 'FIGMA' }
+  const k = previewKind(url)
+  if (k === 'video') return { node: <GlyphVideo />, tint: '', short: '' }
+  if (k === 'pdf') return { node: <GlyphPdf />, tint: '', short: '' }
+  return { node: <GlyphLink />, tint: 'rgba(120,140,170,0.14)', short: 'LINK' }
+}
+
+function AttachCard({ label, url, time, onOpen, onDelete }: { label: string; url: string; time?: string; onOpen: () => void; onDelete: () => void }) {
   const t = useT()
   const thumbSrc = safeImageSrc(url)
+  const mark = thumbSrc ? null : markFor(url)
   const ext = fileExt(label) || fileExt(url)
+  const badge = ext || mark?.short || ''
   return (
     <div
       onClick={onOpen}
@@ -763,20 +908,23 @@ function AttachCard({ icon, label, url, time, onOpen, onDelete }: { icon: string
       onMouseOver={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--accent)'; el.style.boxShadow = '0 8px 22px rgba(0,0,0,0.32)'; el.style.transform = 'translateY(-2px)' }}
       onMouseOut={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--border)'; el.style.boxShadow = 'none'; el.style.transform = 'none' }}
     >
-      {/* Thumbnail / icon with a bottom scrim + file-type badge */}
+      {/* Thumbnail / brand logo / file glyph — identical fixed box on every card */}
       <div style={{
-        position: 'relative', width: '100%', height: 122, background: 'var(--bg2)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+        position: 'relative', width: '100%', height: 122, overflow: 'hidden',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: thumbSrc || !mark?.tint
+          ? 'var(--bg2)'
+          : `radial-gradient(circle at 50% 42%, ${mark.tint}, transparent 70%), var(--bg2)`,
       }}>
         {thumbSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={thumbSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <span style={{ fontSize: 36, opacity: 0.92 }}>{icon}</span>
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>{mark?.node}</span>
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.42) 0%, transparent 40%)', pointerEvents: 'none' }} />
-        {ext && (
-          <span style={{ position: 'absolute', left: 8, bottom: 8, fontSize: 9.5, fontWeight: 800, letterSpacing: '0.05em', color: '#fff', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 5, padding: '2px 6px', backdropFilter: 'blur(4px)' }}>{ext}</span>
+        {badge && (
+          <span style={{ position: 'absolute', left: 8, bottom: 8, fontSize: 9.5, fontWeight: 800, letterSpacing: '0.05em', color: '#fff', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 5, padding: '2px 6px', backdropFilter: 'blur(4px)' }}>{badge}</span>
         )}
       </div>
 
@@ -808,14 +956,18 @@ function AttachCard({ icon, label, url, time, onOpen, onDelete }: { icon: string
             <PvTrashIcon />
           </button>
         </div>
-        {time && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--text3)' }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-            </svg>
-            {time}
-          </span>
-        )}
+        {/* Always rendered (min-height reserved) so every card is the same total
+            height whether or not it has a timestamp. */}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--text3)', minHeight: 15 }}>
+          {time && (
+            <>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+              </svg>
+              {time}
+            </>
+          )}
+        </span>
       </div>
     </div>
   )

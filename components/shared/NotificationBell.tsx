@@ -6,6 +6,7 @@ import { useStore } from '@/hooks/useStore'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 import { playNotificationSound } from '@/lib/notificationSound'
+import { useSocmedProjects } from '@/lib/socmed-projects'
 import type { Post } from '@/lib/types'
 
 const STORAGE_KEY = 'bentala_notif_last_seen'
@@ -49,6 +50,16 @@ interface ActivityRow {
   id: string
   post_id: string
   type?: string | null
+  author_name: string | null
+  author_email: string | null
+  body: string
+  created_at: string
+  mentions?: string[] | null
+}
+
+interface ChatMentionRow {
+  id: string
+  room: string
   author_name: string | null
   author_email: string | null
   body: string
@@ -132,6 +143,40 @@ export function NotificationBell() {
     return () => { cancelled = true; supabase.removeChannel(channel) }
   }, [me.email])
 
+  // Chat messages that @mention me (across every room I can access).
+  const projects = useSocmedProjects(false)
+  const roomName = (slug: string) => projects.find(p => p.slug === slug)?.name || slug
+  const [chatMentions, setChatMentions] = useState<ChatMentionRow[]>([])
+  useEffect(() => {
+    if (!me.email) return
+    let cancelled = false
+    const supabase = sb()
+    ;(supabase as any)
+      .from('chat_messages')
+      .select('id,room,author_name,author_email,body,created_at')
+      .contains('mentions', [me.email])
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(30)
+      .then(({ data }: { data: ChatMentionRow[] | null }) => { if (!cancelled) setChatMentions(data ?? []) })
+    // Realtime needs the user's JWT on the socket (chat RLS uses auth.jwt()).
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.access_token) (supabase.realtime as any).setAuth(data.session.access_token)
+    })
+    const channel = supabase
+      .channel('notif:chat-mentions')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' },
+        (payload: { new: ChatMentionRow & { mentions?: string[] | null } }) => {
+          if (cancelled) return
+          const row = payload.new
+          if (!(row.mentions ?? []).map(x => x.toLowerCase()).includes(me.email)) return
+          if ((row.author_email ?? '').toLowerCase() === me.email) return
+          setChatMentions(prev => (prev.some(r => r.id === row.id) ? prev : [row, ...prev]))
+        })
+      .subscribe()
+    return () => { cancelled = true; supabase.removeChannel(channel) }
+  }, [me.email])
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
@@ -165,9 +210,10 @@ export function NotificationBell() {
 
   // Click a notification → go to its post (deep-link opens the post preview).
   function openNotif(item: Notif) {
-    if (!item.href || !item.postId) return
+    if (!item.href) return
     setOpen(false)
-    router.push(`${item.href}?post=${item.postId}`)
+    // Post notifications deep-link to the post; chat mentions go to the room.
+    router.push(item.postId ? `${item.href}?post=${item.postId}` : item.href)
   }
 
   // Build the personalized feed:
@@ -205,11 +251,23 @@ export function NotificationBell() {
       })
     })
 
+    // Chat @mentions — addressed to me in any room I can access.
+    chatMentions.forEach(r => {
+      out.push({
+        id: `chat-${r.id}`,
+        at: r.created_at,
+        author: r.author_name || r.author_email || t('Seseorang'),
+        text: `${t('menyebut Anda di chat')} ${roomName(r.room)}`,
+        postTitle: r.body?.slice(0, 80) || undefined,
+        href: `/smm/${encodeURIComponent(r.room)}/chat`,
+      })
+    })
+
     return out
       .filter((n, i, arr) => arr.findIndex(x => x.id === n.id) === i)
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 30)
-  }, [myMentions, myPosts, posts, me.name, me.email])
+  }, [myMentions, myPosts, posts, me.name, me.email, chatMentions, roomName, t])
 
   const unread = notifs.filter(n => new Date(n.at).getTime() > lastSeen).length
 

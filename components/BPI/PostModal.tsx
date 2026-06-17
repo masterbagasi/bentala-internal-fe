@@ -114,43 +114,55 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
     setForm(f => ({ ...f, hashtags: v }))
   }
 
-  // Load existing post
+  // Load existing post — ONCE per open/editId session.
+  //
+  // CRITICAL: we intentionally do NOT re-seed the form on every `posts` change.
+  // Realtime echoes update the global `posts` array constantly on an active
+  // board; re-running setForm() here would overwrite the user's in-progress
+  // edits (e.g. a brief they just typed but haven't saved yet) with stale DB
+  // values. The change-diff in handleSave would then see the brief as
+  // "unchanged" and never write it — so the entered brief silently vanishes.
+  // The ref guard pins the form to the values loaded when the modal opened;
+  // the partial-diff save still keeps concurrent edits to OTHER fields intact.
+  const initedKey = useRef<string | null>(null)
   useEffect(() => {
-    if (!open) return
+    if (!open) { initedKey.current = null; return }
+    const key = editId ?? '__new__'
+    if (initedKey.current === key) return // already seeded this session
     if (editId) {
       const p = posts.find(x => x.id === editId)
-      if (p) {
-        const loaded = {
-          title:         p.title,
-          project:       (p.entity === 'bpi' || p.entity === 'bsi' ? p.entity : '') as '' | 'bpi' | 'bsi',
-          platforms:     (p.platforms || []) as Platform[],
-          date:          p.date || '',
-          status:        p.status,
-          pics:          p.pics || [],
-          caption:       p.caption || '',
-          headline:      p.headline || '',
-          brief:         p.brief || '',
-          hashtags:      p.hashtags || '',
-          content_types: (p.content_types || []) as ContentType[],
-          video_link:      p.video_link || '',
-          design_link:     p.design_link || '',
-          video_file_url:  p.video_file_url || '',
-          design_file_url: p.design_file_url || '',
-          notes:           p.notes || '',
-          tagged:        p.tagged || [],
-          ratio:         p.ratio || '',
-          files:         p.files || [],
-        }
-        setForm(loaded)
-        setOriginalTagged(p.tagged || [])
-        setOriginalForm(loaded)
+      if (!p) return // not loaded yet — wait, but don't mark as seeded
+      const loaded = {
+        title:         p.title,
+        project:       (p.entity === 'bpi' || p.entity === 'bsi' ? p.entity : '') as '' | 'bpi' | 'bsi',
+        platforms:     (p.platforms || []) as Platform[],
+        date:          p.date || '',
+        status:        p.status,
+        pics:          p.pics || [],
+        caption:       p.caption || '',
+        headline:      p.headline || '',
+        brief:         p.brief || '',
+        hashtags:      p.hashtags || '',
+        content_types: (p.content_types || []) as ContentType[],
+        video_link:      p.video_link || '',
+        design_link:     p.design_link || '',
+        video_file_url:  p.video_file_url || '',
+        design_file_url: p.design_file_url || '',
+        notes:           p.notes || '',
+        tagged:        p.tagged || [],
+        ratio:         p.ratio || '',
+        files:         p.files || [],
       }
+      setForm(loaded)
+      setOriginalTagged(p.tagged || [])
+      setOriginalForm(loaded)
     } else {
       // New post: pre-select the project from the tab context ('all' → empty).
       setForm({ ...DEFAULT_FORM, project: projectScope && projectScope !== 'all' ? projectScope : '' })
       setOriginalTagged([])
       setOriginalForm(null)
     }
+    initedKey.current = key
   }, [open, editId, posts, projectScope])
 
   // Record what changed on an edit as activity rows in post_comments, so the
