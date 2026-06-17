@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
-import { ConfirmDialog } from '@/components/shared/Modal'
+import { ConfirmDialog, Modal } from '@/components/shared/Modal'
+import { downloadFileNoNav } from '@/lib/download'
 
 const sb = () => getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
 
@@ -45,7 +46,7 @@ function dayLabel(iso: string, t: (s: string) => string) {
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(d)
 }
 
-const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip'
+const ACCEPT = 'image/*,.heic,.heif,video/mp4,video/quicktime,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt,.csv'
 const MAX_BYTES = 10 * 1024 * 1024
 
 export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: string; roomName: string; meEmail: string; meName: string; meSuper: boolean }) {
@@ -55,6 +56,9 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const [text, setText] = useState('')
   const [hasMore, setHasMore] = useState(false)
   const [pinned, setPinned] = useState(false) // user scrolled up — show "jump to latest"
+  // In-app attachment preview (styled popup, consistent with the rest of the
+  // app) — replaces opening the file in a new tab / the OS download sheet.
+  const [lightbox, setLightbox] = useState<{ url: string; name: string; type: string } | null>(null)
   // Message actions / edit.
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [menuPos, setMenuPos] = useState<{ top: number; left: number; up: boolean } | null>(null)
@@ -419,16 +423,16 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                               {isImage && (
                                 /* eslint-disable-next-line @next/next/no-img-element */
                                 <img className="cr-img" src={fileUrl(m)} alt={m.attachment_name ?? ''} loading="lazy"
-                                  onClick={e => { e.stopPropagation(); window.open(fileUrl(m), '_blank') }} />
+                                  onClick={e => { e.stopPropagation(); setLightbox({ url: fileUrl(m), name: m.attachment_name ?? 'image', type: m.attachment_type ?? '' }) }} />
                               )}
                               {isFile && (
-                                <a className="cr-file-chip" href={fileUrl(m)} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>
+                                <button type="button" className="cr-file-chip" onClick={e => { e.stopPropagation(); setLightbox({ url: fileUrl(m), name: m.attachment_name ?? 'file', type: m.attachment_type ?? '' }) }}>
                                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
                                   <span className="cr-file-meta">
                                     <span className="cr-file-name">{m.attachment_name}</span>
                                     <span className="cr-file-size">{fmtSize(m.attachment_size ?? 0)}</span>
                                   </span>
-                                </a>
+                                </button>
                               )}
                               {m.body && <span className="cr-body-text">{m.body}</span>}
                               <span className="cr-stamp">
@@ -505,6 +509,29 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
         {opErr && <div className="cr-op-err">{opErr}</div>}
         {menuFor && <div className="cr-menu-overlay" onClick={() => setMenuFor(null)} />}
 
+        {/* In-app attachment preview — styled like every other popup in the app
+            (shared Modal), with a download that doesn't leave the page. */}
+        {lightbox && (
+          <Modal
+            open={!!lightbox}
+            onClose={() => setLightbox(null)}
+            title={lightbox.name}
+            maxWidth={760}
+            headerRight={
+              <button
+                type="button"
+                onClick={() => downloadFileNoNav(lightbox.url, lightbox.name)}
+                title="Download"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer' }}
+              >
+                ⬇ Download
+              </button>
+            }
+          >
+            <ChatAttachPreview url={lightbox.url} name={lightbox.name} type={lightbox.type} />
+          </Modal>
+        )}
+
         {pinned && !selecting && (
           <button onClick={jumpToLatest} className="cr-jump" title={t('Ke pesan terbaru')}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
@@ -569,6 +596,27 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
         onConfirm={() => (confirm?.kind === 'all' ? clearAll() : clearSelected())}
         onCancel={() => setConfirm(null)}
       />
+    </div>
+  )
+}
+
+// Renders an attachment inside the preview popup by kind. Mirrors the
+// PostPreviewModal preview so chat files open in the same styled popup.
+function ChatAttachPreview({ url, name, type }: { url: string; name: string; type: string }) {
+  const t = useT()
+  if (type.startsWith('image/')) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={url} alt={name} style={{ maxWidth: '100%', maxHeight: '72dvh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
+  }
+  if (type.startsWith('video/')) {
+    return <video src={url} controls autoPlay style={{ width: '100%', maxHeight: '72dvh', borderRadius: 8, background: '#000' }} />
+  }
+  if (type === 'application/pdf') {
+    return <iframe src={url} title={name} style={{ width: '100%', height: '72dvh', border: 'none', borderRadius: 8, background: '#fff' }} />
+  }
+  return (
+    <div style={{ textAlign: 'center', padding: 32, fontSize: 13, color: 'var(--text2)' }}>
+      {t('Preview tidak tersedia untuk tipe file ini. Gunakan tombol Download di atas.')}
     </div>
   )
 }
@@ -672,6 +720,7 @@ const CR_CSS = `
   display:flex; align-items:center; gap:10px; text-decoration:none;
   padding:8px 10px; border-radius:10px; margin:-1px 0 4px;
   background:rgba(255,255,255,0.10); color:inherit; min-width:160px;
+  border:none; font:inherit; text-align:left; cursor:pointer; width:100%;
 }
 .cr-bubble:not(.mine) .cr-file-chip { background:var(--bg2); }
 .cr-file-chip:hover { filter:brightness(1.08); }
@@ -688,6 +737,11 @@ const CR_CSS = `
 }
 .cr-row:hover .cr-actions { opacity:1; }
 .cr-actions:hover { background:var(--bg-hover); color:var(--text); }
+/* Touch devices have no hover, so the reveal-on-hover button is invisible /
+   needs a double tap. Keep it always visible and give it a bigger hit area. */
+@media (hover: none) {
+  .cr-actions { opacity:1; width:32px; height:32px; }
+}
 .cr-menu {
   z-index:30; min-width:140px;
   background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:4px;

@@ -16,29 +16,7 @@ import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/compo
 import { RevisiModal, RevisiSection } from '@/components/BPI/RevisiModal'
 import type { PostRevision } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
-
-// Download a file WITHOUT navigating away / opening a new tab. Fetches the
-// bytes as a blob and clicks a synthetic <a download>, so the user stays on
-// the current page (important on mobile, where target=_blank swaps tabs).
-// Falls back to opening the URL only if the fetch is blocked (e.g. a CORS-
-// restricted external link like Google Drive, which can't be blob-fetched).
-async function downloadFileNoNav(url: string, filename: string) {
-  try {
-    const res = await fetch(url, { credentials: 'omit' })
-    if (!res.ok) throw new Error(String(res.status))
-    const blob = await res.blob()
-    const objUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = objUrl
-    a.download = filename || 'file'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(objUrl), 4000)
-  } catch {
-    window.open(url, '_blank', 'noopener,noreferrer')
-  }
-}
+import { downloadFileNoNav } from '@/lib/download'
 
 // Module-level cache of resolved link titles (e.g. the real Google Drive file
 // name) keyed by URL, so we only hit /api/og-preview once per link per session.
