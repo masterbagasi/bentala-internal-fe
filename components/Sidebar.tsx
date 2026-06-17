@@ -615,6 +615,7 @@ export function Sidebar() {
             paddingTop: 'env(safe-area-inset-top, 0px)',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: 12,
             padding: '0 14px',
             zIndex: 60,
@@ -622,6 +623,9 @@ export function Sidebar() {
             borderBottom: '1px solid rgba(255,255,255,0.06)',
           }}
         >
+          {/* Logo — top-left corner */}
+          <SidebarLogo isExpanded />
+          {/* Menu trigger — top-right corner */}
           <button
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
@@ -639,7 +643,6 @@ export function Sidebar() {
               <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <SidebarLogo isExpanded />
         </header>
       )}
 

@@ -343,8 +343,12 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
      and tab rows aren't cramped against the screen edge. */
   .ps-gutter { padding-left: 14px !important; padding-right: 14px !important; }
   /* Belt-and-braces: never let a stray wide child force the whole
-     document to scroll sideways on a phone. */
-  html, body { max-width: 100%; overflow-x: hidden; }
+     document to scroll sideways on a phone. Use `clip`, not `hidden` —
+     `overflow-x: hidden` on html/body makes iOS Safari hijack/break
+     horizontal touch-scroll inside nested scrollers (the tab strips and
+     the kanban board). `clip` trims the same overflow without creating a
+     scroll container, so nested horizontal swipes keep working. */
+  html, body { max-width: 100%; overflow-x: clip; }
 
   /* Collapse FIXED multi-column grids to a single column. The app
      writes grids as inline styles, so these stylesheet rules use

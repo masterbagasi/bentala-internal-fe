@@ -146,6 +146,7 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
               gap: 4,
               overflowX: 'auto',
               WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-x',
             }}
           >
             {tabs.kind === 'link'

@@ -171,6 +171,7 @@ export function PageHeader({
             // of overflowing and getting clipped by the page card.
             overflowX: 'auto',
             WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-x',
           }}
         >
           {tabs!.map(t => {
