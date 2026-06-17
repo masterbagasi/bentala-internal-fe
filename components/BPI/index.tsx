@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, forwardRef, useImperativeHandle, Suspense } from 'react'
+import { useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle, Suspense } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
@@ -447,8 +447,86 @@ function KanbanBoard({
     void onMove?.(dragged, newCol)
   }
 
+  // ── Touch drag-and-drop (mobile) ──
+  // HTML5 drag events never fire on touchscreens, so the desktop DnD above is
+  // dead on phones. We add a long-press-to-pick-up gesture: hold a card ~200ms
+  // to grab it (a quick tap still opens it, a pre-grab swipe still scrolls),
+  // then drag over a column and lift to move. The column under the finger is
+  // found via elementFromPoint + a data-col-key marker.
+  const boardRef = useRef<HTMLDivElement>(null)
+  const touchRef = useRef<
+    { post: Post; startX: number; startY: number; dragging: boolean; overCol: string | null; timer: ReturnType<typeof setTimeout> | null } | null
+  >(null)
+  // Latest values for the stable native listeners to read without re-binding.
+  const liveRef = useRef({ cols, currentUser, onMove, keyOf })
+  liveRef.current = { cols, currentUser, onMove, keyOf }
+
+  function startTouchDrag(post: Post, e: React.TouchEvent) {
+    if (!onMove) return
+    const tch = e.touches[0]
+    if (!tch) return
+    const st = { post, startX: tch.clientX, startY: tch.clientY, dragging: false, overCol: null as string | null, timer: null as ReturnType<typeof setTimeout> | null }
+    st.timer = setTimeout(() => {
+      if (touchRef.current !== st) return
+      st.dragging = true
+      setDragPostId(post.id)
+      try { navigator.vibrate?.(12) } catch { /* not supported */ }
+    }, 200)
+    touchRef.current = st
+  }
+
+  useEffect(() => {
+    const el = boardRef.current
+    if (!el) return
+    const clear = () => {
+      const st = touchRef.current
+      if (st?.timer) clearTimeout(st.timer)
+      if (st?.dragging) { setDragPostId(null); setDragOverCol(null) }
+      touchRef.current = null
+    }
+    const onMoveN = (e: TouchEvent) => {
+      const st = touchRef.current
+      if (!st) return
+      const tch = e.touches[0]
+      if (!tch) return
+      if (!st.dragging) {
+        // Moved before the long-press fired → treat as a scroll, not a drag.
+        if (Math.abs(tch.clientX - st.startX) > 12 || Math.abs(tch.clientY - st.startY) > 12) clear()
+        return
+      }
+      e.preventDefault() // hold the scroll still while dragging
+      const tEl = document.elementFromPoint(tch.clientX, tch.clientY) as HTMLElement | null
+      const key = tEl?.closest('[data-col-key]')?.getAttribute('data-col-key') ?? null
+      st.overCol = key
+      setDragOverCol(key)
+    }
+    const onEndN = (e: TouchEvent) => {
+      const st = touchRef.current
+      if (st?.dragging) {
+        // Cancel the click that would otherwise fire after touchend and open
+        // the card we just dropped.
+        e.preventDefault()
+        if (st.overCol) {
+          const live = liveRef.current
+          const target = live.cols.find(c => c.key === st.overCol)
+          const locked = !!target && 'locked' in target && (target as { locked?: boolean }).locked && live.currentUser === 'Naufal'
+          if (target && !locked && live.keyOf(st.post) !== st.overCol) void live.onMove?.(st.post, st.overCol)
+        }
+      }
+      clear()
+    }
+    el.addEventListener('touchmove', onMoveN, { passive: false })
+    el.addEventListener('touchend', onEndN, { passive: false })
+    el.addEventListener('touchcancel', clear)
+    return () => {
+      el.removeEventListener('touchmove', onMoveN)
+      el.removeEventListener('touchend', onEndN)
+      el.removeEventListener('touchcancel', clear)
+    }
+  }, [])
+
   return (
-    <div style={{
+    <div ref={boardRef} style={{
       display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8,
       alignItems: 'flex-start', marginTop: 20,
     }}>
@@ -462,6 +540,7 @@ function KanbanBoard({
           <div
             key={col.key}
             className="kanban-col"
+            data-col-key={col.key}
             style={{
               minWidth: 265, maxWidth: 265,
               background: active ? `${col.color}14` : blocked ? '#ff6b6b12' : 'var(--bg2)',
@@ -509,6 +588,8 @@ function KanbanBoard({
                     setDragPostId(p.id)
                   }}
                   onDragEnd={() => { setDragPostId(null); setDragOverCol(null) }}
+                  onTouchStart={(e) => startTouchDrag(p, e)}
+                  picked={dragPostId === p.id}
                   onClick={() => onCardClick(p.id)}
                   onEdit={() => onEdit(p.id)}
                   onDelete={() => onDelete(p.id)}
@@ -580,6 +661,7 @@ function TrackChip({ icon, track, value }: { icon: string; track: string; value:
 // ── Kanban Card ──
 function KanbanCard({
   post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true, accounts, showTrackStatus = false,
+  onTouchStart, picked = false,
 }: {
   post: Post
   onDragStart: (e: React.DragEvent) => void
@@ -591,6 +673,10 @@ function KanbanCard({
   accounts?: AccountDir
   /** Socmed Management board: show per-track chips when the post has 2 tracks. */
   showTrackStatus?: boolean
+  /** Touch drag-and-drop (mobile) — HTML5 DnD doesn't fire on touch. */
+  onTouchStart?: (e: React.TouchEvent) => void
+  /** True while this card is the one being touch-dragged. */
+  picked?: boolean
 }) {
   const t = useT()
   const [hovered, setHovered] = useState(false)
@@ -606,12 +692,15 @@ function KanbanCard({
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onTouchStart={onTouchStart}
       onClick={onClick}
       style={{
         position: 'relative',
-        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10,
+        background: 'var(--bg3)', border: `1px solid ${picked ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10,
         padding: '12px 13px', marginBottom: 8, cursor: 'pointer',
-        transition: 'border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease',
+        opacity: picked ? 0.55 : 1,
+        boxShadow: picked ? '0 8px 24px rgba(0,0,0,0.4)' : undefined,
+        transition: 'border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease, opacity 0.16s ease',
       }}
       onMouseOver={e => {
         setHovered(true)

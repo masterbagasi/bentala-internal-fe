@@ -9,8 +9,10 @@ const MAX = 10 * 1024 * 1024
 // (below) and re-derive a sensible content-type when the browser didn't send
 // a usable one — otherwise a perfectly valid .jpg gets "type not allowed".
 const OK_TYPES = new Set([
+  // NOTE: SVG is intentionally NOT allowed — SVGs can embed <script> and
+  // would be a stored-XSS vector when served inline from the bucket.
   'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif',
-  'image/heic', 'image/heif', 'image/avif', 'image/bmp', 'image/svg+xml',
+  'image/heic', 'image/heif', 'image/avif', 'image/bmp',
   'video/mp4', 'video/quicktime', 'video/webm',
   'application/pdf',
   'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -22,7 +24,7 @@ const OK_TYPES = new Set([
 
 const EXT_MIME: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif',
-  heic: 'image/heic', heif: 'image/heif', avif: 'image/avif', bmp: 'image/bmp', svg: 'image/svg+xml',
+  heic: 'image/heic', heif: 'image/heif', avif: 'image/avif', bmp: 'image/bmp',
   mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
   pdf: 'application/pdf',
   doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

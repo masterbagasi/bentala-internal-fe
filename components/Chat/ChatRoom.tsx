@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { ConfirmDialog, Modal } from '@/components/shared/Modal'
 import { downloadFileNoNav } from '@/lib/download'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const sb = () => getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
 
@@ -51,6 +52,7 @@ const MAX_BYTES = 10 * 1024 * 1024
 
 export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: string; roomName: string; meEmail: string; meName: string; meSuper: boolean }) {
   const t = useT()
+  const isMobile = useIsMobile()
   const [messages, setMessages] = useState<Msg[]>([])
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState('')
@@ -407,7 +409,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                               autoFocus value={editText}
                               onChange={e => setEditText(e.target.value)}
                               onKeyDown={e => {
-                                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(m.id) }
+                                if (e.key === 'Enter' && !e.shiftKey && !isMobile) { e.preventDefault(); saveEdit(m.id) }
                                 if (e.key === 'Escape') setEditing(null)
                               }}
                               className="cr-edit-input" rows={1}
@@ -570,7 +572,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
               ref={taRef}
               value={text}
               onChange={e => setText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !isMobile) { e.preventDefault(); send() } }}
               placeholder={t('Tulis pesan…')}
               rows={1}
               className="cr-input"
