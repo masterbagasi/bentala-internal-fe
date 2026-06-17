@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { chatGate } from '../../_shared'
+import { createSupabaseAdmin } from '@/lib/supabase-admin'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 const MAX = 10 * 1024 * 1024
@@ -56,7 +57,11 @@ export async function POST(req: NextRequest, { params }: { params: { room: strin
   const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120)
   const path = `${params.room}/${crypto.randomUUID()}-${safe}`
   const buf = Buffer.from(await file.arrayBuffer())
-  const { error } = await (g.supabase as any).storage.from('chat-attachments')
+  // Room access is already enforced by chatGate. The private `chat-attachments`
+  // bucket has no per-user storage RLS policies, so the user-scoped client
+  // can't write to it — use the service-role admin client for the upload.
+  const admin = createSupabaseAdmin() as any
+  const { error } = await admin.storage.from('chat-attachments')
     .upload(path, buf, { contentType, upsert: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({

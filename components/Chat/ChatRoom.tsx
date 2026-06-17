@@ -253,7 +253,14 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       const fd = new FormData(); fd.append('file', pending)
       const ur = await fetch(`/api/chat/${encodeURIComponent(room)}/upload`, { method: 'POST', body: fd })
       setUploading(false)
-      if (!ur.ok) { setAttachErr(t('Tipe file tidak didukung')); return }
+      if (!ur.ok) {
+        // Surface the real reason instead of always blaming the file type.
+        const reason = await ur.json().catch(() => null)
+        if (ur.status === 415) setAttachErr(t('Tipe file tidak didukung'))
+        else if (ur.status === 413) setAttachErr(t('File terlalu besar (maks 10MB)'))
+        else setAttachErr(t('Gagal mengunggah file') + (reason?.error ? `: ${reason.error}` : ''))
+        return
+      }
       attach = await ur.json()
       setPending(null)
     }
