@@ -34,6 +34,28 @@ function fmtSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
+
+// Re-encode an image blob to a clean JPEG via a canvas (the browser's own,
+// reliable encoder). Used after decoding HEIC so we never store heic2any's
+// chroma-mangled JPEG output.
+function blobToJpeg(blob: Blob, quality = 0.9): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { URL.revokeObjectURL(url); reject(new Error('no 2d context')); return }
+      ctx.drawImage(img, 0, 0)
+      URL.revokeObjectURL(url)
+      canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/jpeg', quality)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image decode failed')) }
+    img.src = url
+  })
+}
 // Deterministic, vivid-but-muted colour per person so avatars stay distinguishable.
 function avatarColor(name: string) {
   let h = 0
@@ -275,9 +297,13 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       try {
         setConverting(true)
         const heic2any = (await import('heic2any')).default
-        const out = await heic2any({ blob: f, toType: 'image/jpeg', quality: 0.9 })
-        const blob = Array.isArray(out) ? out[0] : out
-        f = new File([blob], f.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' })
+        // Decode to PNG (lossless) — heic2any's direct JPEG encoder mangles the
+        // chroma on some photos (green/yellow cast). Then re-encode to a clean
+        // JPEG with the browser's own encoder via a canvas.
+        const pngOut = await heic2any({ blob: f, toType: 'image/png' })
+        const pngBlob = (Array.isArray(pngOut) ? pngOut[0] : pngOut) as Blob
+        const jpeg = await blobToJpeg(pngBlob, 0.9)
+        f = new File([jpeg], f.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' })
       } catch {
         setConverting(false)
         setAttachErr(t('Gagal mengonversi foto HEIC'))
