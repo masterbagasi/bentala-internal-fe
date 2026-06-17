@@ -328,6 +328,11 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
 /* Light: multiply blend makes white bg transparent, black text stays */
 [data-theme="light"] .sidebar-logo { filter: none; mix-blend-mode: multiply; }
 
+/* Horizontal scroll without a visible scrollbar — used by the tab
+   strips (PageHeader / PageShell) so they swipe cleanly on touch. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* ── Mobile (≤768px) ────────────────────────────────────────
    The sidebar collapses to an off-canvas drawer (handled in
    Sidebar.tsx) and the content card goes full-width. Inline

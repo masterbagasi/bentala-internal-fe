@@ -13,6 +13,7 @@ import { ContentCalendar } from '@/components/BSI/Calendar'
 import { useLogActivity } from '@/hooks/useData'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Post } from '@/lib/types'
 
 interface WorkspacePageProps {
@@ -270,6 +271,7 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
   onCardClick: (id: string) => void
 }) {
   const t = useT()
+  const isMobile = useIsMobile()
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const logActivity = useLogActivity()
@@ -321,7 +323,7 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
               borderRadius: 12,
               padding: '14px 12px 10px', flexShrink: 0,
               display: 'flex', flexDirection: 'column',
-              maxHeight: 'calc(100vh - 200px)',
+              maxHeight: isMobile ? 'none' : 'calc(100vh - 200px)',
               boxShadow: active ? `0 0 0 2px ${col.color}66, 0 8px 24px ${col.color}33` : 'none',
               transition: 'border-color 0.12s, background 0.12s, box-shadow 0.12s',
             }}

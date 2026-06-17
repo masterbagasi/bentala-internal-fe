@@ -9,6 +9,7 @@ import { TASK_STATUS_LABELS, PRIORITY_COLORS, TEAM } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { useLogActivity } from '@/hooks/useData'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Task, TaskPriority, TaskStatus, Project } from '@/lib/types'
 
 const TASK_COLS = [
@@ -20,6 +21,7 @@ const TASK_COLS = [
 
 export function TasksPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const { tasks, projects, taskFilter, setTaskFilter } = useStore()
   const [showModal, setShowModal] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
@@ -86,7 +88,7 @@ export function TasksPage() {
                 background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
                 padding: '14px 12px 10px', flexShrink: 0,
                 display: 'flex', flexDirection: 'column',
-                maxHeight: 'calc(100vh - 200px)',
+                maxHeight: isMobile ? 'none' : 'calc(100vh - 200px)',
               }}
               onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
               onDrop={() => handleDrop(col.key)}

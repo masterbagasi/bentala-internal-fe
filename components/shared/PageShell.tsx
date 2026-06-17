@@ -138,13 +138,14 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
         {/* Tabs row */}
         {hasTabs && tabs && (
           <div
-            className="ps-gutter"
+            className="ps-gutter no-scrollbar"
             style={{
               display: 'flex',
               alignItems: 'stretch',
               padding: '0 24px',
               gap: 4,
               overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
             }}
           >
             {tabs.kind === 'link'
@@ -211,6 +212,7 @@ function TabButton({
     cursor: 'pointer',
     transition: 'color 0.15s, border-color 0.15s',
     whiteSpace: 'nowrap',
+    flexShrink: 0,
     textDecoration: 'none',
     // Parent color drives the icon glyph (svg uses currentColor).
     // The label is wrapped in its own span with the gradient class

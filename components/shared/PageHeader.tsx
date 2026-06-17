@@ -161,11 +161,16 @@ export function PageHeader({
       {/* ── Tabs bar — only when tabs provided ── */}
       {hasTabs && (
         <div
+          className="no-scrollbar ps-gutter"
           style={{
             display: 'flex',
             alignItems: 'stretch',
             padding: '0 24px',
             gap: 4,
+            // Let the tab row scroll horizontally on narrow screens instead
+            // of overflowing and getting clipped by the page card.
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           {tabs!.map(t => {
@@ -188,6 +193,9 @@ export function PageHeader({
                   cursor: 'pointer',
                   transition: 'color 0.15s, border-color 0.15s',
                   whiteSpace: 'nowrap',
+                  // Keep natural width so the row overflows (and scrolls)
+                  // rather than the tabs compressing into each other.
+                  flexShrink: 0,
                   textDecoration: 'none',
                   color: isActive ? 'var(--accent)' : 'var(--text2)',
                 }}

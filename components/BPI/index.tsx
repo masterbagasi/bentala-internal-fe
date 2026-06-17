@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, forwardRef, useImperativeHandle, Suspense
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { getSupabase } from '@/lib/supabase'
 import { BPI_STATUS_COLS, WS_STATUS_COLS, SMM_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
 
@@ -430,6 +431,7 @@ function KanbanBoard({
 }) {
   // When statuses are filtered, only show those columns.
   const t = useT()
+  const isMobile = useIsMobile()
   const baseCols: readonly BoardCol[] = colSet ?? BPI_STATUS_COLS
   const keyOf = (p: Post) => (colOf ? colOf(p) : p.status)
   const cols = statusFilter.length ? baseCols.filter(c => statusFilter.includes(c.key)) : baseCols
@@ -468,7 +470,11 @@ function KanbanBoard({
               border: `1px solid ${active ? col.color : blocked ? '#ff6b6b' : 'var(--border)'}`,
               borderRadius: 12, padding: '14px 12px 10px',
               flexShrink: 0, display: 'flex', flexDirection: 'column',
-              maxHeight: 'calc(100vh - 200px)',
+              // Desktop caps the column so its card list scrolls inside the
+              // viewport. On mobile the page itself scrolls vertically and the
+              // fixed top bar eats height, so an uncapped column would run off
+              // the bottom — let it size to content and ride the page scroll.
+              maxHeight: isMobile ? 'none' : 'calc(100vh - 200px)',
               boxShadow: active ? `0 0 0 2px ${col.color}66, 0 8px 24px ${col.color}33` : 'none',
               transition: 'border-color 0.12s, background 0.12s, box-shadow 0.12s',
             }}
