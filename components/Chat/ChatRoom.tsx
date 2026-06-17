@@ -519,12 +519,14 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
           const m = view.find(x => x.id === menuFor)
           if (!m) return null
           const mine = m.author_email === meEmail
-          // Unsend is only allowed within 24h of sending; after that the option
-          // disappears (server enforces the same window).
-          const canUnsend = mine && Date.now() - new Date(m.created_at).getTime() < UNSEND_WINDOW_MS
+          // Edit and Unsend are only allowed within 24h of sending; after that
+          // the options disappear (the server enforces the same window).
+          const within24h = Date.now() - new Date(m.created_at).getTime() < UNSEND_WINDOW_MS
+          const canEdit = mine && within24h
+          const canUnsend = mine && within24h
           return (
             <div className="cr-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}>
-              {mine && (
+              {canEdit && (
                 <button onClick={() => startEdit(m)}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>
                   {t('Edit')}

@@ -3,8 +3,8 @@ import { chatGate } from '../../_shared'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// A message can only be unsent (retracted) within 24h of being sent. Older
-// messages can still be hard-deleted (DELETE) by an author/super admin.
+// A message can only be edited or unsent (retracted) within 24h of being sent.
+// Older messages can still be hard-deleted (DELETE) by an author/super admin.
 const UNSEND_WINDOW_MS = 24 * 60 * 60 * 1000
 
 // Authorization is done HERE (author or super admin), then the write uses the
@@ -36,8 +36,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { room: stri
     return NextResponse.json({ message: data })
   }
 
-  // Edit body — author only.
+  // Edit body — author only, within the 24h window.
   if (!isAuthor) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (Date.now() - new Date(msg.created_at).getTime() > UNSEND_WINDOW_MS) {
+    return NextResponse.json({ error: 'edit window expired' }, { status: 403 })
+  }
   const text = String(p.body ?? '').trim()
   if (!text) return NextResponse.json({ error: 'empty' }, { status: 400 })
   const { data, error } = await admin.from('chat_messages')
