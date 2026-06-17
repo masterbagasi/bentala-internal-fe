@@ -16,6 +16,10 @@ interface Msg {
 }
 
 interface Read { email: string; last_read_at: string }
+interface Reaction { id: string; message_id: string; user_email: string; emoji: string }
+
+// WhatsApp-style quick reactions shown at the top of the message menu.
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
 
 function initials(name: string) {
   return name.split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || '?'
@@ -81,6 +85,8 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const [confirm, setConfirm] = useState<null | { kind: 'selected' | 'all' }>(null)
   // Read receipts + transient action errors.
   const [reads, setReads] = useState<Read[]>([])
+  // Emoji reactions for every message in the room.
+  const [reactions, setReactions] = useState<Reaction[]>([])
   // Directory of teammates (email → name + profile photo) for avatars.
   const [accountDir, setAccountDir] = useState<Record<string, { name: string; avatarUrl: string | null }>>({})
   useEffect(() => {
@@ -120,6 +126,39 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       .catch(() => {})
   }, [room])
 
+  const loadReactions = useCallback(() => {
+    ;(sb() as any)
+      .from('chat_message_reactions')
+      .select('id,message_id,user_email,emoji')
+      .eq('room', room)
+      .then(({ data }: { data: Reaction[] | null }) => setReactions(data ?? []))
+  }, [room])
+
+  // Toggle my reaction on a message: same emoji removes it, a different one
+  // replaces it (one reaction per person per message, like WhatsApp).
+  async function react(messageId: string, emoji: string) {
+    setMenuFor(null)
+    const supa = sb() as any
+    const mine = reactions.find(r => r.message_id === messageId && r.user_email === meEmail)
+    // Optimistic update — realtime will reconcile to the authoritative rows.
+    setReactions(prev => {
+      const rest = prev.filter(r => !(r.message_id === messageId && r.user_email === meEmail))
+      if (mine && mine.emoji === emoji) return rest
+      return [...rest, { id: mine?.id ?? `tmp-${Date.now()}`, message_id: messageId, user_email: meEmail, emoji }]
+    })
+    try {
+      if (mine && mine.emoji === emoji) {
+        await supa.from('chat_message_reactions').delete().eq('id', mine.id)
+      } else if (mine) {
+        await supa.from('chat_message_reactions').update({ emoji }).eq('id', mine.id)
+      } else {
+        await supa.from('chat_message_reactions').insert({ message_id: messageId, room, user_email: meEmail, emoji })
+      }
+    } catch {
+      loadReactions() // revert to server truth on failure
+    }
+  }
+
   function flashErr(msg: string) { setOpErr(msg); setTimeout(() => setOpErr(''), 4000) }
 
   // Initial load + realtime subscription (RLS scopes rows to this room).
@@ -138,12 +177,16 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       })
     fetch(`/api/chat/${encodeURIComponent(room)}/read`, { method: 'POST' }).then(loadReads)
     loadReads()
+    loadReactions()
 
     const channel = sb()
       .channel(`chat:${room}`)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'chat_reads', filter: `room=eq.${room}` },
         () => { if (!cancelled) loadReads() })
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_message_reactions', filter: `room=eq.${room}` },
+        () => { if (!cancelled) loadReactions() })
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room=eq.${room}` },
         payload => {
@@ -175,7 +218,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       .subscribe()
 
     return () => { cancelled = true; sb().removeChannel(channel) }
-  }, [room, scrollToBottom, loadReads])
+  }, [room, scrollToBottom, loadReads, loadReactions])
 
   // Auto-scroll on new messages only if the user is already at the bottom.
   useEffect(() => {
@@ -483,6 +526,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                             </div>
                           </div>
                         ) : (
+                          <>
                           <div className="cr-bubble-row">
                             <div className={`cr-bubble ${mine ? 'mine' : ''} ${grouped ? 'grouped' : ''}`} title={fmtTime(m.created_at)}>
                               {isImage && (
@@ -521,7 +565,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                                     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
                                     // Clamp fully inside the viewport — on a short phone the menu
                                     // used to render above the button and off the top edge.
-                                    const MENU_W = 212, MENU_H = 232
+                                    const MENU_W = 212, MENU_H = 290
                                     const top = Math.max(8, Math.min(r.bottom + 6, window.innerHeight - MENU_H - 8))
                                     const left = Math.max(8, Math.min(r.left, window.innerWidth - MENU_W - 8))
                                     setMenuPos({ top, left })
@@ -538,6 +582,28 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                               </div>
                             )}
                           </div>
+                          {(() => {
+                            const rs = reactions.filter(r => r.message_id === m.id)
+                            if (!rs.length) return null
+                            const groups = new Map<string, { count: number; mine: boolean }>()
+                            for (const r of rs) {
+                              const gr = groups.get(r.emoji) ?? { count: 0, mine: false }
+                              gr.count++
+                              if (r.user_email === meEmail) gr.mine = true
+                              groups.set(r.emoji, gr)
+                            }
+                            return (
+                              <div className="cr-reactions">
+                                {Array.from(groups.entries()).map(([emoji, gr]) => (
+                                  <button key={emoji} type="button" className={`cr-reaction ${gr.mine ? 'mine' : ''}`} onClick={() => react(m.id, emoji)} title={t('Reaksi')}>
+                                    <span className="cr-reaction-emoji">{emoji}</span>
+                                    {gr.count > 1 && <span className="cr-reaction-count">{gr.count}</span>}
+                                  </button>
+                                ))}
+                              </div>
+                            )
+                          })()}
+                          </>
                         )}
                       </div>
                     </div>
@@ -586,8 +652,19 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
           const within24h = Date.now() - new Date(m.created_at).getTime() < UNSEND_WINDOW_MS
           const canEdit = mine && within24h
           const canUnsend = mine && within24h
+          const myReaction = reactions.find(r => r.message_id === m.id && r.user_email === meEmail)?.emoji
           return (
             <div className="cr-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}>
+              <div className="cr-react-bar">
+                {QUICK_EMOJIS.map(e => (
+                  <button
+                    key={e}
+                    className={myReaction === e ? 'active' : ''}
+                    onClick={() => react(m.id, e)}
+                    aria-label={`React ${e}`}
+                  >{e}</button>
+                ))}
+              </div>
               {canEdit && (
                 <button onClick={() => startEdit(m)}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>
@@ -942,11 +1019,40 @@ const CR_CSS = `
 /* Read-receipt info rows. */
 .cr-info-row { display:flex; align-items:center; gap:12px; padding:9px 8px; border-radius:10px; transition:background .12s ease; }
 .cr-info-row:hover { background:rgba(255,255,255,0.04); }
+/* Quick-reaction bar at the top of the action menu (WhatsApp-style). */
+.cr-react-bar { display:flex; gap:2px; padding:2px 0 8px; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08); }
+.cr-react-bar button {
+  flex:1; display:flex; align-items:center; justify-content:center; gap:0;
+  width:auto; padding:6px 0; border:none; background:none; border-radius:10px; cursor:pointer;
+  font-size:21px; line-height:1; transition:background .12s ease, transform .08s ease;
+}
+.cr-react-bar button:hover { background:rgba(255,255,255,0.08); transform:scale(1.14); }
+.cr-react-bar button.active { background:var(--accent); }
+
+/* Reaction pills under a message bubble. */
+.cr-reactions { display:flex; flex-wrap:wrap; gap:4px; margin:4px 2px 0; }
+.cr-row.mine .cr-reactions { justify-content:flex-end; }
+.cr-reaction {
+  display:inline-flex; align-items:center; gap:3px; padding:2px 7px;
+  border:1px solid var(--border); background:var(--bg3); border-radius:999px;
+  cursor:pointer; font-size:12px; line-height:1.4; color:var(--text);
+  transition:background .12s ease, border-color .12s ease, transform .08s ease;
+}
+.cr-reaction:hover { background:var(--bg-hover); }
+.cr-reaction:active { transform:scale(0.94); }
+.cr-reaction.mine { background:rgba(11,61,231,0.18); border-color:var(--accent); }
+.cr-reaction-emoji { font-size:13px; }
+.cr-reaction-count { font-size:11px; font-weight:700; color:var(--text2); font-variant-numeric:tabular-nums; }
+.cr-reaction.mine .cr-reaction-count { color:var(--accent); }
+
 /* Roomier tap targets for the action menu on touch devices. */
 @media (hover: none) {
   .cr-menu { min-width:208px; padding:7px; }
   .cr-menu button { padding:12px 14px; font-size:15px; gap:13px; }
   .cr-menu button svg { width:18px; height:18px; }
+  .cr-react-bar button { font-size:25px; padding:9px 0; }
+  .cr-reaction { padding:3px 10px; font-size:13px; }
+  .cr-reaction-emoji { font-size:14px; }
 }
 
 /* ── Inline edit ── */
