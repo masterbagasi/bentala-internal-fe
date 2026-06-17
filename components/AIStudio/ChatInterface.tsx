@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createSession, upsertSession, deleteHistoryItem, getHistoryByTool, formatHistoryDate, HistoryItem, Message } from '@/lib/aiHistory'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const SUGGESTED_PROMPTS = [
   'Buatkan 5 ide konten TikTok untuk brand fashion Indonesia minggu ini',
@@ -15,6 +16,7 @@ const SUGGESTED_PROMPTS = [
 
 export default function ChatInterface() {
   const t = useT()
+  const isMobile = useIsMobile()
   const [sessions, setSessions] = useState<HistoryItem[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -121,9 +123,10 @@ export default function ChatInterface() {
   const isEmpty = messages.length === 0
 
   return (
-    <div style={{ display: 'flex', height: '100%' }}>
-      {/* Sidebar */}
-      <div style={{ width: 240, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, background: 'var(--bg)' }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: '100%', minHeight: 0 }}>
+      {/* Sidebar — full-width strip with a capped height on mobile so the
+          conversation list sits above the chat instead of squeezing it. */}
+      <div style={{ width: isMobile ? '100%' : 240, maxHeight: isMobile ? 150 : undefined, borderRight: isMobile ? 'none' : '1px solid var(--border)', borderBottom: isMobile ? '1px solid var(--border)' : 'none', display: 'flex', flexDirection: 'column', flexShrink: 0, background: 'var(--bg)' }}>
         <div style={{ padding: '12px 12px 8px' }}>
           <button
             onClick={startNewChat}

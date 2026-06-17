@@ -340,4 +340,44 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
   /* Belt-and-braces: never let a stray wide child force the whole
      document to scroll sideways on a phone. */
   html, body { max-width: 100%; overflow-x: hidden; }
+
+  /* Collapse FIXED multi-column grids to a single column. The app
+     writes grids as inline styles, so these stylesheet rules use
+     !important to win over the (non-important) inline declaration.
+     We only target fixed counts — `repeat(N, …)` and explicit equal
+     `1fr 1fr …` tracks. `repeat(auto-fill/auto-fit, minmax(…))`
+     grids are already fluid and are deliberately left untouched. */
+  [style*="repeat(2"],
+  [style*="repeat(3"],
+  [style*="repeat(4"],
+  [style*="repeat(5"],
+  [style*="repeat(6"],
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Wide media never forces sideways scroll. */
+  #main-content img,
+  #main-content video,
+  #main-content canvas {
+    max-width: 100%;
+  }
+
+  /* Dialogs / modals: keep them within the viewport with a small
+     inset rather than overflowing off the edges. */
+  [role="dialog"] {
+    max-width: calc(100vw - 24px) !important;
+  }
+
+  /* Data tables scroll horizontally instead of forcing the page
+     wide. `display:block` on the table makes it a scroll container
+     while the rows/cells regenerate an anonymous table box, so
+     column alignment is preserved. */
+  #main-content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }

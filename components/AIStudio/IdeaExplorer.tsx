@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { IdeaItem, ContentBrief, Storyline } from '@/lib/types'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const PLATFORMS = ['TikTok', 'Instagram Reels', 'Instagram Feed', 'YouTube Shorts', 'YouTube', 'LinkedIn']
 const FORMATS = ['Short Video', 'Long Video', 'Carousel/Slide', 'Story', 'Talking Head', 'GRWM', 'Tutorial', 'Vlog']
@@ -17,6 +18,7 @@ type Tab = 'ideas' | 'brief' | 'storyline' | 'caption'
 
 export default function IdeaExplorer() {
   const t = useT()
+  const isMobile = useIsMobile()
   const [topik, setTopik] = useState('')
   const [platform, setPlatform] = useState('TikTok')
   const [format, setFormat] = useState('Short Video')
@@ -149,11 +151,13 @@ export default function IdeaExplorer() {
     : ''
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 120px)', gap: 0, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', height: isMobile ? 'auto' : 'calc(100vh - 120px)', gap: 0, overflow: isMobile ? 'visible' : 'hidden' }}>
 
       {/* ── Left: Form Panel ─────────────────────── */}
       <div style={{
-        width: 340, flexShrink: 0, borderRight: '1px solid var(--border)',
+        width: isMobile ? '100%' : 340, flexShrink: 0,
+        borderRight: isMobile ? 'none' : '1px solid var(--border)',
+        borderBottom: isMobile ? '1px solid var(--border)' : 'none',
         overflowY: 'auto', padding: '20px 20px 32px',
         display: 'flex', flexDirection: 'column', gap: 18,
       }}>
@@ -270,7 +274,7 @@ export default function IdeaExplorer() {
       </div>
 
       {/* ── Right: Output Panel ─────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+      <div style={{ flex: 1, minHeight: isMobile ? '60vh' : 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
         {/* Tabs */}
         <div style={{ borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 20px', flexShrink: 0, gap: 0 }}>
