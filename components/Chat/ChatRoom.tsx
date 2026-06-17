@@ -296,13 +296,12 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
     if (isHeic) {
       try {
         setConverting(true)
-        const heic2any = (await import('heic2any')).default
-        // Decode to PNG (lossless) — heic2any's direct JPEG encoder mangles the
-        // chroma on some photos (green/yellow cast). Then re-encode to a clean
-        // JPEG with the browser's own encoder via a canvas.
-        const pngOut = await heic2any({ blob: f, toType: 'image/png' })
-        const pngBlob = (Array.isArray(pngOut) ? pngOut[0] : pngOut) as Blob
-        const jpeg = await blobToJpeg(pngBlob, 0.9)
+        // Use `heic-to` (maintained libheif build) — heic2any mangled the
+        // chroma on some photos (green/yellow cast). Decode to PNG, then
+        // re-encode to a clean JPEG with the browser's own canvas encoder.
+        const { heicTo } = await import('heic-to')
+        const png = await heicTo({ blob: f, type: 'image/png' })
+        const jpeg = await blobToJpeg(png as Blob, 0.9)
         f = new File([jpeg], f.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' })
       } catch {
         setConverting(false)
