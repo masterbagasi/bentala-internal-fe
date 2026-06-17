@@ -72,6 +72,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const [editText, setEditText] = useState('')
   // Attachments.
   const [pending, setPending] = useState<File | null>(null)
+  const [converting, setConverting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [attachErr, setAttachErr] = useState('')
   // Selection / clear.
@@ -218,9 +219,26 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   }
 
   // ── Compose / send ──
-  function pickFile(f: File | null) {
+  async function pickFile(f: File | null) {
     setAttachErr('')
     if (!f) return
+    // iOS shares photos as HEIC, which browsers can't display and the bucket
+    // may reject. Convert to JPEG up front so it both uploads and previews.
+    const isHeic = /heic|heif/i.test(f.type) || /\.(heic|heif)$/i.test(f.name)
+    if (isHeic) {
+      try {
+        setConverting(true)
+        const heic2any = (await import('heic2any')).default
+        const out = await heic2any({ blob: f, toType: 'image/jpeg', quality: 0.9 })
+        const blob = Array.isArray(out) ? out[0] : out
+        f = new File([blob], f.name.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' })
+      } catch {
+        setConverting(false)
+        setAttachErr(t('Gagal mengonversi foto HEIC'))
+        return
+      }
+      setConverting(false)
+    }
     if (f.size > MAX_BYTES) { setAttachErr(t('File terlalu besar (maks 10MB)')); return }
     setPending(f)
   }
@@ -689,7 +707,13 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
         </div>
       ) : (
         <div className="cr-composer">
-          {pending && (
+          {converting && (
+            <div className="cr-pending-chip">
+              <span className="cr-spin" />
+              <span className="cr-pending-name">{t('Mengonversi foto…')}</span>
+            </div>
+          )}
+          {pending && !converting && (
             <div className="cr-pending-chip">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
               <span className="cr-pending-name">{pending.name}</span>
