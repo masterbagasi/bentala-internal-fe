@@ -927,7 +927,7 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
       <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={onClose} />
       <div style={{
         position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 70, width: 320,
-        maxHeight: '64vh', overflowY: 'auto',
+        maxWidth: 'min(320px, 92vw)', maxHeight: '64vh', overflowY: 'auto',
         background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
         padding: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
       }}>

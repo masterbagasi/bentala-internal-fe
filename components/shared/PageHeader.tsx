@@ -159,66 +159,83 @@ export function PageHeader({
         </div>
       </div>
 
-      {/* ── Tabs bar — only when tabs provided ── */}
+      {/* ── Tabs bar — only when tabs provided ──
+          The tab buttons live in their OWN horizontal scroller; tabsRight
+          (history/filter, which open absolutely-positioned dropdowns) sits
+          OUTSIDE that scroller. Keeping them apart matters: an overflow
+          scroller clips its absolutely-positioned descendants, so if the
+          filter/history popovers were inside the scroller they'd be cut off
+          and look broken on mobile. */}
       {hasTabs && (
         <div
-          className="no-scrollbar ps-gutter"
+          className="ps-gutter"
           style={{
             display: 'flex',
             alignItems: 'stretch',
             padding: '0 24px',
-            gap: 4,
-            // Let the tab row scroll horizontally on narrow screens instead
-            // of overflowing and getting clipped by the page card.
-            overflowX: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            touchAction: 'pan-x',
+            gap: 8,
           }}
         >
-          {tabs!.map(t => {
-            const isActive = activeTab === t
-            return (
-              <button
-                key={t}
-                onClick={() => onTabChange?.(t)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '12px 14px',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
-                  marginBottom: -1,
-                  fontSize: 13,
-                  fontWeight: isActive ? 600 : 400,
-                  cursor: 'pointer',
-                  transition: 'color 0.15s, border-color 0.15s',
-                  whiteSpace: 'nowrap',
-                  // Keep natural width so the row overflows (and scrolls)
-                  // rather than the tabs compressing into each other.
-                  flexShrink: 0,
-                  textDecoration: 'none',
-                  color: isActive ? 'var(--accent)' : 'var(--text2)',
-                }}
-                onMouseOver={e => {
-                  if (!isActive) (e.currentTarget as HTMLElement).style.color = 'var(--text)'
-                }}
-                onMouseOut={e => {
-                  if (!isActive) (e.currentTarget as HTMLElement).style.color = 'var(--text2)'
-                }}
-              >
-                {TAB_ICONS[t]}
-                {isActive ? (
-                  <span className="tab-active-text">{TAB_LABELS[t]}</span>
-                ) : (
-                  <span>{TAB_LABELS[t]}</span>
-                )}
-              </button>
-            )
-          })}
+          <div
+            className="no-scrollbar"
+            style={{
+              display: 'flex',
+              alignItems: 'stretch',
+              gap: 4,
+              flex: 1,
+              minWidth: 0,
+              // Tabs scroll horizontally on narrow screens instead of
+              // overflowing and getting clipped by the page card.
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-x',
+            }}
+          >
+            {tabs!.map(t => {
+              const isActive = activeTab === t
+              return (
+                <button
+                  key={t}
+                  onClick={() => onTabChange?.(t)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '12px 14px',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                    marginBottom: -1,
+                    fontSize: 13,
+                    fontWeight: isActive ? 600 : 400,
+                    cursor: 'pointer',
+                    transition: 'color 0.15s, border-color 0.15s',
+                    whiteSpace: 'nowrap',
+                    // Keep natural width so the row overflows (and scrolls)
+                    // rather than the tabs compressing into each other.
+                    flexShrink: 0,
+                    textDecoration: 'none',
+                    color: isActive ? 'var(--accent)' : 'var(--text2)',
+                  }}
+                  onMouseOver={e => {
+                    if (!isActive) (e.currentTarget as HTMLElement).style.color = 'var(--text)'
+                  }}
+                  onMouseOut={e => {
+                    if (!isActive) (e.currentTarget as HTMLElement).style.color = 'var(--text2)'
+                  }}
+                >
+                  {TAB_ICONS[t]}
+                  {isActive ? (
+                    <span className="tab-active-text">{TAB_LABELS[t]}</span>
+                  ) : (
+                    <span>{TAB_LABELS[t]}</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
           {tabsRight && (
-            <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 'auto', paddingLeft: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               {tabsRight}
             </div>
           )}
