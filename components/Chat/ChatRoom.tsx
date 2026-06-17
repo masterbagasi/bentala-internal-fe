@@ -80,6 +80,21 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const [confirm, setConfirm] = useState<null | { kind: 'selected' | 'all' }>(null)
   // Read receipts + transient action errors.
   const [reads, setReads] = useState<Read[]>([])
+  // Directory of teammates (email → name + profile photo) for avatars.
+  const [accountDir, setAccountDir] = useState<Record<string, { name: string; avatarUrl: string | null }>>({})
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/accounts')
+      .then(r => (r.ok ? r.json() : { accounts: [] }))
+      .then((d: { accounts?: { email: string; name: string; avatarUrl: string | null }[] }) => {
+        if (cancelled) return
+        const dir: Record<string, { name: string; avatarUrl: string | null }> = {}
+        for (const a of d.accounts ?? []) dir[a.email.toLowerCase()] = { name: a.name, avatarUrl: a.avatarUrl }
+        setAccountDir(dir)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
   const [opErr, setOpErr] = useState('')
 
   const listRef = useRef<HTMLDivElement>(null)
@@ -317,7 +332,24 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
 
   // Resolve a reader's display name from messages they've authored, else email.
   const nameByEmail = new Map(messages.map(m => [m.author_email, m.author_name]))
-  const nameFor = (email: string) => nameByEmail.get(email) || email.split('@')[0]
+  const nameFor = (email: string) =>
+    accountDir[email.toLowerCase()]?.name || nameByEmail.get(email) || email.split('@')[0]
+  const avatarFor = (email: string) => accountDir[email.toLowerCase()]?.avatarUrl ?? null
+  // Avatar = real profile photo when available, else a coloured initials disc.
+  const personAvatar = (email: string, size: number) => {
+    const url = avatarFor(email)
+    const nm = nameFor(email)
+    const common: React.CSSProperties = { width: size, height: size, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.12)' }
+    if (url) {
+      // eslint-disable-next-line @next/next/no-img-element
+      return <img src={url} alt={nm} style={common} referrerPolicy="no-referrer" />
+    }
+    return (
+      <span style={{ ...common, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontWeight: 700, color: '#fff', background: avatarColor(nm) }}>
+        {initials(nm)}
+      </span>
+    )
+  }
 
   return (
     <div className="cr-root">
@@ -393,9 +425,11 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                     <div className={`cr-row ${mine ? 'mine' : ''}`} style={{ marginTop: grouped ? 2 : 14 }}>
                       <span className="cr-av-slot">
                         {!grouped && (
-                          <span className="cr-av" style={{ background: mine ? 'linear-gradient(150deg, #2f63ff, #0B3DE7)' : avatarColor(m.author_name) }}>
-                            {initials(m.author_name)}
-                          </span>
+                          avatarFor(m.author_email)
+                            ? personAvatar(m.author_email, 32)
+                            : <span className="cr-av" style={{ background: mine ? 'linear-gradient(150deg, #2f63ff, #0B3DE7)' : avatarColor(m.author_name) }}>
+                                {initials(m.author_name)}
+                              </span>
                         )}
                       </span>
                       <div className="cr-col">
@@ -498,11 +532,14 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                   <svg className="cr-seen-eye" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="2.5" /></svg>
                   <span className="cr-seen-label">{t('Dibaca')}</span>
                   <span className="cr-seen-avs">
-                    {seers.slice(0, 8).map(r => (
-                      <span key={r.email} className="cr-seen-av" title={`${nameFor(r.email)} · ${fmtTime(r.last_read_at)}`} style={{ background: avatarColor(nameFor(r.email)) }}>
-                        {initials(nameFor(r.email))}
-                      </span>
-                    ))}
+                    {seers.slice(0, 8).map(r => {
+                      const url = avatarFor(r.email)
+                      const title = `${nameFor(r.email)} · ${fmtTime(r.last_read_at)}`
+                      return url
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img key={r.email} className="cr-seen-av" src={url} alt="" title={title} referrerPolicy="no-referrer" style={{ objectFit: 'cover' }} />
+                        : <span key={r.email} className="cr-seen-av" title={title} style={{ background: avatarColor(nameFor(r.email)) }}>{initials(nameFor(r.email))}</span>
+                    })}
                   </span>
                   {seers.length > 8 && <span className="cr-seen-more">+{seers.length - 8}</span>}
                 </div>
@@ -567,29 +604,39 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
             .sort((a, b) => b.last_read_at.localeCompare(a.last_read_at))
           const unread = others.filter(r => new Date(r.last_read_at).getTime() < msgTime)
           const row = (email: string, time?: string) => (
-            <div key={email} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 2px' }}>
-              <span style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', background: avatarColor(nameFor(email)) }}>
-                {initials(nameFor(email))}
-              </span>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameFor(email)}</span>
-              {time && <span style={{ fontSize: 11.5, color: 'var(--text3)', flexShrink: 0 }}>{fmtTime(time)}</span>}
+            <div key={email} className="cr-info-row">
+              {personAvatar(email, 38)}
+              <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameFor(email)}</span>
+              {time && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text3)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v4l2.5 2.5" /></svg>
+                  {fmtTime(time)}
+                </span>
+              )}
             </div>
           )
+          const chip = (n: number, accent: string) => (
+            <span style={{ marginLeft: 'auto', minWidth: 20, height: 20, padding: '0 6px', borderRadius: 10, background: accent, color: '#fff', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+          )
           return (
-            <Modal open onClose={() => setInfoFor(null)} title={t('Info Pesan')} maxWidth={420}>
-              <div style={{ padding: '2px 2px 6px' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 6, margin: '4px 0 2px' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="2.5" /></svg>
-                  {t('Dibaca')} · {readers.length}
+            <Modal open onClose={() => setInfoFor(null)} title={t('Info Pesan')} maxWidth={400}>
+              <div style={{ padding: '2px 0 4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 8px 8px' }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="2.5" /></svg>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text2)' }}>{t('Dibaca')}</span>
+                  {chip(readers.length, 'var(--accent3)')}
                 </div>
                 {readers.length > 0
                   ? readers.map(r => row(r.email, r.last_read_at))
-                  : <div style={{ fontSize: 13, color: 'var(--text3)', padding: '8px 2px' }}>{t('Belum ada yang membaca.')}</div>}
+                  : <div style={{ fontSize: 13, color: 'var(--text3)', padding: '4px 10px 10px' }}>{t('Belum ada yang membaca.')}</div>}
 
                 {unread.length > 0 && (
                   <>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text2)', margin: '14px 0 2px' }}>
-                      {t('Belum dibaca')} · {unread.length}
+                    <div style={{ height: 1, background: 'var(--border)', margin: '10px 8px' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 8px 8px' }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /></svg>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text2)' }}>{t('Belum dibaca')}</span>
+                      {chip(unread.length, 'var(--bg-hover)')}
                     </div>
                     {unread.map(r => row(r.email))}
                   </>
@@ -861,6 +908,9 @@ const CR_CSS = `
 }
 .cr-menu button.danger:hover { background:rgba(255,107,107,0.12); }
 .cr-menu-overlay { position:fixed; inset:0; z-index:15; }
+/* Read-receipt info rows. */
+.cr-info-row { display:flex; align-items:center; gap:12px; padding:9px 8px; border-radius:10px; transition:background .12s ease; }
+.cr-info-row:hover { background:rgba(255,255,255,0.04); }
 /* Roomier tap targets for the action menu on touch devices. */
 @media (hover: none) {
   .cr-menu { min-width:208px; padding:7px; }
