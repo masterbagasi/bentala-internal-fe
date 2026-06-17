@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { getSupabase } from '@/lib/supabase'
 import type { BsiVisitor } from '@/lib/website-types'
 import { PageShell } from '@/components/shared/PageShell'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { ListEmpty, ListError } from '@/components/website/SimpleList'
 import { inputStyle } from '@/components/website/FormField'
 import { Section } from '@/components/website/Section'
@@ -14,6 +15,7 @@ type Filter = 'all' | 'leads' | 'today' | '7d'
 
 export default function VisitorsPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiVisitor[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,7 +56,7 @@ export default function VisitorsPage() {
 
   return (
     <PageShell title="Visitors" backHref="/?tab=website">
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24 }}>
         {error && <ListError message={error} />}
 
         <Section

@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import type { BsiTeamMember } from '@/lib/website-types'
 import { useRegisterPageAction } from '@/components/website/PageActionsContext'
 import { PrimaryActionButton } from '@/components/website/PageActions'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { FormField, inputStyle, textareaStyle } from '@/components/website/FormField'
 import { ActionButton, IconBtn, ListEmpty, ListError, ModalShell, RowCard } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
@@ -25,6 +26,7 @@ const EMPTY: FormState = {
 
 export default function TeamAdminPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiTeamMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,7 +69,7 @@ export default function TeamAdminPage() {
 
   return (
     <>
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24 }}>
         {error && <ListError message={error} />}
         <Section title={t('Anggota Tim')}>
         {loading ? (

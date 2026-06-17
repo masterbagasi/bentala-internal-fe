@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ProductionBrief, DesignBrief, VideoBrief, ScriptScene } from '@/lib/types'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface Props {
   type: 'design' | 'video'
@@ -28,6 +29,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 
 export default function BriefInbox({ type }: Props) {
   const t = useT()
+  const isMobile = useIsMobile()
   const [briefs, setBriefs] = useState<ProductionBrief[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -95,7 +97,7 @@ export default function BriefInbox({ type }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: isMobile ? '24px 14px' : 24 }}>
       {briefs.map(brief => {
         const isExpanded = expanded === brief.id
         const designContent = type === 'design' ? (brief.content as DesignBrief) : null

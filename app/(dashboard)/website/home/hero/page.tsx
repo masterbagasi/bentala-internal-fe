@@ -15,6 +15,7 @@ import { RichTextEditor } from '@/components/website/RichTextEditor'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
 import { Section, Subgroup } from '@/components/website/Section'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 type FormState = Omit<BsiHero, 'id' | 'created_at' | 'updated_at'>
 
@@ -92,6 +93,7 @@ function toInlineHtml(html: string): string {
 
 export default function HeroEditorPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -260,7 +262,7 @@ export default function HeroEditorPage() {
 
   return (
     <>
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24 }}>
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 24 }}>
           {error && (
             <div

@@ -245,6 +245,7 @@ export function NotificationBell() {
           className="animate-slide-up"
           style={{
             position: 'absolute', right: 0, top: 'calc(100% + 4px)', width: 340,
+            maxWidth: 'min(340px, 92vw)',
             background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10,
             boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden', zIndex: 999,
           }}

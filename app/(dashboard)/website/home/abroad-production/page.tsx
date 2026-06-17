@@ -21,6 +21,7 @@ import { ConfirmDialog, type ConfirmRequest } from '@/components/website/Confirm
 import AbroadServicesSection from './AbroadServicesSection'
 import { AbroadTermsSection } from './AbroadTermsSection'
 import { StatusPill } from './StatusPill'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 type FormState = Omit<BsiAbroadProduction, 'id' | 'created_at'>
 
@@ -63,6 +64,7 @@ function slugify(input: string): string {
  */
 export default function AbroadProductionAdminPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiAbroadProduction[]>([])
   const [loading, setLoading] = useState(true)
@@ -140,7 +142,7 @@ export default function AbroadProductionAdminPage() {
 
   return (
     <>
-      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
         {error && <ListError message={error} />}
         <Section title="Abroad Production Trips">
           {loading ? (

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const TOOLS = [
   {
@@ -106,8 +107,9 @@ function ToolCard({ tool }: { tool: typeof TOOLS[0] }) {
 
 export default function AIStudioHub() {
   const t = useT()
+  const isMobile = useIsMobile()
   return (
-    <div style={{ padding: '32px 28px', maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ padding: isMobile ? '32px 14px' : '32px 28px', maxWidth: 900, margin: '0 auto' }}>
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
           <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, rgba(108,99,255,0.2), rgba(67,217,162,0.2))', border: '1px solid rgba(108,99,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>✦</div>

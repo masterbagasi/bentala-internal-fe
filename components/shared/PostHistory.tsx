@@ -182,6 +182,7 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
           className="animate-slide-up"
           style={{
             position: 'absolute', right: 0, top: 'calc(100% + 6px)', width: 360, zIndex: 80,
+            maxWidth: 'min(360px, 92vw)',
             background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
             boxShadow: '0 12px 40px rgba(0,0,0,0.5)', overflow: 'hidden',
           }}

@@ -9,6 +9,7 @@ import { FormField, inputStyle } from '@/components/website/FormField'
 import { ActionButton, IconBtn, ListEmpty, ListError, ModalShell, RowCard } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const PLATFORM_LABELS: Record<BsiSocialLink['platform'], string> = {
   ig: 'Instagram',
@@ -79,6 +80,7 @@ const EMPTY: FormState = {
 
 export default function SocialAdminPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiSocialLink[]>([])
   const [loading, setLoading] = useState(true)
@@ -120,7 +122,7 @@ export default function SocialAdminPage() {
 
   return (
     <>
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24 }}>
         {error && <ListError message={error} />}
         <Section title="Social Links">
           {loading ? (

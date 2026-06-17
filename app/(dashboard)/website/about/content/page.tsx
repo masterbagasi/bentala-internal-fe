@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import type { BsiAbout, AboutValueIcon } from '@/lib/website-types'
 import { useRegisterPageAction } from '@/components/website/PageActionsContext'
 import { PrimaryActionButton } from '@/components/website/PageActions'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { FormField, inputStyle, textareaStyle } from '@/components/website/FormField'
 import { Section } from '@/components/website/Section'
 import { FileUploader } from '@/components/website/FileUploader'
@@ -140,6 +141,7 @@ const EMPTY_FORM: FormState = {
 
 export default function AboutEditorPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -276,7 +278,7 @@ export default function AboutEditorPage() {
 
   return (
     <>
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24 }}>
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 28 }}>
           {error && (
             <div

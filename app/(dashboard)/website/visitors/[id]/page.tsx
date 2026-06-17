@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import type { BsiVisitor, BsiSession, BsiPageview, BsiEvent, BsiLead } from '@/lib/website-types'
 import { PageShell } from '@/components/shared/PageShell'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { ListEmpty, ListError } from '@/components/website/SimpleList'
 import { useT } from '@/lib/i18n/LanguageProvider'
 
@@ -18,6 +19,7 @@ interface TimelineItem {
 
 export default function VisitorDetailPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const params = useParams<{ id: string }>()
   const visitorId = decodeURIComponent(params.id)
   const supabase = getSupabase()
@@ -80,7 +82,7 @@ export default function VisitorDetailPage() {
 
   return (
     <PageShell title={`Visitor ${visitorId.slice(0, 8)}…`} backHref="/website/visitors">
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24 }}>
         {error && <ListError message={error} />}
 
         {loading ? (

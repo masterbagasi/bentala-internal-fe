@@ -31,7 +31,7 @@ export function SocialFilterButton({ count = 0, width = 300, children }: {
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setOpen(false)} />
           <div style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 70, width,
+            position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 70, width, maxWidth: `min(${width}px, 92vw)`,
             background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
             padding: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
           }}>

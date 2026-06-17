@@ -458,7 +458,7 @@ function SocialAnalyticsFilter({ subjectId, onSubject, platform, onPlatform, ava
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={onClose} />
       <div style={{
-        position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 70, width: 300,
+        position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 70, width: 300, maxWidth: 'min(300px, 92vw)',
         background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
         padding: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
       }}>
@@ -528,7 +528,7 @@ export function SocialAnalyticsFilterButton({ brand, setSubjectId, platform, set
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setOpen(false)} />
           <div style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 70, width: 296,
+            position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 70, width: 296, maxWidth: 'min(296px, 92vw)',
             background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 8,
             boxShadow: '0 18px 50px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02)',
             transformOrigin: 'top right', animation: 'menuPop 0.16s cubic-bezier(0.16,1,0.3,1)',

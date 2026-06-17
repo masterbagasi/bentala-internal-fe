@@ -11,6 +11,7 @@ import { Section } from '@/components/website/Section'
 import { useRegisterPageAction } from '@/components/website/PageActionsContext'
 import { PrimaryActionButton } from '@/components/website/PageActions'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 // Default values for newly-inserted rows so the admin doesn't see
 // a wall of nulls in the form. Public site already coalesces nulls
@@ -38,6 +39,7 @@ type Draft = Pick<
 
 export default function ServicesAdminPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiService[]>([])
   const [loading, setLoading] = useState(true)
@@ -248,7 +250,7 @@ export default function ServicesAdminPage() {
   )
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ padding: isMobile ? '24px 14px' : 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
       {error && <ListError message={error} />}
 
       <Section title={t('Daftar Layanan')}>

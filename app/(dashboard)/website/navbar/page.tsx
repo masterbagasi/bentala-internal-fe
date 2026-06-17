@@ -7,6 +7,7 @@ import { FormField } from '@/components/website/FormField'
 import { SaveActions } from '@/components/website/PageActions'
 import { Section } from '@/components/website/Section'
 import { PageShell } from '@/components/shared/PageShell'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface NavbarFormState {
   logo_url: string | null
@@ -32,6 +33,7 @@ const EMPTY: NavbarFormState = {
  * never overwrite each other's other fields.
  */
 export default function NavbarSettingsPage() {
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [heroId, setHeroId] = useState<string | null>(null)
   const [form, setForm] = useState<NavbarFormState>(EMPTY)
@@ -119,7 +121,7 @@ export default function NavbarSettingsPage() {
         />
       }
     >
-      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
         {error && (
           <div
             style={{

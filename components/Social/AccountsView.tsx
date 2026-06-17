@@ -188,7 +188,7 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
             <>
               <div onClick={() => setAddMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 60 }} />
               <div style={{
-                position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 70, width: 268,
+                position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 70, width: 268, maxWidth: 'min(268px, 92vw)',
                 background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 7,
                 boxShadow: '0 18px 50px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02)',
                 transformOrigin: 'top right', animation: 'menuPop 0.16s cubic-bezier(0.16,1,0.3,1)',

@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import type { BsiLead } from '@/lib/website-types'
 import { PageShell } from '@/components/shared/PageShell'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { ListEmpty, ListError } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
 
@@ -28,6 +29,7 @@ const STATUS_OPTIONS: BsiLead['status'][] = ['new', 'contacted', 'qualified', 'c
 
 export default function LeadsAdminPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiLead[]>([])
   const [loading, setLoading] = useState(true)
@@ -73,7 +75,7 @@ export default function LeadsAdminPage() {
 
   return (
     <PageShell title="Leads">
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24 }}>
         {error && <ListError message={error} />}
 
         <Section

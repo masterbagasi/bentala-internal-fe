@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { useStore } from '@/hooks/useStore'
 import { usePipelineData } from '@/hooks/usePipelineData'
 import { PipelineList } from './PipelineList'
@@ -21,6 +22,7 @@ export function PipelinePage({ member, stages }: PipelinePageProps) {
   usePipelineData(member)
 
   const t = useT()
+  const isMobile = useIsMobile()
   const { pipelineItems } = useStore()
   const [tab, setTab] = useState<PipelineTab>('pipeline')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -61,9 +63,9 @@ export function PipelinePage({ member, stages }: PipelinePageProps) {
           <PipelineSummary items={items} stages={stages} member={member} />
         </div>
       ) : (
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: isMobile ? 'auto' : 'hidden' }}>
           {/* Left panel — 35% */}
-          <div style={{ width: '35%', minWidth: 240, maxWidth: 320, flexShrink: 0, overflowY: 'auto' }}>
+          <div style={{ width: isMobile ? '100%' : '35%', minWidth: isMobile ? undefined : 240, maxWidth: isMobile ? undefined : 320, flexShrink: 0, overflowY: 'auto' }}>
             <PipelineList
               items={items}
               stages={stages}
@@ -74,7 +76,7 @@ export function PipelinePage({ member, stages }: PipelinePageProps) {
           </div>
 
           {/* Right panel — 65% */}
-          <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }}>
+          <div style={{ flex: 1, minHeight: isMobile ? '50vh' : undefined, overflowY: 'auto', background: 'var(--bg)' }}>
             {displayItem ? (
               <StagePanel item={displayItem} stages={stages} />
             ) : (

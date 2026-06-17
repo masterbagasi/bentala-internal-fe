@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import type { BsiTeamGallery, TeamGalleryRatio } from '@/lib/website-types'
 import { useRegisterPageAction } from '@/components/website/PageActionsContext'
 import { PrimaryActionButton } from '@/components/website/PageActions'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { FormField, inputStyle, textareaStyle } from '@/components/website/FormField'
 import { FileUploader } from '@/components/website/FileUploader'
 import { ListEmpty, ListError, ModalShell } from '@/components/website/SimpleList'
@@ -325,6 +326,7 @@ function getPublicColCount(): number {
 
 export default function TeamGalleryAdminPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiTeamGallery[]>([])
   const [loading, setLoading] = useState(true)
@@ -409,7 +411,7 @@ export default function TeamGalleryAdminPage() {
 
   return (
     <>
-      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
         {error && <ListError message={error} />}
 
         <Section

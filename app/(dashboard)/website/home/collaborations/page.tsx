@@ -12,6 +12,7 @@ import { FormField, inputStyle } from '@/components/website/FormField'
 import { IconBtn, ListEmpty, ListError, ModalShell } from '@/components/website/SimpleList'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
 import { Section } from '@/components/website/Section'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 type FormState = Omit<BsiCollaboration, 'id' | 'created_at'>
 
@@ -155,6 +156,7 @@ function sanitizeSvg(svg: string): string {
 
 export default function CollaborationsAdminPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiCollaboration[]>([])
   const [loading, setLoading] = useState(true)
@@ -197,7 +199,7 @@ export default function CollaborationsAdminPage() {
 
   return (
     <>
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24 }}>
         {error && <ListError message={error} />}
         <Section title="Brand Partners">
           {loading ? (

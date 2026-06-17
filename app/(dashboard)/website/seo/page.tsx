@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import type { BsiSeo } from '@/lib/website-types'
 import { PageShell } from '@/components/shared/PageShell'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { FormField, inputStyle, textareaStyle } from '@/components/website/FormField'
 import { ActionButton, IconBtn, ListEmpty, ListError, ModalShell, RowCard } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
@@ -22,6 +23,7 @@ const EMPTY: FormState = {
 
 export default function SeoAdminPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiSeo[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,7 +52,7 @@ export default function SeoAdminPage() {
       title="SEO"
       action={<ActionButton variant="primary" onClick={() => setCreating(true)}>+ {t('Tambah Halaman')}</ActionButton>}
     >
-      <div style={{ padding: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24 }}>
         {error && <ListError message={error} />}
         <Section title={t('Halaman SEO')}>
         {loading ? (

@@ -5,6 +5,7 @@ import DOMPurify from 'isomorphic-dompurify'
 import type { NewsItem, NewsCategory } from '@/lib/types'
 import { DesignGeneratorModal } from './Designs/DesignGeneratorModal'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 type FilterType = 'all' | NewsCategory
 
@@ -731,13 +732,14 @@ function ArticlePreviewBody({
 }
 
 function PreviewPanel({
-  item, isAnalyzing, isAnalyzed, onAnalyze, onClose,
+  item, isAnalyzing, isAnalyzed, onAnalyze, onClose, isMobile,
 }: {
   item: NewsItem
   isAnalyzing: boolean
   isAnalyzed: boolean
   onAnalyze: (item: NewsItem, article: ArticlePreview | null) => void
   onClose: () => void
+  isMobile: boolean
 }) {
   const t = useT()
   const isVideo = Boolean(item.video_id)
@@ -772,6 +774,7 @@ function PreviewPanel({
     <div style={{
       background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
       display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0,
+      minHeight: isMobile ? '60vh' : undefined,
     }}>
       <div style={{
         padding: '12px 14px', borderBottom: '1px solid var(--border)',
@@ -1199,6 +1202,7 @@ function ContentBlock({
 
 export default function BPIIntelligence() {
   const t = useT()
+  const isMobile = useIsMobile()
   const [news, setNews] = useState<NewsItem[]>([])
   const [filter, setFilter] = useState<FilterType>('all')
   const [previewItem, setPreviewItem] = useState<NewsItem | null>(null)
@@ -1346,8 +1350,8 @@ export default function BPIIntelligence() {
     : '1fr 380px'
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: 16, height: 'calc(100vh - 180px)', minHeight: 500 }}>
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : gridTemplate, gap: 16, height: isMobile ? 'auto' : 'calc(100vh - 180px)', minHeight: isMobile ? undefined : 500 }}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, minHeight: isMobile ? '60vh' : undefined }}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ minWidth: 0 }}>
@@ -1481,10 +1485,11 @@ export default function BPIIntelligence() {
           isAnalyzed={!analyzing && analyzedItem?.id === previewItem.id && Boolean(content)}
           onAnalyze={createContent}
           onClose={() => setPreviewItem(null)}
+          isMobile={isMobile}
         />
       )}
 
-      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, minHeight: isMobile ? '50vh' : undefined }}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>✦ {t('Konten BPI')}</div>
           <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>

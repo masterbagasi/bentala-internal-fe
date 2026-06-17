@@ -117,6 +117,7 @@ export function PageHeader({
       {/* ── Title bar — matches PageShell chrome exactly so any page
           using PageHeader looks identical to a page using PageShell. */}
       <div
+        className="ps-gutter"
         style={{
           height: 64,
           display: 'flex',

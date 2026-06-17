@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import type { BsiNewsFeed } from '@/lib/website-types'
 import { PageShell } from '@/components/shared/PageShell'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { FormField, inputStyle, textareaStyle } from '@/components/website/FormField'
 import { FileUploader } from '@/components/website/FileUploader'
 import {
@@ -53,6 +54,7 @@ const EMPTY: FormState = {
  */
 export default function NewsAdminPage() {
   const t = useT()
+  const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [items, setItems] = useState<BsiNewsFeed[]>([])
   const [loading, setLoading] = useState(true)
@@ -111,7 +113,7 @@ export default function NewsAdminPage() {
         </ActionButton>
       }
     >
-      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ padding: isMobile ? '24px 14px' : 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
         {error && <ListError message={error} />}
 
         {loading ? (

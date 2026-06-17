@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 interface ModalProps {
   open: boolean
@@ -20,6 +21,7 @@ export function Modal({
   wide = false, maxWidth, className,
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const isMobile = useIsMobile()
 
   // ESC key to close
   useEffect(() => {
@@ -52,8 +54,8 @@ export function Modal({
           border: '1px solid var(--border)',
           borderRadius: 12,
           width: maxWidth || (wide ? 640 : 480),
-          maxWidth: '95vw',
-          maxHeight: '90vh',
+          maxWidth: isMobile ? 'calc(100vw - 24px)' : '95vw',
+          maxHeight: isMobile ? '90dvh' : '90vh',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

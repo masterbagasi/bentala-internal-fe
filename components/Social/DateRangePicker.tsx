@@ -159,7 +159,7 @@ function CustomCalendar({ value, onApply, onCancel }: {
   const selectedCount = from && to ? diffDays(from, to) : from ? 1 : 0
 
   return (
-    <div style={{ padding: 14, width: 300 }}>
+    <div style={{ padding: 14, width: 300, maxWidth: 'min(300px, 92vw)' }}>
       {/* manual text fields — pure typing, format YYYY-MM-DD (no native popup) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
         <input
@@ -453,7 +453,7 @@ export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal
         </svg>
       </button>
       {open && (
-        <div style={{ ...panel, left: 0, right: 'auto', width: 300 }}>
+        <div style={{ ...panel, left: 0, right: 'auto', width: 300, maxWidth: 'min(300px, 92vw)' }}>
           <div style={{ padding: 14 }}>
             {/* month/year nav */}
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
