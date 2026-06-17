@@ -590,6 +590,7 @@ function KanbanBoard({
                   onDragEnd={() => { setDragPostId(null); setDragOverCol(null) }}
                   onTouchStart={(e) => startTouchDrag(p, e)}
                   picked={dragPostId === p.id}
+                  nativeDraggable={!isMobile}
                   onClick={() => onCardClick(p.id)}
                   onEdit={() => onEdit(p.id)}
                   onDelete={() => onDelete(p.id)}
@@ -661,7 +662,7 @@ function TrackChip({ icon, track, value }: { icon: string; track: string; value:
 // ── Kanban Card ──
 function KanbanCard({
   post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true, accounts, showTrackStatus = false,
-  onTouchStart, picked = false,
+  onTouchStart, picked = false, nativeDraggable = true,
 }: {
   post: Post
   onDragStart: (e: React.DragEvent) => void
@@ -677,6 +678,9 @@ function KanbanCard({
   onTouchStart?: (e: React.TouchEvent) => void
   /** True while this card is the one being touch-dragged. */
   picked?: boolean
+  /** HTML5 `draggable` — disabled on touch so iOS doesn't start its own native
+   *  drag (which fights our long-press gesture and can navigate away). */
+  nativeDraggable?: boolean
 }) {
   const t = useT()
   const [hovered, setHovered] = useState(false)
@@ -689,7 +693,7 @@ function KanbanCard({
   return (
     <div
       className="kanban-card"
-      draggable
+      draggable={nativeDraggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onTouchStart={onTouchStart}
@@ -700,6 +704,8 @@ function KanbanCard({
         padding: '12px 13px', marginBottom: 8, cursor: 'pointer',
         opacity: picked ? 0.55 : 1,
         boxShadow: picked ? '0 8px 24px rgba(0,0,0,0.4)' : undefined,
+        // Suppress the iOS long-press callout so the gesture picks up the card.
+        WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none',
         transition: 'border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease, opacity 0.16s ease',
       }}
       onMouseOver={e => {

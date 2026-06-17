@@ -333,6 +333,18 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* Kanban cards use a custom long-press touch drag-and-drop. Suppress the
+   native iOS callout/menu and image dragging so a long-press doesn't trigger
+   "Save/Search image" (which would navigate away) instead of picking up the
+   card. Also benefits desktop: dragging grabs the card, never the avatar img. */
+.kanban-card { -webkit-touch-callout: none; }
+.kanban-card img {
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+}
+
 /* ── Mobile (≤768px) ────────────────────────────────────────
    The sidebar collapses to an off-canvas drawer (handled in
    Sidebar.tsx) and the content card goes full-width. Inline
