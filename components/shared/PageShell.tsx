@@ -79,6 +79,7 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
       >
         {/* Title row */}
         <div
+          className="ps-gutter"
           style={{
             height: 64,
             display: 'flex',
@@ -137,6 +138,7 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
         {/* Tabs row */}
         {hasTabs && tabs && (
           <div
+            className="ps-gutter"
             style={{
               display: 'flex',
               alignItems: 'stretch',

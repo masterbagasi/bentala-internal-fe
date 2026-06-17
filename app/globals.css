@@ -327,3 +327,17 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
 .sidebar-logo { filter: invert(1); mix-blend-mode: screen; }
 /* Light: multiply blend makes white bg transparent, black text stays */
 [data-theme="light"] .sidebar-logo { filter: none; mix-blend-mode: multiply; }
+
+/* ── Mobile (≤768px) ────────────────────────────────────────
+   The sidebar collapses to an off-canvas drawer (handled in
+   Sidebar.tsx) and the content card goes full-width. Inline
+   styles drive most layout, so the few overrides here use
+   !important to win against them. */
+@media (max-width: 768px) {
+  /* Tighten the universal page-header gutters so titles, actions
+     and tab rows aren't cramped against the screen edge. */
+  .ps-gutter { padding-left: 14px !important; padding-right: 14px !important; }
+  /* Belt-and-braces: never let a stray wide child force the whole
+     document to scroll sideways on a phone. */
+  html, body { max-width: 100%; overflow-x: hidden; }
+}

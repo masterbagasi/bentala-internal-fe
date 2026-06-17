@@ -288,6 +288,32 @@ export function Sidebar() {
   const [query, setQuery] = useState('')
   const smmProjects = useSocmedProjects(true)
 
+  // ── Responsive: off-canvas drawer on mobile ──
+  // Below 768px the fixed rail would shove the page off-screen, so the
+  // sidebar becomes a slide-in drawer triggered from a compact top bar.
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const apply = () => setIsMobile(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+  // Navigating (tapping any link) closes the drawer.
+  useEffect(() => { setMobileOpen(false) }, [pathname])
+  // Lock body scroll behind the open drawer so the page doesn't move under it.
+  useEffect(() => {
+    if (!(isMobile && mobileOpen)) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [isMobile, mobileOpen])
+
+  // The drawer always renders fully expanded (labels visible); the
+  // collapse-to-rail affordance only makes sense on desktop.
+  const expanded = isMobile ? true : isExpanded
+
   // ── Per-account menu access ──
   // Determines which sections this account may see. Super admin sees all.
   // `loading` keeps the nav blank until we know, so we never flash menus the
@@ -551,42 +577,114 @@ export function Sidebar() {
   useEffect(() => {
     const main = document.getElementById('main-content')
     if (!main) return
-    // Sidebar is now a floating panel inset 10px from the left + top
-    // + bottom edges with rounded corners. Main content has to clear
-    // sidebar width PLUS the 10px gap on each side (10 inset + 10
-    // breathing space) so the two never visually fuse.
+    main.style.transition = 'margin-left 0.22s ease, margin-top 0.22s ease'
+    if (isMobile) {
+      // Drawer floats over the page — content is full-width and only has
+      // to clear the fixed top bar (52px + the iOS safe-area inset). Add a
+      // matching 10px left gutter the desktop margin normally supplies.
+      main.style.marginLeft = '0px'
+      main.style.marginTop = 'calc(52px + env(safe-area-inset-top, 0px))'
+      main.style.paddingLeft = '10px'
+      return
+    }
+    // Desktop: clear the floating rail's width PLUS the 10px gap on each
+    // side (10 inset + 10 breathing space) so the two never visually fuse.
     const w = isExpanded ? 'var(--sidebar-w)' : 'var(--sidebar-collapsed)'
     main.style.marginLeft = `calc(${w} + 20px)`
-    main.style.transition = 'margin-left 0.22s ease'
-  }, [isExpanded])
+    main.style.marginTop = '0px'
+    main.style.paddingLeft = '0px'
+  }, [isExpanded, isMobile])
 
   function toggleSidebar() {
     setIsExpanded(e => !e)
   }
 
   return (
+    <>
+      {/* Mobile top bar — fixed strip with the hamburger that opens the
+          drawer. Only rendered on small screens; hidden on desktop where
+          the rail is always present. */}
+      {isMobile && (
+        <header
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 'calc(52px + env(safe-area-inset-top, 0px))',
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '0 14px',
+            zIndex: 60,
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 70%), var(--bg2)',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+          }}
+        >
+          <button
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+            style={{
+              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.05)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--text)', cursor: 'pointer',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <SidebarLogo isExpanded />
+        </header>
+      )}
+
+      {/* Scrim behind the open drawer — tap to dismiss. */}
+      {isMobile && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          aria-hidden
+          style={{
+            position: 'fixed', inset: 0, zIndex: 80,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(2px)',
+            opacity: mobileOpen ? 1 : 0,
+            pointerEvents: mobileOpen ? 'auto' : 'none',
+            transition: 'opacity 0.28s ease',
+          }}
+        />
+      )}
+
     <nav
       id="sidebar"
-      className="fixed z-50 flex flex-col overflow-hidden"
+      className="fixed flex flex-col overflow-hidden"
       style={{
-        // Float the panel — 10px inset from every viewport edge so all
-        // four corners are visible and roundable, matching the macOS
-        // System Settings window aesthetic.
-        top: 10,
-        left: 10,
-        bottom: 10,
-        width: isExpanded ? 'var(--sidebar-w)' : 'var(--sidebar-collapsed)',
+        // Mobile: full-height drawer pinned to the left edge that slides in
+        // from off-canvas. Desktop: floating panel inset 10px from every
+        // viewport edge so all four corners are visible and roundable,
+        // matching the macOS System Settings window aesthetic.
+        top: isMobile ? 0 : 10,
+        left: isMobile ? 0 : 10,
+        bottom: isMobile ? 0 : 10,
+        width: isMobile ? 'min(82vw, var(--sidebar-w))' : (isExpanded ? 'var(--sidebar-w)' : 'var(--sidebar-collapsed)'),
+        paddingTop: isMobile ? 'env(safe-area-inset-top, 0px)' : 0,
+        transform: isMobile ? (mobileOpen ? 'translateX(0)' : 'translateX(-110%)') : 'none',
+        zIndex: isMobile ? 90 : 50,
         // Solid dark base with a subtle top-down gradient sheen so the
         // panel doesn't read as flat black.
         background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 60%), var(--bg2)',
         // 1px hairline outline on every side (was border-right only)
         // so the floating panel reads as a self-contained surface.
         border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: 14,
+        borderRadius: isMobile ? '0 16px 16px 0' : 14,
         // Soft shadow lifts the panel off the page background, the way
         // macOS settings window casts a subtle drop shadow.
         boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3)',
-        transition: 'width 0.22s ease',
+        transition: 'width 0.22s ease, transform 0.28s cubic-bezier(0.22,1,0.36,1)',
       }}
     >
       {/* Top region — brand logo + toggle + search. Padding-top
@@ -596,7 +694,7 @@ export function Sidebar() {
       <div
         className="flex-shrink-0"
         style={{
-          padding: isExpanded ? '14px 12px 10px 12px' : '14px 0 10px 0',
+          padding: expanded ? '14px 12px 10px 12px' : '14px 0 10px 0',
           transition: 'padding 0.22s ease',
         }}
       >
@@ -609,15 +707,15 @@ export function Sidebar() {
         <div
           className="flex items-center"
           style={{
-            justifyContent: isExpanded ? 'space-between' : 'center',
-            marginBottom: isExpanded ? 10 : 0,
+            justifyContent: expanded ? 'space-between' : 'center',
+            marginBottom: expanded ? 10 : 0,
             gap: 8,
           }}
         >
-          {isExpanded && <SidebarLogo isExpanded={isExpanded} />}
+          {expanded && <SidebarLogo isExpanded={expanded} />}
           <button
-            onClick={toggleSidebar}
-            aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+            onClick={isMobile ? () => setMobileOpen(false) : toggleSidebar}
+            aria-label={isMobile ? 'Close menu' : (isExpanded ? 'Collapse sidebar' : 'Expand sidebar')}
             style={{
               width: 28,
               height: 28,
@@ -640,11 +738,18 @@ export function Sidebar() {
               ;(e.currentTarget as HTMLElement).style.color = 'var(--text2)'
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="15" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
+            {isMobile ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="15" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            )}
           </button>
         </div>
 
@@ -652,7 +757,7 @@ export function Sidebar() {
             doesn't reserve clipped vertical space; expanded shows the
             full pill with no maxHeight cap so the top edge never gets
             cut by an overflow ancestor. */}
-        {isExpanded && (
+        {expanded && (
           <div
             style={{
               display: 'flex',
@@ -719,10 +824,10 @@ export function Sidebar() {
                   style={{
                     background: 'transparent',
                     border: 'none',
-                    padding: isExpanded ? '4px 12px 8px' : '4px 0 8px',
+                    padding: expanded ? '4px 12px 8px' : '4px 0 8px',
                     color: 'var(--text2)',
                     cursor: 'pointer',
-                    justifyContent: isExpanded ? 'space-between' : 'center',
+                    justifyContent: expanded ? 'space-between' : 'center',
                     gap: 8,
                   }}
                 >
@@ -737,8 +842,8 @@ export function Sidebar() {
                           fontWeight: 600,
                           color: 'var(--text2)',
                           whiteSpace: 'nowrap',
-                          maxWidth: isExpanded ? 190 : 0,
-                          opacity: isExpanded ? 1 : 0,
+                          maxWidth: expanded ? 190 : 0,
+                          opacity: expanded ? 1 : 0,
                           overflow: 'hidden',
                           transition: 'max-width 0.22s ease, opacity 0.15s ease',
                         }}
@@ -750,8 +855,8 @@ export function Sidebar() {
                   <span
                     style={{
                       color: 'var(--text2)',
-                      maxWidth: isExpanded ? 16 : 0,
-                      opacity: isExpanded ? 1 : 0,
+                      maxWidth: expanded ? 16 : 0,
+                      opacity: expanded ? 1 : 0,
                       overflow: 'hidden',
                       transition: 'max-width 0.22s ease, opacity 0.15s ease',
                     }}
@@ -770,7 +875,7 @@ export function Sidebar() {
                         <Subgroup
                           key={entry.id}
                           group={entry}
-                          isExpanded={isExpanded}
+                          isExpanded={expanded}
                           isActive={isActive}
                           collapsed={collapsed}
                           toggleSection={toggleSection}
@@ -783,7 +888,7 @@ export function Sidebar() {
                       <NavLink
                         key={item.href + idx}
                         item={item}
-                        isExpanded={isExpanded}
+                        isExpanded={expanded}
                         active={isActive(item.href)}
                         unread={unread}
                       />
@@ -810,8 +915,9 @@ export function Sidebar() {
       </div>
 
       {/* Account button at the bottom */}
-      <AccountButton isExpanded={isExpanded} />
+      <AccountButton isExpanded={expanded} />
     </nav>
+    </>
   )
 }
 
