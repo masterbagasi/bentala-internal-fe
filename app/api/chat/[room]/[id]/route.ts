@@ -3,6 +3,10 @@ import { chatGate } from '../../_shared'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+// A message can only be unsent (retracted) within 24h of being sent. Older
+// messages can still be hard-deleted (DELETE) by an author/super admin.
+const UNSEND_WINDOW_MS = 24 * 60 * 60 * 1000
+
 // Authorization is done HERE (author or super admin), then the write uses the
 // service-role client — so edit/retract/delete work regardless of whether the
 // chat_messages UPDATE/DELETE RLS policies were applied.
@@ -14,13 +18,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { room: stri
   const admin = createSupabaseAdmin() as any
 
   const { data: msg } = await admin.from('chat_messages')
-    .select('author_email').eq('id', params.id).eq('room', params.room).maybeSingle()
+    .select('author_email, created_at').eq('id', params.id).eq('room', params.room).maybeSingle()
   if (!msg) return NextResponse.json({ error: 'not found' }, { status: 404 })
   const isAuthor = msg.author_email === g.user.email
 
   const p = await req.json().catch(() => ({}))
   if (p.action === 'retract') {
     if (!isAuthor && !g.isSuper) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    // Enforce the 24h unsend window.
+    if (Date.now() - new Date(msg.created_at).getTime() > UNSEND_WINDOW_MS) {
+      return NextResponse.json({ error: 'unsend window expired' }, { status: 403 })
+    }
     const { data, error } = await admin.from('chat_messages')
       .update({ deleted_at: new Date().toISOString(), body: '', attachment_path: null, attachment_name: null, attachment_type: null, attachment_size: null })
       .eq('id', params.id).eq('room', params.room).select('*').single()

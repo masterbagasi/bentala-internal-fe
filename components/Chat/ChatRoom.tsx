@@ -49,6 +49,8 @@ function dayLabel(iso: string, t: (s: string) => string) {
 
 const ACCEPT = 'image/*,.heic,.heif,video/mp4,video/quicktime,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt,.csv'
 const MAX_BYTES = 10 * 1024 * 1024
+// A message can only be unsent (retracted) within 24h of being sent.
+const UNSEND_WINDOW_MS = 24 * 60 * 60 * 1000
 
 export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: string; roomName: string; meEmail: string; meName: string; meSuper: boolean }) {
   const t = useT()
@@ -63,7 +65,9 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   const [lightbox, setLightbox] = useState<{ url: string; name: string; type: string } | null>(null)
   // Message actions / edit.
   const [menuFor, setMenuFor] = useState<string | null>(null)
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number; up: boolean } | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  // Message whose read-receipt info popup is open.
+  const [infoFor, setInfoFor] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   // Attachments.
@@ -453,26 +457,25 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                                 <button
                                   className="cr-actions"
                                   onClick={e => {
+                                    e.stopPropagation()
                                     if (menuFor === m.id) { setMenuFor(null); return }
                                     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                                    const up = r.bottom + 132 > window.innerHeight
-                                    setMenuPos({ top: up ? r.top - 4 : r.bottom + 4, left: Math.min(r.left, window.innerWidth - 150), up })
+                                    // Clamp fully inside the viewport — on a short phone the menu
+                                    // used to render above the button and off the top edge.
+                                    const MENU_W = 212, MENU_H = 232
+                                    const top = Math.max(8, Math.min(r.bottom + 6, window.innerHeight - MENU_H - 8))
+                                    const left = Math.max(8, Math.min(r.left, window.innerWidth - MENU_W - 8))
+                                    setMenuPos({ top, left })
                                     setMenuFor(m.id)
                                   }}
                                   aria-label={t('Aksi')}
                                 >
                                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
                                 </button>
-                                {menuFor === m.id && menuPos && (
-                                  <div
-                                    className="cr-menu"
-                                    style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, transform: menuPos.up ? 'translateY(-100%)' : 'none' }}
-                                  >
-                                    {mine && <button onClick={() => startEdit(m)}>{t('Edit')}</button>}
-                                    {mine && <button onClick={() => retract(m.id)}>{t('Tarik')}</button>}
-                                    {(meSuper && !mine) && <button className="danger" onClick={() => hardDelete(m.id)}>{t('Hapus')}</button>}
-                                  </div>
-                                )}
+                                {/* The menu itself is rendered once at the component root (below),
+                                    NOT here — `.cr-row` runs a transform animation, and a
+                                    transformed ancestor would re-anchor this position:fixed menu
+                                    to the row instead of the viewport, sending it off-screen. */}
                               </div>
                             )}
                           </div>
@@ -510,6 +513,89 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
 
         {opErr && <div className="cr-op-err">{opErr}</div>}
         {menuFor && <div className="cr-menu-overlay" onClick={() => setMenuFor(null)} />}
+        {/* Message action menu — rendered at the root (not inside the animated
+            .cr-row) so its position:fixed anchors to the viewport. */}
+        {menuFor && menuPos && (() => {
+          const m = view.find(x => x.id === menuFor)
+          if (!m) return null
+          const mine = m.author_email === meEmail
+          // Unsend is only allowed within 24h of sending; after that the option
+          // disappears (server enforces the same window).
+          const canUnsend = mine && Date.now() - new Date(m.created_at).getTime() < UNSEND_WINDOW_MS
+          return (
+            <div className="cr-menu" style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}>
+              {mine && (
+                <button onClick={() => startEdit(m)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>
+                  {t('Edit')}
+                </button>
+              )}
+              {canUnsend && (
+                <button onClick={() => retract(m.id)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 5 5v2" /></svg>
+                  {t('Tarik')}
+                </button>
+              )}
+              <button onClick={() => { setMenuFor(null); setInfoFor(m.id) }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                {t('Info')}
+              </button>
+              <button onClick={() => { setMenuFor(null); setSelecting(true); setSelected(new Set([m.id])) }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+                {t('Pilih')}
+              </button>
+              {(meSuper && !mine) && (
+                <button className="danger" onClick={() => hardDelete(m.id)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></svg>
+                  {t('Hapus')}
+                </button>
+              )}
+            </div>
+          )
+        })()}
+
+        {/* Read-receipt info — who in the room has (and hasn't) read this message. */}
+        {infoFor && (() => {
+          const m = view.find(x => x.id === infoFor)
+          if (!m) return null
+          const msgTime = new Date(m.created_at).getTime()
+          const others = reads.filter(r => r.email !== meEmail)
+          const readers = others
+            .filter(r => new Date(r.last_read_at).getTime() >= msgTime)
+            .sort((a, b) => b.last_read_at.localeCompare(a.last_read_at))
+          const unread = others.filter(r => new Date(r.last_read_at).getTime() < msgTime)
+          const row = (email: string, time?: string) => (
+            <div key={email} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 2px' }}>
+              <span style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', background: avatarColor(nameFor(email)) }}>
+                {initials(nameFor(email))}
+              </span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameFor(email)}</span>
+              {time && <span style={{ fontSize: 11.5, color: 'var(--text3)', flexShrink: 0 }}>{fmtTime(time)}</span>}
+            </div>
+          )
+          return (
+            <Modal open onClose={() => setInfoFor(null)} title={t('Info Pesan')} maxWidth={420}>
+              <div style={{ padding: '2px 2px 6px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 6, margin: '4px 0 2px' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="2.5" /></svg>
+                  {t('Dibaca')} · {readers.length}
+                </div>
+                {readers.length > 0
+                  ? readers.map(r => row(r.email, r.last_read_at))
+                  : <div style={{ fontSize: 13, color: 'var(--text3)', padding: '8px 2px' }}>{t('Belum ada yang membaca.')}</div>}
+
+                {unread.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text2)', margin: '14px 0 2px' }}>
+                      {t('Belum dibaca')} · {unread.length}
+                    </div>
+                    {unread.map(r => row(r.email))}
+                  </>
+                )}
+              </div>
+            </Modal>
+          )
+        })()}
 
         {/* In-app attachment preview — styled like every other popup in the app
             (shared Modal), with a download that doesn't leave the page. */}
@@ -745,19 +831,40 @@ const CR_CSS = `
   .cr-actions { opacity:1; width:32px; height:32px; }
 }
 .cr-menu {
-  z-index:30; min-width:140px;
-  background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:4px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.45);
-  animation:cr-fade 0.12s ease both;
+  z-index:30; min-width:184px; max-width:78vw;
+  background:linear-gradient(180deg, rgba(255,255,255,0.04), transparent 42%), var(--bg2);
+  border:1px solid rgba(255,255,255,0.10); border-radius:14px; padding:6px;
+  box-shadow:0 16px 44px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+  -webkit-backdrop-filter:blur(14px) saturate(1.3); backdrop-filter:blur(14px) saturate(1.3);
+  transform-origin:top left;
+  animation:cr-menu-in 0.14s cubic-bezier(.2,.8,.2,1) both;
 }
-@keyframes cr-fade { from { opacity:0; } to { opacity:1; } }
+@keyframes cr-menu-in { from { opacity:0; transform:scale(0.94) translateY(-4px); } to { opacity:1; transform:scale(1) translateY(0); } }
 .cr-menu button {
-  display:block; width:100%; text-align:left; background:none; border:none; cursor:pointer;
-  padding:7px 10px; border-radius:7px; font-size:13px; color:var(--text);
+  display:flex; align-items:center; gap:11px; width:100%; text-align:left;
+  background:none; border:none; cursor:pointer;
+  padding:9px 12px; border-radius:9px; font-size:13.5px; font-weight:500;
+  color:var(--text); letter-spacing:0.005em;
+  transition:background .13s ease, color .13s ease, transform .06s ease;
 }
-.cr-menu button:hover { background:var(--bg-hover); }
-.cr-menu button.danger { color:var(--accent2); }
+.cr-menu button svg { width:16px; height:16px; flex-shrink:0; color:var(--text2); transition:color .13s ease; }
+.cr-menu button:hover { background:rgba(255,255,255,0.07); }
+.cr-menu button:hover svg { color:var(--text); }
+.cr-menu button:active { transform:scale(0.975); }
+/* Destructive action sits below a hairline divider and reads red. */
+.cr-menu button.danger { color:#ff6b6b; margin-top:5px; padding-top:11px; position:relative; }
+.cr-menu button.danger svg { color:#ff6b6b; }
+.cr-menu button.danger::before {
+  content:''; position:absolute; top:0; left:8px; right:8px; height:1px; background:rgba(255,255,255,0.08);
+}
+.cr-menu button.danger:hover { background:rgba(255,107,107,0.12); }
 .cr-menu-overlay { position:fixed; inset:0; z-index:15; }
+/* Roomier tap targets for the action menu on touch devices. */
+@media (hover: none) {
+  .cr-menu { min-width:208px; padding:7px; }
+  .cr-menu button { padding:12px 14px; font-size:15px; gap:13px; }
+  .cr-menu button svg { width:18px; height:18px; }
+}
 
 /* ── Inline edit ── */
 .cr-edit-area { display:flex; flex-direction:column; gap:6px; max-width:100%; }
