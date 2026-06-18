@@ -279,7 +279,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               onMove={moveOnBoard}
             />
           )}
-          {activeTab === 'calendar' && <ContentCalendar entity={allProjects ? 'all' : (calEntity ?? entity)} onPostClick={id => setPreviewPostId(id)} />}
+          {activeTab === 'calendar' && <ContentCalendar entity={allProjects ? 'all' : (calEntity ?? entity)} onPostClick={id => setPreviewPostId(id)} filters={filters} />}
           {activeTab === 'files' && <FilesTab posts={filtered} />}
           {activeTab === 'analytics' && (
             allProjects

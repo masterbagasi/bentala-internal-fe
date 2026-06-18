@@ -5,11 +5,30 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { PostModal } from '@/components/BPI/PostModal'
+import type { PostFilters } from '@/components/BPI'
 import type { Post } from '@/lib/types'
 
 interface ContentCalendarProps {
   entity: string  // 'bpi' | 'bsi' | 'ws-fz' | 'ws-rn' | 'all' | <project slug>
   onPostClick?: (id: string) => void
+  /** Board filters — applied live so the calendar reacts the moment a chip
+   *  is toggled, exactly like the List/Board views (no refresh needed). */
+  filters?: PostFilters
+}
+
+// Mirror of the List/Board predicate so the calendar filters identically.
+function matchesFilters(p: Post, f?: PostFilters): boolean {
+  if (!f) return true
+  if (f.platforms.length && !f.platforms.some(x => (p.platforms || []).includes(x as 'ig' | 'tiktok'))) return false
+  if (f.contentTypes.length && !f.contentTypes.some(x => (p.content_types || []).includes(x))) return false
+  if (f.tagged.length && !f.tagged.some(x => (p.tagged || []).includes(x))) return false
+  if (f.ratios.length) {
+    const rs = (p.ratio || '').split(',').map(s => s.trim()).filter(Boolean)
+    if (!f.ratios.some(x => rs.includes(x))) return false
+  }
+  if (f.month && (p.date || '').slice(0, 7) !== f.month) return false
+  if (f.statuses.length && !f.statuses.includes(p.status)) return false
+  return true
 }
 
 const DAY_LABELS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
@@ -26,10 +45,9 @@ function platformColor(p: Post): string {
   return '#8b8fff'
 }
 
-export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
+export function ContentCalendar({ entity, onPostClick, filters }: ContentCalendarProps) {
   const t = useT()
   const { posts, calState, setCalState } = useStore()
-  const [platformFilter] = useState('all')
   const [previewPostId, setPreviewPostId] = useState<string | null>(null)
   const [addDate, setAddDate] = useState<string | null>(null)
   const [dayPopup, setDayPopup] = useState<{ date: string; x: number; y: number } | null>(null)
@@ -44,20 +62,19 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
     setCalState(entity, new Date(today.getFullYear(), today.getMonth(), 1))
   }
 
-  function getEntityPosts(platform?: string): Post[] {
+  function getEntityPosts(): Post[] {
     const member = WS_MAP[entity]
-    let filtered = entity === 'all'
+    const scoped = entity === 'all'
       ? posts.slice()
       : member
         ? posts.filter(p => (p.pics || []).includes(member))
         : posts.filter(p => p.entity === entity)
-    if (platform && platform !== 'all') {
-      filtered = filtered.filter(p => (p.platforms || []).includes(platform as 'ig' | 'tiktok'))
-    }
-    return filtered
+    // Apply the board filters live — toggling a chip re-renders this component
+    // (filters is a prop), so the calendar updates instantly without a refresh.
+    return scoped.filter(p => matchesFilters(p, filters))
   }
 
-  const entityPosts = getEntityPosts(platformFilter)
+  const entityPosts = getEntityPosts()
 
   // Two-month planner: this month + the next, so plans that straddle a month
   // boundary stay visible. The selects/arrows drive the first (left) month.
@@ -200,7 +217,9 @@ function MonthPanel({
   const cells: Array<{ day: number; cur: boolean }> = []
   for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: prevDays - i, cur: false })
   for (let i = 1; i <= daysInMonth; i++) cells.push({ day: i, cur: true })
-  while (cells.length % 7 !== 0) cells.push({ day: cells.length - firstDay - daysInMonth + 1, cur: false })
+  // Always fill 6 rows (42 cells) so every month — and therefore both panels —
+  // is exactly the same size, regardless of how many weeks the month spans.
+  while (cells.length < 42) cells.push({ day: cells.length - firstDay - daysInMonth + 1, cur: false })
 
   return (
     <section className="bcal-panel">
