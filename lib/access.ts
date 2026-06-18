@@ -77,9 +77,6 @@ export const STATIC_SECTIONS: AccessSection[] = [
   { id: 'ai.builder',   label: 'Content Builder',  group: 'AI Studio', routes: ['/ai/builder'],      landing: '/ai/builder' },
   { id: 'ai.pipeline',  label: 'Pipeline Konten',  group: 'AI Studio', routes: ['/ai/pipeline'],     landing: '/ai/pipeline' },
 
-  // Team
-  { id: 'team', label: 'Team & Roles', group: 'Team', routes: ['/team'], landing: '/team' },
-
   // Settings
   { id: 'settings.ai', label: 'AI Integrations', group: 'Settings', routes: ['/settings/ai'], landing: '/settings/ai' },
 ]

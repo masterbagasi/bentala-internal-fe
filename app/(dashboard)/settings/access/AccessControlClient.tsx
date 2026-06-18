@@ -40,7 +40,7 @@ const ROLE_LABEL: Record<'super_admin' | 'admin' | 'user', string> = {
 // same way (Chat right under Dashboard). Groups not listed fall to the end.
 const GROUP_NAV_ORDER = [
   'Dashboard', 'Chat', 'Website', 'Socmed Management', 'Social Media',
-  'Client', 'Projects', 'AI Studio', 'Team', 'Settings',
+  'Client', 'Projects', 'AI Studio', 'Settings',
 ]
 
 function initials(name: string): string {

@@ -526,14 +526,6 @@ export function Sidebar() {
       ],
     },
     {
-      id: 'team',
-      badge: <BrandBadge text="team" />,
-      fullLabel: 'Team',
-      items: [
-        { href: '/team', label: 'Team & Roles', icon: <PeopleIcon />, color: COLOR.blue },
-      ],
-    },
-    {
       id: 'settings',
       badge: <BrandBadge text="set." />,
       fullLabel: 'Settings',

@@ -801,7 +801,6 @@ function TeamTab() {
       <div style={{ marginTop: 16 }}>
         <Panel title="Quick Actions">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360 }}>
-            <QuickLink href="/team" label="Team & Roles" hint={t('Manage anggota tim')} />
             <QuickLink href="/tasks" label="Task Board" hint={t('Lihat semua task')} />
           </div>
         </Panel>

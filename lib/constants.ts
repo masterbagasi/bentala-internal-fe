@@ -163,7 +163,6 @@ export const PAGE_TITLES: Record<string, string> = {
   invoices:      'Invoice & Pembayaran',
   projects:      'All Projects',
   tasks:         'Task Board',
-  team:          'Team & Roles',
 }
 
 // ── Pipeline stages ─────────────────────────────────────────────
