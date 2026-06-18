@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChatRoom } from './ChatRoom'
 import { useTaskThreads } from './useTaskThreads'
 import { TaskThreadPanel } from './TaskThreads'
@@ -67,6 +67,18 @@ export function ChatHub() {
   // (shown in the conversation pane, replacing the room's general chat).
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [taskOpen, setTaskOpen] = useState<Post | null>(null)
+  // Rooms that currently have at least one task chat — only those show the
+  // expand chevron (a room with no task chat can't be expanded). Reported by
+  // each RoomTaskList (which tracks its tasks even while collapsed).
+  const [roomsWithTasks, setRoomsWithTasks] = useState<Set<string>>(new Set())
+  const reportTasks = useCallback((slug: string, has: boolean) => {
+    setRoomsWithTasks(prev => {
+      if (has === prev.has(slug)) return prev
+      const n = new Set(prev)
+      if (has) n.add(slug); else n.delete(slug)
+      return n
+    })
+  }, [])
 
   // Resolve the logged-in user + their access grants (super admins see all), and
   // keep the room list in sync in realtime: when an admin saves new chat grants
@@ -300,13 +312,15 @@ export function ChatHub() {
                       )}
                     </div>
                   </div>
-                  <button
-                    onClick={e => { e.stopPropagation(); toggleExpand(p.slug) }}
-                    title={isExp ? t('Sembunyikan task') : t('Lihat task')}
-                    style={{ flexShrink: 0, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', borderRadius: 6 }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isExp ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="9 18 15 12 9 6" /></svg>
-                  </button>
+                  {roomsWithTasks.has(p.slug) && (
+                    <button
+                      onClick={e => { e.stopPropagation(); toggleExpand(p.slug) }}
+                      title={isExp ? t('Sembunyikan task') : t('Lihat task')}
+                      style={{ flexShrink: 0, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', borderRadius: 6 }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isExp ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="9 18 15 12 9 6" /></svg>
+                    </button>
+                  )}
                 </div>
                 {me && (
                   <RoomTaskList
@@ -316,6 +330,7 @@ export function ChatHub() {
                     onOpen={openTask}
                     collapsed={!isExp}
                     onAutoExpand={() => setExpanded(prev => (prev.has(p.slug) ? prev : new Set(prev).add(p.slug)))}
+                    onTasksChange={has => reportTasks(p.slug, has)}
                   />
                 )}
                 </div>
@@ -367,18 +382,24 @@ export function ChatHub() {
 
 // Task threads listed under their project room in the message list. Each row
 // opens that task's discussion thread in the conversation pane.
-function RoomTaskList({ room, meEmail, activeId, onOpen, collapsed, onAutoExpand }: {
+function RoomTaskList({ room, meEmail, activeId, onOpen, collapsed, onAutoExpand, onTasksChange }: {
   room: string
   meEmail: string
   activeId: string | null
   onOpen: (post: Post) => void
   collapsed: boolean
   onAutoExpand: () => void
+  onTasksChange: (has: boolean) => void
 }) {
   const t = useT()
   const { items, markRead, clearChat } = useTaskThreads(room, meEmail)
   const [detailPost, setDetailPost] = useState<Post | null>(null)
   const [confirmClear, setConfirmClear] = useState<Post | null>(null)
+
+  // Tell the parent whether this room has any task chat, so the expand chevron
+  // only shows when there's something to expand.
+  const hasTasks = items.length > 0
+  useEffect(() => { onTasksChange(hasTasks) }, [hasTasks, onTasksChange])
 
   // Auto-open the group when a NEW task chat arrives (total unread increases) —
   // never on initial load or while the count is stable, so a manual collapse
@@ -391,10 +412,9 @@ function RoomTaskList({ room, meEmail, activeId, onOpen, collapsed, onAutoExpand
     prevIncoming.current = incoming
   }, [incoming, collapsed, onAutoExpand])
 
-  if (collapsed) return null
-  if (items.length === 0) {
-    return <div style={{ margin: '2px 6px 8px 28px', paddingLeft: 16, borderLeft: '1px solid var(--border)', fontSize: 12, color: 'var(--text3)' }}>{t('Belum ada chat task.')}</div>
-  }
+  // Nothing to show when there's no task chat (the chevron is hidden too), or
+  // while the group is collapsed.
+  if (collapsed || items.length === 0) return null
   const iconBtn: React.CSSProperties = { flexShrink: 0, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', borderRadius: 6 }
   return (
     <div style={{ margin: '2px 6px 8px 28px', paddingLeft: 12, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 2 }}>
