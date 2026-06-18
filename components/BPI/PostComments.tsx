@@ -43,6 +43,11 @@ function sb(): SupabaseClient {
   return getSupabase() as unknown as SupabaseClient
 }
 
+// Unique realtime channel suffix per subscription. Two usePostComments() for the
+// SAME post (e.g. a task thread + its Task Details popup) would otherwise reuse
+// one channel by name and throw "cannot add postgres_changes after subscribe()".
+let pcChanSeq = 0
+
 const AVATAR_COLORS = ['#6c63ff', '#43d9a2', '#ffc542', '#ff6b6b', '#3b9dff', '#c084fc', '#f97316', '#14b8a6']
 function colorFor(seed: string): string {
   let h = 0
@@ -190,7 +195,7 @@ export function usePostComments(post: Post | null | undefined) {
     // Realtime: append new rows (comments + activity) as they're inserted,
     // from this or any other user's session — no manual reload needed.
     const channel = supabase
-      .channel(`post_comments:${postId}`)
+      .channel(`post_comments:${postId}:${++pcChanSeq}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'post_comments', filter: `post_id=eq.${postId}` },
@@ -310,9 +315,17 @@ export function usePostComments(post: Post | null | undefined) {
     }
   }
 
+  // Activity-only feed (derived events + logged edits), newest first. Used by the
+  // Task Details popup, where the discussion itself moved to a full chat room but
+  // the change history must stay.
+  const activityFeed = useMemo<FeedEntry[]>(
+    () => [...activity, ...loggedActivity].slice().sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()),
+    [activity, loggedActivity],
+  )
+
   const commentCount = comments.length
 
-  return { tab, setTab, feed, loading, commentCount, me, input, setInput, posting, error, submit, accounts, addMention }
+  return { tab, setTab, feed, activityFeed, loading, commentCount, me, input, setInput, posting, error, submit, accounts, addMention }
 }
 
 export type PostCommentsState = ReturnType<typeof usePostComments>
@@ -339,6 +352,28 @@ export function PostCommentsBody({ s }: { s: PostCommentsState }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {feed.map(e => (
+            <FeedItem key={`${e.kind}-${e.id}`} entry={e} accounts={accounts} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Activity-only feed (no tabs, no comments) — the discussion is a chat room now,
+// but the post's change history stays visible in the Task Details popup.
+export function PostActivityBody({ s }: { s: PostCommentsState }) {
+  const t = useT()
+  const { activityFeed, loading, accounts } = s
+  return (
+    <div>
+      {loading ? (
+        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '4px 0' }}>{t('Memuat…')}</div>
+      ) : activityFeed.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--text2)', padding: '4px 0' }}>{t('Belum ada aktivitas.')}</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {activityFeed.map(e => (
             <FeedItem key={`${e.kind}-${e.id}`} entry={e} accounts={accounts} />
           ))}
         </div>
@@ -456,7 +491,7 @@ export function PostCommentsComposer({ s }: { s: PostCommentsState }) {
   )
 }
 
-function Tab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+export function Tab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}

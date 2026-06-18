@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Modal, BtnSecondary } from '@/components/shared/Modal'
+import { Modal, BtnSecondary, ConfirmDialog } from '@/components/shared/Modal'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
@@ -12,7 +12,9 @@ import { BPI_STATUS_COLS } from '@/lib/constants'
 import type { Post } from '@/lib/types'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { uploadFileResumable } from '@/lib/storage'
-import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
+import { usePostComments, PostActivityBody, Tab } from '@/components/BPI/PostComments'
+import { ChatRoom } from '@/components/Chat/ChatRoom'
+import { taskChatRoom, isEffectiveSuperAdmin } from '@/lib/access'
 import { RevisiModal, RevisiSection } from '@/components/BPI/RevisiModal'
 import type { PostRevision } from '@/lib/types'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -37,7 +39,26 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
   const { posts, upsertPost } = useStore()
   const post = posts.find(p => p.id === postId)
   // Hooks must run before any early return (rules of hooks).
+  // usePostComments is kept only for comments.me (used by activity-log inserts);
+  // the discussion itself is now a full chat room (below).
   const comments = usePostComments(post)
+  // Discussion area: Chat (the room) | Activity (change history), like before.
+  const [detailTab, setDetailTab] = useState<'chat' | 'activity'>('chat')
+  // Current user for the embedded task chat (needs email/name/super up front).
+  const [me, setMe] = useState<{ email: string; name: string; super: boolean } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    getSupabase().auth.getUser().then(({ data }) => {
+      if (cancelled) return
+      const u = data.user
+      const m = (u?.user_metadata ?? {}) as Record<string, unknown>
+      const email = u?.email ?? ''
+      const name = (m.full_name as string) || (m.name as string) || email.split('@')[0]
+      const sup = isEffectiveSuperAdmin(u?.email, (u?.app_metadata as Record<string, unknown> | undefined)?.role)
+      setMe({ email, name, super: sup })
+    })
+    return () => { cancelled = true }
+  }, [])
 
   // Status change (deferred — only persisted on Simpan, not on select).
   const [statusDraft, setStatusDraft] = useState<string>(post?.status ?? '')
@@ -140,6 +161,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     return () => { cancelled = true }
   }, [open, postId])
   // Paste-a-link input + in-flight uploads (per-file progress + cancel).
+  const [confirmReq, setConfirmReq] = useState<{ message: string; onConfirm: () => void } | null>(null)
   const [linkInput, setLinkInput] = useState('')
   const [uploads, setUploads] = useState<{ id: string; name: string; progress: number; abort: () => void }[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -243,7 +265,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
   // Atomic delete-by-id so a revision added concurrently by someone else is
   // never dropped along with this one.
   async function deleteRevisi(rev: PostRevision) {
-    if (!post || !window.confirm(t('Hapus revisi ini?'))) return
+    if (!post) return
     const sb = getSupabase() as any // eslint-disable-line @typescript-eslint/no-explicit-any
     const { data, error } = await sb.rpc('post_revision_delete', { p_id: post.id, p_rev_id: rev.id })
     if (error) { alert(t('Gagal menghapus: ') + error.message); return }
@@ -318,7 +340,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
   }
 
   async function deleteAttachment(att: { url: string; label: string; src: AttachSrc }) {
-    if (!post || !window.confirm(t('Hapus "{label}"?').replace('{label}', att.label))) return
+    if (!post) return
     const sb = getSupabase() as unknown as { from: (t: string) => any }
     try {
       if (att.src.kind === 'row') {
@@ -413,8 +435,6 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       }
       footer={
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {/* Comment composer — pinned in the fixed footer, always at the bottom */}
-          <PostCommentsComposer s={comments} />
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
             {statusChanged && (
               <button
@@ -539,7 +559,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
                 url={a.url}
                 time={a.at ? formatUploadTime(a.at) : undefined}
                 onOpen={() => openAttachment(a.url, a.label)}
-                onDelete={() => deleteAttachment(a)}
+                onDelete={() => setConfirmReq({ message: t('Hapus "{label}"?').replace('{label}', a.label), onConfirm: () => deleteAttachment(a) })}
               />
             ))}
           </div>
@@ -556,13 +576,41 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
           canEdit={canEdit}
           onAdd={() => setRevisiCreate(true)}
           onEdit={rev => setEditingRevisi(rev)}
-          onDelete={deleteRevisi}
+          onDelete={rev => setConfirmReq({ message: t('Hapus revisi ini?'), onConfirm: () => deleteRevisi(rev) })}
           onOpenLink={(url, label) => openAttachment(url, label)}
         />
       )}
 
-      {/* Comment room + activity feed (composer lives in the fixed footer) */}
-      <PostCommentsBody s={comments} />
+      {/* Discussion: Chat | Activity tabs (the discussion is a chat now, not
+          comments; the change history stays under the Activity tab). */}
+      <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
+          <Tab label={t('Chat')} active={detailTab === 'chat'} onClick={() => setDetailTab('chat')} />
+          <Tab label={t('Aktivitas')} active={detailTab === 'activity'} onClick={() => setDetailTab('activity')} />
+        </div>
+        {detailTab === 'activity' ? (
+          <PostActivityBody s={comments} />
+        ) : me && post ? (
+          <div style={{ height: 460, display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg2)' }}>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '0 12px' }}>
+              <ChatRoom room={taskChatRoom(post.entity, post.id)} roomName={post.title || t('(Tanpa judul)')} meEmail={me.email} meName={me.name} meSuper={me.super} />
+            </div>
+          </div>
+        ) : (
+          <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 13 }}>{t('Memuat…')}</div>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={!!confirmReq}
+        danger
+        title={t('Hapus')}
+        message={confirmReq?.message ?? ''}
+        confirmLabel={t('Hapus')}
+        cancelLabel={t('Batal')}
+        onCancel={() => setConfirmReq(null)}
+        onConfirm={() => { confirmReq?.onConfirm(); setConfirmReq(null) }}
+      />
     </Modal>
 
     {/* In-app file preview popup */}

@@ -17,6 +17,12 @@ import { GENERATED } from './generated'
 // ones below on key conflicts (spread order: GENERATED first, SEED last).
 const SEED: Record<string, string> = {
   '(kosong)': '(empty)',
+  'Hapus Chat Task': 'Clear Task Chat',
+  'Hapus chat task ini (untuk Anda)': 'Clear this task chat (for you)',
+  'Hapus chat task ini dari room? Hanya hilang untuk Anda — riwayat lengkap tetap tersimpan di komentar Detail Task.':
+    'Clear this task chat from the room? It only disappears for you — the full history stays in the Task Details comments.',
+  'Hapus chat task ini dari daftar Anda? Hanya hilang untuk Anda dan akan muncul lagi saat ada chat baru.':
+    'Remove this task chat from your list? It only disappears for you and reappears when a new message arrives.',
   // ── Summary (analytics) ──
   'Distribusi Status': 'Status Distribution',
   'Task per Project': 'Tasks per Project',

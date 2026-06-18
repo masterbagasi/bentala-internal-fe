@@ -192,7 +192,29 @@ export function chatRoomFromPath(pathname: string): string | null {
  *  sections. Super admins short-circuit this everywhere they're checked. */
 export function canAccessChat(allowed: Set<string> | string[], slug: string): boolean {
   const has = (id: string) => (Array.isArray(allowed) ? allowed.includes(id) : allowed.has(id))
-  return has(`smm.${slug}.chat`)
+  return has(`smm.${effectiveChatSlug(slug)}.chat`)
+}
+
+/** A per-task chat lives in its own room keyed by the project slug AND post id:
+ *  "task.<projectSlug>.<postId>". Embedding the slug lets access checks (here and
+ *  in RLS) derive the owning project WITHOUT a posts lookup. */
+export function taskChatRoom(projectSlug: string, postId: string): string {
+  return `task.${projectSlug}.${postId}`
+}
+
+/** The project slug that governs access to a chat room. A task room
+ *  ("task.<slug>.<postId>") inherits its project's grants; any other room IS the
+ *  slug. Slugs and post ids never contain '.', so split is unambiguous. */
+export function effectiveChatSlug(room: string): string {
+  if (room.startsWith('task.')) return room.split('.')[1] || room
+  return room
+}
+
+/** The post id encoded in a task chat room, or null for a normal room. */
+export function taskIdFromChatRoom(room: string): string | null {
+  if (!room.startsWith('task.')) return null
+  const parts = room.split('.')
+  return parts.length >= 3 ? parts.slice(2).join('.') : null
 }
 
 /** Landing path for the first item the user may enter, or null. Handles dynamic

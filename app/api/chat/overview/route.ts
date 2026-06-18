@@ -14,10 +14,12 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const meLower = user.email.toLowerCase()
+
   const [{ data: reads }, { data: msgs }] = await Promise.all([
     (supabase as any).from('chat_reads').select('room,last_read_at').eq('email', user.email),
     (supabase as any).from('chat_messages')
-      .select('room,body,attachment_name,attachment_type,created_at,author_email,author_name')
+      .select('room,body,attachment_name,attachment_type,created_at,author_email,author_name,mentions')
       .order('created_at', { ascending: true }),
   ])
 
@@ -26,15 +28,13 @@ export async function GET() {
 
   type Row = {
     lastBody: string; lastAt: string | null; lastAuthorEmail: string
-    lastAuthorName: string; lastIsAttachment: boolean; unread: number
+    lastAuthorName: string; lastIsAttachment: boolean; unread: number; mentions: number
   }
   const rooms: Record<string, Row> = {}
+  const blank = (): Row => ({ lastBody: '', lastAt: null, lastAuthorEmail: '', lastAuthorName: '', lastIsAttachment: false, unread: 0, mentions: 0 })
   // Ascending order → the final overwrite per room is its newest message.
   for (const m of (msgs as any[]) ?? []) {
-    const r = (rooms[m.room] ??= {
-      lastBody: '', lastAt: null, lastAuthorEmail: '', lastAuthorName: '',
-      lastIsAttachment: false, unread: 0,
-    })
+    const r = (rooms[m.room] ??= blank())
     r.lastBody = (m.body as string) ?? ''
     r.lastAt = m.created_at
     r.lastAuthorEmail = (m.author_email as string) ?? ''
@@ -42,7 +42,10 @@ export async function GET() {
     r.lastIsAttachment = !!m.attachment_name
     if (m.author_email !== user.email) {
       const lr = lastRead.get(m.room)
-      if (!lr || m.created_at > lr) r.unread += 1
+      if (!lr || m.created_at > lr) {
+        r.unread += 1
+        if (((m.mentions as string[]) ?? []).map(x => x.toLowerCase()).includes(meLower)) r.mentions += 1
+      }
     }
   }
 

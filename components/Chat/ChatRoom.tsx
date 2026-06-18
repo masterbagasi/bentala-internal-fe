@@ -9,6 +9,13 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 
 const sb = () => getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
 
+// Unique realtime channel suffix per subscription. The SAME room can now be
+// mounted by two ChatRoom instances at once (a task thread in the chat pane AND
+// its Task Details popup), and StrictMode double-mounts effects — both would
+// reuse the channel named `chat:<room>` and throw "cannot add postgres_changes
+// after subscribe()". A fresh name per effect run avoids any collision.
+let crChanSeq = 0
+
 interface Msg {
   id: string; room: string; author_email: string; author_name: string; body: string; created_at: string
   edited_at?: string | null; deleted_at?: string | null
@@ -294,8 +301,11 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
     loadReactions()
 
     const supabase = sb()
+    // Fresh, unique channel name per effect run so two ChatRooms on the same room
+    // (task thread + its Task Details popup) and StrictMode remounts never collide.
+    const chanName = `chat:${room}:${++crChanSeq}`
     const buildChannel = () => supabase
-      .channel(`chat:${room}`)
+      .channel(chanName)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'chat_reads', filter: `room=eq.${room}` },
         () => { if (!cancelled) loadReads() })

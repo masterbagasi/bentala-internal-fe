@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChatRoom } from './ChatRoom'
+import { useTaskThreads } from './useTaskThreads'
+import { TaskThreadPanel } from './TaskThreads'
+import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
+import { ConfirmDialog } from '@/components/shared/Modal'
+import { POST_STATUS_COLORS, POST_STATUS_LABELS } from '@/lib/constants'
 import { getSupabase } from '@/lib/supabase'
+import type { Post } from '@/lib/types'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 import { projectGlyph } from '@/lib/project-glyph'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -12,7 +18,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 
 type RoomSummary = {
   lastBody: string; lastAt: string | null; lastAuthorEmail: string
-  lastAuthorName: string; lastIsAttachment: boolean; unread: number
+  lastAuthorName: string; lastIsAttachment: boolean; unread: number; mentions: number
 }
 type Overview = Record<string, RoomSummary>
 
@@ -57,6 +63,10 @@ export function ChatHub() {
   const [overview, setOverview] = useState<Overview>({})
   const [selected, setSelected] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  // Which rooms have their task sub-list expanded, and the open task thread
+  // (shown in the conversation pane, replacing the room's general chat).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [taskOpen, setTaskOpen] = useState<Post | null>(null)
 
   // Resolve the logged-in user + their access grants (super admins see all), and
   // keep the room list in sync in realtime: when an admin saves new chat grants
@@ -129,6 +139,8 @@ export function ChatHub() {
       if (token) (sb.realtime as { setAuth: (t: string) => void }).setAuth(token)
       channel = sb.channel('chat:overview')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => load())
+        // Reading general chat (chat_reads) clears its unread + mention badge.
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reads' }, () => load())
         .subscribe()
     })
     const auth = sb.auth.onAuthStateChange((_e, s) => {
@@ -169,8 +181,21 @@ export function ChatHub() {
 
   const openRoom = (slug: string) => {
     setSelected(slug)
-    // Optimistically clear the unread badge; ChatRoom marks it read on mount.
+    setTaskOpen(null) // open general chat (Obrolan), not a task thread
+    // Optimistically clear the unread badge; ChatRoom marks it read on mount, and
+    // the chat_reads subscription reloads the overview (clearing general mentions
+    // too). Task-chat mentions stay until those task threads are opened.
     setOverview(o => (o[slug] ? { ...o, [slug]: { ...o[slug], unread: 0 } } : o))
+  }
+  const toggleExpand = (slug: string) => setExpanded(prev => {
+    const n = new Set(prev)
+    if (n.has(slug)) n.delete(slug); else n.add(slug)
+    return n
+  })
+  const openTask = (post: Post) => {
+    setSelected(post.entity)
+    setExpanded(prev => new Set(prev).add(post.entity))
+    setTaskOpen(post)
   }
 
   const selProject = rooms.find(p => p.slug === selected)
@@ -235,14 +260,21 @@ export function ChatHub() {
               </div>
             ) : list.map(p => {
               const s = overview[p.slug]
-              const active = p.slug === selected
+              // Only one thing is "selected": the room (general chat) OR a task
+              // under it — never both. When a task is open, the room row is not
+              // highlighted (the task row is).
+              const active = p.slug === selected && !taskOpen
+              const isExp = expanded.has(p.slug)
               return (
-                <button
-                  key={p.slug}
+                <div key={p.slug} style={{ marginBottom: 2 }}>
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => openRoom(p.slug)}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRoom(p.slug) } }}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 10px', marginBottom: 2, borderRadius: 12, cursor: 'pointer',
+                    padding: '10px 10px', borderRadius: 12, cursor: 'pointer',
                     background: active ? 'var(--bg3)' : 'transparent', border: '1px solid ' + (active ? 'var(--border)' : 'transparent'),
                     textAlign: 'left', transition: 'background 0.12s',
                   }}
@@ -255,14 +287,38 @@ export function ChatHub() {
                       <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
                       <span style={{ flexShrink: 0, fontSize: 11, color: s?.unread ? 'var(--accent)' : 'var(--text3)', fontWeight: s?.unread ? 700 : 400 }}>{relTime(s?.lastAt ?? null)}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText(s)}</span>
+                      {!!s?.mentions && (
+                        <span title={t('Anda di-mention di room ini')} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ color: '#22c55e', fontSize: 14, fontWeight: 800, lineHeight: 1 }}>@</span>
+                          <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: '#22c55e', color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{s.mentions > 99 ? '99+' : s.mentions}</span>
+                        </span>
+                      )}
                       {!!s?.unread && (
                         <span style={{ flexShrink: 0, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{s.unread > 99 ? '99+' : s.unread}</span>
                       )}
                     </div>
                   </div>
-                </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); toggleExpand(p.slug) }}
+                    title={isExp ? t('Sembunyikan task') : t('Lihat task')}
+                    style={{ flexShrink: 0, width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', borderRadius: 6 }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isExp ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}><polyline points="9 18 15 12 9 6" /></svg>
+                  </button>
+                </div>
+                {me && (
+                  <RoomTaskList
+                    room={p.slug}
+                    meEmail={me.email}
+                    activeId={taskOpen?.id ?? null}
+                    onOpen={openTask}
+                    collapsed={!isExp}
+                    onAutoExpand={() => setExpanded(prev => (prev.has(p.slug) ? prev : new Set(prev).add(p.slug)))}
+                  />
+                )}
+                </div>
               )
             })}
           </div>
@@ -276,7 +332,7 @@ export function ChatHub() {
             <>
               <header style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 12, padding: isMobile ? '10px 12px' : '12px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
                 {isMobile && (
-                  <button onClick={() => setSelected(null)} aria-label={t('Kembali')} style={{ background: 'none', border: 'none', color: 'var(--text)', cursor: 'pointer', display: 'flex', padding: 4, marginLeft: -4 }}>
+                  <button onClick={() => { setTaskOpen(null); setSelected(null) }} aria-label={t('Kembali')} style={{ background: 'none', border: 'none', color: 'var(--text)', cursor: 'pointer', display: 'flex', padding: 4, marginLeft: -4 }}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                   </button>
                 )}
@@ -287,8 +343,12 @@ export function ChatHub() {
                 </div>
               </header>
               <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: isMobile ? '6px 8px 0' : '14px 16px 0' }}>
-                {/* key=slug → remount on room switch so state/subscriptions reset cleanly */}
-                <ChatRoom key={selProject.slug} room={selProject.slug} roomName={selProject.name} meEmail={me.email} meName={me.name} meSuper={me.super} />
+                {taskOpen ? (
+                  <TaskThreadPanel key={taskOpen.id} post={taskOpen} onBack={() => setTaskOpen(null)} meEmail={me.email} meName={me.name} meSuper={me.super} />
+                ) : (
+                  /* key=slug → remount on room switch so state/subscriptions reset cleanly */
+                  <ChatRoom key={selProject.slug} room={selProject.slug} roomName={selProject.name} meEmail={me.email} meName={me.name} meSuper={me.super} />
+                )}
               </div>
             </>
           ) : (
@@ -301,6 +361,106 @@ export function ChatHub() {
           )}
         </section>
       )}
+    </div>
+  )
+}
+
+// Task threads listed under their project room in the message list. Each row
+// opens that task's discussion thread in the conversation pane.
+function RoomTaskList({ room, meEmail, activeId, onOpen, collapsed, onAutoExpand }: {
+  room: string
+  meEmail: string
+  activeId: string | null
+  onOpen: (post: Post) => void
+  collapsed: boolean
+  onAutoExpand: () => void
+}) {
+  const t = useT()
+  const { items, markRead, clearChat } = useTaskThreads(room, meEmail)
+  const [detailPost, setDetailPost] = useState<Post | null>(null)
+  const [confirmClear, setConfirmClear] = useState<Post | null>(null)
+
+  // Auto-open the group when a NEW task chat arrives (total unread increases) —
+  // never on initial load or while the count is stable, so a manual collapse
+  // isn't immediately undone. The hook runs even while collapsed, so an incoming
+  // chat is detected and the group pops open on its own.
+  const incoming = items.reduce((s, i) => s + i.unread, 0)
+  const prevIncoming = useRef(incoming)
+  useEffect(() => {
+    if (incoming > prevIncoming.current && collapsed) onAutoExpand()
+    prevIncoming.current = incoming
+  }, [incoming, collapsed, onAutoExpand])
+
+  if (collapsed) return null
+  if (items.length === 0) {
+    return <div style={{ margin: '2px 6px 8px 28px', paddingLeft: 16, borderLeft: '1px solid var(--border)', fontSize: 12, color: 'var(--text3)' }}>{t('Belum ada chat task.')}</div>
+  }
+  const iconBtn: React.CSSProperties = { flexShrink: 0, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', borderRadius: 6 }
+  return (
+    <div style={{ margin: '2px 6px 8px 28px', paddingLeft: 12, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {items.map(it => {
+        const color = POST_STATUS_COLORS[it.post.status] || '#8b8fa8'
+        const label = POST_STATUS_LABELS[it.post.status] || it.post.status
+        const active = it.post.id === activeId
+        return (
+          <div
+            key={it.post.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => { markRead(it.post.id); onOpen(it.post) }}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); markRead(it.post.id); onOpen(it.post) } }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px',
+              borderRadius: 9, cursor: 'pointer', textAlign: 'left',
+              background: active ? 'var(--bg3)' : 'transparent', border: '1px solid ' + (active ? 'var(--border)' : 'transparent'),
+            }}
+            onMouseOver={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg2)' }}
+            onMouseOut={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+          >
+            <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.post.title || t('(Tanpa judul)')}</span>
+            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999, whiteSpace: 'nowrap', color, background: color + '1f', border: `1px solid ${color}55` }}>{label}</span>
+            {it.mentionUnread > 0 && (
+              <span title={t('Anda di-mention')} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                <span style={{ color: '#22c55e', fontSize: 13, fontWeight: 800, lineHeight: 1 }}>@</span>
+                <span style={{ minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999, background: '#22c55e', color: '#fff', fontSize: 9.5, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{it.mentionUnread}</span>
+              </span>
+            )}
+            {it.unread > 0 && <span style={{ flexShrink: 0, minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: 'var(--accent2)', color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{it.unread}</span>}
+            <button
+              onClick={e => { e.stopPropagation(); setDetailPost(it.post) }}
+              title={t('Detail task')}
+              style={iconBtn}
+              onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
+              onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text3)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); setConfirmClear(it.post) }}
+              title={t('Hapus chat task ini (untuk Anda)')}
+              style={iconBtn}
+              onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = 'var(--accent2)' }}
+              onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text3)' }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /></svg>
+            </button>
+          </div>
+        )
+      })}
+      {detailPost && (
+        <PostPreviewModal open postId={detailPost.id} canEdit={false} onClose={() => setDetailPost(null)} onEdit={() => {}} />
+      )}
+
+      <ConfirmDialog
+        open={!!confirmClear}
+        danger
+        title={t('Hapus Chat Task')}
+        confirmLabel={t('Hapus')}
+        cancelLabel={t('Batal')}
+        onCancel={() => setConfirmClear(null)}
+        onConfirm={() => { if (confirmClear) clearChat(confirmClear.id); setConfirmClear(null) }}
+        message={t('Hapus chat task ini dari daftar Anda? Hanya hilang untuk Anda dan akan muncul lagi saat ada chat baru.')}
+      />
     </div>
   )
 }
