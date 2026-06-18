@@ -260,7 +260,7 @@ function MonthPanel({
                 <span className="bcal-add" aria-hidden>+</span>
               </div>
               <div className="bcal-pills">
-                {dayPosts.slice(0, 4).map(p => {
+                {dayPosts.slice(0, 3).map(p => {
                   const c2 = platformColor(p)
                   return (
                     <button
@@ -275,8 +275,8 @@ function MonthPanel({
                     </button>
                   )
                 })}
-                {dayPosts.length > 4 && (
-                  <span className="bcal-more">+{dayPosts.length - 4} {t('lagi')}</span>
+                {dayPosts.length > 3 && (
+                  <span className="bcal-more">+{dayPosts.length - 3} {t('lagi')}</span>
                 )}
               </div>
             </div>
@@ -351,9 +351,9 @@ const CAL_CSS = `
 .bcal-dow-cell { text-align:center; font-size:10.5px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; color:var(--text2); padding:2px 0; }
 .bcal-dow-cell[data-weekend] { color:var(--text3); }
 
-.bcal-days { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+.bcal-days { display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:118px; gap:6px; }
 
-.bcal-cell { position:relative; min-height:112px; padding:7px 7px 8px; border-radius:9px; background:var(--bg3); border:1px solid transparent; cursor:pointer; user-select:none; transition:background .14s, border-color .14s, box-shadow .14s; overflow:hidden; }
+.bcal-cell { position:relative; height:118px; padding:7px 7px 8px; border-radius:9px; background:var(--bg3); border:1px solid transparent; cursor:pointer; user-select:none; transition:background .14s, border-color .14s, box-shadow .14s; overflow:hidden; }
 .bcal-cell[data-weekend] { background:color-mix(in srgb, var(--bg3) 86%, var(--bg2)); }
 .bcal-cell:hover { background:var(--bg2); border-color:var(--accent); box-shadow:0 4px 14px rgba(0,0,0,0.22); }
 .bcal-cell:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
@@ -387,7 +387,8 @@ const CAL_CSS = `
 .bcal-pop-add:hover { background:var(--accent); color:#fff; }
 
 @media (max-width: 560px) {
-  .bcal-cell { min-height:74px; }
+  .bcal-days { grid-auto-rows:84px; }
+  .bcal-cell { height:84px; }
   .bcal-legend { display:none; }
 }
 @media (prefers-reduced-motion: reduce) {
