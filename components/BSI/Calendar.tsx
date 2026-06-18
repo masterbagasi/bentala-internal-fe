@@ -314,7 +314,7 @@ function DayPopup({
       </div>
 
       {posts.length === 0 ? (
-        <div className="bcal-pop-empty">{t('Belum ada post — tambahkan satu.')}</div>
+        <div className="bcal-pop-empty">{t('Belum ada task — tambahkan satu.')}</div>
       ) : posts.map(p => (
         <button key={p.id} type="button" className="bcal-pop-item" onClick={(e) => onPostClick(p.id, e)}>
           <span className="bcal-pop-dot" style={{ background: platformColor(p) }} />
@@ -322,7 +322,7 @@ function DayPopup({
         </button>
       ))}
 
-      <button onClick={onAddPost} className="bcal-pop-add">+ {t('Tambah Post')}</button>
+      <button onClick={onAddPost} className="bcal-pop-add">+ {t('Tambah Task')}</button>
     </div>
   )
 }

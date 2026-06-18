@@ -102,13 +102,13 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: row } = await (getSupabase() as any).from('posts').select('*').eq('id', postId).maybeSingle()
     if (row) upsertPost(row)
-    logActivity(`Post "${title}" dipulihkan`)
+    logActivity(`Task "${title}" dipulihkan`)
   }
 
   function askPurge(postId: string) {
     setConfirmReq({
       title: t('Hapus Permanen'),
-      message: t('Post ini akan dihapus permanen dan tidak bisa dipulihkan.'),
+      message: t('Task ini akan dihapus permanen dan tidak bisa dipulihkan.'),
       confirmLabel: t('Hapus Permanen'),
       tone: 'danger',
       onConfirm: async () => {

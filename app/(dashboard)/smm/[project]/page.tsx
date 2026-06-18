@@ -51,7 +51,7 @@ export default function SmmProjectBoardPage() {
             onClick={() => ref.current?.openEdit()}
             style={{ height: 32, padding: '0 14px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
           >
-            {t('+ Tambah Post')}
+            {t('+ Tambah Task')}
           </button>
         }
       />

@@ -350,7 +350,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       open={open}
       onClose={onClose}
       wide
-      title={t('Detail Post')}
+      title={t('Detail Task')}
       headerRight={
         canEdit ? (
         <>
@@ -431,7 +431,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
                 onClick={() => { onClose(); onEdit(post.id) }}
                 style={{ background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
               >
-                {t('Edit Post')}
+                {t('Edit Task')}
               </button>
             )}
           </div>
@@ -444,7 +444,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
 
       {/* Meta grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
-        <MetaItem label={t('Tanggal Post')} value={formatDate(post.date)} />
+        <MetaItem label={t('Tanggal Task')} value={formatDate(post.date)} />
         <MetaItem label={t('Platform')} value={
           (post.platforms || []).length ? (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

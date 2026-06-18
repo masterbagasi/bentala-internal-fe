@@ -189,7 +189,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (getSupabase() as any).from('posts').update(updates).eq('id', post.id)
       if (error) { upsertPost(post); return } // rollback
-      logActivity(`Post "${post.title}" dipindahkan`)
+      logActivity(`Task "${post.title}" dipindahkan`)
     }
 
     const filtered = posts.filter(p => {
@@ -224,8 +224,8 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
 
     function handleDelete(id: string) {
       setConfirmReq({
-        title: t('Hapus Post'),
-        message: t('Post ini akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.'),
+        title: t('Hapus Task'),
+        message: t('Task ini akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.'),
         confirmLabel: t('Hapus'),
         tone: 'danger',
         onConfirm: async () => {
@@ -236,7 +236,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             await (supabase as any).from('posts').update({ deleted_at: new Date().toISOString() }).eq('id', id)
             removePost(id) // optimistic; realtime UPDATE confirms
-            logActivity('Post dihapus')
+            logActivity('Task dihapus')
           } finally {
             setConfirmBusy(false)
             setConfirmReq(null)
@@ -378,7 +378,7 @@ function ListView({
               <td colSpan={canEdit ? 8 : 7}>
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-                  {t('Belum ada post. Klik "+ Tambah Post" untuk mulai.')}
+                  {t('Belum ada task. Klik "+ Tambah Task" untuk mulai.')}
                 </div>
               </td>
             </tr>
@@ -658,7 +658,7 @@ function KanbanBoard({
                 onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
               >
                 <span style={{ fontSize: 15, color: 'var(--accent)', lineHeight: 1 }}>+</span>
-                {t('Tambah post')}
+                {t('Tambah task')}
               </button>
             )}
           </div>
@@ -899,7 +899,7 @@ function FilesTab({ posts }: { posts: Post[] }) {
   return (
     <div>
       <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
-        {withFiles.length} {t('post dengan lampiran file')}
+        {withFiles.length} {t('task dengan lampiran file')}
       </div>
       {withFiles.map(p => (
         <div key={p.id} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', marginBottom: 8 }}>
@@ -921,7 +921,7 @@ function FilesTab({ posts }: { posts: Post[] }) {
       {withFiles.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
-          {t('Belum ada post dengan file terlampir.')}
+          {t('Belum ada task dengan file terlampir.')}
         </div>
       )}
     </div>

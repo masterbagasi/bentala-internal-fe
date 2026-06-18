@@ -16,6 +16,25 @@ import { GENERATED } from './generated'
 // Curated, hand-checked translations. These override the auto-generated
 // ones below on key conflicts (spread order: GENERATED first, SEED last).
 const SEED: Record<string, string> = {
+  // ── Socmed Management / Projects — "Task" (renamed from "Post") ──
+  '+ Tambah Task': '+ Add Task',
+  'Tambah Task': 'Add Task',
+  'Tambah Task Baru': 'Add New Task',
+  'Tambah task': 'Add task',
+  'Edit Task': 'Edit Task',
+  'Detail Task': 'Task Details',
+  'Tanggal Task': 'Task Date',
+  'Hapus Task': 'Delete Task',
+  'Task ini akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.':
+    'This task will be permanently deleted. This action cannot be undone.',
+  'Task ini akan dihapus permanen dan tidak bisa dipulihkan.':
+    'This task will be permanently deleted and cannot be restored.',
+  'Belum ada task. Klik "+ Tambah Task" untuk mulai.':
+    'No tasks yet. Click "+ Add Task" to get started.',
+  'Belum ada task dengan file terlampir.': 'No tasks with attached files yet.',
+  'task dengan lampiran file': 'tasks with file attachments',
+  'Belum ada task — tambahkan satu.': 'No tasks yet — add one.',
+
   // ── Account menu / chrome ──
   'Edit Profil': 'Edit Profile',
   'Ubah Password': 'Change Password',

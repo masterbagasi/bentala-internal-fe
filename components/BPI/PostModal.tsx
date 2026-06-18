@@ -302,7 +302,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
       // without waiting for the realtime echo or a page reload.
       const existing = posts.find(p => p.id === editId)
       if (existing) upsertPost({ ...existing, ...upd, id: editId } as Post)
-      logActivity(`Post diupdate: "${form.title}"`)
+      logActivity(`Task diupdate: "${form.title}"`)
       await logPostChanges(editId)
     } else {
       // Stamp the creator from the logged-in user
@@ -318,7 +318,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
       // Optimistically add to the board so it shows immediately, without waiting
       // for the realtime echo or a page reload.
       if (created) upsertPost(created as Post)
-      logActivity(`Post baru ditambahkan: "${form.title}"`, creator)
+      logActivity(`Task baru ditambahkan: "${form.title}"`, creator)
     }
 
     // Log newly-tagged accounts to the activity feed. The tagged user is
@@ -327,7 +327,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
     const newlyTagged = form.tagged.filter(email => !originalTagged.includes(email))
     for (const email of newlyTagged) {
       const displayName = accounts.find(a => a.email === email)?.name ?? email
-      await logActivity(`🔔 ${displayName} di-tag pada post "${form.title}"`, displayName)
+      await logActivity(`🔔 ${displayName} di-tag pada task "${form.title}"`, displayName)
     }
 
     setLoading(false)
@@ -344,7 +344,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
     <Modal
       open={open}
       onClose={onClose}
-      title={editId ? t('Edit Post') : t('Tambah Post Baru')}
+      title={editId ? t('Edit Task') : t('Tambah Task Baru')}
       maxWidth={880}
       footer={
         <>
