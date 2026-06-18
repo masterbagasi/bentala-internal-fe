@@ -70,19 +70,29 @@ export async function middleware(request: NextRequest) {
   }
 
   // ── Per-account menu access gate ──────────────────────────────
-  // The super admin (lib/access.ts) bypasses everything. Every other account
-  // may only enter routes whose section is in their `menu_access` row. Default
-  // is DENY: an account with no row sees nothing. Disallowed routes redirect to
-  // the account's first allowed section, or /no-access if they have none.
-  if (user && !isPublic && !isEffectiveSuperAdmin(user.email, user.app_metadata?.role)) {
+  // EVERY account (including super admins) may only enter routes whose section
+  // is in their `menu_access` row — so the grants actually take effect. Two
+  // safeties keep a super admin from ever locking themselves out:
+  //   1. A super admin with NO row yet (unconfigured) bypasses the gate.
+  //   2. A super admin can ALWAYS reach /settings/access (the escape hatch) to
+  //      re-grant. Default for everyone else is DENY (no row → nothing).
+  if (user && !isPublic) {
     // /no-access is the dead-end for access-less accounts — always reachable so
     // we don't bounce them in a loop.
     if (pathname === '/no-access') {
       return response
     }
 
+    const isSuper = isEffectiveSuperAdmin(user.email, user.app_metadata?.role)
+    const isAccessPage = pathname === '/settings/access' || pathname.startsWith('/settings/access/')
+
+    // Escape hatch: a super admin can always open Manage Access (no DB read).
+    if (isSuper && isAccessPage) {
+      return response
+    }
+
     // Read the account's allowed sections. RLS restricts this to their own row.
-    let allowed: string[] = []
+    let row: { sections?: unknown } | null = null
     let readFailed = false
     try {
       const { data, error } = await supabase
@@ -91,10 +101,11 @@ export async function middleware(request: NextRequest) {
         .limit(1)
         .maybeSingle()
       if (error) readFailed = true
-      else allowed = normaliseSections((data as { sections?: unknown } | null)?.sections)
+      else row = (data as { sections?: unknown } | null) ?? null
     } catch {
       readFailed = true
     }
+    const allowed = normaliseSections(row?.sections)
 
     const redirectTo = (target: string) => {
       const url = request.nextUrl.clone()
@@ -103,17 +114,21 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // The access-management page is super-admin only — never reachable here.
-    if (pathname === '/settings/access' || pathname.startsWith('/settings/access/')) {
-      return redirectTo(firstAllowedLanding(allowed) ?? '/no-access')
-    }
-
     // Fail CLOSED on a read error so a DB blip can't open access.
     if (readFailed) {
       return redirectTo('/no-access')
     }
 
-    // Chat rooms inherit project access: social OR projects grants entry.
+    // Unconfigured super admin (no row) → full access until grants are saved.
+    if (isSuper && row === null) {
+      return response
+    }
+
+    // Manage Access is super-admin only — non-supers can never reach it.
+    if (isAccessPage) {
+      return redirectTo(firstAllowedLanding(allowed) ?? '/no-access')
+    }
+
     const chatRoom = chatRoomFromPath(pathname)
     if (chatRoom !== null) {
       if (!canAccessChat(allowed, chatRoom)) {

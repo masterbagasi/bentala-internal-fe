@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { initNotificationSound, playNotificationSound } from '@/lib/notificationSound'
 import { getSupabase } from '@/lib/supabase'
 import { AccountButton } from '@/components/shared/AccountButton'
-import { isEffectiveSuperAdmin, normaliseSections, ALL_SECTION_IDS, sectionForPath, canAccessChat, chatRoomFromPath } from '@/lib/access'
+import { isEffectiveSuperAdmin, normaliseSections, sectionForPath, canAccessChat, chatRoomFromPath, firstAllowedLanding } from '@/lib/access'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 
@@ -283,6 +283,7 @@ function SidebarLogo({ isExpanded }: { isExpanded: boolean }) {
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const t = useT()
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [isExpanded, setIsExpanded] = useState(true)
@@ -319,11 +320,16 @@ export function Sidebar() {
   // Determines which sections this account may see. Super admin sees all.
   // `loading` keeps the nav blank until we know, so we never flash menus the
   // account can't open. Mirrors the DENY-by-default gate in middleware.ts.
+  // `isSuper` = may manage access + the Manage-Access escape hatch.
+  // `fullBypass` = super admin with NO menu_access row yet → sees everything
+  // (not configured). Once an admin saves their access, they're gated by grants
+  // like anyone else (so the toggles actually take effect on a super's own UI).
   const [access, setAccess] = useState<{
     loading: boolean
     isSuper: boolean
+    fullBypass: boolean
     allowed: Set<string>
-  }>({ loading: true, isSuper: false, allowed: new Set() })
+  }>({ loading: true, isSuper: false, fullBypass: false, allowed: new Set() })
 
   // My email — used to skip the notification sound for my own messages.
   const meEmailRef = useRef<string | null>(null)
@@ -332,30 +338,71 @@ export function Sidebar() {
   useEffect(() => {
     let cancelled = false
     const supabase = getSupabase()
-    supabase.auth.getUser().then(async ({ data }) => {
+
+    // Resolve the caller's access. Re-runnable so a realtime grant change can
+    // refresh the whole nav without a reload.
+    const loadAccess = async () => {
+      const { data } = await supabase.auth.getUser()
       const email = data.user?.email
       meEmailRef.current = (email ?? '').toLowerCase() || null
-      if (isEffectiveSuperAdmin(email, data.user?.app_metadata?.role)) {
-        if (!cancelled) setAccess({ loading: false, isSuper: true, allowed: new Set(ALL_SECTION_IDS) })
-        return
-      }
-      let allowed: string[] = []
+      const isSuper = isEffectiveSuperAdmin(email, data.user?.app_metadata?.role)
+      let row: { sections?: unknown } | null = null
       try {
-        const { data: row } = await supabase
-          .from('menu_access')
-          .select('sections')
-          .limit(1)
-          .maybeSingle()
-        allowed = normaliseSections((row as { sections?: unknown } | null)?.sections)
+        const res = await supabase.from('menu_access').select('sections').limit(1).maybeSingle()
+        row = (res.data as { sections?: unknown } | null) ?? null
       } catch {
-        allowed = []
+        row = null
       }
-      if (!cancelled) setAccess({ loading: false, isSuper: false, allowed: new Set(allowed) })
+      // Super admin not yet configured (no row) → full access; otherwise gated by
+      // their own grants like everyone else.
+      const fullBypass = isSuper && row === null
+      const allowed = normaliseSections(row?.sections)
+      if (!cancelled) setAccess({ loading: false, isSuper, fullBypass, allowed: new Set(allowed) })
+    }
+
+    loadAccess()
+
+    // Realtime: when an admin saves new grants for THIS account, re-evaluate
+    // access immediately so the sidebar / accessible tabs update with no refresh.
+    // menu_access RLS scopes to the caller's own row, so only their change
+    // arrives. setAuth is required for the socket to receive RLS-gated events.
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return
+      const token = data.session?.access_token
+      if (token) (supabase.realtime as { setAuth: (t: string) => void }).setAuth(token)
+      channel = supabase
+        .channel('menu-access:self')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_access' }, () => loadAccess())
+        .subscribe()
     })
+    const authSub = supabase.auth.onAuthStateChange((_e, s) => {
+      if (s?.access_token) (supabase.realtime as { setAuth: (t: string) => void }).setAuth(s.access_token)
+    })
+
     return () => {
       cancelled = true
+      authSub.data.subscription.unsubscribe()
+      if (channel) supabase.removeChannel(channel)
     }
   }, [])
+
+  // If a realtime grant change revokes access to the page the user is CURRENTLY
+  // on, bounce them to their first allowed landing (mirrors middleware, which
+  // only fires on navigation). Keeps "what you can access" in sync live.
+  useEffect(() => {
+    if (access.loading || access.fullBypass) return
+    const isAccessPage = pathname === '/settings/access' || pathname.startsWith('/settings/access/')
+    if (access.isSuper && isAccessPage) return // escape hatch — never bounce a super out of Manage Access
+    const room = chatRoomFromPath(pathname)
+    const ok = room !== null
+      ? canAccessChat(access.allowed, room)
+      : (() => { const sec = sectionForPath(pathname); return sec === null || access.allowed.has(sec) })()
+    if (!ok) {
+      const target = firstAllowedLanding(Array.from(access.allowed)) ?? '/no-access'
+      if (target !== pathname) router.replace(target)
+    }
+  }, [access, pathname, router])
 
   // ── Chat unread counts ──
   // Per-room unread message counts, keyed by project slug. Seeded from the API
@@ -514,7 +561,9 @@ export function Sidebar() {
   // section the account is allowed. Drop empty subgroups and empty sections.
   const accessibleSections = useMemo(() => {
     if (access.loading) return []
-    if (access.isSuper) return sections
+    // Unconfigured super (no row) sees everything; everyone else (incl. configured
+    // super admins) is gated by their grants.
+    if (access.fullBypass) return sections
     const filterItems = (items: NavEntry[]): NavEntry[] => {
       const out: NavEntry[] = []
       for (const e of items) {
@@ -523,6 +572,12 @@ export function Sidebar() {
           if (kids.length) out.push({ ...e, items: kids })
         } else {
           const href = (e as NavItem).href
+          if (href === '/settings/access') {
+            // Escape hatch: super admins can ALWAYS reach Manage Access, so they
+            // can never lock themselves out by editing their own grants.
+            if (access.isSuper) out.push(e)
+            continue
+          }
           if (href === '/chat') {
             // Unified Chat tab — visible if the user can chat in ANY project.
             if (smmProjects.some(p => canAccessChat(access.allowed, p.slug))) out.push(e)

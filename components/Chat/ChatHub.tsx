@@ -50,36 +50,64 @@ export function ChatHub() {
   const isMobile = useIsMobile()
   const projects = useSocmedProjects(true) // active projects only — matches the sidebar
 
-  const [me, setMe] = useState<{ email: string; name: string; super: boolean } | null>(null)
+  const [me, setMe] = useState<{ email: string; name: string; super: boolean; fullBypass: boolean } | null>(null)
   const [allowed, setAllowed] = useState<Set<string>>(new Set())
   const [accessLoaded, setAccessLoaded] = useState(false)
   const [overview, setOverview] = useState<Overview>({})
   const [selected, setSelected] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
-  // Resolve the logged-in user + their access grants (super admins see all).
+  // Resolve the logged-in user + their access grants (super admins see all), and
+  // keep the room list in sync in realtime: when an admin saves new chat grants
+  // for this account, the visible rooms update with no refresh. menu_access RLS
+  // scopes to the caller's own row, so only their change arrives.
   useEffect(() => {
+    let cancelled = false
     const sb = getSupabase()
-    sb.auth.getUser().then(async ({ data }) => {
+    const loadAccess = async () => {
+      const { data } = await sb.auth.getUser()
       const u = data.user
       const email = u?.email ?? ''
       const m = (u?.user_metadata ?? {}) as Record<string, unknown>
       const name = (m.full_name as string) || (m.name as string) || email.split('@')[0]
       const sup = isEffectiveSuperAdmin(u?.email, (u?.app_metadata as Record<string, unknown> | undefined)?.role)
-      setMe({ email, name, super: sup })
-      if (sup) { setAccessLoaded(true); return }
+      let row: { sections?: unknown } | null = null
       try {
-        const { data: row } = await sb.from('menu_access').select('sections').limit(1).maybeSingle()
-        setAllowed(new Set(normaliseSections((row as { sections?: unknown } | null)?.sections)))
-      } catch { /* no grants */ }
+        const res = await sb.from('menu_access').select('sections').limit(1).maybeSingle()
+        row = (res.data as { sections?: unknown } | null) ?? null
+      } catch { row = null }
+      if (cancelled) return
+      // Configured super admins are gated by their chat grants like everyone else;
+      // a super with no row yet (unconfigured) still sees all rooms.
+      setMe({ email, name, super: sup, fullBypass: sup && row === null })
+      setAllowed(new Set(normaliseSections(row?.sections)))
       setAccessLoaded(true)
+    }
+    loadAccess()
+
+    let channel: ReturnType<typeof sb.channel> | null = null
+    sb.auth.getSession().then(({ data }) => {
+      if (cancelled) return
+      const token = data.session?.access_token
+      if (token) (sb.realtime as { setAuth: (t: string) => void }).setAuth(token)
+      channel = sb.channel('chat:menu-access')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_access' }, () => loadAccess())
+        .subscribe()
     })
+    const auth = sb.auth.onAuthStateChange((_e, s) => {
+      if (s?.access_token) (sb.realtime as { setAuth: (t: string) => void }).setAuth(s.access_token)
+    })
+    return () => {
+      cancelled = true
+      auth.data.subscription.unsubscribe()
+      if (channel) sb.removeChannel(channel)
+    }
   }, [])
 
   // Rooms = socmed projects the user may chat in.
   const rooms = useMemo(
-    () => (!accessLoaded ? [] : projects.filter(p => me?.super || canAccessChat(allowed, p.slug))),
-    [projects, allowed, accessLoaded, me?.super],
+    () => (!accessLoaded ? [] : projects.filter(p => me?.fullBypass || canAccessChat(allowed, p.slug))),
+    [projects, allowed, accessLoaded, me?.fullBypass],
   )
 
   // Per-room summary (last message + unread), seeded once and kept live via a
@@ -131,6 +159,12 @@ export function ChatHub() {
     didAutoSelect.current = true
     setSelected(list[0].slug)
   }, [list, isMobile])
+
+  // If access to the open room is revoked in realtime, drop the selection so the
+  // user falls back to the list (mobile) / placeholder (desktop).
+  useEffect(() => {
+    if (selected && accessLoaded && !rooms.some(p => p.slug === selected)) setSelected(null)
+  }, [rooms, selected, accessLoaded])
 
   const openRoom = (slug: string) => {
     setSelected(slug)
