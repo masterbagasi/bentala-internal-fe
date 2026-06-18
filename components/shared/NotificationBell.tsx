@@ -36,8 +36,13 @@ interface Notif {
 }
 
 // Which board route a post lives on (so a notification can deep-link to it).
-function postHref(post: Post | undefined): string | null {
+// Socmed-project posts (entity = project slug, incl. bpi/bsi) live on
+// /smm/<slug> — the board the mentioned user actually has access to. Routing a
+// master-bagasi post to /bpi would bounce off the access middleware and drop
+// the ?post deep-link, so the click appeared to do nothing.
+function postHref(post: Post | undefined, projectSlugs: Set<string>): string | null {
   if (!post) return null
+  if (post.entity && projectSlugs.has(post.entity)) return `/smm/${encodeURIComponent(post.entity)}`
   if (post.entity === 'bpi') return '/bpi'
   if (post.entity === 'bsi') return '/bsi'
   const pics = post.pics || []
@@ -145,6 +150,7 @@ export function NotificationBell() {
 
   // Chat messages that @mention me (across every room I can access).
   const projects = useSocmedProjects(false)
+  const projectSlugs = useMemo(() => new Set(projects.map(p => p.slug)), [projects])
   const roomName = (slug: string) => projects.find(p => p.slug === slug)?.name || slug
   const [chatMentions, setChatMentions] = useState<ChatMentionRow[]>([])
   useEffect(() => {
@@ -231,7 +237,7 @@ export function NotificationBell() {
         text: t('me-mention kamu di komentar'),
         postTitle: post?.title,
         postId: r.post_id,
-        href: postHref(post) ?? undefined,
+        href: postHref(post, projectSlugs) ?? undefined,
       })
     })
 
@@ -247,7 +253,7 @@ export function NotificationBell() {
         postTitle: p.title,
         tag: true,
         postId: p.id,
-        href: postHref(p) ?? undefined,
+        href: postHref(p, projectSlugs) ?? undefined,
       })
     })
 
@@ -267,7 +273,7 @@ export function NotificationBell() {
       .filter((n, i, arr) => arr.findIndex(x => x.id === n.id) === i)
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 30)
-  }, [myMentions, myPosts, posts, me.name, me.email, chatMentions, roomName, t])
+  }, [myMentions, myPosts, posts, me.name, me.email, chatMentions, roomName, projectSlugs, t])
 
   const unread = notifs.filter(n => new Date(n.at).getTime() > lastSeen).length
 
