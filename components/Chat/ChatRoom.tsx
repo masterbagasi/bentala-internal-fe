@@ -1700,7 +1700,7 @@ const CR_CSS = `
 /* ── Attachments ── */
 /* Preserve aspect ratio (no crop) — caps width, lets tall screenshots stay
    complete; the bubble shrinks to the photo. */
-.cr-img { display:block; max-width:250px; max-height:380px; width:auto; height:auto; border-radius:11px; cursor:pointer; }
+.cr-img { display:block; max-width:100%; max-height:340px; width:auto; height:auto; border-radius:11px; cursor:pointer; }
 
 /* Image messages — WhatsApp-style: a thin bubble frame, the photo fills it
    edge-to-edge with rounded corners, and (when there's no caption) the time
@@ -1969,7 +1969,7 @@ const CR_CSS = `
 .cr-gallery-cell:hover img { transform:scale(1.05); }
 
 /* In-bubble image while its upload finishes. */
-.cr-img-wrap { position:relative; display:block; line-height:0; border-radius:13px; overflow:hidden; }
+.cr-img-wrap { position:relative; display:block; line-height:0; border-radius:13px; overflow:hidden; max-width:min(260px, 68vw); }
 .cr-img-uploading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.32); }
 
 /* Image album collage (WhatsApp-style). */
