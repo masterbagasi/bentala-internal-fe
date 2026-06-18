@@ -185,3 +185,46 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Gagal menyimpan perubahan' }, { status: 500 })
   }
 }
+
+// DELETE /api/access/account  { email }  → permanently remove a login account.
+// Super-admin only. Refuses to delete the hardcoded super admin or the caller's
+// own account, and cleans up the account's access + chat-read state.
+export async function DELETE(req: NextRequest) {
+  const auth = await requireSuperAdmin()
+  if (auth instanceof NextResponse) return auth
+
+  let body: { email?: string }
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'Body tidak valid' }, { status: 400 }) }
+  const email = validateEmail(body.email)
+  if (!email) return NextResponse.json({ error: 'Email tidak valid' }, { status: 400 })
+
+  if (isSuperAdmin(email)) {
+    return NextResponse.json({ error: 'Super admin utama tidak bisa dihapus.' }, { status: 403 })
+  }
+  if (email === auth.email.toLowerCase()) {
+    return NextResponse.json({ error: 'Tidak bisa menghapus akun Anda sendiri.' }, { status: 400 })
+  }
+
+  try {
+    const admin = createSupabaseAdmin()
+    const userId = await findUserIdByEmail(admin, email)
+    if (!userId) return NextResponse.json({ error: 'Akun tidak ditemukan' }, { status: 404 })
+
+    const { error } = await admin.auth.admin.deleteUser(userId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+    // Clean up the account's access + chat-read state (best-effort).
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = admin as any
+      await sb.from('menu_access').delete().eq('email', email)
+      await sb.from('chat_reads').delete().eq('email', email)
+      await sb.from('chat_room_visibility').delete().eq('email', email)
+    } catch (e) { console.error('[/api/access/account] DELETE cleanup', e) }
+
+    return NextResponse.json({ ok: true, email })
+  } catch (err) {
+    console.error('[/api/access/account] DELETE', err)
+    return NextResponse.json({ error: 'Gagal menghapus akun' }, { status: 500 })
+  }
+}

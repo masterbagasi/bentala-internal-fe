@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
+import { useSocmedProjects } from '@/lib/socmed-projects'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { PostModal } from '@/components/BPI/PostModal'
 import type { PostFilters } from '@/components/BPI'
@@ -37,17 +38,20 @@ const MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt'
 
 const WS_MAP: Record<string, string> = { 'ws-fz': 'Video Production', 'ws-rn': 'Design Studio' }
 
-// A post's accent comes from its platform so the planner reads at a glance.
-function platformColor(p: Post): string {
-  const pl = p.platforms || []
-  if (pl.includes('ig')) return '#e1306c'
-  if (pl.includes('tiktok')) return '#26d0ce'
-  return '#8b8fff'
-}
+const FALLBACK_COLOR = '#8b8fff'
 
 export function ContentCalendar({ entity, onPostClick, filters }: ContentCalendarProps) {
   const t = useT()
   const { posts, calState, setCalState } = useStore()
+  // A task's accent = its project's brand colour (same as the sidebar/menu
+  // icon), so on the All Project calendar you can tell projects apart at a
+  // glance — Bentala Project orange, Bentala Studio purple, Master Bagasi blue…
+  const allProjectsList = useSocmedProjects(false) // incl. archived so old tasks still colour
+  const colorOf = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const p of allProjectsList) m[p.slug] = p.color || FALLBACK_COLOR
+    return (post: Post) => m[post.entity] || FALLBACK_COLOR
+  }, [allProjectsList])
   const [previewPostId, setPreviewPostId] = useState<string | null>(null)
   const [addDate, setAddDate] = useState<string | null>(null)
   const [dayPopup, setDayPopup] = useState<{ date: string; x: number; y: number } | null>(null)
@@ -120,10 +124,13 @@ export function ContentCalendar({ entity, onPostClick, filters }: ContentCalenda
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto', flexWrap: 'wrap' }}>
           {/* Platform legend */}
-          <div className="bcal-legend">
-            <span><i style={{ background: '#e1306c' }} />Instagram</span>
-            <span><i style={{ background: '#26d0ce' }} />TikTok</span>
-          </div>
+          {entity === 'all' && (
+            <div className="bcal-legend">
+              {allProjectsList.filter(p => p.active).map(p => (
+                <span key={p.slug}><i style={{ background: p.color || FALLBACK_COLOR }} />{p.name}</span>
+              ))}
+            </div>
+          )}
 
           {/* Quick jump */}
           <select aria-label={t('Bulan')} value={current.getMonth()} style={selStyle}
@@ -161,6 +168,7 @@ export function ContentCalendar({ entity, onPostClick, filters }: ContentCalenda
             month={month}
             posts={entityPosts}
             today={today}
+            colorOf={colorOf}
             onDayClick={handleDayClick}
             onPostClick={handlePostClick}
           />
@@ -175,6 +183,7 @@ export function ContentCalendar({ entity, onPostClick, filters }: ContentCalenda
             x={dayPopup.x}
             y={dayPopup.y}
             posts={entityPosts.filter(p => p.date === dayPopup.date)}
+            colorOf={colorOf}
             onClose={() => setDayPopup(null)}
             onPostClick={(id, e) => handlePostClick(e, id)}
             onAddPost={() => { setAddDate(dayPopup.date); setDayPopup(null) }}
@@ -200,12 +209,13 @@ export function ContentCalendar({ entity, onPostClick, filters }: ContentCalenda
 
 // ── Month Panel ──
 function MonthPanel({
-  year, month, posts, today, onDayClick, onPostClick,
+  year, month, posts, today, colorOf, onDayClick, onPostClick,
 }: {
   year: number
   month: number
   posts: Post[]
   today: Date
+  colorOf: (p: Post) => string
   onDayClick: (e: React.MouseEvent, dateStr: string) => void
   onPostClick: (e: React.MouseEvent, id: string) => void
 }) {
@@ -261,7 +271,7 @@ function MonthPanel({
               </div>
               <div className="bcal-pills">
                 {dayPosts.slice(0, 3).map(p => {
-                  const c2 = platformColor(p)
+                  const c2 = colorOf(p)
                   return (
                     <button
                       key={p.id}
@@ -289,12 +299,13 @@ function MonthPanel({
 
 // ── Day Popup ──
 function DayPopup({
-  date, x, y, posts, onClose, onPostClick, onAddPost,
+  date, x, y, posts, colorOf, onClose, onPostClick, onAddPost,
 }: {
   date: string
   x: number
   y: number
   posts: Post[]
+  colorOf: (p: Post) => string
   onClose: () => void
   onPostClick: (id: string, e: React.MouseEvent) => void
   onAddPost: () => void
@@ -317,7 +328,7 @@ function DayPopup({
         <div className="bcal-pop-empty">{t('Belum ada task — tambahkan satu.')}</div>
       ) : posts.map(p => (
         <button key={p.id} type="button" className="bcal-pop-item" onClick={(e) => onPostClick(p.id, e)}>
-          <span className="bcal-pop-dot" style={{ background: platformColor(p) }} />
+          <span className="bcal-pop-dot" style={{ background: colorOf(p) }} />
           <span className="bcal-pop-title">{p.title}</span>
         </button>
       ))}

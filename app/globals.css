@@ -401,4 +401,16 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Shrink the common 24px content padding (written as inline styles on
+     page bodies, Section, and board tab wrappers) so phones aren't mostly
+     gutter. Same !important-over-inline approach as the grid rules above. */
+  #main-content [style*="padding: 24px"]        { padding: 16px 14px !important; }
+  #main-content [style*="padding-left: 24px"]   { padding-left: 14px !important; }
+  #main-content [style*="padding-right: 24px"]  { padding-right: 14px !important; }
+
+  /* Page title bars (PageHeader / PageShell) let their action buttons wrap
+     under the title on narrow screens instead of overflowing. */
+  .ps-titlebar { padding-top: 10px !important; padding-bottom: 10px !important; }
+
 }

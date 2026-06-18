@@ -16,6 +16,28 @@ import { GENERATED } from './generated'
 // Curated, hand-checked translations. These override the auto-generated
 // ones below on key conflicts (spread order: GENERATED first, SEED last).
 const SEED: Record<string, string> = {
+  '(kosong)': '(empty)',
+  // ── Summary (analytics) ──
+  'Distribusi Status': 'Status Distribution',
+  'Task per Project': 'Tasks per Project',
+  'Total Task': 'Total Tasks',
+  'Proporsi task per status': 'Share of tasks by status',
+  'Mengikuti urutan List/Board': 'In List/Board order',
+  'Rincian status untuk tiap project socmed': 'Status breakdown for each socmed project',
+  'Distribusi Platform': 'Platform Distribution',
+  'Jumlah task per platform socmed': 'Tasks per socmed platform',
+  // ── Project Socmed delete ──
+  'Hapus permanen': 'Delete permanently',
+  'Hapus Project Permanen': 'Delete Project Permanently',
+  'Hapus Akun': 'Delete Account',
+  'Hapus Akun Permanen': 'Delete Account Permanently',
+  'Akun': 'Account',
+  'akan dihapus permanen dan tidak bisa login lagi. Tindakan ini tidak bisa dibatalkan.':
+    'will be permanently deleted and can no longer log in. This action cannot be undone.',
+  'Menghapus…': 'Deleting…',
+  'Project': 'Project',
+  'akan dihapus permanen beserta semua task yang sudah selesai, data chat & hak aksesnya. Project hanya bisa dihapus jika semua task sudah selesai. Tindakan ini tidak bisa dibatalkan.':
+    'will be permanently deleted along with all its finished tasks, chat data & access grants. A project can only be deleted once all its tasks are finished. This action cannot be undone.',
   // ── Socmed Management / Projects — "Task" (renamed from "Post") ──
   '+ Tambah Task': '+ Add Task',
   'Tambah Task': 'Add Task',

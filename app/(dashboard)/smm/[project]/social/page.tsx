@@ -82,7 +82,7 @@ export default function Page() {
     <>
       <PageHeader
         title="Social Media"
-        tabs={['accounts', 'analytics', 'reports', 'plan']}
+        tabs={['analytics', 'accounts', 'reports', 'plan']}
         activeTab={tab}
         onTabChange={setTab}
         tabsRight={

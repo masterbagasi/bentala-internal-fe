@@ -72,7 +72,7 @@ const TAB_LABELS: Record<string, string> = {
   board: 'Board',
   calendar: 'Calendar',
   files: 'Files',
-  analytics: 'Analytics',
+  analytics: 'Summary',
   brief: 'Brief',
   accounts: 'Accounts',
   reports: 'Reports',
@@ -139,15 +139,16 @@ export function PageHeader({
       {/* ── Title bar — matches PageShell chrome exactly so any page
           using PageHeader looks identical to a page using PageShell. */}
       <div
-        className="ps-gutter"
+        className="ps-gutter ps-titlebar"
         style={{
-          height: 64,
+          minHeight: 64,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 24px',
+          padding: '10px 24px',
           borderBottom: '1px solid var(--border)',
           gap: 12,
+          flexWrap: 'wrap',
         }}
       >
         {/* Title */}

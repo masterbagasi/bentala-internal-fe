@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
+import { Modal, BtnPrimary, BtnSecondary, ConfirmDialog } from '@/components/shared/Modal'
 import { AccountEditModal } from './AccountEditModal'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -74,6 +74,28 @@ export default function AccessControlClient() {
   const [profileUser, setProfileUser] = useState<AccessUser | null>(null)
   // The currently logged-in super admin (to route their own row to self-edit).
   const [me, setMe] = useState('')
+
+  // Delete-account confirmation.
+  const [confirmDel, setConfirmDel] = useState<AccessUser | null>(null)
+  const [delBusy, setDelBusy] = useState(false)
+  const [delError, setDelError] = useState('')
+
+  async function deleteAccount() {
+    if (!confirmDel || delBusy) return
+    setDelBusy(true); setDelError('')
+    try {
+      const r = await fetch('/api/access/account', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: confirmDel.email }),
+      })
+      if (!r.ok) throw new Error((await r.json()).error || 'Gagal menghapus akun')
+      setConfirmDel(null)
+      await reload(true)
+    } catch (e) {
+      setDelError(e instanceof Error ? e.message : 'Gagal menghapus akun')
+      setConfirmDel(null)
+    } finally { setDelBusy(false) }
+  }
 
   // Add-account form.
   const [showAdd, setShowAdd] = useState(false)
@@ -334,6 +356,13 @@ export default function AccessControlClient() {
         </div>
       </Modal>
 
+      {delError && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
+          <span style={{ fontSize: 13, color: '#f87171' }}>{delError}</span>
+          <button onClick={() => setDelError('')} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>✕</button>
+        </div>
+      )}
+
       {/* Account list (compact) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {filteredUsers.map(u => {
@@ -367,6 +396,18 @@ export default function AccessControlClient() {
                 </button>
                 <button onClick={() => setProfileUser(u)} style={quickBtnStyle}>{t('Edit Akun')}</button>
                 <button onClick={() => openPwModal(u.email)} style={quickBtnStyle}>{t('Ubah Password')}</button>
+                {!u.locked && u.email.toLowerCase() !== me && (
+                  <button
+                    onClick={() => { setDelError(''); setConfirmDel(u) }}
+                    title={t('Hapus Akun')}
+                    style={{ ...quickBtnStyle, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent2)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent2)' }}
+                    onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /></svg>
+                    {t('Hapus')}
+                  </button>
+                )}
               </div>
             </div>
           )
@@ -485,6 +526,22 @@ export default function AccessControlClient() {
           {pwDone && <div style={{ fontSize: 12, color: '#34d399' }}>{t('Password berhasil diganti ✓')}</div>}
         </div>
       </Modal>
+
+      {/* Delete-account confirmation */}
+      <ConfirmDialog
+        open={!!confirmDel}
+        danger
+        title={t('Hapus Akun Permanen')}
+        confirmLabel={delBusy ? t('Menghapus…') : t('Hapus Permanen')}
+        cancelLabel={t('Batal')}
+        onCancel={() => { if (!delBusy) setConfirmDel(null) }}
+        onConfirm={deleteAccount}
+        message={
+          <>
+            {t('Akun')} <strong style={{ color: 'var(--text)' }}>{confirmDel?.name}</strong> ({confirmDel?.email}) {t('akan dihapus permanen dan tidak bisa login lagi. Tindakan ini tidak bisa dibatalkan.')}
+          </>
+        }
+      />
     </div>
   )
 }

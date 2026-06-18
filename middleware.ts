@@ -84,10 +84,13 @@ export async function middleware(request: NextRequest) {
     }
 
     const isSuper = isEffectiveSuperAdmin(user.email, user.app_metadata?.role)
-    const isAccessPage = pathname === '/settings/access' || pathname.startsWith('/settings/access/')
+    // Super-admin-only settings pages (Manage Access + Project Socmed).
+    const isSuperOnlyPage =
+      pathname === '/settings/access' || pathname.startsWith('/settings/access/') ||
+      pathname === '/settings/projects' || pathname.startsWith('/settings/projects/')
 
-    // Escape hatch: a super admin can always open Manage Access (no DB read).
-    if (isSuper && isAccessPage) {
+    // Escape hatch: a super admin can always open these (no DB read).
+    if (isSuper && isSuperOnlyPage) {
       return response
     }
 
@@ -124,8 +127,8 @@ export async function middleware(request: NextRequest) {
       return response
     }
 
-    // Manage Access is super-admin only — non-supers can never reach it.
-    if (isAccessPage) {
+    // These settings pages are super-admin only — non-supers can never reach them.
+    if (isSuperOnlyPage) {
       return redirectTo(firstAllowedLanding(allowed) ?? '/no-access')
     }
 

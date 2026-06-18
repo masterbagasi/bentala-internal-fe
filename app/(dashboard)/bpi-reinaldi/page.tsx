@@ -16,7 +16,7 @@ export default function ReinaldPage() {
     <>
       <PageHeader
         title="Design Studio"
-        tabs={['list', 'board', 'calendar', 'files', 'analytics']}
+        tabs={['analytics', 'list', 'board', 'calendar', 'files']}
         activeTab={tab}
         onTabChange={setTab}
         showDateFilter={tab === 'analytics'}

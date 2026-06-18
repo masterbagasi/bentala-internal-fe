@@ -42,16 +42,26 @@ function slugify(name: string): string {
     .slice(0, 40) || 'project'
 }
 
+// Free-text profile fields. Caps keep payloads sane; description is the longest.
+const PROFILE_FIELDS = ['address', 'phone', 'email', 'pic', 'description', 'instagram', 'tiktok', 'website'] as const
+function pickProfile(body: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const f of PROFILE_FIELDS) {
+    if (typeof body[f] === 'string') out[f] = (body[f] as string).trim().slice(0, f === 'description' ? 2000 : 300)
+  }
+  return out
+}
+
 export async function POST(req: NextRequest) {
   const forbidden = await requireSuperAdmin()
   if (forbidden) return forbidden
 
-  let body: { name?: string; glyph?: string; color?: string }
+  let body: Record<string, unknown>
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
   const name = String(body.name ?? '').trim()
   if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
   const glyph = String(body.glyph ?? '').trim().slice(0, 6) || projectGlyph(name)
-  const color = /^#[0-9a-fA-F]{6}$/.test(body.color ?? '') ? body.color! : '#5a5a60'
+  const color = /^#[0-9a-fA-F]{6}$/.test(String(body.color ?? '')) ? (body.color as string) : '#5a5a60'
 
   const admin = createSupabaseAdmin()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,7 +77,7 @@ export async function POST(req: NextRequest) {
   const sort_order = ((maxRow?.sort_order as number) ?? 0) + 1
 
   const { data, error } = await sb.from('socmed_projects')
-    .insert({ slug, name, glyph, color, sort_order, active: true }).select('*').single()
+    .insert({ slug, name, glyph, color, sort_order, active: true, ...pickProfile(body) }).select('*').single()
   if (error) { console.error('[/api/socmed-projects] POST', error); return NextResponse.json({ error: 'Failed to create' }, { status: 500 }) }
   return NextResponse.json({ project: data })
 }
@@ -76,15 +86,15 @@ export async function PATCH(req: NextRequest) {
   const forbidden = await requireSuperAdmin()
   if (forbidden) return forbidden
 
-  let body: { slug?: string; name?: string; glyph?: string; color?: string; sort_order?: number; active?: boolean }
+  let body: Record<string, unknown>
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
   const slug = String(body.slug ?? '').trim()
   if (!slug) return NextResponse.json({ error: 'slug required' }, { status: 400 })
 
-  const patch: Record<string, unknown> = {}
+  const patch: Record<string, unknown> = { ...pickProfile(body) }
   if (typeof body.name === 'string' && body.name.trim()) patch.name = body.name.trim()
-  if (typeof body.glyph === 'string') patch.glyph = body.glyph.trim().slice(0, 6)
-  if (typeof body.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(body.color)) patch.color = body.color
+  if (typeof body.glyph === 'string') patch.glyph = (body.glyph as string).trim().slice(0, 6)
+  if (typeof body.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(body.color as string)) patch.color = body.color
   if (typeof body.sort_order === 'number') patch.sort_order = body.sort_order
   if (typeof body.active === 'boolean') patch.active = body.active
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
@@ -94,4 +104,62 @@ export async function PATCH(req: NextRequest) {
   const { data, error } = await (admin as any).from('socmed_projects').update(patch).eq('slug', slug).select('*').single()
   if (error) { console.error('[/api/socmed-projects] PATCH', error); return NextResponse.json({ error: 'Failed to update' }, { status: 500 }) }
   return NextResponse.json({ project: data })
+}
+
+// DELETE /api/socmed-projects  { slug }  → permanently remove a project.
+// Blocked while it still has tasks (posts.entity FK is ON DELETE RESTRICT), so
+// the caller gets a clear message instead of a constraint error. On success we
+// also clean up the project's chat data and strip its access grants so nothing
+// orphaned is left behind.
+export async function DELETE(req: NextRequest) {
+  const forbidden = await requireSuperAdmin()
+  if (forbidden) return forbidden
+
+  let body: { slug?: string }
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
+  const slug = String(body.slug ?? '').trim()
+  if (!slug) return NextResponse.json({ error: 'slug required' }, { status: 400 })
+
+  const admin = createSupabaseAdmin()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = admin as any
+
+  // A project may be deleted once every (non-trashed) task is finished
+  // (done/published). If any task is still in progress, block — finish, archive
+  // or move it first. Finished tasks are removed together with the project.
+  const FINISHED = ['done', 'published']
+  const { count: activeTotal } = await sb.from('posts')
+    .select('id', { count: 'exact', head: true }).eq('entity', slug).is('deleted_at', null)
+  const { count: activeFinished } = await sb.from('posts')
+    .select('id', { count: 'exact', head: true }).eq('entity', slug).is('deleted_at', null).in('status', FINISHED)
+  const unfinished = (activeTotal ?? 0) - (activeFinished ?? 0)
+  if (unfinished > 0) {
+    return NextResponse.json(
+      { error: `Tidak bisa dihapus: masih ada ${unfinished} task yang belum selesai. Selesaikan, arsipkan, atau pindahkan task-nya dulu.` },
+      { status: 409 },
+    )
+  }
+
+  // All tasks finished — remove them (comments & attachments cascade) so the
+  // entity FK no longer blocks, then drop the project.
+  const { error: delPostsErr } = await sb.from('posts').delete().eq('entity', slug)
+  if (delPostsErr) { console.error('[/api/socmed-projects] DELETE posts', delPostsErr); return NextResponse.json({ error: 'Gagal menghapus task project' }, { status: 500 }) }
+
+  // Best-effort cleanup of this project's chat room + access grants.
+  try {
+    await sb.from('chat_message_reactions').delete().eq('room', slug)
+    await sb.from('chat_messages').delete().eq('room', slug)
+    await sb.from('chat_reads').delete().eq('room', slug)
+    await sb.from('chat_room_visibility').delete().eq('room', slug)
+    const { data: rows } = await sb.from('menu_access').select('email, sections')
+    for (const r of (rows ?? []) as { email: string; sections: string[] | null }[]) {
+      const cur = r.sections ?? []
+      const next = cur.filter(s => !s.startsWith(`smm.${slug}.`))
+      if (next.length !== cur.length) await sb.from('menu_access').update({ sections: next }).eq('email', r.email)
+    }
+  } catch (e) { console.error('[/api/socmed-projects] DELETE cleanup', e) }
+
+  const { error } = await sb.from('socmed_projects').delete().eq('slug', slug)
+  if (error) { console.error('[/api/socmed-projects] DELETE', error); return NextResponse.json({ error: 'Failed to delete' }, { status: 500 }) }
+  return NextResponse.json({ ok: true })
 }

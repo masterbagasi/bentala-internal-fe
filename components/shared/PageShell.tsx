@@ -79,15 +79,16 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
       >
         {/* Title row */}
         <div
-          className="ps-gutter"
+          className="ps-gutter ps-titlebar"
           style={{
-            height: 64,
+            minHeight: 64,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 24px',
+            padding: '10px 24px',
             borderBottom: hasTabs ? '1px solid var(--border)' : '1px solid var(--border)',
             gap: 12,
+            flexWrap: 'wrap',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>

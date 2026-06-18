@@ -19,6 +19,15 @@ export interface SocmedProject {
   sort_order: number
   active: boolean
   created_at?: string
+  // Profile fields (Settings → Project Socmed). Optional; default '' in the DB.
+  address?: string
+  phone?: string
+  email?: string
+  pic?: string
+  description?: string
+  instagram?: string
+  tiktok?: string
+  website?: string
 }
 
 // Which discipline a revision is addressed to. Mirrors the two content tracks.

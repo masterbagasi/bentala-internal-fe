@@ -18,7 +18,7 @@ export default function AllProjectsPage() {
     <>
       <PageHeader
         title="All Project"
-        tabs={['list', 'board', 'calendar', 'files', 'analytics']}
+        tabs={['analytics', 'list', 'board', 'calendar', 'files']}
         activeTab={tab}
         onTabChange={setTab}
         showDateFilter={tab === 'analytics'}
@@ -33,7 +33,7 @@ export default function AllProjectsPage() {
             onClick={() => ref.current?.openEdit()}
             style={{ height: 32, padding: '0 14px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
           >
-            + {t('Tambah Post')}
+            + {t('Tambah Task')}
           </button>
         }
       />

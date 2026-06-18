@@ -6,6 +6,7 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { useLogActivity } from '@/hooks/useData'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
+import { POST_STATUS_LABELS } from '@/lib/constants'
 
 // Scope: which posts this history belongs to.
 //  - { entity: 'bpi' } → Bentala Project / Studio boards
@@ -57,6 +58,9 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
   const [restorable, setRestorable] = useState<Set<string>>(new Set())
   const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
+  // Hover preview: rows are truncated, so hovering shows the full title +
+  // change in a fixed popup (rendered outside the clipped dropdown).
+  const [hover, setHover] = useState<{ title: string; change: string; meta: string; details: { label: string; from: string; to: string }[]; x: number; y: number } | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
@@ -139,6 +143,21 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
     }
   }
 
+  // Human-readable value for a changed field (status → its label, arrays → list).
+  function fmtVal(field: string, v: unknown): string {
+    if (v == null || v === '') return t('(kosong)')
+    if (Array.isArray(v)) return v.length ? v.join(', ') : t('(kosong)')
+    if (field === 'status') return t(POST_STATUS_LABELS[String(v)] ?? String(v))
+    return String(v)
+  }
+  // Per-field before → after detail for an 'updated' row (e.g. Status: Review → Done).
+  function changeDetails(r: HistoryRow): { label: string; from: string; to: string }[] {
+    if (r.action !== 'updated' || !r.changes) return []
+    return Object.entries(r.changes).map(([k, v]) => ({
+      label: t(FIELD_LABEL[k] ?? k), from: fmtVal(k, v.from), to: fmtVal(k, v.to),
+    }))
+  }
+
   const ACTION_COLOR: Record<HistoryRow['action'], string> = {
     created: 'var(--accent3)', updated: 'var(--accent)', deleted: 'var(--accent2)',
     restored: 'var(--accent3)', purged: 'var(--accent2)',
@@ -200,7 +219,22 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
                 const canRestore = restorable.has(r.post_id) && !shownRestore.has(r.post_id)
                 if (canRestore) shownRestore.add(r.post_id)
                 return (
-                  <div key={r.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px' }}>
+                  <div
+                    key={r.id}
+                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px', borderRadius: 8, transition: 'background 0.12s' }}
+                    onMouseEnter={e => {
+                      const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      ;(e.currentTarget as HTMLElement).style.background = 'var(--bg3)'
+                      setHover({
+                        title: r.title || t('(Tanpa judul)'),
+                        change: describe(r),
+                        meta: `${fmtTime(r.created_at)}${r.actor ? ` · ${r.actor}` : ''}`,
+                        details: changeDetails(r),
+                        x: b.left, y: b.top,
+                      })
+                    }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; setHover(null) }}
+                  >
                     <span style={{ width: 7, height: 7, borderRadius: 4, marginTop: 5, flexShrink: 0, background: ACTION_COLOR[r.action] }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -237,6 +271,46 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
           </div>
         </div>
       )}
+
+      {/* Hover preview — full, untruncated text in a fixed popup (the dropdown
+          itself clips overflow, so this is rendered outside it). */}
+      {open && hover && (() => {
+        const W = 300
+        const vw = typeof window !== 'undefined' ? window.innerWidth : 1024
+        const vh = typeof window !== 'undefined' ? window.innerHeight : 768
+        // Prefer to the left of the panel; fall back to clamped within viewport.
+        let x = hover.x - W - 12
+        if (x < 8) x = Math.min(hover.x, vw - W - 8)
+        const y = Math.min(hover.y, vh - 120)
+        return (
+          <div style={{
+            position: 'fixed', left: x, top: y, width: W, zIndex: 200,
+            background: 'var(--bg2)', border: '1px solid var(--accent)', borderRadius: 10,
+            padding: '10px 12px', boxShadow: '0 12px 40px rgba(0,0,0,0.6)', pointerEvents: 'none',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, wordBreak: 'break-word' }}>
+              {hover.title}
+            </div>
+            {hover.details.length > 0 ? (
+              <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {hover.details.map((d, i) => (
+                  <div key={i} style={{ fontSize: 12, lineHeight: 1.4, wordBreak: 'break-word' }}>
+                    <span style={{ color: 'var(--text2)' }}>{d.label}: </span>
+                    <span style={{ color: 'var(--text2)' }}>{d.from}</span>
+                    <span style={{ color: 'var(--text2)' }}> → </span>
+                    <span style={{ color: 'var(--text)', fontWeight: 600 }}>{d.to}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 3, lineHeight: 1.4, wordBreak: 'break-word' }}>
+                {hover.change}
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>{hover.meta}</div>
+          </div>
+        )
+      })()}
 
       {confirmReq && (
         <ConfirmDialog request={confirmReq} busy={confirmBusy} onCancel={() => setConfirmReq(null)} />

@@ -455,7 +455,6 @@ export function Sidebar() {
         { href: '/website/about',    label: 'About Page', icon: <ListIcon />,      color: COLOR.orange },
         { href: '/website/news',     label: 'News Page',  icon: <ListIcon />,      color: COLOR.red },
         { href: '/website/seo',      label: 'SEO',        icon: <WandIcon />,      color: COLOR.purple },
-        { href: '/website/navbar',   label: 'Setting',    icon: <ListIcon />,      color: COLOR.purple },
       ],
     },
     {
@@ -540,10 +539,15 @@ export function Sidebar() {
       fullLabel: 'Settings',
       items: [
         { href: '/settings/ai', label: 'AI Integrations', icon: <PlugIcon />, color: COLOR.gray },
-        // Access management — only the super admin can open it, so only show it
-        // to them (the route is super-admin-gated in middleware regardless).
+        // Website Setting (navbar/footer config) — moved here from the Website group.
+        { href: '/website/navbar', label: 'Website Setting', icon: <ListIcon />, color: COLOR.gray },
+        // Project Socmed + Access management — super-admin only (also gated in
+        // middleware). Project Socmed sits above Access Control.
         ...(access.isSuper
-          ? [{ href: '/settings/access', label: 'Hak Akses', icon: <LockIcon />, color: COLOR.gray }]
+          ? [
+              { href: '/settings/projects', label: 'Project Socmed', icon: <ListIcon />, color: COLOR.gray },
+              { href: '/settings/access', label: 'Hak Akses', icon: <LockIcon />, color: COLOR.gray },
+            ]
           : []),
       ],
     },

@@ -36,7 +36,7 @@ export default function SmmProjectBoardPage() {
     <>
       <PageHeader
         title="Projects"
-        tabs={['list', 'board', 'calendar', 'files', 'analytics']}
+        tabs={['analytics', 'list', 'board', 'calendar', 'files']}
         activeTab={tab}
         onTabChange={setTab}
         showDateFilter={tab === 'analytics'}
