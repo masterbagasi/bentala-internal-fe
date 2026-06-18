@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { useStore } from '@/hooks/useStore'
 import { NotificationBell } from '@/components/shared/NotificationBell'
 import { DateRangePicker } from '@/components/Social/DateRangePicker'
@@ -104,6 +106,26 @@ export function PageHeader({
 
   const hasTabs = tabs && tabs.length > 0
 
+  // Remember the active tab per route so a browser refresh keeps you on the
+  // same tab (List/Board/Calendar/…) instead of snapping back to the first one.
+  const pathname = usePathname()
+  const tabKey = `bentala_tab:${pathname}`
+  const restoredPath = useRef<string | null>(null)
+  useEffect(() => {
+    if (!hasTabs || !onTabChange) return
+    if (restoredPath.current === pathname) return
+    restoredPath.current = pathname
+    try {
+      const saved = localStorage.getItem(tabKey) as TabKey | null
+      if (saved && tabs!.includes(saved) && saved !== activeTab) onTabChange(saved)
+    } catch {}
+  }, [pathname, hasTabs, onTabChange, tabs, activeTab, tabKey])
+
+  function selectTab(tab: TabKey) {
+    onTabChange?.(tab)
+    try { localStorage.setItem(tabKey, tab) } catch {}
+  }
+
   return (
     <div
       style={{
@@ -196,7 +218,7 @@ export function PageHeader({
               return (
                 <button
                   key={t}
-                  onClick={() => onTabChange?.(t)}
+                  onClick={() => selectTab(t)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

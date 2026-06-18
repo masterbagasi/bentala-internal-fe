@@ -279,7 +279,15 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
         setMessages(list)
         setHasMore(list.length >= 50)
         setLoading(false)
-        requestAnimationFrame(scrollToBottom)
+        // Always open at the newest message. A single rAF scroll lands in the
+        // middle when attachments/avatars finish loading AFTER it (their height
+        // pushes content down). Stay pinned to the bottom across those late
+        // layout shifts with a few retries — cancelled if the user scrolls up.
+        atBottomRef.current = true
+        setPinned(false)
+        const stick = () => { if (!cancelled && atBottomRef.current) scrollToBottom() }
+        requestAnimationFrame(stick)
+        ;[60, 180, 360, 700].forEach(ms => setTimeout(stick, ms))
       })
     fetch(`/api/chat/${encodeURIComponent(room)}/read`, { method: 'POST' }).then(loadReads)
     loadReads()
@@ -956,7 +964,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                                     {albumMsgs.slice(0, 4).map((a, idx) => (
                                       <button key={a.id} type="button" className="cr-album-tile" onClick={e => { e.stopPropagation(); open(idx) }}>
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={imgUrl(a)} alt="" loading="lazy" />
+                                        <img src={imgUrl(a)} alt="" loading="lazy" onLoad={() => { if (atBottomRef.current) scrollToBottom() }} />
                                         {idx === 3 && extra > 0 && <span className="cr-album-more">+{extra}</span>}
                                         {a.id.startsWith('tmp-') && a._uploading && <span className="cr-img-uploading"><span className="cr-spin" /></span>}
                                       </button>
@@ -968,6 +976,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                                 <span className="cr-img-wrap">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img className="cr-img" src={m._preview ?? fileUrl(m)} alt={m.attachment_name ?? ''} loading="lazy"
+                                    onLoad={() => { if (atBottomRef.current) scrollToBottom() }}
                                     onClick={e => { e.stopPropagation(); if (!uploadingMsg) setLightbox({ items: [{ url: m._preview ?? fileUrl(m), name: m.attachment_name ?? 'image', type: m.attachment_type ?? '', msg: m }], index: 0 }) }} />
                                   {uploadingMsg && <span className="cr-img-uploading"><span className="cr-spin" /></span>}
                                 </span>
