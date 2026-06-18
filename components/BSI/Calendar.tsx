@@ -8,33 +8,46 @@ import { PostModal } from '@/components/BPI/PostModal'
 import type { Post } from '@/lib/types'
 
 interface ContentCalendarProps {
-  entity: string  // 'bpi' | 'bsi' | 'ws-fz' | 'ws-rn'
+  entity: string  // 'bpi' | 'bsi' | 'ws-fz' | 'ws-rn' | 'all' | <project slug>
   onPostClick?: (id: string) => void
 }
 
 const DAY_LABELS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
 const MONTH_LABELS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']
 
 const WS_MAP: Record<string, string> = { 'ws-fz': 'Video Production', 'ws-rn': 'Design Studio' }
 
+// A post's accent comes from its platform so the planner reads at a glance.
+function platformColor(p: Post): string {
+  const pl = p.platforms || []
+  if (pl.includes('ig')) return '#e1306c'
+  if (pl.includes('tiktok')) return '#26d0ce'
+  return '#8b8fff'
+}
+
 export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
+  const t = useT()
   const { posts, calState, setCalState } = useStore()
-  const [platformFilter, setPlatformFilter] = useState('all')
+  const [platformFilter] = useState('all')
   const [previewPostId, setPreviewPostId] = useState<string | null>(null)
   const [addDate, setAddDate] = useState<string | null>(null)
   const [dayPopup, setDayPopup] = useState<{ date: string; x: number; y: number } | null>(null)
 
   const current = calState[entity] || new Date()
+  const today = new Date()
 
   function changeMonth(dir: number) {
     setCalState(entity, new Date(current.getFullYear(), current.getMonth() + dir, 1))
   }
+  function goToday() {
+    setCalState(entity, new Date(today.getFullYear(), today.getMonth(), 1))
+  }
 
-  // Get posts for this entity
   function getEntityPosts(platform?: string): Post[] {
     const member = WS_MAP[entity]
     let filtered = entity === 'all'
-      ? posts.slice() // All Project: every socmed post, including new projects
+      ? posts.slice()
       : member
         ? posts.filter(p => (p.pics || []).includes(member))
         : posts.filter(p => p.entity === entity)
@@ -46,18 +59,24 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
 
   const entityPosts = getEntityPosts(platformFilter)
 
-  // Single-month view.
-  const months = [{ year: current.getFullYear(), month: current.getMonth() }]
-
-  const navLabel = `${MONTH_LABELS[months[0].month]} ${months[0].year}`
+  // Two-month planner: this month + the next, so plans that straddle a month
+  // boundary stay visible. The selects/arrows drive the first (left) month.
+  const next = new Date(current.getFullYear(), current.getMonth() + 1, 1)
+  const months = [
+    { year: current.getFullYear(), month: current.getMonth() },
+    { year: next.getFullYear(), month: next.getMonth() },
+  ]
+  const rangeLabel = months[0].year === months[1].year
+    ? `${MONTH_LABELS[months[0].month]} – ${MONTH_LABELS[months[1].month]} ${months[0].year}`
+    : `${MONTH_LABELS[months[0].month]} ${months[0].year} – ${MONTH_LABELS[months[1].month]} ${months[1].year}`
 
   const isWs = entity.startsWith('ws-')
+  const atCurrentMonth = current.getFullYear() === today.getFullYear() && current.getMonth() === today.getMonth()
 
   function handleDayClick(e: React.MouseEvent, dateStr: string) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     setDayPopup({ date: dateStr, x: rect.left, y: rect.bottom + 4 })
   }
-
   function handlePostClick(e: React.MouseEvent, id: string) {
     e.stopPropagation()
     if (onPostClick) onPostClick(id)
@@ -65,58 +84,72 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
     setDayPopup(null)
   }
 
+  const selStyle: React.CSSProperties = {
+    width: 'auto', padding: '6px 10px', fontSize: 13, fontWeight: 500,
+    background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8,
+  }
+
   return (
     <div>
-      {/* Calendar Nav */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        {/* Month/Year selects */}
-        <select
-          value={current.getMonth()}
-          onChange={e => setCalState(entity, new Date(current.getFullYear(), parseInt(e.target.value), 1))}
-          style={{ width: 'auto', padding: '5px 10px' }}
-        >
-          {MONTH_LABELS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-        </select>
-        <select
-          value={current.getFullYear()}
-          onChange={e => setCalState(entity, new Date(parseInt(e.target.value), current.getMonth(), 1))}
-          style={{ width: 'auto', padding: '5px 10px' }}
-        >
-          {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
+      <style>{CAL_CSS}</style>
 
-        <span style={{ fontSize: 14, fontWeight: 600 }}>{navLabel}</span>
+      {/* ── Toolbar ── */}
+      <div className="bcal-toolbar">
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, minWidth: 0 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text)', whiteSpace: 'nowrap' }}>
+            {rangeLabel}
+          </h2>
+        </div>
 
-        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
-          <button onClick={() => changeMonth(-1)}
-            style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--text)', fontSize: 14 }}>
-            ‹
-          </button>
-          <button onClick={() => changeMonth(1)}
-            style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: 'var(--text)', fontSize: 14 }}>
-            ›
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto', flexWrap: 'wrap' }}>
+          {/* Platform legend */}
+          <div className="bcal-legend">
+            <span><i style={{ background: '#e1306c' }} />Instagram</span>
+            <span><i style={{ background: '#26d0ce' }} />TikTok</span>
+          </div>
+
+          {/* Quick jump */}
+          <select aria-label={t('Bulan')} value={current.getMonth()} style={selStyle}
+            onChange={e => setCalState(entity, new Date(current.getFullYear(), parseInt(e.target.value), 1))}>
+            {MONTH_LABELS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          </select>
+          <select aria-label={t('Tahun')} value={current.getFullYear()} style={selStyle}
+            onChange={e => setCalState(entity, new Date(parseInt(e.target.value), current.getMonth(), 1))}>
+            {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+
+          {/* Segmented prev / today / next */}
+          <div className="bcal-seg" role="group" aria-label={t('Navigasi bulan')}>
+            <button className="bcal-seg-btn" onClick={() => changeMonth(-1)} aria-label={t('Bulan sebelumnya')}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+            </button>
+            <button className="bcal-seg-btn bcal-seg-today" onClick={goToday} disabled={atCurrentMonth}>
+              {t('Hari Ini')}
+            </button>
+            <button className="bcal-seg-btn" onClick={() => changeMonth(1)} aria-label={t('Bulan berikutnya')}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Calendar months grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, maxWidth: 1100 }}>
+      {/* ── Two month panels ── */}
+      <div className="bcal-grid">
         {months.map(({ year, month }) => (
           <MonthPanel
             key={`${year}-${month}`}
             year={year}
             month={month}
-            entity={entity}
             posts={entityPosts}
+            today={today}
             onDayClick={handleDayClick}
             onPostClick={handlePostClick}
           />
         ))}
       </div>
 
-      {/* Day popup */}
       {dayPopup && (
         <>
           <div className="fixed inset-0 z-[499]" onClick={() => setDayPopup(null)} />
@@ -125,7 +158,6 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
             x={dayPopup.x}
             y={dayPopup.y}
             posts={entityPosts.filter(p => p.date === dayPopup.date)}
-            entity={entity}
             onClose={() => setDayPopup(null)}
             onPostClick={(id, e) => handlePostClick(e, id)}
             onAddPost={() => { setAddDate(dayPopup.date); setDayPopup(null) }}
@@ -133,25 +165,15 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
         </>
       )}
 
-      {/* Preview modal */}
       {previewPostId && (
-        <PostPreviewModal
-          open={!!previewPostId}
-          postId={previewPostId}
-          onClose={() => setPreviewPostId(null)}
-          onEdit={() => {}}
-        />
+        <PostPreviewModal open={!!previewPostId} postId={previewPostId} onClose={() => setPreviewPostId(null)} onEdit={() => {}} />
       )}
 
-      {/* Add post modal */}
       {addDate && (
         <PostModal
           open={!!addDate}
           onClose={() => setAddDate(null)}
           editId={null}
-          // Add-from-calendar creates the post on this calendar's project. For a
-          // concrete project slug (bpi/bsi or any new project) use it directly;
-          // 'all' and ws- PIC scopes have no single project, fall back to bpi.
           entity={entity === 'all' || isWs ? 'bpi' : entity}
         />
       )}
@@ -161,12 +183,12 @@ export function ContentCalendar({ entity, onPostClick }: ContentCalendarProps) {
 
 // ── Month Panel ──
 function MonthPanel({
-  year, month, entity, posts, onDayClick, onPostClick,
+  year, month, posts, today, onDayClick, onPostClick,
 }: {
   year: number
   month: number
-  entity: string
   posts: Post[]
+  today: Date
   onDayClick: (e: React.MouseEvent, dateStr: string) => void
   onPostClick: (e: React.MouseEvent, id: string) => void
 }) {
@@ -174,157 +196,182 @@ function MonthPanel({
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const prevDays = new Date(year, month, 0).getDate()
-  const today = new Date()
 
   const cells: Array<{ day: number; cur: boolean }> = []
   for (let i = firstDay - 1; i >= 0; i--) cells.push({ day: prevDays - i, cur: false })
   for (let i = 1; i <= daysInMonth; i++) cells.push({ day: i, cur: true })
   while (cells.length % 7 !== 0) cells.push({ day: cells.length - firstDay - daysInMonth + 1, cur: false })
 
-  const isBpi = entity === 'bpi'
-
   return (
-    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '20px 20px 24px' }}>
-      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
-        {['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][month]} {year}
-      </div>
+    <section className="bcal-panel">
+      <header className="bcal-panel-head">{MONTH_LABELS[month]} {year}</header>
 
-      {/* Day headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4, marginBottom: 4 }}>
-        {DAY_LABELS.map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: 11, color: 'var(--text2)', padding: 4, fontWeight: 600 }}>{d}</div>
+      <div className="bcal-dow">
+        {DAY_LABELS.map((d, i) => (
+          <div key={d} className="bcal-dow-cell" data-weekend={i === 0 || i === 6 ? '1' : undefined}>{d}</div>
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 4 }}>
+      <div className="bcal-days">
         {cells.map((c, i) => {
-          if (!c.cur) return (
-            <div key={i} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, minHeight: 96, padding: 6, opacity: 0.4 }}>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>{c.day}</div>
-            </div>
-          )
+          if (!c.cur) {
+            return <div key={i} className="bcal-cell bcal-cell-muted" aria-hidden><span className="bcal-num">{c.day}</span></div>
+          }
 
-          const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(c.day).padStart(2,'0')}`
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(c.day).padStart(2, '0')}`
           const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === c.day
           const dayPosts = posts.filter(p => p.date === dateStr)
+          const weekday = (firstDay + c.day - 1) % 7
+          const isWeekend = weekday === 0 || weekday === 6
 
           return (
             <div
               key={i}
+              role="button"
+              tabIndex={0}
+              aria-label={`${c.day} ${MONTH_LABELS[month]} ${year}${dayPosts.length ? `, ${dayPosts.length} post` : ''}`}
+              className="bcal-cell"
+              data-today={isToday ? '1' : undefined}
+              data-weekend={isWeekend ? '1' : undefined}
               onClick={(e) => onDayClick(e, dateStr)}
-              style={{
-                background: 'var(--bg3)',
-                border: `1px solid ${isToday ? 'var(--accent)' : 'var(--border)'}`,
-                borderRadius: 6, minHeight: 96, padding: 6,
-                fontSize: 11, cursor: 'pointer',
-                transition: 'border-color 0.15s, background 0.15s',
-                position: 'relative',
-                userSelect: 'none',
-              }}
-              onMouseOver={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'
-                ;(e.currentTarget as HTMLElement).style.background = 'var(--bg2)'
-              }}
-              onMouseOut={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = isToday ? 'var(--accent)' : 'var(--border)'
-                ;(e.currentTarget as HTMLElement).style.background = 'var(--bg3)'
-              }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDayClick(e as unknown as React.MouseEvent, dateStr) } }}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
-                <span>{c.day}</span>
-                <span style={{ fontSize: 15, fontWeight: 300, color: 'var(--accent)', opacity: 0 }}
-                  className="cal-day-add"
-                >+</span>
+              <div className="bcal-cell-head">
+                <span className={isToday ? 'bcal-num bcal-num-today' : 'bcal-num'}>{c.day}</span>
+                <span className="bcal-add" aria-hidden>+</span>
               </div>
-              {dayPosts.slice(0, 4).map(p => (
-                <div
-                  key={p.id}
-                  onClick={(e) => onPostClick(e, p.id)}
-                  style={{
-                    borderRadius: 3, padding: '2px 4px', marginBottom: 2,
-                    fontSize: 10, cursor: 'pointer', whiteSpace: 'nowrap',
-                    overflow: 'hidden', textOverflow: 'ellipsis',
-                    background: isBpi && (p.platforms || []).includes('ig') ? '#2a0a1f' : '#0a1a1a',
-                    color: isBpi && (p.platforms || []).includes('ig') ? '#e1306c' : '#69c9d0',
-                  }}
-                >
-                  {p.title}
-                </div>
-              ))}
-              {dayPosts.length > 4 && (
-                <div style={{ fontSize: 10, color: 'var(--text2)' }}>+{dayPosts.length - 4} {t('lagi')}</div>
-              )}
+              <div className="bcal-pills">
+                {dayPosts.slice(0, 3).map(p => {
+                  const c2 = platformColor(p)
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="bcal-pill"
+                      style={{ ['--pc' as string]: c2 }}
+                      title={p.title}
+                      onClick={(e) => onPostClick(e, p.id)}
+                    >
+                      {p.title}
+                    </button>
+                  )
+                })}
+                {dayPosts.length > 3 && (
+                  <span className="bcal-more">+{dayPosts.length - 3} {t('lagi')}</span>
+                )}
+              </div>
             </div>
           )
         })}
       </div>
-    </div>
+    </section>
   )
 }
 
 // ── Day Popup ──
 function DayPopup({
-  date, x, y, posts, entity, onClose, onPostClick, onAddPost,
+  date, x, y, posts, onClose, onPostClick, onAddPost,
 }: {
   date: string
   x: number
   y: number
   posts: Post[]
-  entity: string
   onClose: () => void
   onPostClick: (id: string, e: React.MouseEvent) => void
   onAddPost: () => void
 }) {
   const t = useT()
-  const [d, m, yr] = date.split('-').map(Number)
-  const fmtDate = `${d} ${['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][m]} ${yr}`
+  const [yr, m, d] = date.split('-').map(Number)
+  const fmtDate = `${d} ${MONTH_SHORT[m - 1]} ${yr}`
 
-  // Adjust position to stay within viewport
-  const adjustedX = Math.min(x, window.innerWidth - 260)
-  const adjustedY = Math.min(y, window.innerHeight - 200)
+  const adjustedX = Math.min(x, (typeof window !== 'undefined' ? window.innerWidth : 1024) - 280)
+  const adjustedY = Math.min(y, (typeof window !== 'undefined' ? window.innerHeight : 768) - 220)
 
   return (
-    <div
-      style={{
-        position: 'fixed', zIndex: 500,
-        top: adjustedY, left: adjustedX,
-        background: 'var(--bg2)', border: '1px solid var(--border)',
-        borderRadius: 12, padding: 14, width: 240,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-        animation: 'slideUp 0.15s ease',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtDate}</span>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 16, padding: '0 2px', lineHeight: 1 }}>✕</button>
+    <div className="bcal-pop" style={{ top: adjustedY, left: adjustedX }}>
+      <div className="bcal-pop-head">
+        <span>{fmtDate}</span>
+        <button onClick={onClose} aria-label={t('Tutup')} className="bcal-pop-x">✕</button>
       </div>
 
       {posts.length === 0 ? (
-        <div style={{ fontSize: 12, color: 'var(--text2)', textAlign: 'center', padding: '8px 0 4px' }}>
-          {t('Tidak ada post di hari ini')}
-        </div>
+        <div className="bcal-pop-empty">{t('Belum ada post — tambahkan satu.')}</div>
       ) : posts.map(p => (
-        <div
-          key={p.id}
-          onClick={(e) => onPostClick(p.id, e)}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderRadius: 7, cursor: 'pointer', marginBottom: 2 }}
-          onMouseOver={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg3)'}
-          onMouseOut={e => (e.currentTarget as HTMLElement).style.background = ''}
-        >
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: (p.platforms || []).includes('ig') ? '#e1306c' : '#69c9d0', flexShrink: 0 }} />
-          <span style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
-        </div>
+        <button key={p.id} type="button" className="bcal-pop-item" onClick={(e) => onPostClick(p.id, e)}>
+          <span className="bcal-pop-dot" style={{ background: platformColor(p) }} />
+          <span className="bcal-pop-title">{p.title}</span>
+        </button>
       ))}
 
-      <button
-        onClick={onAddPost}
-        style={{ width: '100%', marginTop: 8, padding: 7, background: 'rgba(108,99,255,0.12)', border: '1px dashed rgba(108,99,255,0.4)', borderRadius: 7, color: 'var(--accent)', fontSize: 12, fontWeight: 500, cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}
-        onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = '#fff' }}
-        onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(108,99,255,0.12)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
-      >
-        + {t('Tambah Post')}
-      </button>
+      <button onClick={onAddPost} className="bcal-pop-add">+ {t('Tambah Post')}</button>
     </div>
   )
 }
+
+const CAL_CSS = `
+.bcal-toolbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+.bcal-legend { display:flex; align-items:center; gap:14px; font-size:11.5px; color:var(--text2); margin-right:2px; }
+.bcal-legend span { display:inline-flex; align-items:center; gap:5px; }
+.bcal-legend i { width:9px; height:9px; border-radius:3px; display:inline-block; }
+
+.bcal-seg { display:inline-flex; align-items:stretch; background:var(--bg3); border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+.bcal-seg-btn { display:flex; align-items:center; justify-content:center; gap:4px; min-width:34px; padding:7px 10px; background:transparent; border:none; border-left:1px solid var(--border); color:var(--text); font-size:12.5px; font-weight:600; cursor:pointer; transition:background .14s, color .14s; }
+.bcal-seg-btn:first-child { border-left:none; }
+.bcal-seg-btn:hover:not(:disabled) { background:var(--bg2); color:var(--accent); }
+.bcal-seg-btn:disabled { color:var(--text3); cursor:default; }
+.bcal-seg-btn:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+.bcal-seg-today { padding-inline:14px; }
+
+.bcal-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; max-width:1400px; align-items:start; }
+
+.bcal-panel { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:16px 16px 18px; }
+.bcal-panel-head { font-size:14px; font-weight:700; color:var(--text); margin-bottom:12px; letter-spacing:-0.01em; }
+
+.bcal-dow { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:6px; }
+.bcal-dow-cell { text-align:center; font-size:10.5px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; color:var(--text2); padding:2px 0; }
+.bcal-dow-cell[data-weekend] { color:var(--text3); }
+
+.bcal-days { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+
+.bcal-cell { position:relative; min-height:96px; padding:6px 6px 7px; border-radius:9px; background:var(--bg3); border:1px solid transparent; cursor:pointer; user-select:none; transition:background .14s, border-color .14s, box-shadow .14s; overflow:hidden; }
+.bcal-cell[data-weekend] { background:color-mix(in srgb, var(--bg3) 86%, var(--bg2)); }
+.bcal-cell:hover { background:var(--bg2); border-color:var(--accent); box-shadow:0 4px 14px rgba(0,0,0,0.22); }
+.bcal-cell:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+.bcal-cell[data-today] { border-color:color-mix(in srgb, var(--accent) 55%, var(--border)); background:color-mix(in srgb, var(--accent) 9%, var(--bg3)); }
+.bcal-cell-muted { background:transparent; border-color:transparent; cursor:default; }
+.bcal-cell-muted .bcal-num { color:var(--text3); opacity:0.55; }
+
+.bcal-cell-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; }
+.bcal-num { font-size:12.5px; font-weight:600; color:var(--text); line-height:1; }
+.bcal-num-today { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 5px; border-radius:999px; background:var(--accent); color:#fff; }
+.bcal-add { font-size:15px; font-weight:300; line-height:1; color:var(--accent); opacity:0; transition:opacity .14s; }
+.bcal-cell:hover .bcal-add { opacity:0.9; }
+
+.bcal-pills { display:flex; flex-direction:column; gap:3px; }
+.bcal-pill { display:block; width:100%; text-align:left; font-size:10.5px; font-weight:500; line-height:1.3; padding:3px 6px 3px 7px; border:none; border-left:2.5px solid var(--pc); border-radius:4px; background:color-mix(in srgb, var(--pc) 16%, transparent); color:var(--text); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:filter .12s, transform .12s; }
+.bcal-pill:hover { filter:brightness(1.18); transform:translateX(1px); }
+.bcal-pill:focus-visible { outline:2px solid var(--pc); outline-offset:1px; }
+.bcal-more { font-size:10px; font-weight:600; color:var(--text2); padding:1px 2px; }
+
+.bcal-pop { position:fixed; z-index:500; width:256px; background:var(--bg2); border:1px solid var(--border); border-radius:13px; padding:13px; box-shadow:0 12px 40px rgba(0,0,0,0.55); animation:slideUp 0.15s ease; }
+.bcal-pop-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+.bcal-pop-head > span { font-size:13px; font-weight:700; color:var(--text); }
+.bcal-pop-x { background:none; border:none; color:var(--text2); cursor:pointer; font-size:15px; line-height:1; padding:0 2px; }
+.bcal-pop-x:hover { color:var(--text); }
+.bcal-pop-empty { font-size:12px; color:var(--text2); text-align:center; padding:10px 0 6px; }
+.bcal-pop-item { display:flex; align-items:center; gap:9px; width:100%; text-align:left; padding:7px 8px; border:none; background:transparent; border-radius:8px; cursor:pointer; }
+.bcal-pop-item:hover { background:var(--bg3); }
+.bcal-pop-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.bcal-pop-title { font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bcal-pop-add { width:100%; margin-top:8px; padding:8px; background:color-mix(in srgb, var(--accent) 12%, transparent); border:1px dashed color-mix(in srgb, var(--accent) 45%, transparent); border-radius:8px; color:var(--accent); font-size:12px; font-weight:600; cursor:pointer; transition:background .14s, color .14s; }
+.bcal-pop-add:hover { background:var(--accent); color:#fff; }
+
+@media (max-width: 560px) {
+  .bcal-cell { min-height:74px; }
+  .bcal-legend { display:none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bcal-cell, .bcal-pill, .bcal-add, .bcal-seg-btn, .bcal-pop-add { transition:none; }
+  .bcal-pop { animation:none; }
+}
+`
