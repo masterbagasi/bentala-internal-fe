@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChatRoom } from './ChatRoom'
 import { getSupabase } from '@/lib/supabase'
 import { useSocmedProjects } from '@/lib/socmed-projects'
+import { projectGlyph } from '@/lib/project-glyph'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { isEffectiveSuperAdmin, normaliseSections, canAccessChat } from '@/lib/access'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -38,7 +39,7 @@ function RoomAvatar({ glyph, color, size = 46 }: { glyph: string; color: string;
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: `linear-gradient(150deg, ${color}, ${color}cc)`,
       color: '#fff', fontWeight: 800, fontSize: size * 0.34, letterSpacing: '-0.02em',
-      textTransform: 'lowercase', boxShadow: `0 3px 10px ${color}40`,
+      boxShadow: `0 3px 10px ${color}40`,
     }}>
       {txt}
     </div>
@@ -248,7 +249,7 @@ export function ChatHub() {
                   onMouseOver={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg2)' }}
                   onMouseOut={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                 >
-                  <RoomAvatar glyph={p.glyph || p.slug} color={p.color} />
+                  <RoomAvatar glyph={p.glyph || projectGlyph(p.name)} color={p.color} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
@@ -279,7 +280,7 @@ export function ChatHub() {
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                   </button>
                 )}
-                <RoomAvatar glyph={selProject.glyph || selProject.slug} color={selProject.color} size={38} />
+                <RoomAvatar glyph={selProject.glyph || projectGlyph(selProject.name)} color={selProject.color} size={38} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selProject.name}</div>
                   <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>{t('Room tim Socmed Management')}</div>

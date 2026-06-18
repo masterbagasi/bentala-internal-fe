@@ -10,6 +10,7 @@ import { AccountButton } from '@/components/shared/AccountButton'
 import { isEffectiveSuperAdmin, normaliseSections, sectionForPath, canAccessChat, chatRoomFromPath, firstAllowedLanding } from '@/lib/access'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useSocmedProjects } from '@/lib/socmed-projects'
+import { projectGlyph } from '@/lib/project-glyph'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -469,7 +470,7 @@ export function Sidebar() {
           type: 'subgroup' as const,
           id: `smm-${p.slug}`,
           label: p.name,
-          icon: <BrandGlyph text={p.glyph || p.slug} />,
+          icon: <BrandGlyph text={p.glyph || projectGlyph(p.name)} />,
           color: p.color,
           items: [
             { href: `/smm/${p.slug}/social`, label: 'Social Media', icon: <ShareIcon />, color: COLOR.teal },
@@ -1017,7 +1018,7 @@ export function Sidebar() {
  *  with the item icons — even when the sidebar is collapsed to the icon rail. */
 function BrandGlyph({ text }: { text: string }) {
   return (
-    <span style={{ fontSize: 8.5, fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: '0.02em', textTransform: 'lowercase' }}>
+    <span style={{ fontSize: 8.5, fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: '0.02em' }}>
       {text}
     </span>
   )

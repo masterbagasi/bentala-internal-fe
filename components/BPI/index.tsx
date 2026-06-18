@@ -18,10 +18,15 @@ const hasVideo = (p: Post) => (p.pics || []).includes(VP_PIC)
 const hasDesign = (p: Post) => (p.pics || []).includes(DS_PIC)
 const trackDone = (v: string) => v === 'review' || v === 'done' || v === 'ready' || v === 'published'
 
-// Map a track value to its WS board column (ready/published/done → "Done").
-function trackColKey(v: string): string {
-  if (v === 'ready' || v === 'published' || v === 'done') return 'done'
+// Map a track to its WS board column. Authority lives on the Socmed Management
+// board: a track only sits in "Done" once the post is actually Ready to Post /
+// Published. While SMM is still in Review (or earlier), a finished track waits
+// in "Review" — it must never show Done while SMM hasn't published.
+function trackColKey(v: string, status: string): string {
+  if (status === 'ready' || status === 'published') return 'done'
   if (v === 'revisi' || v === 'produksi' || v === 'review') return v
+  // A finished/stale track value while SMM hasn't published → waiting in Review.
+  if (v === 'ready' || v === 'published' || v === 'done') return 'review'
   return 'brief' // empty / not started → "To Do List"
 }
 
@@ -95,6 +100,7 @@ const BPIAnalytics = dynamic(() => import('./Analytics').then(m => ({ default: m
 import type { Post } from '@/lib/types'
 import { useLogActivity } from '@/hooks/useData'
 import { useSocmedProjects } from '@/lib/socmed-projects'
+import { projectGlyph } from '@/lib/project-glyph'
 
 export type BPITabType = 'list' | 'board' | 'calendar' | 'files' | 'analytics'
 
@@ -162,10 +168,14 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       picScope === VP_PIC ? 'video' : picScope === DS_PIC ? 'design' : null
 
     async function moveOnBoard(post: Post, colKey: string) {
-      // Video Production / Design Studio: you can't drop INTO Revisi or Done.
-      // Revisi is set only from the Socmed Management board (opens the revision
-      // popup); Done is set automatically when the post goes Ready/Published.
-      // Cards can still be dragged OUT of Revisi (→ Production, Review, …).
+      // Video Production / Design Studio: Done belongs to the Socmed Management
+      // board. Once a post is Ready to Post / Published its track cards sit in
+      // Done and are LOCKED here — they can't be dragged back to Review or
+      // anywhere else. Only SMM can release them (by leaving Ready/Published).
+      if (boardTrack && (post.status === 'ready' || post.status === 'published')) return
+      // You also can't drop INTO Revisi or Done on these boards. Revisi is set
+      // only from the Socmed Management board (opens the revision popup); Done is
+      // set automatically when the post goes Ready/Published.
       if (boardTrack && (colKey === 'done' || colKey === 'revisi')) return
       // Socmed Management → Revisi opens the revision popup instead of moving
       // straight away; the status/track flip happens when the revision is saved.
@@ -189,6 +199,10 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       if (allProjects
         ? false
         : picScope ? !(p.pics || []).includes(picScope) : p.entity !== entity) return false
+      // Video Production / Design Studio only pick a post up once it's briefed.
+      // While it's still at 'todo' (Socmed Management "Idea") it must NOT appear
+      // on these boards at all — it surfaces only when the status reaches 'brief'.
+      if (picScope && p.status === 'todo') return false
       if (filters.platforms.length && !filters.platforms.some(x => ((p.platforms || []) as string[]).includes(x))) return false
       if (filters.contentTypes.length && !filters.contentTypes.some(x => (p.content_types || []).includes(x))) return false
       if (filters.tagged.length && !filters.tagged.some(x => (p.tagged || []).includes(x))) return false
@@ -256,9 +270,10 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               showTrackStatus={!boardTrack}
               colSet={boardTrack ? WS_STATUS_COLS : SMM_STATUS_COLS}
               noDropCols={boardTrack ? ['revisi', 'done'] : undefined}
+              lockDrag={boardTrack ? (p => p.status === 'ready' || p.status === 'published') : undefined}
               colOf={
-                boardTrack === 'video' ? (p => trackColKey(p.video_status))
-                : boardTrack === 'design' ? (p => trackColKey(p.design_status))
+                boardTrack === 'video' ? (p => trackColKey(p.video_status, p.status))
+                : boardTrack === 'design' ? (p => trackColKey(p.design_status, p.status))
                 : smmColKey
               }
               onMove={moveOnBoard}
@@ -429,7 +444,7 @@ type AccountDir = Record<string, { name: string; avatarUrl: string | null }>
 
 function KanbanBoard({
   posts, currentUser, statusFilter, onEdit, onDelete, onCardClick,
-  colSet, colOf, onMove, canEdit = true, accounts, showTrackStatus = false, noDropCols,
+  colSet, colOf, onMove, canEdit = true, accounts, showTrackStatus = false, noDropCols, lockDrag,
 }: {
   posts: Post[]
   currentUser: string
@@ -450,6 +465,8 @@ function KanbanBoard({
   showTrackStatus?: boolean
   /** Columns nobody can drop into (e.g. Done on the VP/DS boards — auto-only). */
   noDropCols?: readonly string[]
+  /** Cards for which dragging is disabled entirely (e.g. Done on VP/DS boards). */
+  lockDrag?: (post: Post) => boolean
 }) {
   // When statuses are filtered, only show those columns.
   const t = useT()
@@ -484,7 +501,7 @@ function KanbanBoard({
   liveRef.current = { cols, currentUser, onMove, keyOf }
 
   function startTouchDrag(post: Post, e: React.TouchEvent) {
-    if (!onMove) return
+    if (!onMove || lockDrag?.(post)) return
     const tch = e.touches[0]
     if (!tch) return
     const st = { post, startX: tch.clientX, startY: tch.clientY, dragging: false, overCol: null as string | null, timer: null as ReturnType<typeof setTimeout> | null }
@@ -600,11 +617,15 @@ function KanbanBoard({
             </div>
 
             <div style={{ overflowY: 'auto', flex: 1, minHeight: 60 }}>
-              {colPosts.map(p => (
+              {colPosts.map(p => {
+                const locked = lockDrag?.(p) ?? false
+                return (
                 <KanbanCard
                   key={p.id}
                   post={p}
+                  locked={locked}
                   onDragStart={(e) => {
+                    if (locked) { e.preventDefault(); return }
                     e.dataTransfer.setData('text/plain', p.id)
                     e.dataTransfer.effectAllowed = 'move'
                     setDragPostId(p.id)
@@ -612,7 +633,7 @@ function KanbanBoard({
                   onDragEnd={() => { setDragPostId(null); setDragOverCol(null) }}
                   onTouchStart={(e) => startTouchDrag(p, e)}
                   picked={dragPostId === p.id}
-                  nativeDraggable={!isMobile}
+                  nativeDraggable={!isMobile && !locked}
                   onClick={() => onCardClick(p.id)}
                   onEdit={() => onEdit(p.id)}
                   onDelete={() => onDelete(p.id)}
@@ -620,7 +641,8 @@ function KanbanBoard({
                   accounts={accounts}
                   showTrackStatus={showTrackStatus}
                 />
-              ))}
+                )
+              })}
             </div>
 
             {canEdit && (
@@ -661,8 +683,8 @@ const TRACK_STAGE: Record<string, { label: string; color: string }> = {
 // (Review / Revisi / …) is only the label.
 const TRACK_COLOR: Record<string, string> = { Video: '#a78bfa', Design: '#ffc542' }
 
-function TrackChip({ icon, track, value }: { icon: string; track: string; value: string }) {
-  const stage = TRACK_STAGE[trackColKey(value || '')] ?? TRACK_STAGE.brief
+function TrackChip({ icon, track, value, status }: { icon: string; track: string; value: string; status: string }) {
+  const stage = TRACK_STAGE[trackColKey(value || '', status)] ?? TRACK_STAGE.brief
   const color = TRACK_COLOR[track] ?? '#8b8fa8'
   return (
     <span
@@ -684,7 +706,7 @@ function TrackChip({ icon, track, value }: { icon: string; track: string; value:
 // ── Kanban Card ──
 function KanbanCard({
   post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true, accounts, showTrackStatus = false,
-  onTouchStart, picked = false, nativeDraggable = true,
+  onTouchStart, picked = false, nativeDraggable = true, locked = false,
 }: {
   post: Post
   onDragStart: (e: React.DragEvent) => void
@@ -703,6 +725,8 @@ function KanbanCard({
   /** HTML5 `draggable` — disabled on touch so iOS doesn't start its own native
    *  drag (which fights our long-press gesture and can navigate away). */
   nativeDraggable?: boolean
+  /** Done card on a VP/DS board — dragging is disabled (SMM owns the move). */
+  locked?: boolean
 }) {
   const t = useT()
   const [hovered, setHovered] = useState(false)
@@ -716,6 +740,7 @@ function KanbanCard({
     <div
       className="kanban-card"
       draggable={nativeDraggable}
+      title={locked ? t('Sudah Done — hanya Socmed Management yang bisa memindahkan') : undefined}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onTouchStart={onTouchStart}
@@ -802,8 +827,8 @@ function KanbanCard({
 
       {dualTrack && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
-          <TrackChip icon="🎬" track="Video" value={post.video_status} />
-          <TrackChip icon="🎨" track="Design" value={post.design_status} />
+          <TrackChip icon="🎬" track="Video" value={post.video_status} status={post.status} />
+          <TrackChip icon="🎨" track="Design" value={post.design_status} status={post.status} />
         </div>
       )}
 
@@ -845,7 +870,7 @@ function KanbanCard({
 function EntityGlyph({ entity }: { entity: string }) {
   const projects = useSocmedProjects(false)
   const proj = projects.find(p => p.slug === entity)
-  const label = proj?.glyph || (entity === 'ws' ? 'ws' : entity.slice(0, 3))
+  const label = proj?.glyph || (entity === 'ws' ? 'ws' : proj ? projectGlyph(proj.name) : entity.slice(0, 3))
   const color = proj?.color || '#5a5a60'
   const title = proj?.name || (entity === 'ws' ? 'Workspace' : entity)
   return (
@@ -857,7 +882,7 @@ function EntityGlyph({ entity }: { entity: string }) {
         backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.06) 45%, rgba(0,0,0,0.16) 100%)',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -1px 0 rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.25)',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.03em', textTransform: 'lowercase',
+        fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.03em',
       }}
     >
       {label}

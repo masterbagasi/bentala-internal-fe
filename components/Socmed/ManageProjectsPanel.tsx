@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import { isEffectiveSuperAdmin } from '@/lib/access'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { fetchSocmedProjects, invalidateSocmedProjects } from '@/lib/socmed-projects'
+import { projectGlyph } from '@/lib/project-glyph'
 import type { SocmedProject } from '@/lib/types'
 
 const PALETTE = ['#c46e1f', '#8845c0', '#1f5dca', '#2c9148', '#c4393a', '#2c85ad', '#c4a414', '#c4365a', '#4541b8', '#5a5a60']
@@ -79,7 +80,7 @@ export function ManageProjectsPanel() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {projects.map(p => (
           <div key={p.slug} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 9, opacity: p.active ? 1 : 0.55 }}>
-            <span style={{ width: 26, height: 26, borderRadius: 7, flexShrink: 0, background: p.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff', textTransform: 'lowercase' }}>{p.glyph || p.slug}</span>
+            <span style={{ width: 26, height: 26, borderRadius: 7, flexShrink: 0, background: p.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff' }}>{p.glyph || projectGlyph(p.name)}</span>
             <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{p.name}</span>
             <span style={{ fontSize: 11, color: 'var(--text3)' }}>/{p.slug}</span>
             <button onClick={() => patch(p.slug, { active: !p.active })} style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 7, padding: '4px 10px', fontSize: 11, fontWeight: 600, color: 'var(--text2)', cursor: 'pointer' }}>

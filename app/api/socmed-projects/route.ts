@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
 import { isEffectiveSuperAdmin } from '@/lib/access'
+import { projectGlyph } from '@/lib/project-glyph'
 
 // GET /api/socmed-projects — list every socmed project (active + archived).
 // Readable by any authenticated user (sidebar / board / access UI rely on it).
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
   const name = String(body.name ?? '').trim()
   if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
-  const glyph = String(body.glyph ?? '').trim().slice(0, 6) || slugify(name).slice(0, 4)
+  const glyph = String(body.glyph ?? '').trim().slice(0, 6) || projectGlyph(name)
   const color = /^#[0-9a-fA-F]{6}$/.test(body.color ?? '') ? body.color! : '#5a5a60'
 
   const admin = createSupabaseAdmin()
