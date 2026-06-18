@@ -11,7 +11,9 @@ create extension if not exists "uuid-ossp";
 -- ============================================================
 create table if not exists posts (
   id          uuid default uuid_generate_v4() primary key,
-  entity      text not null check (entity in ('bpi', 'bsi')),
+  -- Dynamic socmed projects: `entity` is the project slug (bpi, bsi, master-bagasi, …).
+  -- FK to socmed_projects(slug) keeps it a real project without a static whitelist.
+  entity      text not null references socmed_projects(slug) on update cascade on delete restrict,
   title       text not null,
   platforms   text[] default '{}',   -- ['ig', 'tiktok']
   date        date,

@@ -309,7 +309,15 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
       const { data: u } = await supabase.auth.getUser()
       const meta = u.user?.user_metadata ?? {}
       const creator = meta.full_name ?? meta.name ?? u.user?.email?.split('@')[0] ?? 'Unknown'
-      await supabase.from('posts').insert({ ...data, created_by: creator })
+      // CRITICAL: surface insert errors instead of failing silently. A rejected
+      // insert (e.g. an unknown project slug) must tell the user, not just close
+      // the modal and look like a no-op bug.
+      const { data: created, error } = await (supabase as any)
+        .from('posts').insert({ ...data, created_by: creator }).select().single()
+      if (error) { setLoading(false); alert(t('Gagal menyimpan: ') + error.message); return }
+      // Optimistically add to the board so it shows immediately, without waiting
+      // for the realtime echo or a page reload.
+      if (created) upsertPost(created as Post)
       logActivity(`Post baru ditambahkan: "${form.title}"`, creator)
     }
 

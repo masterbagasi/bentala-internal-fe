@@ -163,6 +163,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const admin = createSupabaseAdmin()
+
+    // Read the account's CURRENT chat grants before overwriting, so we can tell
+    // which chat rooms are being newly added vs removed.
+    const { data: prevRow } = await admin
+      .from('menu_access')
+      .select('sections')
+      .eq('email', email)
+      .maybeSingle()
+    const prevSections = normaliseSections((prevRow as { sections?: unknown } | null)?.sections)
+
     const { error } = await admin
       .from('menu_access')
       .upsert(
@@ -175,6 +185,35 @@ export async function POST(req: NextRequest) {
         { onConflict: 'email' },
       )
     if (error) throw error
+
+    // Chat "visible since" bookkeeping: when a room's chat grant is (re)added,
+    // stamp the account so the room opens EMPTY (they only see messages from
+    // now on). Removing the grant clears the stamp so a later re-add resets it.
+    const chatRoom = (s: string) => /^smm\.(.+)\.chat$/.exec(s)?.[1] ?? null
+    const dedupe = (rooms: (string | null)[]) =>
+      Array.from(new Set(rooms.filter((r): r is string => !!r)))
+    const prevChat = dedupe(prevSections.map(chatRoom))
+    const nextChat = dedupe(sections.map(chatRoom))
+    const added = nextChat.filter(r => !prevChat.includes(r))
+    const removed = prevChat.filter(r => !nextChat.includes(r))
+    try {
+      if (added.length) {
+        const now = new Date().toISOString()
+        await admin
+          .from('chat_room_visibility')
+          .upsert(
+            added.map(room => ({ email, room, visible_since: now })),
+            { onConflict: 'email,room' },
+          )
+      }
+      if (removed.length) {
+        await admin.from('chat_room_visibility').delete().eq('email', email).in('room', removed)
+      }
+    } catch (visErr) {
+      // The access grant itself is saved; a visibility hiccup shouldn't fail it.
+      console.error('[/api/access] chat visibility update', visErr)
+    }
+
     return NextResponse.json({ ok: true, email, sections })
   } catch (err) {
     console.error('[/api/access] POST', err)
