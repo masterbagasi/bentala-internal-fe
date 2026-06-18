@@ -10,6 +10,7 @@ import { BPI_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
 import { MultiFileUploader } from '@/components/website/FileUploader'
 import { SingleDatePicker } from '@/components/Social/DateRangePicker'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
+import { useSocmedProjects } from '@/lib/socmed-projects'
 import type { Post } from '@/lib/types'
 
 interface PostModalProps {
@@ -17,10 +18,10 @@ interface PostModalProps {
   onClose: () => void
   editId: string | null
   entity: string
-  /** When set, show a Project dropdown (Bentala Project / Studio) below the
-   *  name. 'bpi'/'bsi' pre-select that project; 'all' starts empty. Omitted on
-   *  workspace pages (post keeps its 'ws' entity). */
-  projectScope?: 'bpi' | 'bsi' | 'all'
+  /** When set, show a Project dropdown listing every active socmed project
+   *  below the name. A concrete slug pre-selects that project; 'all' starts
+   *  empty. Omitted on workspace pages (post keeps its 'ws' entity). */
+  projectScope?: string
 }
 
 type Platform = (typeof POST_PLATFORMS)[number]['key']
@@ -28,7 +29,7 @@ type ContentType = 'video' | 'design'
 
 const DEFAULT_FORM = {
   title: '',
-  project: '' as '' | 'bpi' | 'bsi',
+  project: '' as string,
   platforms: [] as Platform[],
   date: '',
   status: 'todo' as Post['status'],
@@ -52,6 +53,9 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
   const t = useT()
   const { posts, upsertPost } = useStore()
   const logActivity = useLogActivity()
+  // Every active socmed project — so the Project dropdown auto-includes new
+  // projects (e.g. Master Bagasi) the moment they're added, with no code change.
+  const socmedProjects = useSocmedProjects(true)
   const [form, setForm] = useState(DEFAULT_FORM)
   const [loading, setLoading] = useState(false)
   const [originalTagged, setOriginalTagged] = useState<string[]>([])
@@ -134,7 +138,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
       if (!p) return // not loaded yet — wait, but don't mark as seeded
       const loaded = {
         title:         p.title,
-        project:       (p.entity === 'bpi' || p.entity === 'bsi' ? p.entity : '') as '' | 'bpi' | 'bsi',
+        project:       p.entity || '',
         platforms:     (p.platforms || []) as Platform[],
         date:          p.date || '',
         status:        p.status,
@@ -369,12 +373,9 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
           <FormGroup label={t('Project *')}>
             <SingleDropdown
               placeholder={t('Pilih project...')}
-              options={[
-                { value: 'bpi', label: 'Bentala Project' },
-                { value: 'bsi', label: 'Bentala Studio' },
-              ]}
+              options={socmedProjects.map(p => ({ value: p.slug, label: p.name }))}
               value={form.project}
-              onChange={v => setForm(f => ({ ...f, project: v as 'bpi' | 'bsi' }))}
+              onChange={v => setForm(f => ({ ...f, project: v }))}
             />
           </FormGroup>
         )}
