@@ -107,7 +107,7 @@ export function ContentCalendar({ entity, onPostClick, filters }: ContentCalenda
   }
 
   return (
-    <div>
+    <div className="bcal-root" style={{ width: '100%' }}>
       <style>{CAL_CSS}</style>
 
       {/* ── Toolbar ── */}
