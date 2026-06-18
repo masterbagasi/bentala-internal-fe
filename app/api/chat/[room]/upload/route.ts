@@ -3,7 +3,7 @@ import { chatGate } from '../../_shared'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-const MAX = 10 * 1024 * 1024
+const MAX = 200 * 1024 * 1024
 
 // Allowed MIME types. iOS shares photos as HEIC/HEIF and sometimes with an
 // empty or `application/octet-stream` type, so we ALSO accept by extension
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: { room: strin
   const form = await req.formData().catch(() => null)
   const file = form?.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'no file' }, { status: 400 })
-  if (file.size > MAX) return NextResponse.json({ error: 'too large (max 10MB)' }, { status: 413 })
+  if (file.size > MAX) return NextResponse.json({ error: 'too large (max 200MB)' }, { status: 413 })
 
   const ext = (file.name.split('.').pop() || '').toLowerCase()
   const extOk = Object.prototype.hasOwnProperty.call(EXT_MIME, ext)

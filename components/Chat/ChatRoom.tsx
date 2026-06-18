@@ -105,7 +105,7 @@ function dayLabel(iso: string, t: (s: string) => string) {
 }
 
 const ACCEPT = 'image/*,.heic,.heif,video/mp4,video/quicktime,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt,.csv'
-const MAX_BYTES = 10 * 1024 * 1024
+const MAX_BYTES = 200 * 1024 * 1024
 // A message can only be unsent (retracted) within 24h of being sent.
 const UNSEND_WINDOW_MS = 24 * 60 * 60 * 1000
 
@@ -410,7 +410,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
         }
         setConverting(false)
       }
-      if (f.size > MAX_BYTES) { setAttachErr(t('File terlalu besar (maks 10MB)')); continue }
+      if (f.size > MAX_BYTES) { setAttachErr(t('File terlalu besar (maks 200MB)')); continue }
       const id = crypto.randomUUID()
       const file = f
       // Object-URL for every file (image thumbnail AND the click-to-preview).
@@ -451,7 +451,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       try { attach = await uploadPromise }
       catch (err) {
         const status = (err as { status?: number })?.status
-        flashErr(status === 415 ? t('Tipe file tidak didukung') : status === 413 ? t('File terlalu besar (maks 10MB)') : t('Gagal mengunggah file'))
+        flashErr(status === 415 ? t('Tipe file tidak didukung') : status === 413 ? t('File terlalu besar (maks 200MB)') : t('Gagal mengunggah file'))
         setMessages(prev => prev.filter(m => m.id !== tmpId))
         if (preview) URL.revokeObjectURL(preview)
         return
