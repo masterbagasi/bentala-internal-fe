@@ -241,7 +241,7 @@ function MonthPanel({
                 <span className="bcal-add" aria-hidden>+</span>
               </div>
               <div className="bcal-pills">
-                {dayPosts.slice(0, 3).map(p => {
+                {dayPosts.slice(0, 4).map(p => {
                   const c2 = platformColor(p)
                   return (
                     <button
@@ -256,8 +256,8 @@ function MonthPanel({
                     </button>
                   )
                 })}
-                {dayPosts.length > 3 && (
-                  <span className="bcal-more">+{dayPosts.length - 3} {t('lagi')}</span>
+                {dayPosts.length > 4 && (
+                  <span className="bcal-more">+{dayPosts.length - 4} {t('lagi')}</span>
                 )}
               </div>
             </div>
@@ -322,7 +322,8 @@ const CAL_CSS = `
 .bcal-seg-btn:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
 .bcal-seg-today { padding-inline:14px; }
 
-.bcal-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; max-width:1400px; align-items:start; }
+.bcal-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px; width:100%; align-items:start; }
+@media (max-width: 900px) { .bcal-grid { grid-template-columns:1fr; } }
 
 .bcal-panel { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:16px 16px 18px; }
 .bcal-panel-head { font-size:14px; font-weight:700; color:var(--text); margin-bottom:12px; letter-spacing:-0.01em; }
@@ -333,7 +334,7 @@ const CAL_CSS = `
 
 .bcal-days { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
 
-.bcal-cell { position:relative; min-height:96px; padding:6px 6px 7px; border-radius:9px; background:var(--bg3); border:1px solid transparent; cursor:pointer; user-select:none; transition:background .14s, border-color .14s, box-shadow .14s; overflow:hidden; }
+.bcal-cell { position:relative; min-height:112px; padding:7px 7px 8px; border-radius:9px; background:var(--bg3); border:1px solid transparent; cursor:pointer; user-select:none; transition:background .14s, border-color .14s, box-shadow .14s; overflow:hidden; }
 .bcal-cell[data-weekend] { background:color-mix(in srgb, var(--bg3) 86%, var(--bg2)); }
 .bcal-cell:hover { background:var(--bg2); border-color:var(--accent); box-shadow:0 4px 14px rgba(0,0,0,0.22); }
 .bcal-cell:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
