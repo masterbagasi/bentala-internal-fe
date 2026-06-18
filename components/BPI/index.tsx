@@ -734,8 +734,10 @@ function KanbanCard({
   const tagged = (post.tagged || []).filter(m => m.includes('@'))
   // Show per-track status only on the Socmed Management board AND only for posts
   // that carry BOTH tracks (video + design) — so the lead can see which
-  // discipline is where while the card waits in Production.
-  const dualTrack = showTrackStatus && hasVideo(post) && hasDesign(post)
+  // discipline is where while the card waits in Production. The chips appear
+  // once the task is briefed (status 'brief'+); while it's still an Idea ('todo')
+  // it hasn't been handed to Video Production / Design Studio yet, so no chips.
+  const dualTrack = showTrackStatus && hasVideo(post) && hasDesign(post) && post.status !== 'todo'
   return (
     <div
       className="kanban-card"
