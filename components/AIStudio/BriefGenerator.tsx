@@ -225,7 +225,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
               {activeTab === 'design' && designBrief && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {designImage ? (
-                    <img src={designImage} alt="Design preview" style={{ width: '100%', maxHeight: 280, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                    <img loading="lazy" decoding="async" src={designImage} alt="Design preview" style={{ width: '100%', maxHeight: 280, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
                   ) : (
                     <div style={{ height: 120, background: 'var(--bg3)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--text2)' }}>
                       Generating preview image...
@@ -311,7 +311,7 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
                         return (
                           <div key={i}>
                             {url ? (
-                              <img src={url} alt={`Scene ${i + 1}`} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
+                              <img loading="lazy" decoding="async" src={url} alt={`Scene ${i + 1}`} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
                             ) : (
                               <div style={{ width: '100%', aspectRatio: '1', background: 'var(--bg3)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--text2)' }}>
                                 {storyboardImages.length === 0 ? 'Generating...' : `Scene ${i + 1}`}

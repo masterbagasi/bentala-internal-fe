@@ -301,7 +301,7 @@ export function FileUploader({
                 />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <img loading="lazy" decoding="async"
                   src={value}
                   alt=""
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -408,7 +408,7 @@ export function FileUploader({
               <video src={value} style={{ width: '100%', height: '100%', objectFit: 'cover' }} controls muted />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={value} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img loading="lazy" decoding="async" src={value} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             )}
           </div>
 
@@ -749,7 +749,7 @@ export function FileUploader({
                 />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <img loading="lazy" decoding="async"
                   src={value}
                   alt="Preview"
                   style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }}
@@ -1051,7 +1051,7 @@ export function MultiFileUploader({
                     <video src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img loading="lazy" decoding="async" src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   )}
                 </div>
                 <div
@@ -1147,7 +1147,7 @@ export function MultiFileUploader({
             <iframe src={lightbox} title="preview" onClick={e => e.stopPropagation()} style={{ width: '96vw', height: '88vh', border: 'none', borderRadius: 10, background: '#fff' }} />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={lightbox} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: '96vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 10 }} />
+            <img loading="lazy" decoding="async" src={lightbox} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: '96vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: 10 }} />
           )}
         </div>
       )}

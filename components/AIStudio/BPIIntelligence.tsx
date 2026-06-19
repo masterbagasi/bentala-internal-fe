@@ -159,7 +159,7 @@ function VideoCard({
         }}
       >
         {thumb && (
-          <img
+          <img loading="lazy" decoding="async"
             src={thumb}
             alt=""
             className="yt-thumb"
@@ -253,7 +253,7 @@ function VideoPreview({ item }: { item: NewsItem }) {
       <div style={{ flex: 1, position: 'relative', minHeight: 0, background: '#000' }}>
         {failed ? (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' }}>
-            <img
+            <img loading="lazy" decoding="async"
               src={`https://img.youtube.com/vi/${item.video_id}/hqdefault.jpg`}
               alt=""
               style={{ width: '80%', maxWidth: 360, borderRadius: 10, opacity: 0.65 }}
@@ -322,7 +322,7 @@ function ArticlePreviewBody({
       <article className="reader-article">
         {article?.image && (
           <figure className="reader-hero">
-            <img
+            <img loading="lazy" decoding="async"
               src={article.image}
               alt=""
               onError={e => { ((e.currentTarget as HTMLImageElement).parentElement as HTMLElement).style.display = 'none' }}

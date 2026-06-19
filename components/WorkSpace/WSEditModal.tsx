@@ -625,7 +625,7 @@ function FilePreviewBody({ file }: { file: LocalFile }) {
   }
   if (kind === 'image') {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={file.name} style={{ maxWidth: '100%', maxHeight: '70vh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
+    return <img loading="lazy" decoding="async" src={url} alt={file.name} style={{ maxWidth: '100%', maxHeight: '70vh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
   }
   if (kind === 'video') {
     return <video src={url} controls autoPlay style={{ width: '100%', maxHeight: '70vh', borderRadius: 8, background: '#000' }} />
@@ -789,7 +789,7 @@ function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; on
       }}>
         {isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={file.url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img loading="lazy" decoding="async" src={file.url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : isLink ? (
           <span style={{ color: 'var(--accent)' }}><LinkIcon size={28} /></span>
         ) : (

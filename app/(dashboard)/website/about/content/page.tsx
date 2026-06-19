@@ -887,7 +887,7 @@ function PhilosophyPreview({ items }: { items: PhilosophyPreviewItem[] }) {
               <div style={{ gridColumn: reversed ? 1 : 2 }}>
                 {item.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={item.imageUrl}
                     alt={item.label}
                     style={{
@@ -1021,7 +1021,7 @@ function PhilosophyList({ items }: { items: PhilosophyListItem[] }) {
               >
                 {item.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={item.imageUrl}
                     alt={`${item.label} preview`}
                     style={{
@@ -1495,7 +1495,7 @@ function CarouselUploader({
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <img loading="lazy" decoding="async"
                 src={url}
                 alt=""
                 style={{
@@ -1752,7 +1752,7 @@ function PhilosophyCard({
       >
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <img loading="lazy" decoding="async"
             src={imageUrl!}
             alt={`${label} preview`}
             style={{

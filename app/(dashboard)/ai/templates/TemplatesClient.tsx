@@ -510,7 +510,7 @@ export default function TemplatesClient() {
 
               {active.image_dataurl && (
                 <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <img src={active.image_dataurl} alt="reference" style={{ width: '100%', display: 'block', maxHeight: 200, objectFit: 'cover' }} />
+                  <img loading="lazy" decoding="async" src={active.image_dataurl} alt="reference" style={{ width: '100%', display: 'block', maxHeight: 200, objectFit: 'cover' }} />
                 </div>
               )}
 
@@ -565,7 +565,7 @@ export default function TemplatesClient() {
               {genResult && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                    <img src={genResult} alt="generated" style={{ width: '100%', display: 'block' }} />
+                    <img loading="lazy" decoding="async" src={genResult} alt="generated" style={{ width: '100%', display: 'block' }} />
                   </div>
                   <a
                     href={genResult}

@@ -534,7 +534,7 @@ export function MediaGallery({
                         />
                       ) : (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={file.url}
                           alt={file.name}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}

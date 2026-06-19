@@ -438,7 +438,7 @@ function ServiceCard({
               <VideoCoverFrame src={service.preview_url} />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <img loading="lazy" decoding="async"
                 src={service.preview_url}
                 alt=""
                 style={{

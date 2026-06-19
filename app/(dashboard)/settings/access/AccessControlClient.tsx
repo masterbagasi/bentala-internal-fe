@@ -371,7 +371,7 @@ export default function AccessControlClient() {
               <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, background: u.avatarUrl ? 'transparent' : 'linear-gradient(135deg,#6c63ff,#a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden' }}>
                 {u.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={u.avatarUrl} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img loading="lazy" decoding="async" src={u.avatarUrl} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : initials(u.name)}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -449,7 +449,7 @@ export default function AccessControlClient() {
             <div style={{ width: 36, height: 36, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: editUser?.avatarUrl ? 'transparent' : 'linear-gradient(135deg,#6c63ff,#a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13 }}>
               {editUser?.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={editUser.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img loading="lazy" decoding="async" src={editUser.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (editUser?.name?.[0] || '?').toUpperCase()}
             </div>
             <div style={{ minWidth: 0 }}>

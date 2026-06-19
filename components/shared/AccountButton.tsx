@@ -628,7 +628,7 @@ function Avatar({
       }}
     >
       {url ? (
-        <img
+        <img loading="lazy" decoding="async"
           src={url}
           alt={initials}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}

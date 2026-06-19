@@ -849,7 +849,7 @@ function KanbanCard({
                 const acc = accounts?.[m.toLowerCase()]
                 return acc?.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <img loading="lazy" decoding="async"
                     key={m}
                     src={acc.avatarUrl}
                     alt={acc.name}

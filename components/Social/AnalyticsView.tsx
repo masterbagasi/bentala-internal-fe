@@ -646,7 +646,7 @@ function ContentCard({ post }: { post: ContentPost }) {
         background: `linear-gradient(135deg, ${m.color}cc, ${m.color}66)`,
       }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <img loading="lazy" decoding="async" src={cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0) 55%)' }} />
         <span style={{ position: 'absolute', top: 8, left: 8 }}><PlatformChip platform={post.platform} /></span>
         <span style={{

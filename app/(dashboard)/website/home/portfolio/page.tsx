@@ -1560,7 +1560,7 @@ function PortfolioModal({
             {form.media_type === 'image' ? (
               mediaPreviewError && form.thumbnail_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <img loading="lazy" decoding="async"
                   src={form.thumbnail_url}
                   alt={form.title || 'Preview media'}
                   style={{
@@ -1573,7 +1573,7 @@ function PortfolioModal({
                 />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <img loading="lazy" decoding="async"
                   src={form.media_url}
                   alt={form.title || 'Preview media'}
                   onError={() => setMediaPreviewError(true)}

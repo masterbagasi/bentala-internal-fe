@@ -538,7 +538,7 @@ function PhotoCard({
       >
         {item.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <img loading="lazy" decoding="async"
             src={item.image_url}
             alt={item.alt_text || item.caption || 'gallery'}
             style={{
@@ -978,7 +978,7 @@ function ImagePositioner({
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <img loading="lazy" decoding="async"
           src={src}
           alt="Framing preview"
           draggable={false}

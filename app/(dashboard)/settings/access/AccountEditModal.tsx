@@ -145,7 +145,7 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
             >
               {shownAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={shownAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img loading="lazy" decoding="async" src={shownAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (name[0] || '?').toUpperCase()}
             </div>
             <button
@@ -230,7 +230,7 @@ export function AccountEditModal({ user, onClose, onSaved, self = false, canEdit
           style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32, cursor: 'zoom-out' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={shownAvatar} alt="" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12, boxShadow: '0 12px 48px rgba(0,0,0,0.6)' }} />
+          <img loading="lazy" decoding="async" src={shownAvatar} alt="" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12, boxShadow: '0 12px 48px rgba(0,0,0,0.6)' }} />
           <button
             onClick={(e) => { e.stopPropagation(); setPreview(false) }}
             aria-label={t('Tutup')}

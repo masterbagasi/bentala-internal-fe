@@ -261,7 +261,7 @@ function TripCard({
       >
         {item.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <img loading="lazy" decoding="async"
             src={item.image_url}
             alt={item.country}
             style={{

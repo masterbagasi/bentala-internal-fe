@@ -407,7 +407,7 @@ function ServiceCard({
             <VideoCoverFrame src={service.media_url} />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <img loading="lazy" decoding="async"
               src={service.media_url}
               alt=""
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}

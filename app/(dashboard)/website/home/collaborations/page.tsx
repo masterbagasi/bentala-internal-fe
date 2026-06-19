@@ -27,7 +27,7 @@ const EMPTY: FormState = {
 /**
  * Detect raster logos uploaded via the PNG/JPG flow. Those are stored as
  * <svg><image href="..."/></svg> wrappers; pull the URL out so the admin
- * preview can render an <img> with object-cover that fills the full
+ * preview can render an <img loading="lazy" decoding="async"> with object-cover that fills the full
  * preview cell, matching the public site rendering.
  */
 function extractRasterUrl(svg: string): string | null {
@@ -281,7 +281,7 @@ function BrandCard({
           // Uploaded photo: fill the preview, mirroring how the public site
           // shows it. Tint color does not apply to raster.
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <img loading="lazy" decoding="async"
             src={rasterUrl}
             alt={item.brand_name}
             style={{
@@ -481,7 +481,7 @@ function CollaborationModal({ initial, onClose, onSaved }: { initial: BsiCollabo
             >
               {rasterUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <img loading="lazy" decoding="async"
                   src={rasterUrl}
                   alt="Preview logo"
                   style={{

@@ -405,7 +405,7 @@ export function RevisiModal({ open, post, editing, applyStatus = true, onClose, 
                 <span style={{ width: 26, height: 26, flexShrink: 0, borderRadius: 7, overflow: 'hidden', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: REVISI + '22', color: REVISI }}>
                   {isImageUrl(f.url) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={f.url} alt={f.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img loading="lazy" decoding="async" src={f.url} alt={f.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
@@ -679,7 +679,7 @@ function RefTile({
       <span style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, overflow: 'hidden', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: kind === 'link' ? '#3b9dff22' : REVISI + '22', color: kind === 'link' ? '#3b9dff' : REVISI }}>
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img loading="lazy" decoding="async" src={thumb} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : kind === 'link' ? (
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />

@@ -487,7 +487,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       if (d.message) setMessages(prev => {
         const real = d.message!
         if (prev.some(m => m.id === real.id)) return prev.filter(m => m.id !== tmpId)
-        // Keep the local preview so the <img> src doesn't reload (no flash).
+        // Keep the local preview so the <img loading="lazy" decoding="async"> src doesn't reload (no flash).
         return prev.map(m => (m.id === tmpId ? { ...real, _preview: preview ?? undefined } : m))
       })
     } catch {
@@ -757,7 +757,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
     const common: React.CSSProperties = { width: size, height: size, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.12)' }
     if (url) {
       // eslint-disable-next-line @next/next/no-img-element
-      return <img src={url} alt={nm} style={common} referrerPolicy="no-referrer" />
+      return <img loading="lazy" decoding="async" src={url} alt={nm} style={common} referrerPolicy="no-referrer" />
     }
     return (
       <span style={{ ...common, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontWeight: 700, color: '#fff', background: avatarColor(nm) }}>
@@ -959,7 +959,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                                     </span>
                                     {origImg && orig && (
                                       /* eslint-disable-next-line @next/next/no-img-element */
-                                      <img className="cr-quote-thumb" src={imgUrl(orig)} alt="" />
+                                      <img loading="lazy" decoding="async" className="cr-quote-thumb" src={imgUrl(orig)} alt="" />
                                     )}
                                   </button>
                                 )
@@ -1087,7 +1087,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                       const title = `${nameFor(r.email)} · ${fmtTime(r.last_read_at)}`
                       return url
                         // eslint-disable-next-line @next/next/no-img-element
-                        ? <img key={r.email} className="cr-seen-av" src={url} alt="" title={title} referrerPolicy="no-referrer" style={{ objectFit: 'cover' }} />
+                        ? <img loading="lazy" decoding="async" key={r.email} className="cr-seen-av" src={url} alt="" title={title} referrerPolicy="no-referrer" style={{ objectFit: 'cover' }} />
                         : <span key={r.email} className="cr-seen-av" title={title} style={{ background: avatarColor(nameFor(r.email)) }}>{initials(nameFor(r.email))}</span>
                     })}
                   </span>
@@ -1268,7 +1268,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
               <div className="cr-profile-card" onClick={e => e.stopPropagation()}>
                 {url
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={url} alt={nm} className="cr-profile-img" referrerPolicy="no-referrer" />
+                  ? <img loading="lazy" decoding="async" src={url} alt={nm} className="cr-profile-img" referrerPolicy="no-referrer" />
                   : <div className="cr-profile-fallback" style={{ background: avatarColor(nm) }}>{initials(nm)}</div>}
                 <div className="cr-profile-name">{nm}</div>
                 <div className="cr-profile-email">{profileView.email}</div>
@@ -1331,7 +1331,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                   {lightbox.items.map((it, idx) => (
                     <button key={idx} type="button" className={`cr-lb-thumb ${idx === lightbox.index ? 'active' : ''}`} onClick={() => setLightbox(lb => (lb ? { ...lb, index: idx } : lb))}>
                       {it.type.startsWith('image/')
-                        ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={it.url} alt="" />
+                        ? /* eslint-disable-next-line @next/next/no-img-element */ <img loading="lazy" decoding="async" src={it.url} alt="" />
                         : <span className="cr-lb-thumb-file"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg></span>}
                     </button>
                   ))}
@@ -1402,7 +1402,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
                   >
                     {it.file.type.startsWith('image/')
                       ? // eslint-disable-next-line @next/next/no-img-element
-                        <img className="cr-attach-thumb" src={it.preview} alt={it.file.name} />
+                        <img loading="lazy" decoding="async" className="cr-attach-thumb" src={it.preview} alt={it.file.name} />
                       : <span className="cr-attach-thumb cr-attach-thumb-file">
                           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
                         </span>}
@@ -1429,7 +1429,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
               </div>
               {(replyingTo.attachment_type ?? '').startsWith('image/') && (!!replyingTo.attachment_path || !!replyingTo._preview) && (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img className="cr-reply-thumb" src={imgUrl(replyingTo)} alt="" />
+                <img loading="lazy" decoding="async" className="cr-reply-thumb" src={imgUrl(replyingTo)} alt="" />
               )}
               <button className="cr-reply-close" onClick={() => setReplyingTo(null)} aria-label={t('Batal balas')}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -1543,7 +1543,7 @@ function ChatAttachPreview({ url, name, type }: { url: string; name: string; typ
   const t = useT()
   if (type.startsWith('image/')) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={name} style={{ maxWidth: '100%', maxHeight: '72dvh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
+    return <img loading="lazy" decoding="async" src={url} alt={name} style={{ maxWidth: '100%', maxHeight: '72dvh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
   }
   if (type.startsWith('video/')) {
     return <video src={url} controls autoPlay style={{ width: '100%', maxHeight: '72dvh', borderRadius: 8, background: '#000' }} />

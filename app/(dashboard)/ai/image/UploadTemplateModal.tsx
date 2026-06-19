@@ -170,7 +170,7 @@ export default function UploadTemplateModal({ onClose, onCreated }: Props) {
             >
               {imageDataUrl ? (
                 <>
-                  <img src={imageDataUrl} alt="preview" style={{ width: '100%', maxHeight: 220, objectFit: 'contain', display: 'block' }} />
+                  <img loading="lazy" decoding="async" src={imageDataUrl} alt="preview" style={{ width: '100%', maxHeight: 220, objectFit: 'contain', display: 'block' }} />
                   <button
                     onClick={e => { e.stopPropagation(); setImageDataUrl(null); setImageFileName(null) }}
                     style={{

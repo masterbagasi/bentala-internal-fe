@@ -753,7 +753,7 @@ function AttachPreviewBody({ url, label }: { url: string; label: string }) {
   const kind = previewKind(url)
   if (kind === 'image') {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={label} style={{ maxWidth: '100%', maxHeight: '72dvh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
+    return <img loading="lazy" decoding="async" src={url} alt={label} style={{ maxWidth: '100%', maxHeight: '72dvh', display: 'block', margin: '0 auto', borderRadius: 8 }} />
   }
   if (kind === 'video') {
     return <video src={url} controls autoPlay style={{ width: '100%', maxHeight: '72dvh', borderRadius: 8, background: '#000' }} />
@@ -967,7 +967,7 @@ function AttachCard({ label, url, time, onOpen, onDelete }: { label: string; url
       }}>
         {thumbSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumbSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img loading="lazy" decoding="async" src={thumbSrc} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>{mark?.node}</span>
         )}

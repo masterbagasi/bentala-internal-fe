@@ -98,7 +98,7 @@ export default function LoginPage() {
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <img loading="lazy" decoding="async"
               src={logoUrl}
               alt="Bentala"
               width={56}

@@ -873,7 +873,7 @@ function PosterField({
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={value} alt="Poster" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img loading="lazy" decoding="async" src={value} alt="Poster" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
             <button
               type="button"

@@ -152,7 +152,7 @@ export default function BriefInbox({ type }: Props) {
                 {designContent && (
                   <>
                     {brief.images?.[0] && (
-                      <img src={brief.images[0]} alt="Design preview" style={{ width: '100%', maxHeight: 240, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                      <img loading="lazy" decoding="async" src={brief.images[0]} alt="Design preview" style={{ width: '100%', maxHeight: 240, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
                     )}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                       <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 10 }}>
@@ -215,7 +215,7 @@ export default function BriefInbox({ type }: Props) {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
                           {brief.images.slice(0, 4).map((url, i) => (
                             <div key={i}>
-                              {url ? <img src={url} alt={`Scene ${i + 1}`} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} /> : null}
+                              {url ? <img loading="lazy" decoding="async" src={url} alt={`Scene ${i + 1}`} style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} /> : null}
                               <div style={{ fontSize: 9, color: 'var(--text2)', textAlign: 'center', marginTop: 3 }}>
                                 {videoContent.script[i]?.label ?? `Scene ${i + 1}`}
                               </div>

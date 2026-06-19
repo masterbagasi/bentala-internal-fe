@@ -157,7 +157,7 @@ export default function NewsAdminPage() {
                     >
                       {p.thumbnail_url || p.media_url ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
+                        <img loading="lazy" decoding="async"
                           src={p.thumbnail_url || p.media_url}
                           alt=""
                           style={{

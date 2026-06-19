@@ -285,7 +285,7 @@ Output HANYA JSON ini tanpa teks lain:
           {imageUrl && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, animation: 'fadeIn 0.3s ease' }}>
               <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                <img src={imageUrl} alt="Generated" style={{ width: '100%', display: 'block' }} />
+                <img loading="lazy" decoding="async" src={imageUrl} alt="Generated" style={{ width: '100%', display: 'block' }} />
               </div>
               <a
                 href={imageUrl}

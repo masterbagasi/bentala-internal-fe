@@ -649,7 +649,7 @@ function AccountAvatar({ name, email, url }: { name: string; email: string; url:
   if (url) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={url} alt={name} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+      <img loading="lazy" decoding="async" src={url} alt={name} style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
     )
   }
   return <Avatar color={colorFor(email)} initials={initialsFor(name)} />
