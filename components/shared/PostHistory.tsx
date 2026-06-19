@@ -52,9 +52,30 @@ function fmtTime(iso: string | null | undefined): string {
 export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
   const t = useT()
   const upsertPost = useStore(s => s.upsertPost)
+  const meEmail = useStore(s => s.meEmail)
   const logActivity = useLogActivity()
   const [open, setOpen] = useState(false)
   const [rows, setRows] = useState<HistoryRow[]>([])
+  // "Perubahan baru" badge: how many history entries arrived (from someone else)
+  // since this user last OPENED the panel. The last-opened time is personal, so
+  // it lives in localStorage per user + scope. First visit ever seeds it to
+  // "now" so the existing backlog isn't counted as unread.
+  const seenKey = `postHistorySeen:${meEmail ?? 'anon'}:${scopeKey(scope)}`
+  const [seenAt, setSeenAt] = useState(0)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const stored = window.localStorage.getItem(seenKey)
+    if (stored != null) { setSeenAt(Number(stored) || 0); return }
+    const now = Date.now()
+    window.localStorage.setItem(seenKey, String(now))
+    setSeenAt(now)
+  }, [seenKey])
+  // Mark the history read — called when the panel is opened.
+  const markHistorySeen = useCallback(() => {
+    const now = Date.now()
+    setSeenAt(now)
+    if (typeof window !== 'undefined') window.localStorage.setItem(seenKey, String(now))
+  }, [seenKey])
   const [restorable, setRestorable] = useState<Set<string>>(new Set())
   const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
@@ -167,10 +188,22 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
   // newest row for that post).
   const shownRestore = new Set<string>()
 
+  // Unread = entries newer than the last open, by someone else (legacy rows
+  // without a real email actor can't be attributed, so they're ignored — same
+  // rule as the per-section detail markers).
+  const me = (meEmail ?? '').toLowerCase()
+  const unreadCount = rows.reduce((n, r) => {
+    const at = Date.parse(r.created_at)
+    if (Number.isNaN(at) || at <= seenAt) return n
+    const actor = (r.actor ?? '').toLowerCase()
+    if (!actor.includes('@') || actor === me) return n
+    return n + 1
+  }, 0)
+
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen(o => { const next = !o; if (next) markHistorySeen(); return next })}
         title={t('Riwayat')}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
@@ -187,12 +220,12 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
           <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
           <path d="M12 7v5l4 2" />
         </svg>
-        {restorable.size > 0 && (
+        {unreadCount > 0 && (
           <span style={{
             position: 'absolute', top: -5, right: -5, minWidth: 15, height: 15, padding: '0 3px',
             borderRadius: 8, background: 'var(--accent2)', color: '#fff', fontSize: 9, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
-          }}>{restorable.size}</span>
+          }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
         )}
       </button>
 
