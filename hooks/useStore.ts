@@ -33,6 +33,19 @@ interface DataState {
   activity: ActivityLog[]
   pipelineItems: PipelineItem[]
   loading: boolean
+
+  // Unread-change markers (posts boards). meEmail identifies the current user so
+  // their own changes are never marked. postSeen maps post id → the epoch ms when
+  // the user last opened that task; a post is "unread" when its last_change_at is
+  // newer than that and its last_actor isn't the current user.
+  meEmail: string | null
+  postSeen: Record<string, number>
+
+  // Unread chat messages per room (room → count), excluding the user's own
+  // messages. A task also carries a marker when its chat room has unread
+  // messages; that clears when the room is read (chat_reads), independent of the
+  // post-change "seen" state.
+  chatUnread: Record<string, number>
 }
 
 interface Actions {
@@ -44,6 +57,14 @@ interface Actions {
   setTasks:    (tasks: Task[]) => void
   setActivity: (activity: ActivityLog[]) => void
   setLoading:  (loading: boolean) => void
+
+  // Unread markers
+  setMeEmail:    (email: string | null) => void
+  setPostSeen:   (seen: Record<string, number>) => void
+  markPostSeen:  (postId: string, at?: number) => void
+  setChatUnread: (counts: Record<string, number>) => void
+  bumpChatUnread: (room: string) => void
+  clearChatUnread: (room: string) => void
 
   // Single item updates
   upsertPost:    (post: Post) => void
@@ -89,6 +110,9 @@ export const useStore = create<StoreState>((set) => ({
   activity: [],
   pipelineItems: [],
   loading: false,
+  meEmail: null,
+  postSeen: {},
+  chatUnread: {},
 
   // UI
   sidebarOpen: true,
@@ -124,6 +148,22 @@ export const useStore = create<StoreState>((set) => ({
   setTasks:    (tasks)    => set({ tasks }),
   setActivity: (activity) => set({ activity }),
   setLoading:  (loading)  => set({ loading }),
+
+  setMeEmail:  (meEmail)  => set({ meEmail }),
+  setPostSeen: (postSeen) => set({ postSeen }),
+  markPostSeen: (postId, at) => set((s) => ({
+    postSeen: { ...s.postSeen, [postId]: at ?? Date.now() },
+  })),
+  setChatUnread: (chatUnread) => set({ chatUnread }),
+  // Driven straight from realtime: a new message in a room bumps its count, a
+  // read clears it. No API round-trip, so the markers update instantly and a
+  // stale refetch can never resurrect a just-cleared marker.
+  bumpChatUnread: (room) => set((s) => ({
+    chatUnread: { ...s.chatUnread, [room]: (s.chatUnread[room] ?? 0) + 1 },
+  })),
+  clearChatUnread: (room) => set((s) => (
+    s.chatUnread[room] ? { chatUnread: { ...s.chatUnread, [room]: 0 } } : s
+  )),
 
   // ── Upsert / remove helpers ──
   upsertPost: (post) => set((s) => ({

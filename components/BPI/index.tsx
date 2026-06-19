@@ -7,6 +7,9 @@ import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { getSupabase } from '@/lib/supabase'
+import { useMarkPostRead } from '@/hooks/usePostReads'
+import { isPostMarked, isChatUnread } from '@/lib/post-unread'
+import { taskChatRoom } from '@/lib/access'
 import { BPI_STATUS_COLS, WS_STATUS_COLS, SMM_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
 
 // ── Per-track workflow helpers ───────────────────────────────
@@ -125,7 +128,8 @@ interface BPIPageProps {
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
   function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters }, ref) {
     const t = useT()
-    const { posts, removePost, upsertPost } = useStore(useShallow((s) => ({ posts: s.posts, removePost: s.removePost, upsertPost: s.upsertPost })))
+    const { posts, removePost, upsertPost, meEmail, postSeen, chatUnread, clearChatUnread } = useStore(useShallow((s) => ({ posts: s.posts, removePost: s.removePost, upsertPost: s.upsertPost, meEmail: s.meEmail, postSeen: s.postSeen, chatUnread: s.chatUnread, clearChatUnread: s.clearChatUnread })))
+    const markPostRead = useMarkPostRead()
     const [showPostModal, setShowPostModal] = useState(false)
     const [editPostId, setEditPostId] = useState<string | null>(null)
     const [previewPostId, setPreviewPostId] = useState<string | null>(null)
@@ -216,6 +220,40 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       return true
     })
 
+    // Ids of tasks with an unseen change made by someone else → drives the card
+    // dots and the per-column counts. Recomputes live as posts stream in or the
+    // viewer opens tasks (postSeen changes).
+    const unreadIds = useMemo(
+      () => new Set(filtered.filter(p => isPostMarked(p, meEmail, postSeen, chatUnread)).map(p => p.id)),
+      [filtered, meEmail, postSeen, chatUnread],
+    )
+
+    // Capture the PRIOR seen time when opening a task so the detail can flag the
+    // sections changed since the last visit. We do NOT mark it read here — the
+    // modal does that on CLOSE, so the markers stay visible (and identical) no
+    // matter which tab opened the task, instead of one entry point clearing them
+    // before another can show them.
+    const [previewSince, setPreviewSince] = useState(0)
+    function openPreview(id: string) {
+      setPreviewSince(postSeen[id] ?? 0)
+      setPreviewPostId(id)
+    }
+
+    // "Baca Semua" on a status column: clear every marker on its tasks — both
+    // the post-change markers (post_reads) AND any unread chat (mark the task's
+    // room read), so the whole column goes quiet for this user only.
+    function readColumn(colPosts: Post[]) {
+      for (const p of colPosts) {
+        if (!unreadIds.has(p.id)) continue
+        markPostRead(p.id, p.last_change_at)
+        if (isChatUnread(p, chatUnread)) {
+          const room = taskChatRoom(p.entity, p.id)
+          clearChatUnread(room) // instant; the POST below persists it
+          fetch(`/api/chat/${encodeURIComponent(room)}/read`, { method: 'POST' }).catch(() => {})
+        }
+      }
+    }
+
     function openEdit(id?: string) {
       setEditPostId(id || null)
       setShowPostModal(true)
@@ -251,12 +289,12 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
         {/* Deep link from a notification (/<board>?post=<id>). Isolated in a
             Suspense boundary so useSearchParams doesn't break static prerender. */}
         <Suspense fallback={null}>
-          <DeepLinkPost onOpen={setPreviewPostId} />
+          <DeepLinkPost onOpen={openPreview} />
         </Suspense>
         {/* Tab content */}
         <div style={{ padding: activeTab === 'board' ? '0 24px 24px' : 24 }}>
           {activeTab === 'list' && (
-            <ListView posts={filtered} canEdit={canEdit} onEdit={openEdit} onDelete={handleDelete} onPreview={id => setPreviewPostId(id)} />
+            <ListView posts={filtered} canEdit={canEdit} onEdit={openEdit} onDelete={handleDelete} onPreview={openPreview} unreadIds={unreadIds} />
           )}
           {activeTab === 'board' && (
             <KanbanBoard
@@ -266,7 +304,9 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               canEdit={canEdit}
               onEdit={openEdit}
               onDelete={handleDelete}
-              onCardClick={id => setPreviewPostId(id)}
+              onCardClick={openPreview}
+              unreadIds={unreadIds}
+              onReadColumn={readColumn}
               accounts={accounts}
               showTrackStatus={!boardTrack}
               colSet={boardTrack ? WS_STATUS_COLS : SMM_STATUS_COLS}
@@ -280,7 +320,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               onMove={moveOnBoard}
             />
           )}
-          {activeTab === 'calendar' && <ContentCalendar entity={allProjects ? 'all' : (calEntity ?? entity)} onPostClick={id => setPreviewPostId(id)} filters={filters} />}
+          {activeTab === 'calendar' && <ContentCalendar entity={allProjects ? 'all' : (calEntity ?? entity)} onPostClick={openPreview} filters={filters} />}
           {activeTab === 'files' && <FilesTab posts={filtered} />}
           {activeTab === 'analytics' && (
             allProjects
@@ -306,6 +346,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             open={!!previewPostId}
             postId={previewPostId}
             canEdit={canEdit}
+            seenSince={previewSince}
             onClose={() => setPreviewPostId(null)}
             onEdit={id => { setPreviewPostId(null); openEdit(id) }}
           />
@@ -338,24 +379,32 @@ function DeepLinkPost({ onOpen }: { onOpen: (id: string) => void }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
+  // Hold onOpen in a ref so the effect doesn't depend on its identity. onOpen
+  // (openPreview) is recreated every render; depending on it would re-run this
+  // effect each render and loop setState. Fire once per post id instead.
+  const onOpenRef = useRef(onOpen)
+  onOpenRef.current = onOpen
+  const firedRef = useRef<string | null>(null)
   useEffect(() => {
     const pid = searchParams.get('post')
-    if (!pid) return
-    onOpen(pid)
+    if (!pid || firedRef.current === pid) return
+    firedRef.current = pid
+    onOpenRef.current(pid)
     router.replace(pathname)
-  }, [searchParams, pathname, router, onOpen])
+  }, [searchParams, pathname, router])
   return null
 }
 
 // ── List View ──
 function ListView({
-  posts, onEdit, onDelete, onPreview, canEdit = true,
+  posts, onEdit, onDelete, onPreview, canEdit = true, unreadIds,
 }: {
   posts: Post[]
   onEdit: (id: string) => void
   onDelete: (id: string) => void
   onPreview: (id: string) => void
   canEdit?: boolean
+  unreadIds?: Set<string>
 }) {
   const t = useT()
   return (
@@ -399,7 +448,17 @@ function ListView({
                   }}
                 />
               </td>
-              <td><span style={{ fontWeight: 500, fontSize: 13 }}>{p.title}</span></td>
+              <td>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                  {unreadIds?.has(p.id) && (
+                    <span
+                      title={t('Ada perubahan baru')}
+                      style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent2)', flexShrink: 0 }}
+                    />
+                  )}
+                  <span style={{ fontWeight: 500, fontSize: 13 }}>{p.title}</span>
+                </span>
+              </td>
               <td>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {(p.platforms || []).map(pl => <PlatformBadge key={pl} platform={pl} />)}
@@ -446,6 +505,7 @@ type AccountDir = Record<string, { name: string; avatarUrl: string | null }>
 function KanbanBoard({
   posts, currentUser, statusFilter, onEdit, onDelete, onCardClick,
   colSet, colOf, onMove, canEdit = true, accounts, showTrackStatus = false, noDropCols, lockDrag,
+  unreadIds, onReadColumn,
 }: {
   posts: Post[]
   currentUser: string
@@ -453,6 +513,10 @@ function KanbanBoard({
   onEdit: (id: string) => void
   onDelete: (id: string) => void
   onCardClick: (id: string) => void
+  /** Ids of posts with an unseen change (by someone else) → dot + column count. */
+  unreadIds?: Set<string>
+  /** Mark every changed task in a column as read ("Baca Semua"). */
+  onReadColumn?: (posts: Post[]) => void
   /** Column set; defaults to the BPI pipeline. */
   colSet?: readonly BoardCol[]
   /** Which column a post belongs to (defaults to its status). */
@@ -477,6 +541,7 @@ function KanbanBoard({
   const cols = statusFilter.length ? baseCols.filter(c => statusFilter.includes(c.key)) : baseCols
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
+  const [hoverCol, setHoverCol] = useState<string | null>(null)
 
   function handleDrop(newCol: string) {
     setDragOverCol(null)
@@ -572,6 +637,7 @@ function KanbanBoard({
     }}>
       {cols.map(col => {
         const colPosts = posts.filter(p => keyOf(p) === col.key).slice().sort(byPostDateAsc)
+        const colUnread = unreadIds ? colPosts.reduce((n, p) => n + (unreadIds.has(p.id) ? 1 : 0), 0) : 0
         const isLocked = ('locked' in col && col.locked && currentUser === 'Naufal') || (noDropCols?.includes(col.key) ?? false)
         const isOver = dragOverCol === col.key
         const active = isOver && !isLocked
@@ -605,8 +671,10 @@ function KanbanBoard({
               if (dragOverCol !== col.key) setDragOverCol(col.key)
             }}
             onDrop={() => { setDragOverCol(null); if (!isLocked) handleDrop(col.key) }}
+            onMouseEnter={() => setHoverCol(col.key)}
+            onMouseLeave={() => setHoverCol(c => (c === col.key ? null : c))}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexShrink: 0, position: 'relative' }}>
               <span style={{ fontWeight: 600, color: col.color, fontSize: 14 }}>{col.label}</span>
               <span style={{
                 fontSize: 12, color: col.color, background: col.color + '22',
@@ -614,10 +682,36 @@ function KanbanBoard({
               }}>
                 {colPosts.length}
               </span>
+              {colUnread > 0 && (
+                <span
+                  title={t('Ada perubahan baru di kolom ini')}
+                  style={{
+                    width: 8, height: 8, borderRadius: '50%', background: 'var(--accent2)', flexShrink: 0,
+                  }}
+                />
+              )}
               {isLocked && <span title={t('Kamu tidak bisa drag ke kolom ini')} style={{ fontSize: 13, opacity: 0.5 }}>🔒</span>}
+              {colUnread > 0 && hoverCol === col.key && onReadColumn && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onReadColumn(colPosts) }}
+                  title={t('Tandai semua perubahan di kolom ini sudah dibaca')}
+                  style={{
+                    position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                    color: 'var(--accent2)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+                  }}
+                  onMouseOver={e => { (e.currentTarget as HTMLElement).style.textDecoration = 'underline' }}
+                  onMouseOut={e => { (e.currentTarget as HTMLElement).style.textDecoration = 'none' }}
+                >
+                  {t('Baca semua')}
+                </button>
+              )}
             </div>
 
-            <div style={{ overflowY: 'auto', flex: 1, minHeight: 60 }}>
+            {/* paddingTop/Left + matching negative margins give the cards'
+                top-left corner dot room to show without clipping, while keeping
+                the cards themselves in exactly the same place. */}
+            <div style={{ overflowY: 'auto', flex: 1, minHeight: 60, paddingTop: 6, paddingLeft: 6, marginTop: -6, marginLeft: -6 }}>
               {colPosts.map(p => {
                 const locked = lockDrag?.(p) ?? false
                 return (
@@ -641,6 +735,7 @@ function KanbanBoard({
                   canEdit={canEdit}
                   accounts={accounts}
                   showTrackStatus={showTrackStatus}
+                  unread={unreadIds?.has(p.id) ?? false}
                 />
                 )
               })}
@@ -707,7 +802,7 @@ function TrackChip({ icon, track, value, status }: { icon: string; track: string
 // ── Kanban Card ──
 function KanbanCard({
   post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true, accounts, showTrackStatus = false,
-  onTouchStart, picked = false, nativeDraggable = true, locked = false,
+  onTouchStart, picked = false, nativeDraggable = true, locked = false, unread = false,
 }: {
   post: Post
   onDragStart: (e: React.DragEvent) => void
@@ -728,6 +823,8 @@ function KanbanCard({
   nativeDraggable?: boolean
   /** Done card on a VP/DS board — dragging is disabled (SMM owns the move). */
   locked?: boolean
+  /** Someone else changed this task and the viewer hasn't opened it since. */
+  unread?: boolean
 }) {
   const t = useT()
   const [hovered, setHovered] = useState(false)
@@ -771,6 +868,18 @@ function KanbanCard({
         ;(e.currentTarget as HTMLElement).style.transform = ''
       }}
     >
+      {/* Unread-change dot — top-left corner of the card. */}
+      {unread && (
+        <span
+          title={t('Ada perubahan baru')}
+          style={{
+            position: 'absolute', top: -3, left: -3, width: 10, height: 10, borderRadius: '50%',
+            background: 'var(--accent2)', zIndex: 4,
+            boxShadow: '0 0 0 2px var(--bg2), 0 0 6px rgba(255,69,58,0.55)',
+          }}
+        />
+      )}
+
       {/* Hover actions — edit + delete (Socmed Management boards only) */}
       {canEdit && (
       <div style={{

@@ -98,6 +98,8 @@ export interface Post {
   created_at: string
   updated_at: string
   deleted_at?: string | null  // soft-delete timestamp; null/absent = active
+  last_actor?: string | null      // email of whoever made the most recent change
+  last_change_at?: string | null  // when that change happened (unread markers)
 }
 
 export type ClientStage = 'lead' | 'pitch' | 'close' | 'invoice' | 'inactive'

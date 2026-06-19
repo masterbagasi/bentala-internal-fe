@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Modal, BtnSecondary, ConfirmDialog } from '@/components/shared/Modal'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
@@ -13,7 +13,11 @@ import { BPI_STATUS_COLS } from '@/lib/constants'
 import type { Post } from '@/lib/types'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { uploadFileResumable } from '@/lib/storage'
-import { usePostComments, PostActivityBody, Tab } from '@/components/BPI/PostComments'
+import { usePostComments, Tab } from '@/components/BPI/PostComments'
+import { PostHistoryFeed } from '@/components/BPI/PostHistoryFeed'
+import { usePostHistory } from '@/hooks/usePostHistory'
+import { useMarkPostRead } from '@/hooks/usePostReads'
+import { fieldsChangedSince, sectionMarked, attachmentsAddedSince, ATTACH_FIELDS } from '@/lib/post-history'
 import { ChatRoom } from '@/components/Chat/ChatRoom'
 import { taskChatRoom, isEffectiveSuperAdmin } from '@/lib/access'
 import { RevisiModal, RevisiSection } from '@/components/BPI/RevisiModal'
@@ -32,13 +36,78 @@ interface PostPreviewModalProps {
   onEdit: (id: string) => void
   /** When false (workspace pages), the "Edit Post" button is hidden. */
   canEdit?: boolean
+  /** Epoch ms the viewer last opened this task; sections changed by others
+   *  after this (and the Activity rows) are flagged as new. Omit it (e.g. when
+   *  opening from chat/notifications) and the modal resolves it from the store
+   *  and marks the task read itself, matching the Projects board. */
+  seenSince?: number
 }
 
-export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true }: PostPreviewModalProps) {
+export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true, seenSince }: PostPreviewModalProps) {
   const t = useT()
   const isMobile = useIsMobile()
-  const { posts, upsertPost } = useStore(useShallow((s) => ({ posts: s.posts, upsertPost: s.upsertPost })))
+  const { posts, upsertPost, meEmail, chatUnread, clearChatUnread } = useStore(useShallow((s) => ({ posts: s.posts, upsertPost: s.upsertPost, meEmail: s.meEmail, chatUnread: s.chatUnread, clearChatUnread: s.clearChatUnread })))
   const post = posts.find(p => p.id === postId)
+  const taskRoom = post ? taskChatRoom(post.entity, post.id) : ''
+  // Unread chat in this task's room — drives the dot on the Chat tab. The dot
+  // PERSISTS while the task is open: merely viewing the Chat tab no longer marks
+  // the room read. It clears only when the user acts on the chat (send / react /
+  // reply / edit / type) or closes the task — see markChatRead below.
+  const chatHasUnread = !!taskRoom && (chatUnread[taskRoom] ?? 0) > 0
+  // Mark this task's chat room read (server + local store). Called on a chat
+  // action or when the task is closed.
+  const markChatRead = useCallback(() => {
+    if (!taskRoom) return
+    clearChatUnread(taskRoom) // instant; the POST below persists it for next load
+    fetch(`/api/chat/${encodeURIComponent(taskRoom)}/read`, { method: 'POST' }).catch(() => {})
+  }, [taskRoom, clearChatUnread])
+  // The viewer's last-seen time for THIS task drives every per-section "new"
+  // dot. We snapshot it once when the task opens and DON'T advance it until the
+  // task is closed — so the markers are identical no matter which tab opened the
+  // task (Socmed board, Chat, notification, workspace) and never get consumed by
+  // one entry point before the other can show them. When opened with an explicit
+  // seenSince prop (the board), use that; otherwise resolve it from the store.
+  const markPostRead = useMarkPostRead()
+  const [selfSince, setSelfSince] = useState(0)
+  useEffect(() => {
+    if (!open || !postId || seenSince !== undefined) return
+    setSelfSince(useStore.getState().postSeen[postId] ?? 0)
+  }, [open, postId, seenSince])
+  const effSince = seenSince ?? selfSince
+  // Close the task: NOW mark it read (per-section dots clear next open) and
+  // acknowledge the chat. Marking on close — not open — is what keeps the
+  // markers consistent across entry points.
+  const handleClose = useCallback(() => {
+    markChatRead()
+    if (postId) markPostRead(postId, posts.find(p => p.id === postId)?.last_change_at)
+    onClose()
+  }, [markChatRead, markPostRead, onClose, postId, posts])
+  // Change-log for this task (realtime): drives the Activity tab AND the
+  // per-section "what changed since you last looked" dots.
+  const history = usePostHistory(open ? postId : null)
+  const changedFields = fieldsChangedSince(history, effSince, meEmail)
+  const briefMark = sectionMarked(changedFields, ['brief'])
+  // The big task name in the header = the `title` field (labelled "Project Name"
+  // in the edit form).
+  const titleMark = sectionMarked(changedFields, ['title'])
+  const statusMark = sectionMarked(changedFields, ['status'])
+  // HEADLINE = the `headline` field only. `title` (the task name in the modal
+  // header) has no section, so a title change must NOT light up Headline.
+  const headlineMark = sectionMarked(changedFields, ['headline'])
+  const captionMark = sectionMarked(changedFields, ['caption'])
+  const hashtagsMark = sectionMarked(changedFields, ['hashtags'])
+  const notesMark = sectionMarked(changedFields, ['notes'])
+  const attachMark = sectionMarked(changedFields, ATTACH_FIELDS)
+  // Exact set of attachment URLs added by someone else since the viewer last
+  // looked — drives the per-file "new" outline. Authorship-aware (unlike a
+  // plain time check), so the viewer's own uploads never get marked.
+  const newAttachUrls = attachmentsAddedSince(history, effSince, meEmail)
+  // Top metadata fields (Entity / Created by are immutable, so no marks there).
+  const dateMark = sectionMarked(changedFields, ['date'])
+  const platformMark = sectionMarked(changedFields, ['platforms'])
+  const contentTypeMark = sectionMarked(changedFields, ['content_types'])
+  const ratioMark = sectionMarked(changedFields, ['ratio'])
+  const tagMark = sectionMarked(changedFields, ['tagged'])
   // Hooks must run before any early return (rules of hooks).
   // usePostComments is kept only for comments.me (used by activity-log inserts);
   // the discussion itself is now a full chat room (below).
@@ -371,15 +440,17 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     <>
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       wide
       title={t('Detail Task')}
       headerRight={
         canEdit ? (
         <>
+          <span style={{ position: 'relative', display: 'inline-flex' }}>
           <button
             ref={statusBtnRef}
             onClick={toggleStatusMenu}
+            title={statusMark ? t('Status diubah') : undefined}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
@@ -393,6 +464,8 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </button>
+          {statusMark && <span title={t('Status diubah')} style={{ position: 'absolute', top: -2, left: -2, width: 10, height: 10, borderRadius: '50%', background: 'var(--accent2)', zIndex: 4, boxShadow: '0 0 0 2px var(--bg2), 0 0 6px rgba(255,69,58,0.55)' }} />}
+          </span>
           {statusMenuOpen && (
             <>
               <div style={{ position: 'fixed', inset: 0, zIndex: 2999 }} onClick={() => setStatusMenuOpen(false)} />
@@ -446,10 +519,10 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
                 {savingStatus ? t('Menyimpan…') : t('Simpan Status')}
               </button>
             )}
-            <BtnSecondary onClick={onClose}>{t('Tutup')}</BtnSecondary>
+            <BtnSecondary onClick={handleClose}>{t('Tutup')}</BtnSecondary>
             {canEdit && (
               <button
-                onClick={() => { onClose(); onEdit(post.id) }}
+                onClick={() => { handleClose(); onEdit(post.id) }}
                 style={{ background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
               >
                 {t('Edit Task')}
@@ -460,13 +533,16 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       }
     >
       <h2 style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: 'var(--text)', marginTop: 4, marginBottom: 18 }}>
-        {post.title}
+        <span style={{ position: 'relative', display: 'inline-block' }}>
+          {post.title}
+          {titleMark && <span title={t('Ada perubahan baru')} style={{ position: 'absolute', top: -1, right: -13, width: 9, height: 9, borderRadius: '50%', background: 'var(--accent2)' }} />}
+        </span>
       </h2>
 
       {/* Meta grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
-        <MetaItem label={t('Tanggal Task')} value={formatDate(post.date)} />
-        <MetaItem label={t('Platform')} value={
+        <MetaItem label={t('Tanggal Task')} value={formatDate(post.date)} mark={dateMark} />
+        <MetaItem label={t('Platform')} mark={platformMark} value={
           (post.platforms || []).length ? (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               {(post.platforms || []).map(pl => <PlatformIcon key={pl} platform={pl} size={20} />)}
@@ -475,9 +551,9 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
         } />
         <MetaItem label={t('Entity')} value={post.entity?.toUpperCase() || '—'} />
         <MetaItem label={t('Dibuat oleh')} value={post.created_by || '—'} />
-        <MetaItem label={t('Jenis Konten')} value={(post.content_types || []).join(', ') || '—'} />
-        <MetaItem label={t('Ratio')} value={post.ratio || '—'} />
-        <MetaItem label={t('Tag')} value={(() => {
+        <MetaItem label={t('Jenis Konten')} value={(post.content_types || []).join(', ') || '—'} mark={contentTypeMark} />
+        <MetaItem label={t('Ratio')} value={post.ratio || '—'} mark={ratioMark} />
+        <MetaItem label={t('Tag')} mark={tagMark} value={(() => {
           // Only show tags that are real accounts (by email, or — for legacy
           // name tags — by matching an account name). Stale dummy-name tags
           // left over from before the email-based Tag Akun are dropped, so the
@@ -504,19 +580,22 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       </div>
 
       {/* Headline + Brief — always shown to mirror the edit form */}
-      <CopyField label={t('Headline')} value={post.headline} emptyText={t('Belum ada headline.')} />
-      <CopyField label="Brief" value={post.brief} emptyText={t('Belum ada brief.')} />
+      <CopyField label={t('Headline')} value={post.headline} emptyText={t('Belum ada headline.')} mark={headlineMark} />
+      <CopyField label="Brief" value={post.brief} emptyText={t('Belum ada brief.')} mark={briefMark} />
 
       {/* Caption / Hashtags / Notes — only when present */}
-      {post.caption && <CopyField label="Caption" value={post.caption} />}
-      {post.hashtags && <CopyField label="Hashtags" value={post.hashtags} color="#6b9bff" />}
-      {post.notes && <CopyField label={t('Catatan')} value={post.notes} />}
+      {post.caption && <CopyField label="Caption" value={post.caption} mark={captionMark} />}
+      {post.hashtags && <CopyField label="Hashtags" value={post.hashtags} color="#6b9bff" mark={hashtagsMark} />}
+      {post.notes && <CopyField label={t('Catatan')} value={post.notes} mark={notesMark} />}
 
       {/* Attachments — links + uploaded files + an uploader so files can be
           added straight from the details view (no need to open Edit). */}
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>
-          {t('Lampiran File')}
+          <span style={{ position: 'relative', display: 'inline-block' }}>
+            {t('Lampiran File')}
+            {attachMark && <span title={t('Ada perubahan baru')} style={{ position: 'absolute', top: -3, right: -9, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent2)' }} />}
+          </span>
         </div>
 
         {/* Add link + upload controls */}
@@ -559,6 +638,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
                 label={a.label}
                 url={a.url}
                 time={a.at ? formatUploadTime(a.at) : undefined}
+                isNew={newAttachUrls.has(a.url)}
                 onOpen={() => openAttachment(a.url, a.label)}
                 onDelete={() => setConfirmReq({ message: t('Hapus "{label}"?').replace('{label}', a.label), onConfirm: () => deleteAttachment(a) })}
               />
@@ -586,15 +666,20 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
           comments; the change history stays under the Activity tab). */}
       <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
-          <Tab label={t('Chat')} active={detailTab === 'chat'} onClick={() => setDetailTab('chat')} />
+          <span style={{ display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }}>
+            <Tab label={t('Chat')} active={detailTab === 'chat'} onClick={() => setDetailTab('chat')} />
+            {chatHasUnread && (
+              <span title={t('Ada chat baru')} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent2)', marginLeft: 4, marginTop: 1, flexShrink: 0 }} />
+            )}
+          </span>
           <Tab label={t('Aktivitas')} active={detailTab === 'activity'} onClick={() => setDetailTab('activity')} />
         </div>
         {detailTab === 'activity' ? (
-          <PostActivityBody s={comments} />
+          <PostHistoryFeed rows={history} accounts={comments.accounts} />
         ) : me && post ? (
           <div style={{ height: 460, display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg2)' }}>
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '0 12px' }}>
-              <ChatRoom room={taskChatRoom(post.entity, post.id)} roomName={post.title || t('(Tanpa judul)')} meEmail={me.email} meName={me.name} meSuper={me.super} />
+              <ChatRoom room={taskChatRoom(post.entity, post.id)} roomName={post.title || t('(Tanpa judul)')} meEmail={me.email} meName={me.name} meSuper={me.super} autoMarkRead={false} onActivity={markChatRead} />
             </div>
           </div>
         ) : (
@@ -774,10 +859,16 @@ function safeImageSrc(url: string): string | null {
   return isImageUrl(url) && isSafeHttpUrl(url) ? url : null
 }
 
-function MetaItem({ label, value }: { label: string; value: React.ReactNode }) {
+function MetaItem({ label, value, mark = false }: { label: string; value: React.ReactNode; mark?: boolean }) {
+  const t = useT()
   return (
     <div>
-      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 5 }}>{label}</div>
+      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 5 }}>
+        <span style={{ position: 'relative', display: 'inline-block' }}>
+          {label}
+          {mark && <span title={t('Ada perubahan baru')} style={{ position: 'absolute', top: -3, right: -9, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent2)' }} />}
+        </span>
+      </div>
       <div style={{ fontSize: 13, color: 'var(--text)' }}>{value}</div>
     </div>
   )
@@ -938,7 +1029,7 @@ function markFor(url: string): { node: React.ReactNode; tint: string; short: str
   return { node: <GlyphLink />, tint: 'rgba(120,140,170,0.14)', short: 'LINK' }
 }
 
-function AttachCard({ label, url, time, onOpen, onDelete }: { label: string; url: string; time?: string; onOpen: () => void; onDelete: () => void }) {
+function AttachCard({ label, url, time, isNew = false, onOpen, onDelete }: { label: string; url: string; time?: string; isNew?: boolean; onOpen: () => void; onDelete: () => void }) {
   const t = useT()
   const thumbSrc = safeImageSrc(url)
   const mark = thumbSrc ? null : markFor(url)
@@ -950,12 +1041,17 @@ function AttachCard({ label, url, time, onOpen, onDelete }: { label: string; url
       title={label}
       style={{
         position: 'relative', display: 'flex', flexDirection: 'column',
-        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12,
+        background: 'var(--bg3)',
+        // New-since-last-seen files get a red outline (no dot) so they stand out
+        // in the gallery; the ring persists through hover below.
+        border: isNew ? '1.5px solid var(--accent2)' : '1px solid var(--border)',
+        borderRadius: 12,
+        boxShadow: isNew ? '0 0 0 1px var(--accent2), 0 0 12px rgba(255,69,58,0.30)' : 'none',
         overflow: 'hidden', cursor: 'pointer',
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease',
       }}
-      onMouseOver={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--accent)'; el.style.boxShadow = '0 8px 22px rgba(0,0,0,0.32)'; el.style.transform = 'translateY(-2px)' }}
-      onMouseOut={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--border)'; el.style.boxShadow = 'none'; el.style.transform = 'none' }}
+      onMouseOver={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = isNew ? 'var(--accent2)' : 'var(--accent)'; el.style.boxShadow = isNew ? '0 0 0 1px var(--accent2), 0 8px 22px rgba(0,0,0,0.32)' : '0 8px 22px rgba(0,0,0,0.32)'; el.style.transform = 'translateY(-2px)' }}
+      onMouseOut={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = isNew ? 'var(--accent2)' : 'var(--border)'; el.style.boxShadow = isNew ? '0 0 0 1px var(--accent2), 0 0 12px rgba(255,69,58,0.30)' : 'none'; el.style.transform = 'none' }}
     >
       {/* Thumbnail / brand logo / file glyph — identical fixed box on every card */}
       <div style={{
@@ -1051,12 +1147,14 @@ function PvTrashIcon({ size = 15 }: { size?: number }) {
 
 // ── Field with a copy-to-clipboard button ────────────────────
 function CopyField({
-  label, value, emptyText, color,
+  label, value, emptyText, color, mark = false,
 }: {
   label: string
   value: string | null | undefined
   emptyText?: string
   color?: string
+  /** Show an "unseen change" dot next to the label. */
+  mark?: boolean
 }) {
   const t = useT()
   const [copied, setCopied] = useState(false)
@@ -1076,7 +1174,10 @@ function CopyField({
     <div style={{ marginBottom: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)' }}>
-          {label}
+          <span style={{ position: 'relative', display: 'inline-block' }}>
+            {label}
+            {mark && <span title={t('Ada perubahan baru')} style={{ position: 'absolute', top: -3, right: -9, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent2)' }} />}
+          </span>
         </div>
         <button
           onClick={copy}

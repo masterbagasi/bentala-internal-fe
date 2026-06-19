@@ -13,13 +13,30 @@ export function useData() {
   const {
     setPosts, setClients, setInvoices,
     setProjects, setTasks, setActivity,
-    setLoading,
+    setLoading, setMeEmail, setPostSeen,
   } = useStore()
 
   useEffect(() => {
     setLoading(true)
     const supabase = getSupabase()
     let cancelled = false
+
+    // Identify the current user (so their own changes are never flagged) and
+    // load their per-task "seen" timestamps for the unread-change markers.
+    supabase.auth.getUser().then(({ data }) => {
+      if (cancelled) return
+      const email = data.user?.email?.toLowerCase() ?? null
+      setMeEmail(email)
+    })
+    Promise.resolve(
+      (supabase as unknown as { from: (t: string) => { select: (c: string) => PromiseLike<{ data: { post_id: string; seen_at: string }[] | null }> } })
+        .from('post_reads').select('post_id,seen_at'),
+    ).then(({ data }) => {
+      if (cancelled || !data) return
+      const map: Record<string, number> = {}
+      for (const r of data) map[r.post_id] = Date.parse(r.seen_at)
+      setPostSeen(map)
+    })
 
     // Fire every query independently and commit each slice to the store the
     // moment it resolves, rather than awaiting the slowest one. The light
@@ -44,7 +61,7 @@ export function useData() {
     })
 
     return () => { cancelled = true }
-  }, [setPosts, setClients, setInvoices, setProjects, setTasks, setActivity, setLoading])
+  }, [setPosts, setClients, setInvoices, setProjects, setTasks, setActivity, setLoading, setMeEmail, setPostSeen])
 }
 
 /**

@@ -14,6 +14,7 @@ import { projectGlyph } from '@/lib/project-glyph'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { isEffectiveSuperAdmin, normaliseSections, canAccessChat } from '@/lib/access'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { useSearchParams } from 'next/navigation'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 type RoomSummary = {
@@ -55,6 +56,8 @@ function RoomAvatar({ glyph, color, size = 46 }: { glyph: string; color: string;
 export function ChatHub() {
   const t = useT()
   const isMobile = useIsMobile()
+  // Deep-link target from a notification (/chat?room=<slug>) — open that room.
+  const roomParam = useSearchParams().get('room')
   const projects = useSocmedProjects(true) // active projects only — matches the sidebar
 
   const [me, setMe] = useState<{ email: string; name: string; super: boolean; fullBypass: boolean } | null>(null)
@@ -177,13 +180,29 @@ export function ChatHub() {
     return rooms.filter(p => !q || p.name.toLowerCase().includes(q)).slice().sort(sortByActivity)
   }, [rooms, search, sortByActivity])
 
-  // On desktop, auto-open the most-active room once rooms are known.
+  const didDeepLink = useRef(false)
   const didAutoSelect = useRef(false)
+
+  // Deep-link: a notification can point at /chat?room=<slug>. Open that room
+  // once rooms are known (works on mobile + desktop), taking precedence over the
+  // desktop auto-open.
   useEffect(() => {
-    if (didAutoSelect.current || isMobile || !list.length) return
+    if (didDeepLink.current || !roomParam || !accessLoaded || !rooms.length) return
+    if (!rooms.some(p => p.slug === roomParam)) return
+    didDeepLink.current = true
+    didAutoSelect.current = true
+    setSelected(roomParam)
+    setTaskOpen(null)
+    setOverview(o => (o[roomParam] ? { ...o, [roomParam]: { ...o[roomParam], unread: 0 } } : o))
+  }, [roomParam, rooms, accessLoaded])
+
+  // On desktop, auto-open the most-active room once rooms are known (unless a
+  // ?room deep-link is handling the selection).
+  useEffect(() => {
+    if (didAutoSelect.current || isMobile || !list.length || roomParam) return
     didAutoSelect.current = true
     setSelected(list[0].slug)
-  }, [list, isMobile])
+  }, [list, isMobile, roomParam])
 
   // If access to the open room is revoked in realtime, drop the selection so the
   // user falls back to the list (mobile) / placeholder (desktop).

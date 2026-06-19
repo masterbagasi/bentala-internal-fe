@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ChatHub } from '@/components/Chat/ChatHub'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -13,7 +14,9 @@ export default function ChatHubPage() {
     <>
       <PageHeader title="Chat" />
       <div className="flex-1 overflow-hidden min-h-0" style={{ padding: isMobile ? 0 : 24, display: 'flex', flexDirection: 'column' }}>
-        <ChatHub />
+        <Suspense fallback={null}>
+          <ChatHub />
+        </Suspense>
       </div>
     </>
   )

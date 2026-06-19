@@ -116,7 +116,7 @@ const MAX_BYTES = 200 * 1024 * 1024
 // A message can only be unsent (retracted) within 24h of being sent.
 const UNSEND_WINDOW_MS = 24 * 60 * 60 * 1000
 
-export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: string; roomName: string; meEmail: string; meName: string; meSuper: boolean }) {
+export function ChatRoom({ room, roomName, meEmail, meName, meSuper, autoMarkRead = true, onActivity }: { room: string; roomName: string; meEmail: string; meName: string; meSuper: boolean; autoMarkRead?: boolean; onActivity?: () => void }) {
   const t = useT()
   const isMobile = useIsMobile()
   const [messages, setMessages] = useState<Msg[]>([])
@@ -247,10 +247,22 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       .then(({ data }: { data: Reaction[] | null }) => setReactions(data ?? []))
   }, [room])
 
+  // When autoMarkRead is off (the Task Details popup), opening/viewing the room
+  // does NOT clear the unread marker — only an explicit user action here (send,
+  // react, reply, edit, typing) or closing the task does. Fire that "action"
+  // signal to the parent once per mounted room; it owns the actual mark-read.
+  const actedRef = useRef(false)
+  const markActivity = useCallback(() => {
+    if (autoMarkRead || actedRef.current) return
+    actedRef.current = true
+    onActivity?.()
+  }, [autoMarkRead, onActivity])
+
   // Toggle my reaction on a message: same emoji removes it, a different one
   // replaces it (one reaction per person per message, like WhatsApp).
   async function react(messageId: string, emoji: string) {
     setMenuFor(null)
+    markActivity()
     const supa = sb() as any
     const mine = reactions.find(r => r.message_id === messageId && r.user_email === meEmail)
     // Optimistic update — realtime will reconcile to the authoritative rows.
@@ -278,6 +290,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    actedRef.current = false // new room → wait for a fresh action before marking read
     fetch(`/api/chat/${encodeURIComponent(room)}?limit=50`)
       .then(r => (r.ok ? r.json() : { messages: [] }))
       .then((d: { messages?: Msg[] }) => {
@@ -296,7 +309,9 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
         requestAnimationFrame(stick)
         ;[60, 180, 360, 700].forEach(ms => setTimeout(stick, ms))
       })
-    fetch(`/api/chat/${encodeURIComponent(room)}/read`, { method: 'POST' }).then(loadReads)
+    // Only auto-mark the room read on open in contexts that want it (the chat
+    // pane). The Task Details popup defers this until the user acts or closes.
+    if (autoMarkRead) fetch(`/api/chat/${encodeURIComponent(room)}/read`, { method: 'POST' }).then(loadReads)
     loadReads()
     loadReactions()
 
@@ -324,7 +339,17 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
             if (idx !== -1) { const next = prev.slice(); next[idx] = row; return next }
             return [...prev, row]
           })
-          fetch(`/api/chat/${encodeURIComponent(room)}/read`, { method: 'POST' })
+          // Only mark read if the reader is actually at the bottom (has seen it).
+          // If they're scrolled up — or the message is from someone else and they
+          // haven't looked — it stays unread so the "new chat" markers can show.
+          const mine = (row.author_email ?? '').toLowerCase() === meEmail.toLowerCase()
+          if (autoMarkRead && (mine || atBottomRef.current)) {
+            fetch(`/api/chat/${encodeURIComponent(room)}/read`, { method: 'POST' })
+          } else if (!autoMarkRead && !mine) {
+            // A fresh message from someone else re-arms the marker: the user must
+            // act (or close) again before it clears.
+            actedRef.current = false
+          }
         })
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `room=eq.${room}` },
@@ -363,7 +388,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
       authSub.subscription.unsubscribe()
       if (channel) supabase.removeChannel(channel)
     }
-  }, [room, scrollToBottom, loadReads, loadReactions])
+  }, [room, scrollToBottom, loadReads, loadReactions, autoMarkRead, meEmail])
 
   // Auto-scroll on new messages only if the user is already at the bottom.
   useEffect(() => {
@@ -500,6 +525,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
     const body = text.trim()
     const items = pendingFiles
     if (!body && items.length === 0) return
+    markActivity()
     const replyId = replyingTo?.id ?? null
     setReplyingTo(null)
     setText('')
@@ -524,6 +550,7 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
   function onTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value
     setText(val)
+    markActivity() // typing counts as engaging with the chat
     const pos = e.target.selectionStart ?? val.length
     const m = val.slice(0, pos).match(/(?:^|\s)@([^\s@]*)$/)
     if (m) { setMention({ q: m[1], at: pos - m[1].length - 1 }); setMentionSel(0) }
@@ -631,8 +658,8 @@ export function ChatRoom({ room, roomName, meEmail, meName, meSuper }: { room: s
     const ok = await mutateOk(fetch(`/api/chat/${encodeURIComponent(room)}/${id}`, { method: 'DELETE' }), false)
     if (!ok) { setMessages(snapshot); flashErr(t('Gagal menghapus pesan')) }
   }
-  function startEdit(m: Msg) { setMenuFor(null); setEditing(m.id); setEditText(m.body) }
-  function startReply(m: Msg) { setMenuFor(null); setEditing(null); setReplyingTo(m); setTimeout(() => taRef.current?.focus(), 0) }
+  function startEdit(m: Msg) { setMenuFor(null); markActivity(); setEditing(m.id); setEditText(m.body) }
+  function startReply(m: Msg) { setMenuFor(null); markActivity(); setEditing(null); setReplyingTo(m); setTimeout(() => taRef.current?.focus(), 0) }
   // Short one-line preview of a message for the reply quote.
   const msgSnippet = (m: Msg) =>
     m.deleted_at ? t('Pesan ini ditarik')

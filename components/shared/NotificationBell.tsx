@@ -151,7 +151,24 @@ export function NotificationBell() {
   // Chat messages that @mention me (across every room I can access).
   const projects = useSocmedProjects(false)
   const projectSlugs = useMemo(() => new Set(projects.map(p => p.slug)), [projects])
-  const roomName = (slug: string) => projects.find(p => p.slug === slug)?.name || slug
+  // A task room is "task.<slug>.<postId>"; everything else is a project room
+  // keyed by slug. Returns {slug, postId} for a task room, or null.
+  const parseTaskRoom = (room: string): { slug: string; postId: string } | null => {
+    if (!room.startsWith('task.')) return null
+    const rest = room.slice(5)
+    const dot = rest.lastIndexOf('.')
+    if (dot < 0) return null
+    return { slug: rest.slice(0, dot), postId: rest.slice(dot + 1) }
+  }
+  const roomName = (room: string): string => {
+    const task = parseTaskRoom(room)
+    if (task) {
+      const proj = projects.find(p => p.slug === task.slug)?.name || task.slug
+      const post = posts.find(p => p.id === task.postId)
+      return post?.title ? `${post.title} · ${proj}` : proj
+    }
+    return projects.find(p => p.slug === room)?.name || room
+  }
   const [chatMentions, setChatMentions] = useState<ChatMentionRow[]>([])
   useEffect(() => {
     if (!me.email) return
@@ -257,16 +274,25 @@ export function NotificationBell() {
       })
     })
 
-    // Chat @mentions — addressed to me in any room I can access.
+    // Chat @mentions — addressed to me in any room I can access. A task-chat
+    // mention opens the task's detail (lands on its Chat tab); a project-chat
+    // mention opens the unified Chat hub with that room selected.
     chatMentions.forEach(r => {
-      out.push({
+      const task = parseTaskRoom(r.room)
+      const base = {
         id: `chat-${r.id}`,
         at: r.created_at,
         author: r.author_name || r.author_email || t('Seseorang'),
         text: `${t('menyebut Anda di chat')} ${roomName(r.room)}`,
         postTitle: r.body?.slice(0, 80) || undefined,
-        href: `/smm/${encodeURIComponent(r.room)}/chat`,
-      })
+      }
+      if (task) {
+        const post = posts.find(p => p.id === task.postId)
+        const href = postHref(post, projectSlugs) ?? (projectSlugs.has(task.slug) ? `/smm/${encodeURIComponent(task.slug)}` : undefined)
+        out.push({ ...base, href, postId: task.postId })
+      } else {
+        out.push({ ...base, href: `/chat?room=${encodeURIComponent(r.room)}` })
+      }
     })
 
     return out

@@ -4,13 +4,16 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { initNotificationSound, playNotificationSound } from '@/lib/notificationSound'
+import { initNotificationSound } from '@/lib/notificationSound'
 import { getSupabase } from '@/lib/supabase'
 import { AccountButton } from '@/components/shared/AccountButton'
 import { isEffectiveSuperAdmin, normaliseSections, sectionForPath, canAccessChat, chatRoomFromPath, firstAllowedLanding } from '@/lib/access'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 import { projectGlyph } from '@/lib/project-glyph'
+import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
+import { countUnreadInScope, VP_PIC, DS_PIC } from '@/lib/post-unread'
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -291,6 +294,23 @@ export function Sidebar() {
   const [query, setQuery] = useState('')
   const smmProjects = useSocmedProjects(true)
 
+  // ── Unread-change badges for the posts boards ──
+  // Count of tasks changed by someone else that the viewer hasn't opened yet,
+  // keyed by nav href. Derived live from the global posts store + the viewer's
+  // seen map, so badges appear the instant a card moves/changes elsewhere and
+  // clear when the viewer opens the task.
+  const { posts, meEmail, postSeen, chatUnread } = useStore(useShallow((s) => ({ posts: s.posts, meEmail: s.meEmail, postSeen: s.postSeen, chatUnread: s.chatUnread })))
+  const boardUnread = useMemo(() => {
+    const m: Record<string, number> = {}
+    m['/projects-all'] = countUnreadInScope(posts, { kind: 'all' }, meEmail, postSeen, chatUnread)
+    m['/bpi-faizal']   = countUnreadInScope(posts, { kind: 'pic', pic: VP_PIC }, meEmail, postSeen, chatUnread)
+    m['/bpi-reinaldi'] = countUnreadInScope(posts, { kind: 'pic', pic: DS_PIC }, meEmail, postSeen, chatUnread)
+    for (const p of smmProjects) {
+      m[`/smm/${p.slug}`] = countUnreadInScope(posts, { kind: 'entity', entity: p.slug }, meEmail, postSeen, chatUnread)
+    }
+    return m
+  }, [posts, meEmail, postSeen, chatUnread, smmProjects])
+
   // ── Responsive: off-canvas drawer on mobile ──
   // Below 768px the fixed rail would shove the page off-screen, so the
   // sidebar becomes a slide-in drawer triggered from a compact top bar.
@@ -406,31 +426,10 @@ export function Sidebar() {
   }, [access, pathname, router])
 
   // ── Chat unread counts ──
-  // Per-room unread message counts, keyed by project slug. Seeded from the API
-  // and kept live via a postgres_changes subscription on chat_messages: any
-  // INSERT re-fetches the authoritative counts. Re-runs on pathname change so
-  // entering a room (which marks it read) refreshes the badges.
-  const [unread, setUnread] = useState<Record<string, number>>({})
-  useEffect(() => {
-    let cancelled = false
-    const load = () => fetch('/api/chat/unread')
-      .then(r => (r.ok ? r.json() : { counts: {} }))
-      .then((d: { counts?: Record<string, number> }) => { if (!cancelled) setUnread(d.counts ?? {}) })
-      .catch(() => {})
-    load()
-    const supabase = getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
-    const channel = supabase
-      .channel('chat:unread')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
-        load()
-        // Ring the notification chime for an incoming message from someone else.
-        const row = payload.new as { author_email?: string | null } | undefined
-        const author = (row?.author_email ?? '').toLowerCase()
-        if (author && author !== meEmailRef.current) playNotificationSound()
-      })
-      .subscribe()
-    return () => { cancelled = true; supabase.removeChannel(channel) }
-  }, [pathname])
+  // Single source of truth: the store's chatUnread map, kept live (bump on a new
+  // message, clear on read) by useChatUnread. Reading a room — including a task
+  // chat opened from its detail — clears its badge here in realtime too.
+  const unread = chatUnread
 
   function toggleSection(id: string) {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }))
@@ -966,6 +965,7 @@ export function Sidebar() {
                           collapsed={collapsed}
                           toggleSection={toggleSection}
                           unread={unread}
+                          boardUnread={boardUnread}
                         />
                       )
                     }
@@ -977,6 +977,7 @@ export function Sidebar() {
                         isExpanded={expanded}
                         active={isActive(item.href)}
                         unread={unread}
+                        boardUnread={boardUnread}
                       />
                     )
                   })}
@@ -1085,11 +1086,13 @@ function NavLink({
   isExpanded,
   active,
   unread,
+  boardUnread,
 }: {
   item: NavItem
   isExpanded: boolean
   active: boolean
   unread?: Record<string, number>
+  boardUnread?: Record<string, number>
 }) {
   const t = useT()
   const color = item.color ?? COLOR.blue
@@ -1141,9 +1144,12 @@ function NavLink({
         // Unified Chat tab shows the SUM of unread across every room; a normal
         // per-room chat link shows just its own count.
         const room = chatRoomFromPath(item.href)
-        const n = item.href === '/chat'
+        const chatN = item.href === '/chat'
           ? Object.values(unread ?? {}).reduce((a, b) => a + (b || 0), 0)
           : room ? (unread?.[room] ?? 0) : 0
+        // Board (posts) unread takes precedence for the project/board links;
+        // chat links keep their own count. The two href sets don't overlap.
+        const n = (boardUnread?.[item.href] ?? 0) || chatN
         if (!n) return null
         return (
           <span style={{ marginLeft: 'auto', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: 'var(--accent2)', color: '#fff', fontSize: 10.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1162,6 +1168,7 @@ function Subgroup({
   collapsed,
   toggleSection,
   unread,
+  boardUnread,
 }: {
   group: NavSubgroup
   isExpanded: boolean
@@ -1169,6 +1176,7 @@ function Subgroup({
   collapsed: Record<string, boolean>
   toggleSection: (id: string) => void
   unread?: Record<string, number>
+  boardUnread?: Record<string, number>
 }) {
   const t = useT()
   const hasActiveChild = subgroupHasActive(group.items, isActive)
@@ -1251,6 +1259,7 @@ function Subgroup({
                 isExpanded={isExpanded}
                 active={isActive(item.href)}
                 unread={unread}
+                boardUnread={boardUnread}
               />
             )
           })}
