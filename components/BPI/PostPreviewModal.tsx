@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Modal, BtnSecondary, ConfirmDialog } from '@/components/shared/Modal'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
 import { deleteFile } from '@/lib/storage'
 import { formatDate } from '@/lib/utils'
@@ -36,7 +37,7 @@ interface PostPreviewModalProps {
 export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true }: PostPreviewModalProps) {
   const t = useT()
   const isMobile = useIsMobile()
-  const { posts, upsertPost } = useStore()
+  const { posts, upsertPost } = useStore(useShallow((s) => ({ posts: s.posts, upsertPost: s.upsertPost })))
   const post = posts.find(p => p.id === postId)
   // Hooks must run before any early return (rules of hooks).
   // usePostComments is kept only for comments.me (used by activity-log inserts);

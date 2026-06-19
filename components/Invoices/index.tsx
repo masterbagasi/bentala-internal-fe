@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
 import { INV_STATUS_LABELS } from '@/lib/constants'
 import { formatRupiah, formatDate, generateInvoiceNum } from '@/lib/utils'
@@ -13,7 +14,7 @@ import type { Invoice, InvoiceStatus, Client } from '@/lib/types'
 
 export function InvoicesPage() {
   const t = useT()
-  const { invoices, clients } = useStore()
+  const { invoices, clients } = useStore(useShallow((s) => ({ invoices: s.invoices, clients: s.clients })))
   const [showModal, setShowModal] = useState(false)
   const [editInvoice, setEditInvoice] = useState<Invoice | null>(null)
   const logActivity = useLogActivity()

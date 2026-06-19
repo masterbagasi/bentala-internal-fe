@@ -17,37 +17,33 @@ export function useData() {
   } = useStore()
 
   useEffect(() => {
-    async function fetchAll() {
-      setLoading(true)
-      const supabase = getSupabase()
+    setLoading(true)
+    const supabase = getSupabase()
+    let cancelled = false
 
-      const [
-        { data: posts },
-        { data: clients },
-        { data: invoices },
-        { data: projects },
-        { data: tasks },
-        { data: activity },
-      ] = await Promise.all([
-        supabase.from('posts').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
-        supabase.from('clients').select('*').order('created_at', { ascending: false }),
-        supabase.from('invoices').select('*').order('created_at', { ascending: false }),
-        supabase.from('projects').select('*').order('created_at', { ascending: false }),
-        supabase.from('tasks').select('*').order('created_at', { ascending: false }),
-        supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(50),
-      ])
+    // Fire every query independently and commit each slice to the store the
+    // moment it resolves, rather than awaiting the slowest one. The light
+    // tables (clients/invoices/projects) paint immediately while the heavy
+    // posts query is still in flight, so the dashboard is interactive far
+    // sooner. `loading` flips off once the heaviest slice (posts) lands.
+    const run = <T,>(p: PromiseLike<{ data: T | null }>, apply: (rows: T) => void) =>
+      Promise.resolve(p).then(({ data }) => {
+        if (!cancelled && data) apply(data)
+      })
 
-      if (posts)    setPosts(posts as Post[])
-      if (clients)  setClients(clients as Client[])
-      if (invoices) setInvoices(invoices as Invoice[])
-      if (projects) setProjects(projects as Project[])
-      if (tasks)    setTasks(tasks as Task[])
-      if (activity) setActivity(activity as ActivityLog[])
+    run(supabase.from('clients').select('*').order('created_at', { ascending: false }), (d) => setClients(d as Client[]))
+    run(supabase.from('invoices').select('*').order('created_at', { ascending: false }), (d) => setInvoices(d as Invoice[]))
+    run(supabase.from('projects').select('*').order('created_at', { ascending: false }), (d) => setProjects(d as Project[]))
+    run(supabase.from('tasks').select('*').order('created_at', { ascending: false }), (d) => setTasks(d as Task[]))
+    run(supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(50), (d) => setActivity(d as ActivityLog[]))
+    run(
+      supabase.from('posts').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
+      (d) => setPosts(d as Post[]),
+    ).finally(() => {
+      if (!cancelled) setLoading(false)
+    })
 
-      setLoading(false)
-    }
-
-    fetchAll()
+    return () => { cancelled = true }
   }, [setPosts, setClients, setInvoices, setProjects, setTasks, setActivity, setLoading])
 }
 

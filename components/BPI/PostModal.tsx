@@ -5,6 +5,7 @@ import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useLogActivity } from '@/hooks/useData'
 import { BPI_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
 import { MultiFileUploader } from '@/components/website/FileUploader'
@@ -51,7 +52,7 @@ const DEFAULT_FORM = {
 
 export function PostModal({ open, onClose, editId, entity, projectScope }: PostModalProps) {
   const t = useT()
-  const { posts, upsertPost } = useStore()
+  const { posts, upsertPost } = useStore(useShallow((s) => ({ posts: s.posts, upsertPost: s.upsertPost })))
   const logActivity = useLogActivity()
   // Every active socmed project — so the Project dropdown auto-includes new
   // projects (e.g. Master Bagasi) the moment they're added, with no code change.

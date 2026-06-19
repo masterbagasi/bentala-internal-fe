@@ -23,7 +23,7 @@ export function PipelinePage({ member, stages }: PipelinePageProps) {
 
   const t = useT()
   const isMobile = useIsMobile()
-  const { pipelineItems } = useStore()
+  const pipelineItems = useStore((s) => s.pipelineItems)
   const [tab, setTab] = useState<PipelineTab>('pipeline')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)

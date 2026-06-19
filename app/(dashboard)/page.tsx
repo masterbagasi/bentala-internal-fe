@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { PageShell } from '@/components/shared/PageShell'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { TEAM, CRM_STAGES } from '@/lib/constants'
 import { formatRupiah, timeAgo } from '@/lib/utils'
 import { getSupabase } from '@/lib/supabase'
@@ -397,7 +398,7 @@ function WebsiteTab() {
 
 function PostsTab({ entity, label }: { entity: 'bpi' | 'bsi'; label: string }) {
   const t = useT()
-  const { posts } = useStore()
+  const posts = useStore((s) => s.posts)
   const entityPosts = useMemo(
     () => posts.filter((p) => p.entity === entity),
     [posts, entity],
@@ -513,7 +514,7 @@ function PostsTab({ entity, label }: { entity: 'bpi' | 'bsi'; label: string }) {
 
 function ClientTab() {
   const t = useT()
-  const { clients, invoices } = useStore()
+  const { clients, invoices } = useStore(useShallow((s) => ({ clients: s.clients, invoices: s.invoices })))
 
   const totalLeads = clients.length
   const active = clients.filter((c) => ['lead', 'pitch', 'close'].includes(c.stage))
@@ -623,7 +624,7 @@ function ClientTab() {
 
 function ProjectsTab() {
   const t = useT()
-  const { projects, tasks } = useStore()
+  const { projects, tasks } = useStore(useShallow((s) => ({ projects: s.projects, tasks: s.tasks })))
 
   const active = projects.filter((p) => p.status === 'active')
   const completed = projects.filter((p) => p.status === 'done')
@@ -697,7 +698,7 @@ function ProjectsTab() {
 
 function TeamTab() {
   const t = useT()
-  const { activity, tasks } = useStore()
+  const { activity, tasks } = useStore(useShallow((s) => ({ activity: s.activity, tasks: s.tasks })))
   const recentActivity = activity.slice(0, 8)
 
   const tasksByMember = TEAM.map((member) => ({

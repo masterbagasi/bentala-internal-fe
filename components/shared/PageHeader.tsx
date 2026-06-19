@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { NotificationBell } from '@/components/shared/NotificationBell'
 import { DateRangePicker } from '@/components/Social/DateRangePicker'
 
@@ -102,7 +103,7 @@ export function PageHeader({
   action,
   tabsRight,
 }: PageHeaderProps) {
-  const { dateRange, setDateRange } = useStore()
+  const { dateRange, setDateRange } = useStore(useShallow((s) => ({ dateRange: s.dateRange, setDateRange: s.setDateRange })))
 
   const hasTabs = tabs && tabs.length > 0
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
 import { CRM_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
 import { formatRupiah } from '@/lib/utils'
@@ -12,7 +13,7 @@ import type { Client, ClientStage } from '@/lib/types'
 
 export function CRMPage() {
   const t = useT()
-  const { clients, crmFilter, setCrmFilter } = useStore()
+  const { clients, crmFilter, setCrmFilter } = useStore(useShallow((s) => ({ clients: s.clients, crmFilter: s.crmFilter, setCrmFilter: s.setCrmFilter })))
   const [showModal, setShowModal] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
   const logActivity = useLogActivity()

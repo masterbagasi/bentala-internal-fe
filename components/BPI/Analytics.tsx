@@ -1,6 +1,7 @@
 'use client'
 
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { BPI_STATUS_COLS, POST_PLATFORMS } from '@/lib/constants'
 import { useEffect, useRef } from 'react'
 import { Chart, registerables } from 'chart.js'
@@ -25,7 +26,7 @@ const WS_TRACK_COLS = [
 
 export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; picScope?: string }) {
   const t = useT()
-  const { posts, dateRange } = useStore()
+  const { posts, dateRange } = useStore(useShallow((s) => ({ posts: s.posts, dateRange: s.dateRange })))
   const projects = useSocmedProjects(true)
   const chartRef = useRef<HTMLCanvasElement>(null)
   const chartInstance = useRef<Chart | null>(null)

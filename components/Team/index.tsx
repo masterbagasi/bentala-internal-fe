@@ -1,12 +1,13 @@
 'use client'
 
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { TEAM } from '@/lib/constants'
 
 export function TeamPage() {
   const t = useT()
-  const { projects, tasks, posts } = useStore()
+  const { projects, tasks, posts } = useStore(useShallow((s) => ({ projects: s.projects, tasks: s.tasks, posts: s.posts })))
 
   return (
     <div>

@@ -127,16 +127,18 @@ export const useStore = create<StoreState>((set) => ({
 
   // ── Upsert / remove helpers ──
   upsertPost: (post) => set((s) => ({
+    // New rows prepend to match the created_at DESC order of the initial
+    // fetch; existing rows update in place to keep their position.
     posts: s.posts.find(p => p.id === post.id)
       ? s.posts.map(p => p.id === post.id ? post : p)
-      : [...s.posts, post],
+      : [post, ...s.posts],
   })),
   removePost: (id) => set((s) => ({ posts: s.posts.filter(p => p.id !== id) })),
 
   upsertClient: (client) => set((s) => ({
     clients: s.clients.find(c => c.id === client.id)
       ? s.clients.map(c => c.id === client.id ? client : c)
-      : [...s.clients, client],
+      : [client, ...s.clients],
   })),
   removeClient: (id) => set((s) => ({ clients: s.clients.filter(c => c.id !== id) })),
 
@@ -150,14 +152,14 @@ export const useStore = create<StoreState>((set) => ({
   upsertProject: (project) => set((s) => ({
     projects: s.projects.find(p => p.id === project.id)
       ? s.projects.map(p => p.id === project.id ? project : p)
-      : [...s.projects, project],
+      : [project, ...s.projects],
   })),
   removeProject: (id) => set((s) => ({ projects: s.projects.filter(p => p.id !== id) })),
 
   upsertTask: (task) => set((s) => ({
     tasks: s.tasks.find(t => t.id === task.id)
       ? s.tasks.map(t => t.id === task.id ? task : t)
-      : [...s.tasks, task],
+      : [task, ...s.tasks],
   })),
   removeTask: (id) => set((s) => ({ tasks: s.tasks.filter(t => t.id !== id) })),
 

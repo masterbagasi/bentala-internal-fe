@@ -15,7 +15,7 @@ interface StagePanelProps {
 
 export function StagePanel({ item, stages }: StagePanelProps) {
   const t = useT()
-  const { upsertPipelineItem } = useStore()
+  const upsertPipelineItem = useStore((s) => s.upsertPipelineItem)
   const [saving, setSaving] = useState(false)
 
   async function handleStageUpdate(stageKey: string, stageData: StageData) {

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
 import { TASK_STATUS_LABELS, PRIORITY_COLORS, TEAM } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -22,7 +23,7 @@ const TASK_COLS = [
 export function TasksPage() {
   const t = useT()
   const isMobile = useIsMobile()
-  const { tasks, projects, taskFilter, setTaskFilter } = useStore()
+  const { tasks, projects, taskFilter, setTaskFilter } = useStore(useShallow((s) => ({ tasks: s.tasks, projects: s.projects, taskFilter: s.taskFilter, setTaskFilter: s.setTaskFilter })))
   const [showModal, setShowModal] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
   const [dragTaskId, setDragTaskId] = useState<string | null>(null)

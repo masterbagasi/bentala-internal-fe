@@ -17,7 +17,7 @@ interface PostTrackerProps {
 
 export function PostTracker({ entity }: PostTrackerProps) {
   const t = useT()
-  const { posts } = useStore()
+  const posts = useStore((s) => s.posts)
   const [filter, setFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)

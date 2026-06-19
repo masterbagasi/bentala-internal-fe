@@ -37,7 +37,7 @@ function wsColKey(status: string): string {
 export const WorkspacePage = forwardRef<WorkspacePageHandle, WorkspacePageProps>(
   function WorkspacePage({ member, memberKey }, ref) {
   const t = useT()
-  const { posts } = useStore()
+  const posts = useStore((s) => s.posts)
   const [tab, setTab] = useState<WsTab>('list')
   const [platformFilter, setPlatformFilter] = useState<string>('all')
   const [editPostId, setEditPostId] = useState<string | null>(null)
@@ -275,7 +275,7 @@ function WSKanbanBoard({ posts, member, onCardClick }: {
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const logActivity = useLogActivity()
-  const { upsertPost } = useStore()
+  const upsertPost = useStore((s) => s.upsertPost)
 
   async function handleDrop(newStatus: string) {
     const id = dragPostId

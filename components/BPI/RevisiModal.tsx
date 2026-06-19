@@ -50,7 +50,7 @@ interface RevisiModalProps {
 
 export function RevisiModal({ open, post, editing, applyStatus = true, onClose, onSaved }: RevisiModalProps) {
   const t = useT()
-  const { upsertPost } = useStore()
+  const upsertPost = useStore((s) => s.upsertPost)
 
   const avail = useMemo(() => postTracks(post), [post])
   const single = avail.length === 1

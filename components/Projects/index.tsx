@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
 import { PROJ_TYPE, PROJ_STATUS_CLASS, TEAM } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -13,7 +14,7 @@ import type { Project, ProjectType, ProjectStatus, Client } from '@/lib/types'
 
 export function ProjectsPage() {
   const t = useT()
-  const { projects, tasks, clients, projFilter, setProjFilter } = useStore()
+  const { projects, tasks, clients, projFilter, setProjFilter } = useStore(useShallow((s) => ({ projects: s.projects, tasks: s.tasks, clients: s.clients, projFilter: s.projFilter, setProjFilter: s.setProjFilter })))
   const [showModal, setShowModal] = useState(false)
   const [editProject, setEditProject] = useState<Project | null>(null)
   const logActivity = useLogActivity()

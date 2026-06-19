@@ -1,6 +1,7 @@
 'use client'
 
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import type { Project, Task } from '@/lib/types'
 import { formatRupiah, formatDate, timeAgo } from '@/lib/utils'
@@ -13,7 +14,7 @@ Chart.register(...registerables)
 
 export function DashboardContent() {
   const t = useT()
-  const { posts, clients, invoices, projects, tasks, activity, dateRange } = useStore()
+  const { posts, clients, invoices, projects, tasks, activity, dateRange } = useStore(useShallow((s) => ({ posts: s.posts, clients: s.clients, invoices: s.invoices, projects: s.projects, tasks: s.tasks, activity: s.activity, dateRange: s.dateRange })))
 
   // Filter by date range
   const from = new Date(dateRange.from)

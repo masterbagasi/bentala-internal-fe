@@ -2,6 +2,7 @@
 
 import { PAGE_TITLES } from '@/lib/constants'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useState, useRef, useEffect } from 'react'
 import { format } from 'date-fns'
 import { id } from 'date-fns/locale'
@@ -24,7 +25,7 @@ interface TopbarProps {
 
 export function Topbar({ page }: TopbarProps) {
   const t = useT()
-  const { dateRange, setDateRange } = useStore()
+  const { dateRange, setDateRange } = useStore(useShallow((s) => ({ dateRange: s.dateRange, setDateRange: s.setDateRange })))
   const [open, setOpen] = useState(false)
   const showDateFilter = ['dashboard', 'bpi-analytics'].includes(page)
   const router = useRouter()

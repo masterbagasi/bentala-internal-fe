@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { PostModal } from '@/components/BPI/PostModal'
@@ -42,7 +43,7 @@ const FALLBACK_COLOR = '#8b8fff'
 
 export function ContentCalendar({ entity, onPostClick, filters }: ContentCalendarProps) {
   const t = useT()
-  const { posts, calState, setCalState } = useStore()
+  const { posts, calState, setCalState } = useStore(useShallow((s) => ({ posts: s.posts, calState: s.calState, setCalState: s.setCalState })))
   // A task's accent = its project's brand colour (same as the sidebar/menu
   // icon), so on the All Project calendar you can tell projects apart at a
   // glance — Bentala Project orange, Bentala Studio purple, Master Bagasi blue…

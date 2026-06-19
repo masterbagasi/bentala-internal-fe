@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle, 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { getSupabase } from '@/lib/supabase'
 import { BPI_STATUS_COLS, WS_STATUS_COLS, SMM_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
@@ -124,7 +125,7 @@ interface BPIPageProps {
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
   function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters }, ref) {
     const t = useT()
-    const { posts, removePost, upsertPost } = useStore()
+    const { posts, removePost, upsertPost } = useStore(useShallow((s) => ({ posts: s.posts, removePost: s.removePost, upsertPost: s.upsertPost })))
     const [showPostModal, setShowPostModal] = useState(false)
     const [editPostId, setEditPostId] = useState<string | null>(null)
     const [previewPostId, setPreviewPostId] = useState<string | null>(null)
@@ -964,7 +965,7 @@ export const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tag
 
 // Owns filter state + the data the popup needs (accounts, months for an entity).
 export function useBoardFilter(scope: string | { pic: string }) {
-  const { posts } = useStore()
+  const posts = useStore((s) => s.posts)
   const [filters, setFilters] = useState<PostFilters>(EMPTY_FILTERS)
   const [accounts, setAccounts] = useState<{ email: string; name: string }[]>([])
   useEffect(() => {

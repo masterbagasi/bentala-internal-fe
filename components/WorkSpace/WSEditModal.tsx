@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { getSupabase } from '@/lib/supabase'
 import { useStore } from '@/hooks/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useLogActivity } from '@/hooks/useData'
 import { WS_STATUS_COLS, POST_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatFileSize, getFileIcon } from '@/lib/utils'
@@ -39,7 +40,7 @@ interface LocalFile {
 
 export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps) {
   const t = useT()
-  const { posts, upsertPost } = useStore()
+  const { posts, upsertPost } = useStore(useShallow((s) => ({ posts: s.posts, upsertPost: s.upsertPost })))
   const logActivity = useLogActivity()
   const post = posts.find(p => p.id === postId)
 
