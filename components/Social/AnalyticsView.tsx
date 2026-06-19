@@ -19,6 +19,7 @@ import {
 import { LiveAnalytics } from './LiveAnalytics'
 import type { IgAnalytics } from '@/lib/social/types'
 import { getSupabase } from '@/lib/supabase'
+import { useBrandRealtime } from '@/hooks/useBrandRealtime'
 
 // Real connected accounts for a brand (the ones actually logged in via Composio).
 interface LiveConn { username: string | null; platform: string | null; status: string; ig_user_id: string | null; connected_account_id: string }
@@ -26,10 +27,10 @@ interface LiveConn { username: string | null; platform: string | null; status: s
 function useBrandConnections(brand?: string) {
   const [conns, setConns] = useState<LiveConn[]>([])
   const [loading, setLoading] = useState(!!brand)
-  useEffect(() => {
-    if (!brand) { setConns([]); setLoading(false); return }
+
+  const fetchConns = useCallback(() => {
+    if (!brand) { setConns([]); setLoading(false); return () => {} }
     let cancelled = false
-    setLoading(true)
     const sb = getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
     sb.from('social_connections')
       .select('username,platform,status,ig_user_id,connected_account_id')
@@ -40,6 +41,16 @@ function useBrandConnections(brand?: string) {
       )
     return () => { cancelled = true }
   }, [brand])
+
+  useEffect(() => {
+    if (brand) setLoading(true)
+    const dispose = fetchConns()
+    return dispose
+  }, [brand, fetchConns])
+
+  // Keep the connected-accounts list live (connect/disconnect/status changes).
+  useBrandRealtime(brand, ['social_connections'], fetchConns)
+
   return { conns, loading }
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
 import { AccountsView } from '@/components/Social/AccountsView'
@@ -10,6 +10,7 @@ import { SocialPlanFilterButton } from '@/components/Social/PlanView'
 import { SUBJECTS } from '@/components/Social/mock'
 import { presetRange, type DateRange } from '@/components/Social/DateRangePicker'
 import { getSupabase } from '@/lib/supabase'
+import { useBrandRealtime } from '@/hooks/useBrandRealtime'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { Card } from '@/components/Social/ui'
@@ -20,13 +21,13 @@ import { Card } from '@/components/Social/ui'
 // open so the user can connect the first account.
 function useSocialConnected(slug: string): 'loading' | 'connected' | 'none' {
   const [state, setState] = useState<'loading' | 'connected' | 'none'>('loading')
-  useEffect(() => {
+
+  // A brand is "connected" when it has a real social_connections row (OAuth via
+  // Composio) with status 'connected'. (The legacy social_accounts table held
+  // manually-typed accounts; the live integration uses social_connections.)
+  const check = useCallback(() => {
     let cancelled = false
-    setState('loading')
     const sb = getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
-    // A brand is "connected" when it has a real social_connections row (OAuth via
-    // Composio) with status 'connected'. (The legacy social_accounts table held
-    // manually-typed accounts; the live integration uses social_connections.)
     sb.from('social_connections')
       .select('status')
       .eq('brand', slug)
@@ -41,6 +42,17 @@ function useSocialConnected(slug: string): 'loading' | 'connected' | 'none' {
       )
     return () => { cancelled = true }
   }, [slug])
+
+  useEffect(() => {
+    setState('loading')
+    const dispose = check()
+    return dispose
+  }, [check])
+
+  // Re-evaluate the gate live: connecting the first account (or disconnecting
+  // the last) flips Analytics/Reports/Plan on/off without a page reload.
+  useBrandRealtime(slug, ['social_connections'], check)
+
   return state
 }
 

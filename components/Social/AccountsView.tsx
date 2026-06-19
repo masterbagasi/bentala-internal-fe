@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { useBrandRealtime } from '@/hooks/useBrandRealtime'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { PLATFORM_META, type Platform, type ConnStatus, type SubjectType, type Connection } from './mock'
 import { Card, PlatformChip, StatusDot, SubjectTypeBadge, fmtNum } from './ui'
@@ -102,6 +103,14 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
     load()
     loadConnections()
   }, [brand, load, loadConnections])
+
+  // Live updates: when an account connects/disconnects or its status changes
+  // (here, in another tab, or via a sync), refetch this brand's accounts and
+  // connections so the list never goes stale without a manual refresh.
+  useBrandRealtime(brand, ['social_connections', 'social_accounts'], () => {
+    load()
+    loadConnections()
+  })
 
   function removeAccount(id: string) {
     setConfirmDialog({
