@@ -274,25 +274,21 @@ export function NotificationBell() {
       })
     })
 
-    // Chat @mentions — addressed to me in any room I can access. A task-chat
-    // mention opens the task's detail (lands on its Chat tab); a project-chat
-    // mention opens the unified Chat hub with that room selected.
+    // Chat @mentions — addressed to me in any room I can access. ALWAYS open the
+    // Chat hub with that room: a project-chat mention selects the project room, a
+    // task-chat mention opens that task's chat thread. We route through chat (not
+    // the board) because the mention is in CHAT — the user has chat access, but
+    // may NOT have board (Social/Projects) access, which would bounce a board
+    // deep-link and make the click do nothing.
     chatMentions.forEach(r => {
-      const task = parseTaskRoom(r.room)
-      const base = {
+      out.push({
         id: `chat-${r.id}`,
         at: r.created_at,
         author: r.author_name || r.author_email || t('Seseorang'),
         text: `${t('menyebut Anda di chat')} ${roomName(r.room)}`,
         postTitle: r.body?.slice(0, 80) || undefined,
-      }
-      if (task) {
-        const post = posts.find(p => p.id === task.postId)
-        const href = postHref(post, projectSlugs) ?? (projectSlugs.has(task.slug) ? `/smm/${encodeURIComponent(task.slug)}` : undefined)
-        out.push({ ...base, href, postId: task.postId })
-      } else {
-        out.push({ ...base, href: `/chat?room=${encodeURIComponent(r.room)}` })
-      }
+        href: `/chat?room=${encodeURIComponent(r.room)}`,
+      })
     })
 
     return out

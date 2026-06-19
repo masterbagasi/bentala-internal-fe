@@ -70,6 +70,11 @@ export function ChatHub() {
   // (shown in the conversation pane, replacing the room's general chat).
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [taskOpen, setTaskOpen] = useState<Post | null>(null)
+  // A task-chat deep-link (/chat?room=task.<slug>.<id>) can't open the thread
+  // until that project's task list has loaded the post; hold the wanted target
+  // here (matched by slug, NOT `selected`, so it works on mobile too where the
+  // sidebar hides once a room is selected) and let RoomTaskList open it.
+  const [pendingTask, setPendingTask] = useState<{ slug: string; postId: string } | null>(null)
   // Rooms that currently have at least one task chat — only those show the
   // expand chevron (a room with no task chat can't be expanded). Reported by
   // each RoomTaskList (which tracks its tasks even while collapsed).
@@ -188,6 +193,24 @@ export function ChatHub() {
   // desktop auto-open.
   useEffect(() => {
     if (didDeepLink.current || !roomParam || !accessLoaded || !rooms.length) return
+    // Task-chat deep-link: "task.<slug>.<postId>" → open that task's thread.
+    if (roomParam.startsWith('task.')) {
+      const rest = roomParam.slice(5)
+      const dot = rest.indexOf('.')
+      if (dot < 1) return
+      const slug = rest.slice(0, dot)
+      const postId = rest.slice(dot + 1)
+      if (!postId || !rooms.some(p => p.slug === slug)) return
+      didDeepLink.current = true
+      didAutoSelect.current = true
+      // Don't setSelected here: on mobile that hides the sidebar (and the task
+      // list) before it can load the post. RoomTaskList opens the thread via
+      // openTask(), which sets selected + taskOpen itself.
+      setExpanded(prev => new Set(prev).add(slug)) // reveal & mount the task list
+      setPendingTask({ slug, postId })
+      return
+    }
+    // Project-chat deep-link: open the room's general chat.
     if (!rooms.some(p => p.slug === roomParam)) return
     didDeepLink.current = true
     didAutoSelect.current = true
@@ -350,6 +373,8 @@ export function ChatHub() {
                     collapsed={!isExp}
                     onAutoExpand={() => setExpanded(prev => (prev.has(p.slug) ? prev : new Set(prev).add(p.slug)))}
                     onTasksChange={has => reportTasks(p.slug, has)}
+                    pendingOpenId={pendingTask?.slug === p.slug ? pendingTask.postId : null}
+                    onPendingOpened={() => setPendingTask(null)}
                   />
                 )}
                 </div>
@@ -401,7 +426,7 @@ export function ChatHub() {
 
 // Task threads listed under their project room in the message list. Each row
 // opens that task's discussion thread in the conversation pane.
-function RoomTaskList({ room, meEmail, activeId, onOpen, collapsed, onAutoExpand, onTasksChange }: {
+function RoomTaskList({ room, meEmail, activeId, onOpen, collapsed, onAutoExpand, onTasksChange, pendingOpenId, onPendingOpened }: {
   room: string
   meEmail: string
   activeId: string | null
@@ -409,11 +434,26 @@ function RoomTaskList({ room, meEmail, activeId, onOpen, collapsed, onAutoExpand
   collapsed: boolean
   onAutoExpand: () => void
   onTasksChange: (has: boolean) => void
+  pendingOpenId?: string | null
+  onPendingOpened?: () => void
 }) {
   const t = useT()
   const { items, markRead, clearChat } = useTaskThreads(room, meEmail)
   const [detailPost, setDetailPost] = useState<Post | null>(null)
   const [confirmClear, setConfirmClear] = useState<Post | null>(null)
+
+  // Open the task thread requested by a /chat?room=task.<slug>.<id> deep-link,
+  // once its post has loaded into this room's task list. Fires once per target.
+  const openedPendingRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!pendingOpenId || openedPendingRef.current === pendingOpenId) return
+    const it = items.find(i => i.post.id === pendingOpenId)
+    if (!it) return
+    openedPendingRef.current = pendingOpenId
+    markRead(it.post.id)
+    onOpen(it.post)
+    onPendingOpened?.()
+  }, [pendingOpenId, items, markRead, onOpen, onPendingOpened])
 
   // Tell the parent whether this room has any task chat, so the expand chevron
   // only shows when there's something to expand.
