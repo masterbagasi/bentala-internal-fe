@@ -27,14 +27,26 @@ let channelSeq = 0
  *  - `onChange` is held in a ref so callers can pass an inline closure without
  *    re-subscribing on every render; the channel only rebuilds when the brand
  *    or table set changes.
+ *  - `debounceMs` coalesces a burst of events (e.g. a sync upserting many rows,
+ *    or status rows landing back-to-back) into a single `onChange` call.
  */
 export function useBrandRealtime(
   brand: string | undefined,
   tables: string[],
   onChange: () => void,
+  debounceMs = 0,
 ) {
   const cb = useRef(onChange)
   useEffect(() => { cb.current = onChange }, [onChange])
+
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fire = () => {
+    if (debounceMs <= 0) { cb.current(); return }
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => cb.current(), debounceMs)
+  }
+  const fireRef = useRef(fire)
+  fireRef.current = fire
 
   // Stable per-instance suffix, assigned once on first render.
   const instanceId = useRef<number>(0)
@@ -58,7 +70,7 @@ export function useBrandRealtime(
         ch = ch.on(
           'postgres_changes',
           { event: '*', schema: 'public', table, filter: `brand=eq.${brand}` },
-          () => cb.current(),
+          () => fireRef.current(),
         )
       }
       channel = ch.subscribe()
@@ -66,6 +78,7 @@ export function useBrandRealtime(
 
     return () => {
       cancelled = true
+      if (timer.current) clearTimeout(timer.current)
       if (channel) supabase.removeChannel(channel)
     }
   }, [brand, tablesKey])

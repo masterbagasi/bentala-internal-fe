@@ -22,3 +22,11 @@ DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.social_connecti
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 ALTER TABLE public.social_connections REPLICA IDENTITY FULL;
 ALTER TABLE public.social_accounts   REPLICA IDENTITY FULL;
+
+-- IG analytics: publish ig_sync_state so the Analytics views (Overview/Audience/
+-- Content) update live the moment a sync completes (Refresh, another user, or
+-- cron). It's upserted once per sync and its new row carries `brand`, so a
+-- brand-filtered subscription works under the default replica identity — one
+-- event refreshes all tabs, no per-media event storm. See useBrandRealtime.
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.ig_sync_state;
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;

@@ -134,7 +134,10 @@ export function AnalyticsView({
   const loadCached = useCallback(async () => {
     if (!brand) return
     try {
-      const r = await fetch(`/api/social/instagram/analytics?brand=${encodeURIComponent(brand)}`)
+      // no-store: the analytics route sets Cache-Control max-age=30, so without
+      // this a realtime-triggered refetch would be served the stale cached body
+      // and the UI wouldn't actually update. We need the fresh row every time.
+      const r = await fetch(`/api/social/instagram/analytics?brand=${encodeURIComponent(brand)}`, { cache: 'no-store' })
       const d = r.ok ? await r.json() : null
       setLive(prev => (d as IgAnalytics) ?? prev ?? EMPTY_ANALYTICS)
     } catch { setLive(prev => prev ?? EMPTY_ANALYTICS) }
@@ -169,6 +172,13 @@ export function AnalyticsView({
     document.addEventListener('visibilitychange', onVisible)
     return () => { cancelled = true; clearInterval(poll); clearInterval(syncTimer); document.removeEventListener('visibilitychange', onVisible) }
   }, [brand, loadCached, refreshLive])
+
+  // Push, don't wait for the poll: every sync upserts ig_sync_state when it
+  // finishes — whether triggered here, by another user's Refresh, or the cron.
+  // Subscribing to that one row refreshes the cache (and so Overview, Audience
+  // and Content) the instant new data lands. Debounced so a brand with several
+  // connected accounts (one upsert each) coalesces into a single refetch.
+  useBrandRealtime(brand, ['ig_sync_state'], loadCached, 600)
 
   function changeSubject(id: string) {
     setSubjectId(id)
