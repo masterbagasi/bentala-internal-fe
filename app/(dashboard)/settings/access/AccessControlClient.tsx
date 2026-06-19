@@ -5,6 +5,7 @@ import { Modal, BtnPrimary, BtnSecondary, ConfirmDialog } from '@/components/sha
 import { AccountEditModal } from './AccountEditModal'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 // ── Types (mirror /api/access GET response) ──
 interface SectionMeta {
@@ -213,6 +214,8 @@ export default function AccessControlClient() {
     }
   }
 
+  const isMobile = useIsMobile()
+
   const filteredUsers = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return users
@@ -367,19 +370,21 @@ export default function AccessControlClient() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {filteredUsers.map(u => {
           return (
-            <div key={u.email} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
-              <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, background: u.avatarUrl ? 'transparent' : 'linear-gradient(135deg,#6c63ff,#a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden' }}>
-                {u.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img loading="lazy" decoding="async" src={u.avatarUrl} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : initials(u.name)}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{u.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
+            <div key={u.email} style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 10 : 12, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, background: u.avatarUrl ? 'transparent' : 'linear-gradient(135deg,#6c63ff,#a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden' }}>
+                  {u.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img loading="lazy" decoding="async" src={u.avatarUrl} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : initials(u.name)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10, flexShrink: 0, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                 <span style={{
                   fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', padding: '3px 10px', borderRadius: 999,
                   color: u.role === 'super_admin' ? 'var(--accent)' : 'var(--text2)',

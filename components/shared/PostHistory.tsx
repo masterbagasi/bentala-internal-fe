@@ -5,6 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { useLogActivity } from '@/hooks/useData'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
 import { POST_STATUS_LABELS } from '@/lib/constants'
 
@@ -55,6 +56,10 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
   const meEmail = useStore(s => s.meEmail)
   const logActivity = useLogActivity()
   const [open, setOpen] = useState(false)
+  const isMobile = useIsMobile()
+  // On mobile the dropdown is anchored to the viewport (fixed) instead of the
+  // button, so it can't spill off-screen; panelTop is the button's bottom Y.
+  const [panelTop, setPanelTop] = useState(0)
   const [rows, setRows] = useState<HistoryRow[]>([])
   // "Perubahan baru" badge: how many history entries arrived (from someone else)
   // since this user last OPENED the panel. The last-opened time is personal, so
@@ -203,7 +208,11 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
       <button
-        onClick={() => setOpen(o => { const next = !o; if (next) markHistorySeen(); return next })}
+        onClick={() => setOpen(o => {
+          const next = !o
+          if (next) { markHistorySeen(); setPanelTop(wrapRef.current?.getBoundingClientRect().bottom ?? 0) }
+          return next
+        })}
         title={t('Riwayat')}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
@@ -233,16 +242,19 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
         <div
           className="animate-slide-up"
           style={{
-            position: 'absolute', right: 0, top: 'calc(100% + 6px)', width: 360, zIndex: 80,
-            maxWidth: 'min(360px, 92vw)',
+            zIndex: 80,
             background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
             boxShadow: '0 12px 40px rgba(0,0,0,0.5)', overflow: 'hidden',
+            ...(isMobile
+              // Pinned to the viewport so it always fits the screen width.
+              ? { position: 'fixed' as const, left: 8, right: 8, top: panelTop + 6, width: 'auto', maxWidth: 'none' }
+              : { position: 'absolute' as const, right: 0, top: 'calc(100% + 6px)', width: 360, maxWidth: 'min(360px, 92vw)' }),
           }}
         >
           <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t('Riwayat Perubahan')}</span>
           </div>
-          <div style={{ maxHeight: 400, overflowY: 'auto', padding: 8 }}>
+          <div style={{ maxHeight: 'min(400px, 65vh)', overflowY: 'auto', padding: 8 }}>
             {rows.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '28px 12px', color: 'var(--text2)', fontSize: 12.5 }}>
                 {t('Belum ada riwayat.')}
