@@ -292,7 +292,10 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
           <DeepLinkPost onOpen={openPreview} />
         </Suspense>
         {/* Tab content */}
-        <div style={{ padding: activeTab === 'board' ? '0 24px 24px' : 24 }}>
+        {/* Board manages its own horizontal gutters INSIDE the scroll area (so
+            the first/last columns keep breathing room from the card edge even
+            when scrolled); other tabs get the uniform 24px page padding. */}
+        <div style={{ padding: activeTab === 'board' ? '0 0 24px' : 24 }}>
           {activeTab === 'list' && (
             <ListView posts={filtered} canEdit={canEdit} onEdit={openEdit} onDelete={handleDelete} onPreview={openPreview} unreadIds={unreadIds} />
           )}
@@ -632,8 +635,8 @@ function KanbanBoard({
 
   return (
     <div ref={boardRef} style={{
-      display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8,
-      alignItems: 'flex-start', marginTop: 20,
+      display: 'flex', gap: 12, overflowX: 'auto',
+      paddingLeft: 24, paddingBottom: 8, alignItems: 'flex-start', marginTop: 20,
     }}>
       {cols.map(col => {
         const colPosts = posts.filter(p => keyOf(p) === col.key).slice().sort(byPostDateAsc)
@@ -760,6 +763,10 @@ function KanbanBoard({
           </div>
         )
       })}
+      {/* Right gutter: a flex spacer keeps the last column off the card edge
+          when scrolled fully right (the gap before it + this width ≈ the left
+          padding, so both ends match). */}
+      <div aria-hidden style={{ flex: '0 0 12px', alignSelf: 'stretch' }} />
     </div>
   )
 }
