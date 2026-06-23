@@ -124,7 +124,7 @@ export interface Invoice {
   id: string
   num: string
   client: string
-  client_id?: string
+  client_id?: string | null
   project: string
   value: number
   due?: string
@@ -141,7 +141,7 @@ export interface Project {
   id: string
   name: string
   client: string
-  client_id?: string
+  client_id?: string | null
   type: ProjectType
   deadline?: string
   status: ProjectStatus

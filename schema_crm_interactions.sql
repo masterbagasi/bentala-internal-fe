@@ -43,3 +43,8 @@ update public.invoices i set client_id = c.id
 
 -- Live updates for the timeline + follow-up slice.
 alter publication supabase_realtime add table public.client_interactions;
+
+-- Client 360 needs projects/invoices live so the profile's lists + financial
+-- KPIs reflect a newly-linked project/invoice without a reload.
+alter publication supabase_realtime add table public.projects;
+alter publication supabase_realtime add table public.invoices;

@@ -3,18 +3,20 @@
 import { useEffect } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { useStore } from './useStore'
-import type { Post, Client, Task, ActivityLog } from '@/lib/types'
+import type { Post, Client, Task, ActivityLog, Project, Invoice } from '@/lib/types'
 
 /**
  * useRealtime
  * Subscribes to Supabase realtime changes for posts, tasks, clients,
- * and activity_log. Automatically updates the Zustand store.
+ * projects, invoices, and activity_log. Automatically updates the Zustand store.
  */
 export function useRealtime() {
   const {
-    upsertPost,   removePost,
-    upsertClient, removeClient,
-    upsertTask,   removeTask,
+    upsertPost,    removePost,
+    upsertClient,  removeClient,
+    upsertTask,    removeTask,
+    upsertProject, removeProject,
+    upsertInvoice, removeInvoice,
     addActivity,
   } = useStore()
 
@@ -53,6 +55,24 @@ export function useRealtime() {
           removeTask(payload.old.id as string)
         } else {
           upsertTask(payload.new as Task)
+        }
+      })
+
+      // Projects — keep the CRM client-360 lists + project views live.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          removeProject(payload.old.id as string)
+        } else {
+          upsertProject(payload.new as Project)
+        }
+      })
+
+      // Invoices — keep the CRM client-360 financial summary + invoice views live.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices' }, (payload) => {
+        if (payload.eventType === 'DELETE') {
+          removeInvoice(payload.old.id as string)
+        } else {
+          upsertInvoice(payload.new as Invoice)
         }
       })
 
@@ -96,5 +116,5 @@ export function useRealtime() {
       authSub.subscription.unsubscribe()
       if (channel) supabase.removeChannel(channel)
     }
-  }, [upsertPost, removePost, upsertClient, removeClient, upsertTask, removeTask, addActivity])
+  }, [upsertPost, removePost, upsertClient, removeClient, upsertTask, removeTask, upsertProject, removeProject, upsertInvoice, removeInvoice, addActivity])
 }
