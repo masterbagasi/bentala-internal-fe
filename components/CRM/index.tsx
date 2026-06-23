@@ -7,7 +7,7 @@ import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
-import { CRM_STAGES, CRM_BOARD_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
+import { CRM_STAGES, CRM_BOARD_STAGES, STAGE_LABELS, SERVICE_OPTIONS, STAGE_PROBABILITY } from '@/lib/constants'
 import { formatRupiah } from '@/lib/utils'
 import { useLogActivity } from '@/hooks/useData'
 import { logStageChange } from '@/lib/log-interaction'
@@ -109,7 +109,17 @@ export function CRMPage() {
     setShowModal(true)
   }
 
-  const filtered = crmFilter === 'all' ? clients : clients.filter(c => c.stage === crmFilter)
+  const [closingThisMonth, setClosingThisMonth] = useState(false)
+  const ym = (() => { const d = new Date(); return `${d.getFullYear()}-${`${d.getMonth()+1}`.padStart(2,'0')}` })()
+  const openDeals = clients.filter(c => c.stage !== 'inactive')
+  const totalPipeline = openDeals.reduce((n, c) => n + (c.value || 0), 0)
+  const weightedForecast = Math.round(openDeals.reduce((n, c) => n + (c.value || 0) * (STAGE_PROBABILITY[c.stage] ?? 0), 0))
+
+  const filtered = (() => {
+    let base = crmFilter === 'all' ? clients : clients.filter(c => c.stage === crmFilter)
+    if (closingThisMonth) base = base.filter(c => (c.expected_close || '').slice(0, 7) === ym)
+    return base
+  })()
 
   const today = todayISODate()
   const toneByClient = useMemo(() => {
@@ -172,6 +182,18 @@ export function CRMPage() {
         >
           {t('+ Tambah Client')}
         </button>
+      </div>
+
+      {/* Forecast strip */}
+      <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <div><span style={{ fontSize: 11, color: 'var(--text2)' }}>{t('Total Pipeline')}</span><div style={{ fontSize: 16, fontWeight: 700 }}>{formatRupiah(totalPipeline)}</div></div>
+        <div><span style={{ fontSize: 11, color: 'var(--text2)' }}>{t('Weighted Forecast')}</span><div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent4)' }}>{formatRupiah(weightedForecast)}</div></div>
+        <button
+          onClick={() => setClosingThisMonth(v => !v)}
+          style={{ marginLeft: 'auto', padding: '6px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+            border: '1px solid', borderColor: closingThisMonth ? 'var(--accent)' : 'var(--border)',
+            background: closingThisMonth ? 'rgba(108,99,255,0.12)' : 'var(--bg3)', color: closingThisMonth ? 'var(--accent)' : 'var(--text2)' }}
+        >{t('Closing bulan ini')}</button>
       </div>
 
       {followUps.length > 0 && (() => {
@@ -265,6 +287,15 @@ export function CRMPage() {
                       {formatRupiah(c.value)}
                     </div>
                   )}
+                  {c.expected_close && (() => {
+                    const open = c.stage !== 'close' && c.stage !== 'invoice' && c.stage !== 'inactive'
+                    const overdue = open && c.expected_close < new Date().toISOString().slice(0,10)
+                    return (
+                      <div style={{ fontSize: 11, color: overdue ? '#ff6b6b' : 'var(--text2)', marginBottom: 4 }}>
+                        🎯 {new Date(c.expected_close).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}{overdue ? ` · ${t('lewat')}` : ''}
+                      </div>
+                    )
+                  })()}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: 'var(--text2)', background: 'var(--bg2)', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--border)' }}>
                       {stage.label}
