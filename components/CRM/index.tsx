@@ -7,7 +7,7 @@ import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
-import { CRM_STAGES, CRM_BOARD_STAGES, STAGE_LABELS, SERVICE_OPTIONS, STAGE_PROBABILITY } from '@/lib/constants'
+import { CRM_STAGES, CRM_BOARD_STAGES, STAGE_LABELS, SERVICE_OPTIONS, STAGE_PROBABILITY, TEMPERATURES } from '@/lib/constants'
 import { formatRupiah } from '@/lib/utils'
 import { useLogActivity } from '@/hooks/useData'
 import { logStageChange } from '@/lib/log-interaction'
@@ -297,9 +297,14 @@ export function CRMPage() {
                     )
                   })()}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text2)', background: 'var(--bg2)', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--border)' }}>
-                      {stage.label}
-                    </span>
+                    {/* Deal temperature (cold/warm/hot). The stage is already the
+                        column, so this slot shows qualification instead of repeating it. */}
+                    {(() => {
+                      const temp = TEMPERATURES.find(x => x.key === c.temperature)
+                      return temp
+                        ? <span style={{ fontSize: 11, fontWeight: 600, color: temp.color, background: temp.color + '22', padding: '2px 9px', borderRadius: 20 }}>{temp.label}</span>
+                        : <span />
+                    })()}
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={(e) => { e.stopPropagation(); openModal(c) }}
                         style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 11, color: 'var(--text)' }}>✏️</button>
@@ -378,6 +383,7 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
     notes:          client?.notes   || prefill?.notes   || '',
     source:         client?.source  || sourceProp       || 'manual',
     expected_close: client?.expected_close || '',
+    temperature: client?.temperature || '',
   })
   const [loading, setLoading] = useState(false)
 
@@ -396,6 +402,7 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
       notes:          form.notes,
       source:         form.source,
       expected_close: form.expected_close || null,
+      temperature: form.temperature || null,
     }
     if (client) {
       await supabase.from('clients').update(data).eq('id', client.id)
@@ -445,9 +452,17 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
             <input type="number" value={form.value} onChange={e => setForm(f=>({...f,value:e.target.value}))} placeholder="0" />
           </FG>
         </div>
-        <FG label={t('Perkiraan Closing')}>
-          <input type="date" value={form.expected_close} onChange={e => setForm(f=>({...f,expected_close:e.target.value}))} />
-        </FG>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <FG label={t('Perkiraan Closing')}>
+            <input type="date" value={form.expected_close} onChange={e => setForm(f=>({...f,expected_close:e.target.value}))} />
+          </FG>
+          <FG label={t('Temperature')}>
+            <select value={form.temperature} onChange={e => setForm(f=>({...f,temperature:e.target.value}))}>
+              <option value="">—</option>
+              {TEMPERATURES.map(tp => <option key={tp.key} value={tp.key}>{tp.label}</option>)}
+            </select>
+          </FG>
+        </div>
         <FG label={t('Jenis Layanan')}>
           <select value={form.service} onChange={e => setForm(f=>({...f,service:e.target.value}))}>
             {SERVICE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}

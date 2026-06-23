@@ -74,10 +74,11 @@ export interface Database {
           lead_id: string | null
           expected_close: string | null
           close_reason: string | null
+          temperature: string | null
           created_at: string
           updated_at: string
         }
-        Insert: Omit<Database['public']['Tables']['clients']['Row'], 'id' | 'created_at' | 'updated_at' | 'source' | 'lead_id' | 'expected_close' | 'close_reason'> & {
+        Insert: Omit<Database['public']['Tables']['clients']['Row'], 'id' | 'created_at' | 'updated_at' | 'source' | 'lead_id' | 'expected_close' | 'close_reason' | 'temperature'> & {
           id?: string
           created_at?: string
           updated_at?: string
@@ -85,6 +86,7 @@ export interface Database {
           lead_id?: string | null
           expected_close?: string | null
           close_reason?: string | null
+          temperature?: string | null
         }
         Update: Partial<Database['public']['Tables']['clients']['Insert']>
         Relationships: []

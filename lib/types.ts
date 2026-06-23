@@ -118,6 +118,7 @@ export interface Client {
   lead_id?: string | null
   expected_close?: string | null
   close_reason?: string | null
+  temperature?: 'cold' | 'warm' | 'hot' | null
   created_at: string
   updated_at: string
 }

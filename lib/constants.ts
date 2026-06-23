@@ -118,6 +118,14 @@ export const STAGE_PROBABILITY: Record<string, number> = {
   lead: 0.2, pitch: 0.5, close: 0.9, invoice: 1, inactive: 0,
 }
 
+// Deal "temperature" (lead qualification) — orthogonal to stage. Shown as a
+// coloured badge on the card; does not affect the forecast (stage-based).
+export const TEMPERATURES = [
+  { key: 'cold', label: 'Cold', color: '#5b9bd5' },
+  { key: 'warm', label: 'Warm', color: '#ffa94d' },
+  { key: 'hot',  label: 'Hot',  color: '#ff6b6b' },
+] as const
+
 export const PROJ_TYPE: Record<string, string> = {
   smm:      'SMM',
   content:  'One-off',
