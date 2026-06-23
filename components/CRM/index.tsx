@@ -312,19 +312,6 @@ export function CRMPage() {
                         style={{ background: 'var(--accent2)', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 11, color: '#fff' }}>✕</button>
                     </div>
                   </div>
-                  {/* Move buttons */}
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {CRM_BOARD_STAGES.filter(x => x.key !== stage.key).map(x => (
-                      <button key={x.key}
-                        onClick={(e) => { e.stopPropagation(); moveToStage(c, x.key) }}
-                        style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', fontSize: 10, color: 'var(--text2)' }}
-                        onMouseOver={e => (e.currentTarget as HTMLElement).style.borderColor = x.color}
-                        onMouseOut={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'}
-                      >
-                        → {x.label}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )})}
 
