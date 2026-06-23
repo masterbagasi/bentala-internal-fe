@@ -194,18 +194,27 @@ export function CRMPage() {
 }
 
 // ── Client Modal ──
-function ClientModal({ open, client, onClose }: { open: boolean; client: Client | null; onClose: () => void }) {
+export function ClientModal({ open, client, onClose, prefill, source: sourceProp, leadId, onCreated }: {
+  open: boolean
+  client: Client | null
+  onClose: () => void
+  prefill?: Partial<{ name: string; pic: string; contact: string; stage: ClientStage; service: string; notes: string }>
+  source?: string
+  leadId?: string
+  onCreated?: (clientId: string) => void
+}) {
   const t = useT()
   const logActivity = useLogActivity()
   const [form, setForm] = useState({
-    name: client?.name || '',
-    pic: client?.pic || '',
-    contact: client?.contact || '',
-    stage: client?.stage || 'lead',
-    value: client?.value?.toString() || '',
-    service: client?.service || 'smm',
+    name:     client?.name    || prefill?.name    || '',
+    pic:      client?.pic     || prefill?.pic     || '',
+    contact:  client?.contact || prefill?.contact || '',
+    stage:    client?.stage   || prefill?.stage   || 'lead',
+    value:    client?.value?.toString() || '',
+    service:  client?.service || prefill?.service || 'smm',
     internal: client?.internal || 'Dandi',
-    notes: client?.notes || '',
+    notes:    client?.notes   || prefill?.notes   || '',
+    source:   client?.source  || sourceProp       || 'manual',
   })
   const [loading, setLoading] = useState(false)
 
@@ -222,14 +231,19 @@ function ClientModal({ open, client, onClose }: { open: boolean; client: Client 
       service:  form.service,
       internal: form.internal,
       notes:    form.notes,
+      source:   form.source,
     }
     if (client) {
       await supabase.from('clients').update(data).eq('id', client.id)
       logActivity(`Client diupdate: "${form.name}"`)
       if (client.stage !== form.stage) logStageChange(client.id, client.stage, form.stage)
     } else {
-      await supabase.from('clients').insert(data)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: created, error } = await (supabase as any)
+        .from('clients').insert({ ...data, lead_id: leadId || null }).select().single()
+      if (error) { setLoading(false); alert(t('Gagal menyimpan: ') + error.message); return }
       logActivity(`Client baru: "${form.name}" (${STAGE_LABELS[form.stage]})`)
+      if (created?.id) onCreated?.(created.id as string)
     }
     setLoading(false)
     onClose()
@@ -278,6 +292,13 @@ function ClientModal({ open, client, onClose }: { open: boolean; client: Client 
             <option value="Naufal">Naufal (CCO)</option>
             <option value="Reinaldi">Reinaldi (CBO)</option>
             <option value="Faizal">Faizal (COO)</option>
+          </select>
+        </FG>
+        <FG label={t('Sumber')}>
+          <select value={form.source} onChange={e => setForm(f=>({...f,source:e.target.value}))}>
+            <option value="manual">Manual</option>
+            <option value="website">Website</option>
+            <option value="referral">Referral</option>
           </select>
         </FG>
         <FG label={t('Catatan')}>
