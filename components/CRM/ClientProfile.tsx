@@ -49,6 +49,15 @@ export function ClientProfile({ id }: { id: string }) {
               <div>{t('PIC Internal')}: {client.internal || '—'} · {t('Layanan')}: {serviceLabel}</div>
               {client.value > 0 && <div>{t('Nilai Deal')}: {formatRupiah(client.value)}</div>}
               {client.notes && <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{client.notes}</div>}
+              <div>
+                {t('Sumber')}: {client.source === 'website' ? 'Website' : client.source === 'referral' ? 'Referral' : 'Manual'}
+                {client.lead_id && (
+                  <>
+                    {' · '}
+                    <Link href="/website/leads" style={{ color: 'var(--accent)', textDecoration: 'none' }}>{t('dari Lead website')}</Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
