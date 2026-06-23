@@ -81,12 +81,34 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['clients']['Insert']>
         Relationships: []
       }
+      client_interactions: {
+        Row: {
+          id: string
+          client_id: string
+          type: string
+          summary: string
+          occurred_at: string
+          next_follow_up: string | null
+          follow_up_done: boolean
+          files: string[]
+          author_email: string | null
+          author_name: string | null
+          created_at: string
+        }
+        // Only client_id is required at insert; every other column has a DB
+        // default (see schema_crm_interactions.sql), so they're optional here.
+        Insert: Pick<Database['public']['Tables']['client_interactions']['Row'], 'client_id'>
+          & Partial<Omit<Database['public']['Tables']['client_interactions']['Row'], 'client_id'>>
+        Update: Partial<Database['public']['Tables']['client_interactions']['Insert']>
+        Relationships: []
+      }
       invoices: {
         Row: {
           id: string
           num: string
           client: string
           project: string
+          client_id: string | null
           value: number
           due: string | null
           status: string
@@ -94,10 +116,11 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: Omit<Database['public']['Tables']['invoices']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+        Insert: Omit<Database['public']['Tables']['invoices']['Row'], 'id' | 'created_at' | 'updated_at' | 'client_id'> & {
           id?: string
           created_at?: string
           updated_at?: string
+          client_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['invoices']['Insert']>
         Relationships: []
@@ -107,6 +130,7 @@ export interface Database {
           id: string
           name: string
           client: string
+          client_id: string | null
           type: string
           deadline: string | null
           status: string
@@ -116,10 +140,11 @@ export interface Database {
           created_at: string
           updated_at: string
         }
-        Insert: Omit<Database['public']['Tables']['projects']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+        Insert: Omit<Database['public']['Tables']['projects']['Row'], 'id' | 'created_at' | 'updated_at' | 'client_id'> & {
           id?: string
           created_at?: string
           updated_at?: string
+          client_id?: string | null
         }
         Update: Partial<Database['public']['Tables']['projects']['Insert']>
         Relationships: []
