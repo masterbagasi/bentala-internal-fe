@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
@@ -23,6 +23,82 @@ export function CRMPage() {
   const [editClient, setEditClient] = useState<Client | null>(null)
   const [reasonReq, setReasonReq] = useState<{ client: Client; toStage: string; required: boolean } | null>(null)
   const logActivity = useLogActivity()
+
+  // ── Drag-and-drop state ──
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [overCol, setOverCol] = useState<string | null>(null)
+  // boardRef + touchRef power the mobile long-press touch DnD (same pattern as BPI KanbanBoard).
+  const boardRef = useRef<HTMLDivElement>(null)
+  const touchRef = useRef<{
+    client: Client; startX: number; startY: number
+    dragging: boolean; overCol: string | null
+    timer: ReturnType<typeof setTimeout> | null
+  } | null>(null)
+  // Keep a stable ref to live values so the non-passive listeners don't need to re-bind.
+  const liveRef = useRef({ moveToStage, overCol })
+  liveRef.current = { moveToStage, overCol }
+
+  function startTouchDrag(client: Client, e: React.TouchEvent) {
+    const tch = e.touches[0]
+    if (!tch) return
+    const st = {
+      client, startX: tch.clientX, startY: tch.clientY,
+      dragging: false, overCol: null as string | null,
+      timer: null as ReturnType<typeof setTimeout> | null,
+    }
+    st.timer = setTimeout(() => {
+      if (touchRef.current !== st) return
+      st.dragging = true
+      setDragId(client.id)
+      try { navigator.vibrate?.(12) } catch { /* not supported */ }
+    }, 200)
+    touchRef.current = st
+  }
+
+  useEffect(() => {
+    const el = boardRef.current
+    if (!el) return
+    const clear = () => {
+      const st = touchRef.current
+      if (st?.timer) clearTimeout(st.timer)
+      if (st?.dragging) { setDragId(null); setOverCol(null) }
+      touchRef.current = null
+    }
+    const onMoveN = (e: TouchEvent) => {
+      const st = touchRef.current
+      if (!st) return
+      const tch = e.touches[0]
+      if (!tch) return
+      if (!st.dragging) {
+        if (Math.abs(tch.clientX - st.startX) > 12 || Math.abs(tch.clientY - st.startY) > 12) clear()
+        return
+      }
+      e.preventDefault()
+      const tEl = document.elementFromPoint(tch.clientX, tch.clientY) as HTMLElement | null
+      const key = tEl?.closest('[data-col-key]')?.getAttribute('data-col-key') ?? null
+      st.overCol = key
+      setOverCol(key)
+    }
+    const onEndN = (e: TouchEvent) => {
+      const st = touchRef.current
+      if (st?.dragging) {
+        e.preventDefault()
+        if (st.overCol && st.client.stage !== st.overCol) {
+          liveRef.current.moveToStage(st.client, st.overCol)
+        }
+      }
+      clear()
+    }
+    el.addEventListener('touchmove', onMoveN, { passive: false })
+    el.addEventListener('touchend', onEndN, { passive: false })
+    el.addEventListener('touchcancel', clear)
+    return () => {
+      el.removeEventListener('touchmove', onMoveN)
+      el.removeEventListener('touchend', onEndN)
+      el.removeEventListener('touchcancel', clear)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function openModal(client?: Client) {
     setEditClient(client || null)
@@ -117,14 +193,27 @@ export function CRMPage() {
       })()}
 
       {/* Kanban */}
-      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }}>
-        {CRM_STAGES.map(stage => {
+      <div ref={boardRef} style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }}>
+        {CRM_BOARD_STAGES.map(stage => {
           const cols = filtered.filter(c => c.stage === stage.key)
+          const isOver = overCol === stage.key
           return (
             <div key={stage.key}
+              data-col-key={stage.key}
+              onDragOver={(e) => { e.preventDefault(); if (overCol !== stage.key) setOverCol(stage.key) }}
+              onDrop={(e) => {
+                e.preventDefault()
+                const c = clients.find(x => x.id === dragId)
+                setDragId(null); setOverCol(null)
+                if (c && c.stage !== stage.key) moveToStage(c, stage.key)
+              }}
               style={{
-                minWidth: 265, maxWidth: 265, background: 'var(--bg2)', border: '1px solid var(--border)',
+                minWidth: 265, maxWidth: 265,
+                background: isOver ? `${stage.color}14` : 'var(--bg2)',
+                border: `1px solid ${isOver ? stage.color : 'var(--border)'}`,
                 borderRadius: 12, padding: '14px 12px 10px', flexShrink: 0,
+                boxShadow: isOver ? `0 0 0 2px ${stage.color}55` : 'none',
+                transition: 'border-color 0.12s, background 0.12s, box-shadow 0.12s',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
@@ -134,10 +223,27 @@ export function CRMPage() {
                 </span>
               </div>
 
-              {cols.map(c => (
+              {cols.map(c => {
+                const isPicked = dragId === c.id
+                return (
                 <div key={c.id}
-                  onClick={() => router.push(`/clients/${c.id}`)}
-                  style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 8, cursor: 'pointer' }}
+                  draggable
+                  onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragId(c.id) }}
+                  onDragEnd={() => { setDragId(null); setOverCol(null) }}
+                  onTouchStart={(e) => startTouchDrag(c, e)}
+                  onClick={(e) => {
+                    // Suppress navigate if a drag just ended on this card (touch DnD fires a synthetic click on touchend).
+                    if (isPicked) { e.preventDefault(); return }
+                    router.push(`/clients/${c.id}`)
+                  }}
+                  style={{
+                    background: 'var(--bg3)',
+                    border: `1px solid ${isPicked ? 'var(--accent)' : 'var(--border)'}`,
+                    borderRadius: 8, padding: '10px 12px', marginBottom: 8,
+                    cursor: 'grab', opacity: isPicked ? 0.55 : 1,
+                    WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none',
+                    transition: 'border-color 0.15s, opacity 0.15s',
+                  }}
                 >
                   <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4 }}>
                     {toneByClient.get(c.id) && (
@@ -179,7 +285,7 @@ export function CRMPage() {
                     ))}
                   </div>
                 </div>
-              ))}
+              )})}
 
               <button onClick={() => { openModal(); }}
                 style={{ width: '100%', background: 'none', border: '1px dashed var(--border)', borderRadius: 8, padding: '8px 4px', cursor: 'pointer', fontSize: 12, color: 'var(--text2)', marginTop: 4, transition: 'all 0.15s' }}
