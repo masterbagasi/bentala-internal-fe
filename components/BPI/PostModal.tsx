@@ -13,6 +13,7 @@ import { SingleDatePicker } from '@/components/Social/DateRangePicker'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 import type { Post } from '@/lib/types'
+import { DANGEROUS_SCHEME, isUploadedFile, linkHref } from '@/lib/attachments'
 
 interface PostModalProps {
   open: boolean
@@ -48,30 +49,6 @@ const DEFAULT_FORM = {
   tagged: [] as string[],
   ratio: '',
   files: [] as string[],
-}
-
-// `form.files` holds BOTH uploaded files and pasted links. An upload lives in
-// our Supabase storage bucket; anything else is a link the user pasted (Drive /
-// Figma / any URL) and must render as an openable chip, not an <img> thumbnail
-// (a non-image URL rendered as <img> just shows a broken-image icon — which is
-// what made "attach a link" look broken).
-const isUploadedFile = (u: string) => u.includes('/storage/v1/object/public/')
-// Dangerous URL schemes that must never reach an href (clickable XSS via
-// javascript:/data:/etc). Used both at the input site (so they're never
-// persisted) and as a render-time guard.
-const DANGEROUS_SCHEME = /^\s*(javascript|data|vbscript|file|blob):/i
-// Accept ANY link: if the user omits the scheme (e.g. "drive.google.com/…") we
-// still open it as an absolute URL rather than a same-site relative path. Then
-// hard-restrict to http(s) — anything else (a crafted javascript:// that slips
-// past the input check, an exotic scheme) renders as an inert '#'.
-const linkHref = (u: string) => {
-  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(u) ? u : `https://${u}`
-  try {
-    const parsed = new URL(withScheme)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : '#'
-  } catch {
-    return '#'
-  }
 }
 
 export function PostModal({ open, onClose, editId, entity, projectScope }: PostModalProps) {
