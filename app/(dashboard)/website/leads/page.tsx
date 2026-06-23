@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import type { BsiLead } from '@/lib/website-types'
@@ -8,6 +9,7 @@ import { PageShell } from '@/components/shared/PageShell'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { ListEmpty, ListError } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
+import { ClientModal } from '@/components/CRM'
 
 const STATUS_LABELS: Record<BsiLead['status'], string> = {
   new: 'Baru',
@@ -36,6 +38,7 @@ export default function LeadsAdminPage() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<BsiLead['status'] | 'all'>('all')
   const [query, setQuery] = useState('')
+  const [convertLead, setConvertLead] = useState<BsiLead | null>(null)
 
   async function load() {
     const { data, error } = await supabase
@@ -53,6 +56,14 @@ export default function LeadsAdminPage() {
     const { error } = await supabase.from('bsi_leads').update({ status }).eq('id', id)
     if (error) { alert(error.message); return }
     setItems((xs) => xs.map((x) => (x.id === id ? { ...x, status } : x)))
+  }
+
+  async function handleConverted(clientId: string) {
+    const lead = convertLead
+    if (!lead) return
+    await supabase.from('bsi_leads').update({ converted_client_id: clientId, status: 'closed' }).eq('id', lead.id)
+    setItems(xs => xs.map(x => x.id === lead.id ? { ...x, converted_client_id: clientId, status: 'closed' } : x))
+    setConvertLead(null)
   }
 
   const filtered = items
@@ -124,12 +135,30 @@ export default function LeadsAdminPage() {
                   key={lead.id}
                   lead={lead}
                   onUpdateStatus={(s) => updateStatus(lead.id, s)}
+                  onConvert={() => setConvertLead(lead)}
                 />
               ))}
             </div>
           )}
         </Section>
       </div>
+      {convertLead && (
+        <ClientModal
+          open
+          client={null}
+          source="website"
+          leadId={convertLead.id}
+          prefill={{
+            name: convertLead.brand_name,
+            pic: convertLead.full_name,
+            contact: convertLead.contact_value,
+            notes: [convertLead.project_type, convertLead.notes].filter(Boolean).join(' · '),
+            stage: 'lead',
+          }}
+          onCreated={handleConverted}
+          onClose={() => setConvertLead(null)}
+        />
+      )}
     </PageShell>
   )
 }
@@ -273,9 +302,11 @@ function SearchInput({ value, onChange }: { value: string; onChange: (v: string)
 function LeadCard({
   lead,
   onUpdateStatus,
+  onConvert,
 }: {
   lead: BsiLead
   onUpdateStatus: (s: BsiLead['status']) => void
+  onConvert: () => void
 }) {
   const t = useT()
   const [expanded, setExpanded] = useState(false)
@@ -312,7 +343,7 @@ function LeadCard({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'auto 1fr auto auto auto',
+          gridTemplateColumns: 'auto 1fr auto auto auto auto',
           alignItems: 'center',
           gap: 14,
           padding: '14px 16px',
@@ -425,6 +456,24 @@ function LeadCard({
 
         {/* Status pill (clickable dropdown) */}
         <StatusPill status={lead.status} onChange={onUpdateStatus} />
+
+        {/* Convert action / converted badge */}
+        {lead.converted_client_id ? (
+          <Link
+            href={`/clients/${lead.converted_client_id}`}
+            onClick={(e) => e.stopPropagation()}
+            style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent3)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+          >
+            ✓ {t('Jadi Client')}
+          </Link>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); onConvert() }}
+            style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: 'var(--accent)', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            {t('Jadikan Client')}
+          </button>
+        )}
 
         {/* Date — clean & tabular */}
         <div
