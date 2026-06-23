@@ -21,6 +21,8 @@ const DS_PIC = 'Design Studio'
 const hasVideo = (p: Post) => (p.pics || []).includes(VP_PIC)
 const hasDesign = (p: Post) => (p.pics || []).includes(DS_PIC)
 const trackDone = (v: string) => v === 'review' || v === 'done' || v === 'ready' || v === 'published'
+// A track still sitting in "To Do List" — not yet started (empty/brief/todo).
+const trackPending = (v: string) => !v || v === 'brief' || v === 'todo'
 
 // Map a track to its WS board column. Authority lives on the Socmed Management
 // board: a track only sits in "Done" once the post is actually Ready to Post /
@@ -41,6 +43,12 @@ function deriveStatus(p: Post): Post['status'] {
   const vOk = !hv || trackDone(p.video_status)
   const dOk = !hd || trackDone(p.design_status)
   if ((hv || hd) && vOk && dOk) return 'review'
+  // Every present track still waiting in "To Do List" → the post belongs in
+  // Brief on SMM (To Do List ↔ Brief), not Production. A track that has actually
+  // started (produksi+) is what pulls the post into Production.
+  const vPending = !hv || trackPending(p.video_status)
+  const dPending = !hd || trackPending(p.design_status)
+  if ((hv || hd) && vPending && dPending) return 'brief'
   return 'produksi'
 }
 
@@ -50,12 +58,20 @@ function deriveStatus(p: Post): Post['status'] {
 // Production, with per-track chips on the card showing each discipline's stage.
 function smmColKey(p: Post): string {
   const s = p.status
-  if (s === 'todo' || s === 'brief' || s === 'ready' || s === 'published' || s === 'done') return s
+  if (s === 'todo' || s === 'ready' || s === 'published' || s === 'done') return s
   const hv = hasVideo(p), hd = hasDesign(p)
+  // Trackless posts (no Video Production / Design Studio discipline) just honour
+  // their own status — including 'brief' → the Brief column.
+  if (!hv && !hd) return s
   if ((hv && p.video_status === 'revisi') || (hd && p.design_status === 'revisi')) return 'revisi'
   const vOk = !hv || trackDone(p.video_status)
   const dOk = !hd || trackDone(p.design_status)
-  if ((hv || hd) && vOk && dOk) return 'review'
+  if (vOk && dOk) return 'review'
+  // All present tracks still in "To Do List" → Brief (mirrors deriveStatus), so a
+  // WS card moved back to To Do List leaves Production on the SMM board too.
+  const vPending = !hv || trackPending(p.video_status)
+  const dPending = !hd || trackPending(p.design_status)
+  if (vPending && dPending) return 'brief'
   return 'produksi'
 }
 
@@ -64,6 +80,12 @@ function smmColKey(p: Post): string {
 // derived column stays in sync with the card's new position.
 function smmUpdates(p: Post, colKey: string): Partial<Post> {
   switch (colKey) {
+    // Back to Brief / To Do List: reset every track so the WS boards follow.
+    case 'brief': return {
+      status: 'brief',
+      ...(hasVideo(p) ? { video_status: 'brief' } : {}),
+      ...(hasDesign(p) ? { design_status: 'brief' } : {}),
+    }
     case 'revisi': return {
       status: 'revisi',
       ...(hasVideo(p) ? { video_status: 'revisi' } : {}),
