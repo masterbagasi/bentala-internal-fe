@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
@@ -13,6 +14,7 @@ import type { Client, ClientStage } from '@/lib/types'
 
 export function CRMPage() {
   const t = useT()
+  const router = useRouter()
   const { clients, crmFilter, setCrmFilter } = useStore(useShallow((s) => ({ clients: s.clients, crmFilter: s.crmFilter, setCrmFilter: s.setCrmFilter })))
   const [showModal, setShowModal] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
@@ -85,7 +87,8 @@ export function CRMPage() {
 
               {cols.map(c => (
                 <div key={c.id}
-                  style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}
+                  onClick={() => router.push(`/clients/${c.id}`)}
+                  style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 8, cursor: 'pointer' }}
                 >
                   <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4 }}>{c.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 4 }}>
@@ -101,9 +104,9 @@ export function CRMPage() {
                       {stage.label}
                     </span>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button onClick={() => openModal(c)}
+                      <button onClick={(e) => { e.stopPropagation(); openModal(c) }}
                         style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 11, color: 'var(--text)' }}>✏️</button>
-                      <button onClick={() => handleDelete(c.id)}
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(c.id) }}
                         style={{ background: 'var(--accent2)', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 11, color: '#fff' }}>✕</button>
                     </div>
                   </div>
@@ -111,7 +114,7 @@ export function CRMPage() {
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {CRM_STAGES.filter(x => x.key !== stage.key).map(x => (
                       <button key={x.key}
-                        onClick={() => moveStage(c.id, x.key)}
+                        onClick={(e) => { e.stopPropagation(); moveStage(c.id, x.key) }}
                         style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', fontSize: 10, color: 'var(--text2)' }}
                         onMouseOver={e => (e.currentTarget as HTMLElement).style.borderColor = x.color}
                         onMouseOut={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'}
