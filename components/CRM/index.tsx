@@ -37,6 +37,10 @@ export function CRMPage() {
   // Keep a stable ref to live values so the non-passive listeners don't need to re-bind.
   const liveRef = useRef({ moveToStage, overCol })
   liveRef.current = { moveToStage, overCol }
+  // Set synchronously on drag end so the click that browsers fire right after a
+  // desktop drag is suppressed regardless of React's state-update batching (the
+  // `dragId` state may already be cleared by click time).
+  const draggedRef = useRef(false)
 
   function startTouchDrag(client: Client, e: React.TouchEvent) {
     const tch = e.touches[0]
@@ -228,12 +232,13 @@ export function CRMPage() {
                 return (
                 <div key={c.id}
                   draggable
-                  onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragId(c.id) }}
-                  onDragEnd={() => { setDragId(null); setOverCol(null) }}
+                  onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; draggedRef.current = false; setDragId(c.id) }}
+                  onDragEnd={() => { draggedRef.current = true; setDragId(null); setOverCol(null) }}
                   onTouchStart={(e) => startTouchDrag(c, e)}
                   onClick={(e) => {
-                    // Suppress navigate if a drag just ended on this card (touch DnD fires a synthetic click on touchend).
-                    if (isPicked) { e.preventDefault(); return }
+                    // Suppress navigate if a drag just ended (desktop: draggedRef set
+                    // synchronously in onDragEnd; touch: onEndN preventDefaults the click).
+                    if (draggedRef.current || isPicked) { draggedRef.current = false; e.preventDefault(); return }
                     router.push(`/clients/${c.id}`)
                   }}
                   style={{
