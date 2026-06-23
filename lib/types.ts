@@ -422,3 +422,23 @@ export interface OpenFollowUp {
   client_id: string
   next_follow_up: string
 }
+
+export interface ClientTask {
+  id: string
+  client_id: string
+  title: string
+  due_date: string | null
+  done: boolean
+  assignee: string | null
+  created_by: string | null
+  created_at: string
+}
+
+/** Lightweight projection for the bell / dashboard. */
+export interface OpenTask {
+  id: string
+  client_id: string
+  title: string
+  due_date: string | null
+  assignee: string | null
+}

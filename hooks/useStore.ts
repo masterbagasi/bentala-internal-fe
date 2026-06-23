@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Post, Client, Invoice, Project, Task, ActivityLog, PipelineItem, OpenFollowUp, ClientInteraction } from '@/lib/types'
+import type { Post, Client, Invoice, Project, Task, ActivityLog, PipelineItem, OpenFollowUp, ClientInteraction, OpenTask, ClientTask } from '@/lib/types'
 
 interface DateRange {
   from: string
@@ -33,6 +33,7 @@ interface DataState {
   activity: ActivityLog[]
   pipelineItems: PipelineItem[]
   followUps: OpenFollowUp[]
+  clientTasks: OpenTask[]
   loading: boolean
 
   // Unread-change markers (posts boards). meEmail identifies the current user so
@@ -85,6 +86,9 @@ interface Actions {
   setFollowUps:  (f: OpenFollowUp[]) => void
   upsertFollowUp: (i: ClientInteraction) => void
   removeFollowUp: (id: string) => void
+  setClientTasks:  (t: OpenTask[]) => void
+  upsertClientTask: (t: ClientTask) => void
+  removeClientTask: (id: string) => void
 
   // UI
   setCurrentPage: (page: string) => void
@@ -114,6 +118,7 @@ export const useStore = create<StoreState>((set) => ({
   activity: [],
   pipelineItems: [],
   followUps: [],
+  clientTasks: [],
   loading: false,
   meEmail: null,
   postSeen: {},
@@ -233,6 +238,14 @@ export const useStore = create<StoreState>((set) => ({
     return { followUps: open ? [...rest, { id: i.id, client_id: i.client_id, next_follow_up: i.next_follow_up as string }] : rest }
   }),
   removeFollowUp: (id) => set((s) => ({ followUps: s.followUps.filter(f => f.id !== id) })),
+
+  setClientTasks: (clientTasks) => set({ clientTasks }),
+  // Open tasks only (done=false); a completed/deleted task drops out of the slice.
+  upsertClientTask: (t) => set((s) => {
+    const rest = s.clientTasks.filter(x => x.id !== t.id)
+    return { clientTasks: t.done ? rest : [...rest, { id: t.id, client_id: t.client_id, title: t.title, due_date: t.due_date, assignee: t.assignee }] }
+  }),
+  removeClientTask: (id) => set((s) => ({ clientTasks: s.clientTasks.filter(x => x.id !== id) })),
 
   // ── UI actions ──
   setCurrentPage: (currentPage) => set({ currentPage }),
