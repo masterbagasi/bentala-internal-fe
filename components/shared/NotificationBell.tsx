@@ -82,6 +82,7 @@ export function NotificationBell() {
   const posts = useStore(s => s.posts)
   const followUps = useStore(s => s.followUps)
   const clients = useStore(s => s.clients)
+  const clientTasks = useStore(s => s.clientTasks)
 
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeen] = useState<number>(0)
@@ -315,11 +316,28 @@ export function NotificationBell() {
       })
     })
 
+    clientTasks.forEach(tk => {
+      if (!tk.due_date) return
+      const tone = followUpTone(tk.due_date, today)
+      if (tone === 'none') return
+      const c = clients.find(x => x.id === tk.client_id)
+      if (!c) return
+      const mineTask = (tk.assignee || '').toLowerCase() === myFirst
+      if (ownsAny && !mineTask) return // when I own clients, only my-assigned tasks; else show all
+      out.push({
+        id: `task-${tk.id}`,
+        at: tk.due_date,
+        author: c.name,
+        text: `${t('Tugas')}: ${tk.title}`,
+        href: `/clients/${tk.client_id}`,
+      })
+    })
+
     return out
       .filter((n, i, arr) => arr.findIndex(x => x.id === n.id) === i)
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 30)
-  }, [myMentions, myPosts, posts, me.name, me.email, chatMentions, roomName, projectSlugs, t, followUps, clients])
+  }, [myMentions, myPosts, posts, me.name, me.email, chatMentions, roomName, projectSlugs, t, followUps, clients, clientTasks])
 
   const unread = notifs.filter(n => new Date(n.at).getTime() > lastSeen).length
 
