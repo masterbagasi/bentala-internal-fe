@@ -496,6 +496,7 @@ export function Sidebar() {
         { href: '/website/leads', label: 'Leads',           icon: <MoneyIcon />,  color: COLOR.green },
         { href: '/clients',       label: 'CRM Pipeline',    icon: <PeopleIcon />, color: COLOR.blue },
         { href: '/invoices',      label: 'Invoice & Bayar', icon: <MoneyIcon />,  color: COLOR.green },
+        { href: '/sales-report',  label: 'Laporan Sales',   icon: <ChartIcon />,  color: COLOR.purple },
       ],
     },
     {

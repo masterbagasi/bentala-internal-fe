@@ -58,6 +58,7 @@ export const STATIC_SECTIONS: AccessSection[] = [
   { id: 'client.leads',    label: 'Leads',           group: 'Client', routes: ['/website/leads'], landing: '/website/leads' },
   { id: 'client.crm',      label: 'CRM Pipeline',    group: 'Client', routes: ['/clients'],       landing: '/clients' },
   { id: 'client.invoices', label: 'Invoice & Bayar', group: 'Client', routes: ['/invoices'],      landing: '/invoices' },
+  { id: 'client.report',   label: 'Laporan Sales',  group: 'Client', routes: ['/sales-report'],  landing: '/sales-report' },
 
   // Projects
   { id: 'projects.all',   label: 'All Projects',     group: 'Projects', routes: ['/projects'],                     landing: '/projects' },
@@ -123,7 +124,7 @@ const LEGACY_ALIASES: Record<string, string[]> = {
   bpi:      ['smm.bpi.social', 'smm.bpi.projects', 'smm.bpi.chat'],
   bsi:      ['smm.bsi.social', 'smm.bsi.projects', 'smm.bsi.chat'],
   social:   ['social.accounts', 'social.analytics', 'social.reports', 'social.plan'],
-  client:   ['client.leads', 'client.crm', 'client.invoices'],
+  client:   ['client.leads', 'client.crm', 'client.invoices', 'client.report'],
   projects: ['projects.all', 'projects.tasks', 'projects.vp', 'projects.ds'],
   ai:       ['ai.chat', 'ai.ideas', 'ai.image', 'ai.templates', 'ai.video', 'ai.render', 'ai.audio', 'ai.bpi', 'ai.builder', 'ai.pipeline'],
   settings: ['settings.ai'],
