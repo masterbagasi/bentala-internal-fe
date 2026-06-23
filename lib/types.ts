@@ -452,3 +452,17 @@ export interface SalesTarget {
   created_at: string
   updated_at: string
 }
+
+export interface ClientMessage {
+  id: string
+  client_id: string
+  channel: 'whatsapp' | 'email'
+  direction: 'out' | 'in'
+  subject: string | null
+  body: string
+  to_address: string | null
+  status: string
+  author_email: string | null
+  author_name: string | null
+  created_at: string
+}
