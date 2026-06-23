@@ -114,6 +114,8 @@ export interface Client {
   service: string
   internal: string
   notes: string
+  source?: string
+  lead_id?: string | null
   created_at: string
   updated_at: string
 }

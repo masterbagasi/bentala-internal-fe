@@ -476,5 +476,6 @@ export interface BsiLead {
   user_agent: string | null
   submitted_at: string
   status: 'new' | 'contacted' | 'qualified' | 'closed' | 'spam'
+  converted_client_id?: string | null
   created_at: string
 }
