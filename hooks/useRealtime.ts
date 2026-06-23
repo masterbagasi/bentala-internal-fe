@@ -66,18 +66,29 @@ export function useRealtime() {
     // CRITICAL: posts / tasks / clients RLS is authenticated-only. Supabase
     // realtime only delivers change-events when the socket carries the user's
     // JWT. Without setAuth the socket is anon and receives NOTHING, so new or
-    // updated posts never appear until the user manually refreshes. Set the
-    // token BEFORE subscribing, and refresh it on every auth change (token
-    // expiry) so the live stream never silently goes stale.
+    // updated posts never appear until the user manually refreshes.
+    //
+    // For RLS-gated postgres_changes the JWT must be on the socket BEFORE the
+    // channel subscribes — a setAuth that lands AFTER subscribe does not
+    // re-authorize an already-bound subscription, so the board would stay dead
+    // (no live posts) for the whole session. On a cold load getSession can
+    // resolve before the session has hydrated; building the channel anyway then
+    // subscribes as anon and never recovers. So gate the build on a real token
+    // and let whichever source delivers it first (getSession OR the auth-state
+    // change) create the channel. Subsequent tokens (expiry refresh) just call
+    // setAuth on the live socket — no rebuild needed.
     let channel: ReturnType<typeof buildChannel> | null = null
-    supabase.auth.getSession().then(({ data }) => {
+    const ensureChannel = (token: string) => {
       if (cancelled) return
+      ;(supabase.realtime as { setAuth: (t: string) => void }).setAuth(token)
+      if (!channel) channel = buildChannel()
+    }
+    supabase.auth.getSession().then(({ data }) => {
       const token = data.session?.access_token
-      if (token) (supabase.realtime as { setAuth: (t: string) => void }).setAuth(token)
-      channel = buildChannel()
+      if (token) ensureChannel(token)
     })
     const { data: authSub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.access_token) (supabase.realtime as { setAuth: (t: string) => void }).setAuth(session.access_token)
+      if (session?.access_token) ensureChannel(session.access_token)
     })
 
     return () => {

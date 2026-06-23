@@ -50,6 +50,30 @@ const DEFAULT_FORM = {
   files: [] as string[],
 }
 
+// `form.files` holds BOTH uploaded files and pasted links. An upload lives in
+// our Supabase storage bucket; anything else is a link the user pasted (Drive /
+// Figma / any URL) and must render as an openable chip, not an <img> thumbnail
+// (a non-image URL rendered as <img> just shows a broken-image icon — which is
+// what made "attach a link" look broken).
+const isUploadedFile = (u: string) => u.includes('/storage/v1/object/public/')
+// Dangerous URL schemes that must never reach an href (clickable XSS via
+// javascript:/data:/etc). Used both at the input site (so they're never
+// persisted) and as a render-time guard.
+const DANGEROUS_SCHEME = /^\s*(javascript|data|vbscript|file|blob):/i
+// Accept ANY link: if the user omits the scheme (e.g. "drive.google.com/…") we
+// still open it as an absolute URL rather than a same-site relative path. Then
+// hard-restrict to http(s) — anything else (a crafted javascript:// that slips
+// past the input check, an exotic scheme) renders as an inert '#'.
+const linkHref = (u: string) => {
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(u) ? u : `https://${u}`
+  try {
+    const parsed = new URL(withScheme)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : '#'
+  } catch {
+    return '#'
+  }
+}
+
 export function PostModal({ open, onClose, editId, entity, projectScope }: PostModalProps) {
   const t = useT()
   const { posts, upsertPost } = useStore(useShallow((s) => ({ posts: s.posts, upsertPost: s.upsertPost })))
@@ -98,6 +122,10 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
   function addLink() {
     const v = linkInput.trim()
     if (!v) return
+    // Never persist a javascript:/data:/vbscript:/file:/blob: link — it would
+    // later be rendered as a clickable href (XSS). Plain links and http(s) URLs
+    // are fine; a bare host (drive.google.com) gets https:// at render time.
+    if (DANGEROUS_SCHEME.test(v)) { alert(t('Link tidak valid — gunakan URL http(s).')); return }
     setForm(f => (f.files.includes(v) ? f : { ...f, files: [...f.files, v] }))
     setLinkInput('')
   }
@@ -345,6 +373,11 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
     { key: 'published', label: 'Published' },
   ]
 
+  // Split the attachment list: pasted links render as openable chips below,
+  // uploaded files go to the media uploader (which previews them as thumbnails).
+  const attachmentLinks = form.files.filter(u => !isUploadedFile(u))
+  const attachmentFiles = form.files.filter(isUploadedFile)
+
   return (
     <Modal
       open={open}
@@ -504,8 +537,9 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
         <FormGroup label={t('Lampiran File')}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             <input
-              type="url"
-              placeholder={t('Tempel link (Drive / Figma / dll)...')}
+              type="text"
+              inputMode="url"
+              placeholder={t('Tempel link apa pun (Drive / Figma / URL)...')}
               value={linkInput}
               onChange={e => setLinkInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLink() } }}
@@ -522,9 +556,51 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
               + Link
             </button>
           </div>
+
+          {/* Pasted links — openable chips. Kept separate from the uploader so a
+              Drive/Figma/any URL isn't rendered as a broken <img> thumbnail. */}
+          {attachmentLinks.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+              {attachmentLinks.map(link => (
+                <div
+                  key={link}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: 8,
+                    background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
+                  }}
+                >
+                  <span aria-hidden style={{ fontSize: 14, flexShrink: 0 }}>🔗</span>
+                  <a
+                    href={linkHref(link)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={link}
+                    style={{
+                      flex: 1, minWidth: 0, fontSize: 12, color: 'var(--accent)',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none',
+                    }}
+                  >
+                    {link}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, files: f.files.filter(u => u !== link) }))}
+                    title={t('Hapus')}
+                    style={{
+                      width: 28, height: 28, flexShrink: 0, borderRadius: 6, cursor: 'pointer',
+                      background: 'var(--bg2)', border: '1px solid var(--border)', color: '#ff6b6b', fontSize: 14,
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <MultiFileUploader
-            value={form.files}
-            onChange={urls => setForm(f => ({ ...f, files: urls }))}
+            value={attachmentFiles}
+            onChange={urls => setForm(f => ({ ...f, files: [...f.files.filter(u => !isUploadedFile(u)), ...urls] }))}
             prefix="posts/files"
             accept="all"
           />

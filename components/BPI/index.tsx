@@ -219,7 +219,10 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       logActivity(`Task "${post.title}" dipindahkan`)
     }
 
-    const filtered = posts.filter(p => {
+    // Memoized: the board re-renders on every drag-over/hover tick. Without this
+    // the filter runs (and the `unreadIds` memo below busts) on every one of
+    // those renders, and a fresh `filtered` array re-renders the whole board.
+    const filtered = useMemo(() => posts.filter(p => {
       // Scope: all socmed projects, by assigned PIC (workspace), or by entity (board).
       // All Project = combined view of every socmed post regardless of slug, so
       // posts on newly-created projects appear too. Only board/PIC modes scope.
@@ -240,7 +243,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       if (filters.month && (p.date || '').slice(0, 7) !== filters.month) return false
       if (filters.statuses.length && !filters.statuses.includes(p.status)) return false
       return true
-    })
+    }), [posts, allProjects, picScope, entity, filters])
 
     // Ids of tasks with an unseen change made by someone else → drives the card
     // dots and the per-column counts. Recomputes live as posts stream in or the
@@ -563,7 +566,25 @@ function KanbanBoard({
   const isMobile = useIsMobile()
   const baseCols: readonly BoardCol[] = colSet ?? BPI_STATUS_COLS
   const keyOf = (p: Post) => (colOf ? colOf(p) : p.status)
-  const cols = statusFilter.length ? baseCols.filter(c => statusFilter.includes(c.key)) : baseCols
+  const cols = useMemo(
+    () => (statusFilter.length ? baseCols.filter(c => statusFilter.includes(c.key)) : baseCols),
+    [baseCols, statusFilter],
+  )
+  // Pre-group posts into their columns ONCE per data change. Dragging fires
+  // setDragOverCol on every pointer tick, re-rendering the whole board; doing
+  // the filter+sort per column inside the render (cols × posts, with an
+  // n·log n sort each) on every one of those ticks is what made the board
+  // janky. The drag state lives in this component, so colOf/posts stay stable
+  // mid-drag and this memo is reused — the expensive work runs zero times per
+  // drag tick instead of once per column.
+  const postsByCol = useMemo(() => {
+    const m = new Map<string, Post[]>()
+    for (const c of cols) m.set(c.key, [])
+    for (const p of posts) m.get(keyOf(p))?.push(p)
+    m.forEach(arr => arr.sort(byPostDateAsc))
+    return m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts, cols, colOf])
   const [dragPostId, setDragPostId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const [hoverCol, setHoverCol] = useState<string | null>(null)
@@ -661,7 +682,7 @@ function KanbanBoard({
       paddingLeft: 24, paddingBottom: 8, alignItems: 'flex-start', marginTop: 20,
     }}>
       {cols.map(col => {
-        const colPosts = posts.filter(p => keyOf(p) === col.key).slice().sort(byPostDateAsc)
+        const colPosts = postsByCol.get(col.key) ?? []
         const colUnread = unreadIds ? colPosts.reduce((n, p) => n + (unreadIds.has(p.id) ? 1 : 0), 0) : 0
         const isLocked = ('locked' in col && col.locked && currentUser === 'Naufal') || (noDropCols?.includes(col.key) ?? false)
         const isOver = dragOverCol === col.key

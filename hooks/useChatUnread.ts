@@ -34,32 +34,43 @@ export function useChatUnread() {
       .catch(() => {})
 
     // The socket must carry the user's JWT BEFORE the channel joins, or these
-    // RLS-protected tables deliver nothing.
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return
-      const token = data.session?.access_token
-      if (token) (supabase.realtime as unknown as { setAuth: (t: string) => void }).setAuth(token)
+    // RLS-protected tables deliver nothing — and a setAuth that lands after the
+    // join does not re-authorize the binding. On a cold load getSession can
+    // resolve before the session hydrates, so gate the join on a real token and
+    // let whichever of getSession / auth-state change delivers it first build
+    // the channel (later tokens just refresh setAuth on the live socket).
+    const buildChannel = () => supabase
+      .channel('chat-unread-board')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
+        const row = payload.new as { room?: string; author_email?: string | null }
+        if (!row?.room) return
+        // Don't mark or chime the sender's own messages.
+        if (meEmail && (row.author_email ?? '').toLowerCase() === meEmail.toLowerCase()) return
+        bumpChatUnread(row.room)
+        playNotificationSound()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reads' }, (payload) => {
+        const row = (payload.new ?? payload.old) as { email?: string; room?: string }
+        if (!row?.room) return
+        // Only my own read clears my marker (covers reading on another device).
+        if (meEmail && (row.email ?? '').toLowerCase() === meEmail.toLowerCase()) clearChatUnread(row.room)
+      })
+      .subscribe()
 
-      channel = supabase
-        .channel('chat-unread-board')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
-          const row = payload.new as { room?: string; author_email?: string | null }
-          if (!row?.room) return
-          // Don't mark or chime the sender's own messages.
-          if (meEmail && (row.author_email ?? '').toLowerCase() === meEmail.toLowerCase()) return
-          bumpChatUnread(row.room)
-          playNotificationSound()
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reads' }, (payload) => {
-          const row = (payload.new ?? payload.old) as { email?: string; room?: string }
-          if (!row?.room) return
-          // Only my own read clears my marker (covers reading on another device).
-          if (meEmail && (row.email ?? '').toLowerCase() === meEmail.toLowerCase()) clearChatUnread(row.room)
-        })
-        .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    const ensureChannel = (token: string) => {
+      if (cancelled) return
+      ;(supabase.realtime as unknown as { setAuth: (t: string) => void }).setAuth(token)
+      if (!channel) channel = buildChannel()
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token
+      if (token) ensureChannel(token)
+    })
+    const { data: authSub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session?.access_token) ensureChannel(session.access_token)
     })
 
-    return () => { cancelled = true; if (channel) supabase.removeChannel(channel) }
+    return () => { cancelled = true; authSub.subscription.unsubscribe(); if (channel) supabase.removeChannel(channel) }
   }, [setChatUnread, bumpChatUnread, clearChatUnread, meEmail])
 }
