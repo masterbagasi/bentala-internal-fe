@@ -11,9 +11,12 @@ import { CRM_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
 import { ClientTimeline } from './ClientTimeline'
 import { ClientTasks } from './ClientTasks'
 
-export function ClientProfile({ id }: { id: string }) {
+export function ClientProfile({ id, onClose }: { id: string; onClose?: () => void }) {
   const t = useT()
   const router = useRouter()
+  // In a popup (onClose set) the modal frame owns the padding + close affordance;
+  // as a full page it pads itself and shows a back-to-CRM link.
+  const inModal = !!onClose
   const { clients, projects, invoices } = useStore(useShallow((s) => ({ clients: s.clients, projects: s.projects, invoices: s.invoices })))
   const client = clients.find(c => c.id === id)
 
@@ -33,8 +36,10 @@ export function ClientProfile({ id }: { id: string }) {
   const stageColor = CRM_STAGES.find(s => s.key === client.stage)?.color ?? 'var(--text2)'
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <button onClick={() => router.push('/clients')} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 13 }}>← {t('Kembali ke CRM')}</button>
+    <div style={{ padding: inModal ? 0 : 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {!inModal && (
+        <button onClick={() => router.push('/clients')} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', fontSize: 13 }}>← {t('Kembali ke CRM')}</button>
+      )}
 
       {/* Two-column on desktop, stacked on mobile via flexWrap. */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' }}>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { ClientProfile } from './ClientProfile'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
@@ -17,11 +17,12 @@ import type { Client, ClientStage } from '@/lib/types'
 
 export function CRMPage() {
   const t = useT()
-  const router = useRouter()
   const { clients, crmFilter, setCrmFilter, followUps, upsertClient } = useStore(useShallow((s) => ({ clients: s.clients, crmFilter: s.crmFilter, setCrmFilter: s.setCrmFilter, followUps: s.followUps, upsertClient: s.upsertClient })))
   const [showModal, setShowModal] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
   const [reasonReq, setReasonReq] = useState<{ client: Client; toStage: string; required: boolean } | null>(null)
+  // Client detail opens as a popup (not a separate page) when a card is clicked.
+  const [detailId, setDetailId] = useState<string | null>(null)
   const logActivity = useLogActivity()
 
   // ── Drag-and-drop state ──
@@ -207,7 +208,7 @@ export function CRMPage() {
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{t('Perlu Follow-up')} ({due.length})</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {due.map(({ f, tone, c }) => (
-                <button key={f.id} onClick={() => router.push(`/clients/${f.client_id}`)} style={{ display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>
+                <button key={f.id} onClick={() => setDetailId(f.client_id)} style={{ display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: tone === 'overdue' ? '#ff6b6b' : '#ffc542', flexShrink: 0 }} />
                   <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c!.name}</span>
                   <span style={{ fontSize: 11, color: tone === 'overdue' ? '#ff6b6b' : 'var(--text2)' }}>{new Date(f.next_follow_up).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
@@ -261,7 +262,7 @@ export function CRMPage() {
                     // Suppress navigate if a drag just ended (desktop: draggedRef set
                     // synchronously in onDragEnd; touch: onEndN preventDefaults the click).
                     if (draggedRef.current || isPicked) { draggedRef.current = false; e.preventDefault(); return }
-                    router.push(`/clients/${c.id}`)
+                    setDetailId(c.id)
                   }}
                   style={{
                     background: 'var(--bg3)',
@@ -342,6 +343,12 @@ export function CRMPage() {
           onSubmit={(reason) => { const r = reasonReq; setReasonReq(null); void applyStageMove(r.client, r.toStage, reason) }}
           onClose={() => setReasonReq(null)}
         />
+      )}
+
+      {detailId && (
+        <Modal open onClose={() => setDetailId(null)} title={t('Detail Client')} maxWidth={1040}>
+          <ClientProfile id={detailId} onClose={() => setDetailId(null)} />
+        </Modal>
       )}
     </div>
   )
