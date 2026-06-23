@@ -442,3 +442,12 @@ export interface OpenTask {
   due_date: string | null
   assignee: string | null
 }
+
+export interface SalesTarget {
+  id: string
+  internal: string
+  month: string          // YYYY-MM-DD (first of month)
+  target_amount: number
+  created_at: string
+  updated_at: string
+}
