@@ -10,6 +10,7 @@ import { formatRupiah } from '@/lib/utils'
 import { CRM_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
 import { ClientTimeline } from './ClientTimeline'
 import { ClientTasks } from './ClientTasks'
+import { ClientComms } from './ClientComms'
 
 export function ClientProfile({ id, onClose }: { id: string; onClose?: () => void }) {
   const t = useT()
@@ -96,6 +97,9 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
 
           {/* Tasks */}
           <ClientTasks clientId={client.id} />
+
+          {/* Communications */}
+          <ClientComms client={client} />
         </div>
 
         {/* Timeline (added in Task 4) */}
