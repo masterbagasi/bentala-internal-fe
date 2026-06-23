@@ -15,9 +15,13 @@ async function author() {
   const meta = data.user?.user_metadata ?? {}
   return { email: data.user?.email ?? null, name: (meta.full_name as string) ?? (meta.name as string) ?? data.user?.email?.split('@')[0] ?? null }
 }
-async function insertMessage(row: Omit<ClientMessage, 'id' | 'created_at'>) {
+/** Returns true on success; alerts + returns false on a failed write so the
+ *  caller keeps the composed text instead of silently losing the record. */
+async function insertMessage(row: Omit<ClientMessage, 'id' | 'created_at'>): Promise<boolean> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (getSupabase() as any).from('client_messages').insert(row)
+  const { error } = await (getSupabase() as any).from('client_messages').insert(row)
+  if (error) { alert('Gagal mencatat pesan: ' + error.message); return false }
+  return true
 }
 
 export function ClientComms({ client }: { client: Client }) {
@@ -72,8 +76,8 @@ function WhatsAppCompose({ client, t }: { client: Client; t: (s: string) => stri
     if (!to || !body.trim()) return
     window.open(`https://wa.me/${digits(to)}?text=${encodeURIComponent(body)}`, '_blank', 'noopener')
     const a = await author()
-    await insertMessage({ client_id: client.id, channel: 'whatsapp', direction: 'out', subject: null, body: body.trim(), to_address: to, status: 'logged', author_email: a.email, author_name: a.name })
-    setBody('')
+    const logged = await insertMessage({ client_id: client.id, channel: 'whatsapp', direction: 'out', subject: null, body: body.trim(), to_address: to, status: 'logged', author_email: a.email, author_name: a.name })
+    if (logged) setBody('')
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -99,10 +103,10 @@ function EmailCompose({ client, t }: { client: Client; t: (s: string) => string 
       ok = !!data.ok; error = data.error || ''
     } catch (e) { error = e instanceof Error ? e.message : 'Network error' }
     const a = await author()
-    await insertMessage({ client_id: client.id, channel: 'email', direction: 'out', subject: subject || null, body: body.trim(), to_address: to, status: ok ? 'sent' : 'failed', author_email: a.email, author_name: a.name })
+    const logged = await insertMessage({ client_id: client.id, channel: 'email', direction: 'out', subject: subject || null, body: body.trim(), to_address: to, status: ok ? 'sent' : 'failed', author_email: a.email, author_name: a.name })
     setSending(false)
     if (!ok) { alert(t('Gagal kirim email: ') + error); return }
-    setSubject(''); setBody('')
+    if (logged) { setSubject(''); setBody('') }
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -120,8 +124,8 @@ function LogInbound({ client, channel, t }: { client: Client; channel: Channel; 
   async function save() {
     if (!body.trim()) return
     const a = await author()
-    await insertMessage({ client_id: client.id, channel, direction: 'in', subject: null, body: body.trim(), to_address: null, status: 'logged', author_email: a.email, author_name: a.name })
-    setBody(''); setOpen(false)
+    const logged = await insertMessage({ client_id: client.id, channel, direction: 'in', subject: null, body: body.trim(), to_address: null, status: 'logged', author_email: a.email, author_name: a.name })
+    if (logged) { setBody(''); setOpen(false) }
   }
   if (!open) return <button type="button" onClick={() => setOpen(true)} style={{ marginTop: 8, background: 'none', border: '1px dashed var(--border)', borderRadius: 8, padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: 'var(--text2)' }}>+ {t('Catat balasan masuk')}</button>
   return (
