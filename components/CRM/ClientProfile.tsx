@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 import { formatRupiah } from '@/lib/utils'
 import { CRM_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
 import { ClientTimeline } from './ClientTimeline'
+import { ClientTasks } from './ClientTasks'
 
 export function ClientProfile({ id }: { id: string }) {
   const t = useT()
@@ -87,6 +88,9 @@ export function ClientProfile({ id }: { id: string }) {
               </Link>
             ))}
           </Panel>
+
+          {/* Tasks */}
+          <ClientTasks clientId={client.id} />
         </div>
 
         {/* Timeline (added in Task 4) */}
