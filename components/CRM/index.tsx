@@ -7,19 +7,21 @@ import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
-import { CRM_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
+import { CRM_STAGES, CRM_BOARD_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
 import { formatRupiah } from '@/lib/utils'
 import { useLogActivity } from '@/hooks/useData'
 import { logStageChange } from '@/lib/log-interaction'
 import { followUpTone, todayISODate } from '@/lib/follow-up'
+import { StageReasonModal } from './StageReasonModal'
 import type { Client, ClientStage } from '@/lib/types'
 
 export function CRMPage() {
   const t = useT()
   const router = useRouter()
-  const { clients, crmFilter, setCrmFilter, followUps } = useStore(useShallow((s) => ({ clients: s.clients, crmFilter: s.crmFilter, setCrmFilter: s.setCrmFilter, followUps: s.followUps })))
+  const { clients, crmFilter, setCrmFilter, followUps, upsertClient } = useStore(useShallow((s) => ({ clients: s.clients, crmFilter: s.crmFilter, setCrmFilter: s.setCrmFilter, followUps: s.followUps, upsertClient: s.upsertClient })))
   const [showModal, setShowModal] = useState(false)
   const [editClient, setEditClient] = useState<Client | null>(null)
+  const [reasonReq, setReasonReq] = useState<{ client: Client; toStage: string; required: boolean } | null>(null)
   const logActivity = useLogActivity()
 
   function openModal(client?: Client) {
@@ -48,13 +50,22 @@ export function CRMPage() {
     logActivity('Client dihapus')
   }
 
-  async function moveStage(id: string, stage: string) {
+  async function applyStageMove(client: Client, toStage: string, reason?: string) {
     const supabase = getSupabase()
-    const c = clients.find(x => x.id === id)
-    const prev = c?.stage
-    await supabase.from('clients').update({ stage }).eq('id', id)
-    if (c) logActivity(`${c.name} dipindah ke ${STAGE_LABELS[stage]}`)
-    if (prev && prev !== stage) logStageChange(id, prev, stage)
+    const updates: { stage: string; close_reason?: string | null } = { stage: toStage }
+    if (reason !== undefined) updates.close_reason = reason || null
+    upsertClient({ ...client, ...updates } as Client) // optimistic
+    const { error } = await supabase.from('clients').update(updates).eq('id', client.id)
+    if (error) { upsertClient(client); return } // rollback
+    logActivity(`${client.name} dipindah ke ${STAGE_LABELS[toStage] ?? toStage}`)
+    if (client.stage !== toStage) logStageChange(client.id, client.stage, toStage, reason || undefined)
+  }
+
+  function moveToStage(client: Client, toStage: string) {
+    if (client.stage === toStage) return
+    if (toStage === 'inactive') { setReasonReq({ client, toStage, required: true }); return }
+    if (toStage === 'close' || toStage === 'invoice') { setReasonReq({ client, toStage, required: false }); return }
+    void applyStageMove(client, toStage)
   }
 
   return (
@@ -156,9 +167,9 @@ export function CRMPage() {
                   </div>
                   {/* Move buttons */}
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {CRM_STAGES.filter(x => x.key !== stage.key).map(x => (
+                    {CRM_BOARD_STAGES.filter(x => x.key !== stage.key).map(x => (
                       <button key={x.key}
-                        onClick={(e) => { e.stopPropagation(); moveStage(c.id, x.key) }}
+                        onClick={(e) => { e.stopPropagation(); moveToStage(c, x.key) }}
                         style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', fontSize: 10, color: 'var(--text2)' }}
                         onMouseOver={e => (e.currentTarget as HTMLElement).style.borderColor = x.color}
                         onMouseOut={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'}
@@ -187,6 +198,15 @@ export function CRMPage() {
           open={showModal}
           client={editClient}
           onClose={() => { setShowModal(false); setEditClient(null) }}
+        />
+      )}
+      {reasonReq && (
+        <StageReasonModal
+          open
+          toStageLabel={STAGE_LABELS[reasonReq.toStage] ?? reasonReq.toStage}
+          required={reasonReq.required}
+          onSubmit={(reason) => { const r = reasonReq; setReasonReq(null); void applyStageMove(r.client, r.toStage, reason) }}
+          onClose={() => setReasonReq(null)}
         />
       )}
     </div>
