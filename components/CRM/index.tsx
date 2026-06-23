@@ -10,6 +10,7 @@ import { getSupabase } from '@/lib/supabase'
 import { CRM_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
 import { formatRupiah } from '@/lib/utils'
 import { useLogActivity } from '@/hooks/useData'
+import { logStageChange } from '@/lib/log-interaction'
 import type { Client, ClientStage } from '@/lib/types'
 
 export function CRMPage() {
@@ -36,9 +37,11 @@ export function CRMPage() {
 
   async function moveStage(id: string, stage: string) {
     const supabase = getSupabase()
-    await supabase.from('clients').update({ stage }).eq('id', id)
     const c = clients.find(x => x.id === id)
+    const prev = c?.stage
+    await supabase.from('clients').update({ stage }).eq('id', id)
     if (c) logActivity(`${c.name} dipindah ke ${STAGE_LABELS[stage]}`)
+    if (prev && prev !== stage) logStageChange(id, prev, stage)
   }
 
   return (
@@ -182,6 +185,7 @@ function ClientModal({ open, client, onClose }: { open: boolean; client: Client 
     if (client) {
       await supabase.from('clients').update(data).eq('id', client.id)
       logActivity(`Client diupdate: "${form.name}"`)
+      if (client.stage !== form.stage) logStageChange(client.id, client.stage, form.stage)
     } else {
       await supabase.from('clients').insert(data)
       logActivity(`Client baru: "${form.name}" (${STAGE_LABELS[form.stage]})`)
