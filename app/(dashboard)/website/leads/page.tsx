@@ -61,7 +61,10 @@ export default function LeadsAdminPage() {
   async function handleConverted(clientId: string) {
     const lead = convertLead
     if (!lead) return
-    await supabase.from('bsi_leads').update({ converted_client_id: clientId, status: 'closed' }).eq('id', lead.id)
+    // The client was already created; if stamping the lead fails, surface it and
+    // leave the card un-flipped so the UI matches the DB. Mirrors updateStatus.
+    const { error } = await supabase.from('bsi_leads').update({ converted_client_id: clientId, status: 'closed' }).eq('id', lead.id)
+    if (error) { alert(error.message); setConvertLead(null); return }
     setItems(xs => xs.map(x => x.id === lead.id ? { ...x, converted_client_id: clientId, status: 'closed' } : x))
     setConvertLead(null)
   }
