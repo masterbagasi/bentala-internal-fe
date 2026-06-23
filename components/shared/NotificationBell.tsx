@@ -7,6 +7,7 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 import { playNotificationSound } from '@/lib/notificationSound'
 import { useSocmedProjects } from '@/lib/socmed-projects'
+import { followUpTone, todayISODate } from '@/lib/follow-up'
 import type { Post } from '@/lib/types'
 
 const STORAGE_KEY = 'bentala_notif_last_seen'
@@ -79,6 +80,8 @@ export function NotificationBell() {
   const t = useT()
   const router = useRouter()
   const posts = useStore(s => s.posts)
+  const followUps = useStore(s => s.followUps)
+  const clients = useStore(s => s.clients)
 
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeen] = useState<number>(0)
@@ -291,11 +294,32 @@ export function NotificationBell() {
       })
     })
 
+    const today = todayISODate()
+    // The current user's internal-owner key (Dandi/Naufal/Reinaldi/Faizal) is the
+    // first word of their display name; if it doesn't match any client's `internal`
+    // we fall back to showing ALL clients' follow-ups so the feature still works.
+    const myFirst = (me.name || '').split(/\s+/)[0].toLowerCase()
+    const ownsAny = clients.some(c => (c.internal || '').toLowerCase() === myFirst)
+    followUps.forEach(f => {
+      const tone = followUpTone(f.next_follow_up, today)
+      if (tone === 'none') return
+      const c = clients.find(x => x.id === f.client_id)
+      if (!c) return
+      if (ownsAny && (c.internal || '').toLowerCase() !== myFirst) return // only mine when I own some
+      out.push({
+        id: `followup-${f.id}`,
+        at: f.next_follow_up,
+        author: c.name,
+        text: tone === 'overdue' ? t('Follow-up lewat tenggat') : t('Follow-up jatuh tempo'),
+        href: `/clients/${f.client_id}`,
+      })
+    })
+
     return out
       .filter((n, i, arr) => arr.findIndex(x => x.id === n.id) === i)
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 30)
-  }, [myMentions, myPosts, posts, me.name, me.email, chatMentions, roomName, projectSlugs, t])
+  }, [myMentions, myPosts, posts, me.name, me.email, chatMentions, roomName, projectSlugs, t, followUps, clients])
 
   const unread = notifs.filter(n => new Date(n.at).getTime() > lastSeen).length
 
