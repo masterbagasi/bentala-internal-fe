@@ -210,11 +210,12 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
     pic:      client?.pic     || prefill?.pic     || '',
     contact:  client?.contact || prefill?.contact || '',
     stage:    client?.stage   || prefill?.stage   || 'lead',
-    value:    client?.value?.toString() || '',
-    service:  client?.service || prefill?.service || 'smm',
-    internal: client?.internal || 'Dandi',
-    notes:    client?.notes   || prefill?.notes   || '',
-    source:   client?.source  || sourceProp       || 'manual',
+    value:          client?.value?.toString() || '',
+    service:        client?.service || prefill?.service || 'smm',
+    internal:       client?.internal || 'Dandi',
+    notes:          client?.notes   || prefill?.notes   || '',
+    source:         client?.source  || sourceProp       || 'manual',
+    expected_close: client?.expected_close || '',
   })
   const [loading, setLoading] = useState(false)
 
@@ -223,15 +224,16 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
     setLoading(true)
     const supabase = getSupabase()
     const data = {
-      name:     form.name.trim(),
-      pic:      form.pic,
-      contact:  form.contact,
-      stage:    form.stage,
-      value:    parseFloat(form.value) || 0,
-      service:  form.service,
-      internal: form.internal,
-      notes:    form.notes,
-      source:   form.source,
+      name:           form.name.trim(),
+      pic:            form.pic,
+      contact:        form.contact,
+      stage:          form.stage,
+      value:          parseFloat(form.value) || 0,
+      service:        form.service,
+      internal:       form.internal,
+      notes:          form.notes,
+      source:         form.source,
+      expected_close: form.expected_close || null,
     }
     if (client) {
       await supabase.from('clients').update(data).eq('id', client.id)
@@ -281,6 +283,9 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
             <input type="number" value={form.value} onChange={e => setForm(f=>({...f,value:e.target.value}))} placeholder="0" />
           </FG>
         </div>
+        <FG label={t('Perkiraan Closing')}>
+          <input type="date" value={form.expected_close} onChange={e => setForm(f=>({...f,expected_close:e.target.value}))} />
+        </FG>
         <FG label={t('Jenis Layanan')}>
           <select value={form.service} onChange={e => setForm(f=>({...f,service:e.target.value}))}>
             {SERVICE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}

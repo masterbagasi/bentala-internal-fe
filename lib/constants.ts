@@ -107,6 +107,17 @@ export const CRM_STAGES = [
   { key: 'invoice', label: 'Invoice',        color: '#ffc542' },
 ] as const
 
+// The board shows an extra Inactive/lost column; CRM_STAGES (used by filters) stays 4.
+export const CRM_BOARD_STAGES = [
+  ...CRM_STAGES,
+  { key: 'inactive', label: 'Inactive', color: '#8b8fa8' },
+] as const
+
+// Weighted-forecast probability per stage (open deals only; inactive = lost = 0).
+export const STAGE_PROBABILITY: Record<string, number> = {
+  lead: 0.2, pitch: 0.5, close: 0.9, invoice: 1, inactive: 0,
+}
+
 export const PROJ_TYPE: Record<string, string> = {
   smm:      'SMM',
   content:  'One-off',
