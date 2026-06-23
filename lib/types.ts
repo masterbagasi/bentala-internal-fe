@@ -116,6 +116,8 @@ export interface Client {
   notes: string
   source?: string
   lead_id?: string | null
+  expected_close?: string | null
+  close_reason?: string | null
   created_at: string
   updated_at: string
 }
