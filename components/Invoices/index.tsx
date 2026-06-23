@@ -150,12 +150,13 @@ function InvoiceModal({ open, invoice, clients, invoiceCount, onClose }: {
   const t = useT()
   const logActivity = useLogActivity()
   const [form, setForm] = useState({
-    client:  invoice?.client || '',
-    project: invoice?.project || '',
-    value:   invoice?.value?.toString() || '',
-    due:     invoice?.due || '',
-    status:  invoice?.status || 'pending',
-    notes:   invoice?.notes || '',
+    client:    invoice?.client || '',
+    client_id: invoice?.client_id ?? null as string | null,
+    project:   invoice?.project || '',
+    value:     invoice?.value?.toString() || '',
+    due:       invoice?.due || '',
+    status:    invoice?.status || 'pending',
+    notes:     invoice?.notes || '',
   })
   const [loading, setLoading] = useState(false)
 
@@ -166,12 +167,13 @@ function InvoiceModal({ open, invoice, clients, invoiceCount, onClose }: {
     const num = invoice?.num || generateInvoiceNum(invoiceCount)
     const data = {
       num,
-      client:  form.client,
-      project: form.project,
-      value:   parseFloat(form.value) || 0,
-      due:     form.due || null,
-      status:  form.status,
-      notes:   form.notes,
+      client:    form.client,
+      client_id: form.client_id || null,
+      project:   form.project,
+      value:     parseFloat(form.value) || 0,
+      due:       form.due || null,
+      status:    form.status,
+      notes:     form.notes,
     }
     if (invoice) {
       await supabase.from('invoices').update(data).eq('id', invoice.id)
@@ -192,9 +194,13 @@ function InvoiceModal({ open, invoice, clients, invoiceCount, onClose }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FG label="Client *">
-            <select value={form.client} onChange={e => setForm(f=>({...f,client:e.target.value}))}>
+            <select value={form.client_id ?? ''} onChange={e => {
+              const id = e.target.value
+              const name = clients.find(c => c.id === id)?.name ?? ''
+              setForm(f => ({ ...f, client_id: id || null, client: name }))
+            }}>
               <option value="">{t('— Pilih Client —')}</option>
-              {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </FG>
           <FG label="Project">

@@ -149,6 +149,7 @@ function ProjectModal({ open, project, clients, onClose }: {
   const [form, setForm] = useState({
     name:        project?.name || '',
     client:      project?.client || '',
+    client_id:   project?.client_id ?? null as string | null,
     type:        project?.type || 'smm',
     deadline:    project?.deadline || '',
     status:      project?.status || 'active',
@@ -171,6 +172,7 @@ function ProjectModal({ open, project, clients, onClose }: {
     const data = {
       name:        form.name.trim(),
       client:      form.client,
+      client_id:   form.client_id || null,
       type:        form.type,
       deadline:    form.deadline || null,
       status:      form.status,
@@ -201,9 +203,13 @@ function ProjectModal({ open, project, clients, onClose }: {
         </FG>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FG label="Client">
-            <select value={form.client} onChange={e => setForm(f=>({...f,client:e.target.value}))}>
+            <select value={form.client_id ?? ''} onChange={e => {
+              const id = e.target.value
+              const name = clients.find(c => c.id === id)?.name ?? ''
+              setForm(f => ({ ...f, client_id: id || null, client: name }))
+            }}>
               <option value="">{t('— Internal —')}</option>
-              {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </FG>
           <FG label={t('Tipe')}>
