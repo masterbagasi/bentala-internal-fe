@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Post, Client, Invoice, Project, Task, ActivityLog, PipelineItem } from '@/lib/types'
+import type { Post, Client, Invoice, Project, Task, ActivityLog, PipelineItem, OpenFollowUp, ClientInteraction } from '@/lib/types'
 
 interface DateRange {
   from: string
@@ -32,6 +32,7 @@ interface DataState {
   tasks: Task[]
   activity: ActivityLog[]
   pipelineItems: PipelineItem[]
+  followUps: OpenFollowUp[]
   loading: boolean
 
   // Unread-change markers (posts boards). meEmail identifies the current user so
@@ -81,6 +82,9 @@ interface Actions {
   setPipelineItems:    (items: PipelineItem[]) => void
   upsertPipelineItem:  (item: PipelineItem) => void
   removePipelineItem:  (id: string) => void
+  setFollowUps:  (f: OpenFollowUp[]) => void
+  upsertFollowUp: (i: ClientInteraction) => void
+  removeFollowUp: (id: string) => void
 
   // UI
   setCurrentPage: (page: string) => void
@@ -109,6 +113,7 @@ export const useStore = create<StoreState>((set) => ({
   tasks: [],
   activity: [],
   pipelineItems: [],
+  followUps: [],
   loading: false,
   meEmail: null,
   postSeen: {},
@@ -218,6 +223,16 @@ export const useStore = create<StoreState>((set) => ({
   removePipelineItem: (id) => set((s) => ({
     pipelineItems: s.pipelineItems.filter(p => p.id !== id),
   })),
+
+  setFollowUps: (followUps) => set({ followUps }),
+  // An interaction is an "open follow-up" only while it has a date AND isn't done.
+  // Any other state (done, or date cleared) removes it from the slice.
+  upsertFollowUp: (i) => set((s) => {
+    const open = !!i.next_follow_up && !i.follow_up_done
+    const rest = s.followUps.filter(f => f.id !== i.id)
+    return { followUps: open ? [...rest, { id: i.id, client_id: i.client_id, next_follow_up: i.next_follow_up as string }] : rest }
+  }),
+  removeFollowUp: (id) => set((s) => ({ followUps: s.followUps.filter(f => f.id !== id) })),
 
   // ── UI actions ──
   setCurrentPage: (currentPage) => set({ currentPage }),

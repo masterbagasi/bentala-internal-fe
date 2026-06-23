@@ -392,3 +392,27 @@ export interface ProductionBrief {
   updated_at: string
   pipeline?: PipelineCard
 }
+
+export type InteractionType =
+  | 'call' | 'meeting' | 'whatsapp' | 'email' | 'note' | 'stage_change' | 'followup'
+
+export interface ClientInteraction {
+  id: string
+  client_id: string
+  type: InteractionType
+  summary: string
+  occurred_at: string
+  next_follow_up: string | null
+  follow_up_done: boolean
+  files: string[]
+  author_email: string | null
+  author_name: string | null
+  created_at: string
+}
+
+/** Lightweight projection used for badges / panel / bell. */
+export interface OpenFollowUp {
+  id: string
+  client_id: string
+  next_follow_up: string
+}
