@@ -35,8 +35,8 @@ export function CRMPage() {
     timer: ReturnType<typeof setTimeout> | null
   } | null>(null)
   // Keep a stable ref to live values so the non-passive listeners don't need to re-bind.
-  const liveRef = useRef({ moveToStage, overCol })
-  liveRef.current = { moveToStage, overCol }
+  const liveRef = useRef({ moveToStage })
+  liveRef.current = { moveToStage }
   // Set synchronously on drag end so the click that browsers fire right after a
   // desktop drag is suppressed regardless of React's state-update batching (the
   // `dragId` state may already be cleared by click time).
@@ -289,7 +289,7 @@ export function CRMPage() {
                   )}
                   {c.expected_close && (() => {
                     const open = c.stage !== 'close' && c.stage !== 'invoice' && c.stage !== 'inactive'
-                    const overdue = open && c.expected_close < new Date().toISOString().slice(0,10)
+                    const overdue = open && c.expected_close < today
                     return (
                       <div style={{ fontSize: 11, color: overdue ? '#ff6b6b' : 'var(--text2)', marginBottom: 4 }}>
                         🎯 {new Date(c.expected_close).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}{overdue ? ` · ${t('lewat')}` : ''}
