@@ -112,10 +112,17 @@ export function ClientDatabase() {
   }, [])
 
   async function handleAddContact(input: NewLeadInput) {
+    const ctMap: Record<string, string> = { 'WhatsApp': 'whatsapp', 'Email': 'email', 'Phone': 'phone', 'IG DM': 'igdm', 'LinkedIn': 'linkedin' }
     const row = {
-      full_name: input.full_name.trim(), brand_name: input.brand_name.trim(), contact_type: input.contact_type,
-      contact_value: input.contact_value.trim(), source: input.source, project_type: input.project_type.trim(),
-      notes: input.notes.trim(), status: input.status, origin: 'manual', in_database: true, submitted_at: new Date().toISOString(),
+      full_name: input.full_name.trim(), jabatan: input.jabatan.trim(), brand_name: input.brand_name.trim(),
+      tier_klien: input.tier_klien, industri: input.industri,
+      contact_type: ctMap[input.contact_type] ?? 'whatsapp', contact_value: input.contact_value.trim(), kontak_alt: input.kontak_alt.trim(),
+      source: input.source, detail_sumber: input.detail_sumber.trim(),
+      jenis_project: input.jenis_project, objektif: input.objektif, budget_range: input.budget_range,
+      timeline: input.timeline, brief_awal: input.brief_awal.trim(),
+      status: input.status, prioritas: input.prioritas, pic: input.pic, next_action: input.next_action.trim(),
+      follow_up_date: input.follow_up_date || null, tags: input.tags, notes: input.notes.trim(), lampiran: input.lampiran,
+      origin: 'manual', in_database: true, submitted_at: new Date().toISOString(),
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (getSupabase() as any).from('bsi_leads').insert(row).select().single()
@@ -277,7 +284,7 @@ export function ClientDatabase() {
         </Modal>
       )}
       {peekLead && <LeadPeek lead={peekLead} onClose={() => setPeekLead(null)} onConvert={() => setConvertLead(peekLead)} t={t} />}
-      {showAdd && <LeadFormModal title={t('Tambah Kontak')} defaultStatus="qualified" onClose={() => setShowAdd(false)} onSave={handleAddContact} />}
+      {showAdd && <LeadFormModal title={t('Tambah kontak')} onClose={() => setShowAdd(false)} onSave={handleAddContact} />}
       {convertLead && (
         <ClientModal
           open
