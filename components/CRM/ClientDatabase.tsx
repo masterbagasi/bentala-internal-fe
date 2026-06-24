@@ -37,6 +37,8 @@ interface Contact {
   date: string
   kota: string
   provinsi: string
+  tier: string
+  industri: string
   orders: number
   lastContacted?: string | null
   client?: Client
@@ -101,7 +103,7 @@ function clientToContact(c: Client): Contact {
     id: `c:${c.id}`, kind: 'client', brand: c.name, pic: c.pic || '—', contact: c.contact || '',
     contactType: isEmail(c.contact || '') ? 'email' : 'whatsapp',
     statusLabel: STAGE_LABELS[c.stage] ?? c.stage, statusColor: stage?.color ?? 'var(--text2)',
-    value: c.value || 0, source: c.source || 'manual', date: c.created_at, kota: '', provinsi: '', orders: 0, client: c,
+    value: c.value || 0, source: c.source || 'manual', date: c.created_at, kota: '', provinsi: '', tier: '', industri: '', orders: 0, client: c,
   }
 }
 function leadToContact(l: BsiLead): Contact {
@@ -112,7 +114,7 @@ function leadToContact(l: BsiLead): Contact {
     id: `l:${l.id}`, kind: 'lead', brand: l.brand_name, pic: l.full_name, contact: l.contact_value || '',
     contactType: l.contact_type, statusLabel: st.label, statusColor: st.color,
     value: null, source: l.source || l.origin || 'website', date: l.submitted_at,
-    kota: any.kota || '', provinsi: any.provinsi || '', orders: 0, lead: l,
+    kota: any.kota || '', provinsi: any.provinsi || '', tier: any.tier_klien || '', industri: any.industri || '', orders: 0, lead: l,
   }
 }
 
@@ -124,6 +126,10 @@ export function ClientDatabase() {
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [kind, setKind] = useState<'all' | 'client' | 'lead'>('all')
+  const [fKota, setFKota] = useState('')
+  const [fProvinsi, setFProvinsi] = useState('')
+  const [fTier, setFTier] = useState('')
+  const [fIndustri, setFIndustri] = useState('')
   const [sortKey, setSortKey] = useState<'brand' | 'date'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [detailClientId, setDetailClientId] = useState<string | null>(null)
@@ -228,20 +234,34 @@ export function ClientDatabase() {
     return m
   }, [projects])
 
+  const allContacts = useMemo<Contact[]>(() => [
+    ...clients.map((c) => ({ ...clientToContact(c), lastContacted: lastContact.get(c.id) ?? null, orders: ordersByClient.get(c.id) ?? 0 })),
+    ...leads.map(leadToContact),
+  ], [clients, leads, lastContact, ordersByClient])
+
+  // Distinct, sorted values present in the data → drive the filter dropdowns.
+  const uniq = (vals: string[]) => Array.from(new Set(vals.filter(Boolean))).sort((a, b) => a.localeCompare(b))
+  const options = useMemo(() => ({
+    kota: uniq(allContacts.map((r) => r.kota)),
+    provinsi: uniq(allContacts.map((r) => r.provinsi)),
+    tier: uniq(allContacts.map((r) => r.tier)),
+    industri: uniq(allContacts.map((r) => r.industri)),
+  }), [allContacts])
+
   const rows = useMemo(() => {
-    const all: Contact[] = [
-      ...clients.map((c) => ({ ...clientToContact(c), lastContacted: lastContact.get(c.id) ?? null, orders: ordersByClient.get(c.id) ?? 0 })),
-      ...leads.map(leadToContact),
-    ]
     const q = query.trim().toLowerCase()
-    const filtered = all.filter((r) => {
+    const filtered = allContacts.filter((r) => {
       if (kind !== 'all' && r.kind !== kind) return false
+      if (fKota && r.kota !== fKota) return false
+      if (fProvinsi && r.provinsi !== fProvinsi) return false
+      if (fTier && r.tier !== fTier) return false
+      if (fIndustri && r.industri !== fIndustri) return false
       if (q && !`${r.brand} ${r.pic} ${r.contact}`.toLowerCase().includes(q)) return false
       return true
     })
     const dir = sortDir === 'asc' ? 1 : -1
     return filtered.sort((a, b) => (sortKey === 'brand' ? a.brand.localeCompare(b.brand) : String(a.date).localeCompare(String(b.date))) * dir)
-  }, [clients, leads, lastContact, ordersByClient, query, kind, sortKey, sortDir])
+  }, [allContacts, query, kind, fKota, fProvinsi, fTier, fIndustri, sortKey, sortDir])
 
   const counts = useMemo(() => ({ all: clients.length + leads.length, client: clients.length, lead: leads.length }), [clients.length, leads.length])
 
@@ -250,33 +270,42 @@ export function ClientDatabase() {
     else { setSortKey(k); setSortDir(k === 'brand' ? 'asc' : 'desc') }
   }
 
-  const KIND_FILTERS: { key: 'all' | 'client' | 'lead'; label: string; n: number }[] = [
-    { key: 'all', label: t('Semua'), n: counts.all },
-    { key: 'client', label: 'Client', n: counts.client },
-    { key: 'lead', label: t('Kontak'), n: counts.lead },
-  ]
+  const filtersActive = kind !== 'all' || fKota || fProvinsi || fTier || fIndustri
+  function resetFilters() { setKind('all'); setFKota(''); setFProvinsi(''); setFTier(''); setFIndustri('') }
+  const selectStyle: React.CSSProperties = { fontSize: 12.5, padding: '7px 10px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', maxWidth: 170 }
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
-        {/* Underline tabs — same style as the Socmed / website page menus */}
-        <div style={{ display: 'flex', gap: 22, alignItems: 'center' }}>
-          {KIND_FILTERS.map((f) => {
-            const active = kind === f.key
-            return (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setKind(f.key)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 12px', marginBottom: -1, borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`, color: active ? 'var(--text)' : 'var(--text2)', fontSize: 13, fontWeight: active ? 600 : 500, whiteSpace: 'nowrap', transition: 'color 0.15s, border-color 0.15s' }}
-              >
-                {f.label} ({f.n})
-              </button>
-            )
-          })}
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {/* Filter dropdowns */}
+        <select value={kind} onChange={(e) => setKind(e.target.value as 'all' | 'client' | 'lead')} style={selectStyle}>
+          <option value="all">{t('Semua Tipe')} ({counts.all})</option>
+          <option value="client">Client ({counts.client})</option>
+          <option value="lead">Contact ({counts.lead})</option>
+        </select>
+        <select value={fKota} onChange={(e) => setFKota(e.target.value)} style={selectStyle}>
+          <option value="">{t('Semua Kota')}</option>
+          {options.kota.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <select value={fProvinsi} onChange={(e) => setFProvinsi(e.target.value)} style={selectStyle}>
+          <option value="">{t('Semua Provinsi')}</option>
+          {options.provinsi.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <select value={fTier} onChange={(e) => setFTier(e.target.value)} style={selectStyle}>
+          <option value="">{t('Semua Tier Klien')}</option>
+          {options.tier.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <select value={fIndustri} onChange={(e) => setFIndustri(e.target.value)} style={selectStyle}>
+          <option value="">{t('Semua Industri')}</option>
+          {options.industri.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        {filtersActive && (
+          <button type="button" onClick={resetFilters} title={t('Reset filter')} style={{ fontSize: 12, padding: '7px 12px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer' }}>
+            ✕ {t('Reset')}
+          </button>
+        )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Search: a button until clicked, then an inline input. Collapses on blur when empty. */}
           {searchOpen ? (
             <input
