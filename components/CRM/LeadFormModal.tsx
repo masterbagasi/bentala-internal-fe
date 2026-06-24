@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { MultiFileUploader } from '@/components/website/FileUploader'
@@ -56,7 +56,23 @@ const STATUS8 = ['New lead', 'Contacted', 'Qualified', 'Prospek', 'Penawaran', '
 const STATUS_NEEDS_FOLLOWUP = ['Prospek', 'Penawaran', 'Negosiasi']
 const PRIORITAS = ['Hot — sekarang', 'Warm', 'Cold']
 const PROVINSI = ['Aceh', 'Sumatera Utara', 'Sumatera Barat', 'Riau', 'Kepulauan Riau', 'Jambi', 'Sumatera Selatan', 'Bangka Belitung', 'Bengkulu', 'Lampung', 'DKI Jakarta', 'Jawa Barat', 'Banten', 'Jawa Tengah', 'DI Yogyakarta', 'Jawa Timur', 'Bali', 'Nusa Tenggara Barat', 'Nusa Tenggara Timur', 'Kalimantan Barat', 'Kalimantan Tengah', 'Kalimantan Selatan', 'Kalimantan Timur', 'Kalimantan Utara', 'Sulawesi Utara', 'Gorontalo', 'Sulawesi Tengah', 'Sulawesi Barat', 'Sulawesi Selatan', 'Sulawesi Tenggara', 'Maluku', 'Maluku Utara', 'Papua', 'Papua Barat', 'Papua Selatan', 'Papua Tengah', 'Papua Pegunungan', 'Papua Barat Daya']
-const NEGARA = ['Indonesia', 'Malaysia', 'Singapura', 'Brunei Darussalam', 'Filipina', 'Thailand', 'Vietnam', 'Australia', 'Lainnya']
+const NEGARA = [
+  'Indonesia', 'Malaysia', 'Singapura', 'Brunei Darussalam', 'Filipina', 'Thailand', 'Vietnam', 'Myanmar', 'Kamboja', 'Laos', 'Timor Leste',
+  'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan',
+  'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan', 'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Bulgaria', 'Burkina Faso', 'Burundi',
+  'Cabo Verde', 'Cameroon', 'Canada', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica', "Côte d'Ivoire", 'Croatia', 'Cuba', 'Cyprus', 'Czechia',
+  'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'DR Congo',
+  'Ecuador', 'Egypt', 'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia',
+  'Fiji', 'Finland', 'France', 'Gabon', 'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau', 'Guyana',
+  'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy', 'Jamaica', 'Japan', 'Jordan',
+  'Kazakhstan', 'Kenya', 'Kiribati', 'Kosovo', 'Kuwait', 'Kyrgyzstan', 'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg',
+  'Madagascar', 'Malawi', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico', 'Micronesia', 'Moldova', 'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique',
+  'Namibia', 'Nauru', 'Nepal', 'Netherlands', 'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman',
+  'Pakistan', 'Palau', 'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda',
+  'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe', 'Saudi Arabia', 'Senegal', 'Serbia', 'Seychelles', 'Sierra Leone', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia', 'South Africa', 'South Korea', 'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria',
+  'Taiwan', 'Tajikistan', 'Tanzania', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu',
+  'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Yemen', 'Zambia', 'Zimbabwe', 'Lainnya',
+]
 
 const EMPTY: NewLeadInput = {
   full_name: '', jabatan: '', brand_name: '', tier_klien: 'UMKM', industri: 'Food & beverage',
@@ -189,7 +205,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
               <input value={form.kota} onChange={(e) => set('kota', e.target.value)} placeholder={t('Kota / Kabupaten')} />
             </Field>
             <Field label={t('Provinsi / State')}>
-              <Select value={form.provinsi} onChange={(v) => set('provinsi', v)} options={PROVINSI} placeholder={t('Pilih provinsi...')} />
+              <Combo value={form.provinsi} onChange={(v) => set('provinsi', v)} options={PROVINSI} placeholder={t('Cari / pilih provinsi...')} />
             </Field>
           </Row>
           <Row>
@@ -197,7 +213,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
               <input value={form.kode_pos} onChange={(e) => set('kode_pos', e.target.value)} placeholder="40123" />
             </Field>
             <Field label={t('Negara')}>
-              <Select value={form.negara} onChange={(v) => set('negara', v)} options={NEGARA} />
+              <Combo value={form.negara} onChange={(v) => set('negara', v)} options={NEGARA} placeholder={t('Cari / pilih negara...')} />
             </Field>
           </Row>
         </Group>
@@ -312,6 +328,50 @@ function Select({ value, onChange, options, placeholder }: { value: string; onCh
     </div>
   )
 }
+// Searchable dropdown for long lists (provinces, countries) — type to filter.
+function Combo({ value, onChange, options, placeholder }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    function onDoc(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+  const shown = options.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 80)
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <input
+        value={open ? q : value}
+        placeholder={value || placeholder}
+        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => { setQ(''); setOpen(true) }}
+        style={{ paddingRight: 34, cursor: 'pointer' }}
+      />
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+        style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 30, maxHeight: 240, overflowY: 'auto', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 12px 36px rgba(0,0,0,0.5)' }}>
+          {shown.length === 0 ? (
+            <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text2)' }}>Tidak ada hasil</div>
+          ) : shown.map((o) => (
+            <div key={o}
+              onMouseDown={(e) => { e.preventDefault(); onChange(o); setOpen(false); setQ('') }}
+              style={{ padding: '9px 12px', fontSize: 13.5, cursor: 'pointer', color: o === value ? 'var(--accent)' : 'var(--text)', background: o === value ? 'rgba(108,99,255,0.1)' : 'transparent' }}
+              onMouseOver={(e) => (e.currentTarget.style.background = 'var(--bg3)')}
+              onMouseOut={(e) => (e.currentTarget.style.background = o === value ? 'rgba(108,99,255,0.1)' : 'transparent')}>
+              {o}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ChipMulti({ options, value, onToggle }: { options: string[]; value: string[]; onToggle: (o: string) => void }) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg3)' }}>
