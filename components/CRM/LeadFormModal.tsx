@@ -33,7 +33,7 @@ export interface NewLeadInput {
 }
 
 const TIPE_KONTAK = ['WhatsApp', 'Email', 'Phone', 'IG DM', 'LinkedIn']
-const TIER = ['UMKM', 'Mid-size', 'Corporate', 'Personal brand']
+const TIER = ['UMKM', 'Small Business', 'Mid Market', 'Enterprise']
 const INDUSTRI = ['Food & beverage', 'Beauty', 'Fashion', 'Personal', 'Tech', 'Health', 'Edu', 'Other']
 const SUMBER = ['Instagram', 'TikTok', 'Website', 'Referral', 'Event', 'Cold', 'Ads', 'Lainnya']
 const SUMBER_NEEDS_DETAIL = ['Referral', 'Event', 'Ads']
