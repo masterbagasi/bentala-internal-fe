@@ -388,14 +388,29 @@ function Combo({ value, onChange, options, placeholder, searchable = true }: { v
 
 function ChipMulti({ options, value, onToggle }: { options: string[]; value: string[]; onToggle: (o: string) => void }) {
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg3)' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {options.map((o) => {
         const on = value.includes(o)
         return (
-          <button key={o} type="button" onClick={() => onToggle(o)}
-            style={{ fontSize: 12.5, fontWeight: 600, borderRadius: 16, padding: '5px 12px', cursor: 'pointer',
+          <button key={o} type="button" onClick={() => onToggle(o)} aria-pressed={on}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
+              borderRadius: 999, padding: on ? '7px 14px 7px 11px' : '7px 14px', cursor: 'pointer',
               border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-              background: on ? 'rgba(108,99,255,0.18)' : 'var(--bg2)', color: on ? 'var(--accent)' : 'var(--text2)' }}>
+              background: on ? 'var(--accent)' : 'var(--bg3)',
+              color: on ? '#fff' : 'var(--text2)',
+              transition: 'background 0.14s, border-color 0.14s, color 0.14s, transform 0.1s',
+            }}
+            onMouseOver={(e) => { if (!on) { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)' } }}
+            onMouseOut={(e) => { if (!on) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)' } }}
+            onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.96)')}
+            onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            {on && (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
             {o}
           </button>
         )
