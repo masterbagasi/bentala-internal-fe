@@ -24,16 +24,16 @@ const STATUS_CHOICES: { value: BsiLead['status']; label: string }[] = [
   { value: 'spam', label: 'Spam' },
 ]
 
-// Acquisition channel — emoji prefix for fast visual scanning in the select.
+// Acquisition channel.
 export const SOURCE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'instagram', label: '📷 Instagram' },
-  { value: 'whatsapp', label: '💬 WhatsApp' },
-  { value: 'facebook', label: '👍 Facebook' },
-  { value: 'tiktok', label: '🎵 TikTok' },
-  { value: 'website', label: '🌐 Website' },
-  { value: 'referral', label: '🤝 Referral' },
-  { value: 'email', label: '✉️ Email' },
-  { value: 'other', label: '• Lainnya' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'facebook', label: 'Facebook' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'website', label: 'Website' },
+  { value: 'referral', label: 'Referral' },
+  { value: 'email', label: 'Email' },
+  { value: 'other', label: 'Lainnya' },
 ]
 
 /** Shared add-contact form. Defaults the status (e.g. 'qualified' for a manual
