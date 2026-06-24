@@ -133,11 +133,11 @@ export function LeadFormModal({ onClose, onSave, title }: {
               <input value={form.brand_name} onChange={(e) => set('brand_name', e.target.value)} placeholder="PT. ... / @brandname" />
             </Field>
           </Row>
-          <Field label={t('Jabatan / posisi')}>
+          <Field label={t('Posisi')}>
             <input value={form.jabatan} onChange={(e) => set('jabatan', e.target.value)} placeholder={t('Owner, Marketing Lead, dst')} />
           </Field>
           <Row>
-            <Field label={t('Tier klien')} hint={t('menentukan gaya komunikasi')}>
+            <Field label={t('Tier klien')}>
               <Combo searchable={false} value={form.tier_klien} onChange={(v) => set('tier_klien', v)} options={TIER} />
             </Field>
             <Field label={t('Industri')}>
@@ -159,7 +159,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
           {/* Kontak lainnya — repeatable social / channel rows */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
-              {t('Kontak lainnya')}<span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>{t('opsional')}</span>
+              {t('Kontak lainnya')}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {form.kontak_lainnya.map((c, i) => (
@@ -180,10 +180,10 @@ export function LeadFormModal({ onClose, onSave, title }: {
           </div>
 
           <Row>
-            <Field label={t('Sumber')} hint={t('dari mana kontak datang')}>
+            <Field label={t('Sumber')}>
               <Combo searchable={false} value={form.source} onChange={(v) => set('source', v)} options={SUMBER} />
             </Field>
-            <Field label={t('Detail sumber')} hint={t('nama event / referrer / campaign')}>
+            <Field label={t('Detail sumber')}>
               <input value={form.detail_sumber} onChange={(e) => set('detail_sumber', e.target.value)} placeholder={t('Contoh: direferensikan Pak Andi')} />
             </Field>
           </Row>
@@ -197,10 +197,10 @@ export function LeadFormModal({ onClose, onSave, title }: {
             <input value={form.alamat_jalan} onChange={(e) => set('alamat_jalan', e.target.value)} placeholder={t('Jalan / Nomor Gedung')} />
           </Field>
           <Row>
-            <Field label={t('RT / RW')} hint={t('opsional')}>
+            <Field label={t('RT / RW')}>
               <input value={form.alamat_rtrw} onChange={(e) => set('alamat_rtrw', e.target.value)} placeholder="001 / 002" />
             </Field>
-            <Field label={t('Blok / Unit / Lantai')} hint={t('opsional')}>
+            <Field label={t('Blok / Unit / Lantai')}>
               <input value={form.alamat_blok} onChange={(e) => set('alamat_blok', e.target.value)} placeholder={t('Blok A / Lt. 3')} />
             </Field>
           </Row>
@@ -231,14 +231,14 @@ export function LeadFormModal({ onClose, onSave, title }: {
         </Group>
 
         <Group label={t('Detail Project')}>
-          <Field label={t('Jenis project')} hint={t('bisa pilih lebih dari satu')}>
+          <Field label={t('Jenis project')}>
             <ChipMulti options={JENIS_PROJECT} value={form.jenis_project} onToggle={(o) => set('jenis_project', form.jenis_project.includes(o) ? form.jenis_project.filter((x) => x !== o) : [...form.jenis_project, o])} />
           </Field>
-          <Field label={t('Tujuan / objektif')} hint={t('apa yang klien mau capai')}>
+          <Field label={t('Tujuan / objektif')}>
             <Combo searchable={false} value={form.objektif} onChange={(v) => set('objektif', v)} options={OBJEKTIF} placeholder={t('Pilih objektif utama...')} />
           </Field>
           <Row>
-            <Field label={t('Estimasi budget')} hint={t('per bulan')}>
+            <Field label={t('Estimasi budget')}>
               <Combo searchable={false} value={form.budget_range} onChange={(v) => set('budget_range', v)} options={BUDGET} placeholder={t('Pilih range...')} />
             </Field>
             <Field label="Timeline">
@@ -267,7 +267,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
               <input type="date" value={form.follow_up_date} onChange={(e) => set('follow_up_date', e.target.value)} />
             </Field>
           </Row>
-          <Field label="Tags" hint={t('label custom untuk filter cepat')}>
+          <Field label="Tags">
             <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 8, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', background: 'var(--bg3)' }}>
               {form.tags.map((tag) => (
                 <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--accent)', background: 'rgba(108,99,255,0.16)', borderRadius: 16, padding: '3px 9px' }}>
@@ -284,7 +284,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
           <Field label={t('Catatan')}>
             <textarea rows={3} value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder={t('Konteks penting, hasil call, hal yang perlu diingat...')} style={{ fontFamily: 'inherit', resize: 'vertical' }} />
           </Field>
-          <Field label={t('Lampiran')} hint={t('brief, proposal, mood board')}>
+          <Field label={t('Lampiran')}>
             <MultiFileUploader value={form.lampiran} onChange={(urls) => set('lampiran', urls)} prefix="leads/files" accept="all" />
           </Field>
         </Group>

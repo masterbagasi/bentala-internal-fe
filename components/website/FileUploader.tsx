@@ -947,14 +947,16 @@ export function MultiFileUploader({
 
   async function handleAdd(files: FileList | null) {
     if (!files || files.length === 0) return
+    // Snapshot the FileList NOW, synchronously: the input's onChange resets
+    // `input.value = ''` right after calling us, which empties the live
+    // FileList mid-upload — so without this only the first file would land.
+    const arr = Array.from(files)
     setError(null)
     setUploading(true)
 
-    // Each uploadOne handles appending to value (via valueRef) after the
-    // 5-second hold + fade-out animation, so we don't push URLs here.
-    for (let i = 0; i < files.length; i++) {
-      await uploadOne(files[i])
-    }
+    // Upload the whole batch in parallel (uploadOne appends each result to
+    // value via valueRef, so concurrent completions all accumulate).
+    await Promise.all(arr.map((f) => uploadOne(f)))
 
     setUploading(false)
   }
