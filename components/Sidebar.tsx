@@ -493,10 +493,11 @@ export function Sidebar() {
       badge: <BrandBadge text="client" />,
       fullLabel: 'Client',
       items: [
-        { href: '/website/leads', label: 'Leads',           icon: <MoneyIcon />,  color: COLOR.green },
-        { href: '/clients',       label: 'CRM Pipeline',    icon: <PeopleIcon />, color: COLOR.blue },
-        { href: '/invoices',      label: 'Invoice & Bayar', icon: <MoneyIcon />,  color: COLOR.green },
-        { href: '/sales-report',  label: 'Laporan Sales',   icon: <ChartIcon />,  color: COLOR.purple },
+        { href: '/website/leads',    label: 'Leads',           icon: <MoneyIcon />,  color: COLOR.green },
+        { href: '/clients',          label: 'CRM Pipeline',    icon: <PeopleIcon />, color: COLOR.blue },
+        { href: '/clients/database', label: 'Database Client', icon: <ListIcon />,   color: COLOR.teal },
+        { href: '/invoices',         label: 'Invoice & Bayar', icon: <MoneyIcon />,  color: COLOR.green },
+        { href: '/sales-report',     label: 'Laporan Sales',   icon: <ChartIcon />,  color: COLOR.purple },
       ],
     },
     {
