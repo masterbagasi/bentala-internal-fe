@@ -125,7 +125,6 @@ export function ClientDatabase() {
   const [leads, setLeads] = useState<BsiLead[]>([])
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
-  const [kind, setKind] = useState<'all' | 'client' | 'lead'>('all')
   const [fKota, setFKota] = useState('')
   const [fProvinsi, setFProvinsi] = useState('')
   const [fTier, setFTier] = useState('')
@@ -251,7 +250,6 @@ export function ClientDatabase() {
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const filtered = allContacts.filter((r) => {
-      if (kind !== 'all' && r.kind !== kind) return false
       if (fKota && r.kota !== fKota) return false
       if (fProvinsi && r.provinsi !== fProvinsi) return false
       if (fTier && r.tier !== fTier) return false
@@ -261,9 +259,7 @@ export function ClientDatabase() {
     })
     const dir = sortDir === 'asc' ? 1 : -1
     return filtered.sort((a, b) => (sortKey === 'brand' ? a.brand.localeCompare(b.brand) : String(a.date).localeCompare(String(b.date))) * dir)
-  }, [allContacts, query, kind, fKota, fProvinsi, fTier, fIndustri, sortKey, sortDir])
-
-  const counts = useMemo(() => ({ all: clients.length + leads.length, client: clients.length, lead: leads.length }), [clients.length, leads.length])
+  }, [allContacts, query, fKota, fProvinsi, fTier, fIndustri, sortKey, sortDir])
 
   function toggleSort(k: 'brand' | 'date') {
     if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -300,7 +296,6 @@ export function ClientDatabase() {
           )}
           <DatabaseFilter
             t={t}
-            kind={kind} setKind={setKind}
             fKota={fKota} setFKota={setFKota}
             fProvinsi={fProvinsi} setFProvinsi={setFProvinsi}
             fTier={fTier} setFTier={setFTier}
@@ -404,9 +399,8 @@ export function ClientDatabase() {
 }
 
 // Filter button + popup — mirrors the Socmed board's BoardFilter.
-function DatabaseFilter({ t, kind, setKind, fKota, setFKota, fProvinsi, setFProvinsi, fTier, setFTier, fIndustri, setFIndustri, options }: {
+function DatabaseFilter({ t, fKota, setFKota, fProvinsi, setFProvinsi, fTier, setFTier, fIndustri, setFIndustri, options }: {
   t: (s: string) => string
-  kind: 'all' | 'client' | 'lead'; setKind: (v: 'all' | 'client' | 'lead') => void
   fKota: string; setFKota: (v: string) => void
   fProvinsi: string; setFProvinsi: (v: string) => void
   fTier: string; setFTier: (v: string) => void
@@ -414,8 +408,8 @@ function DatabaseFilter({ t, kind, setKind, fKota, setFKota, fProvinsi, setFProv
   options: { kota: string[]; provinsi: string[]; tier: string[]; industri: string[] }
 }) {
   const [open, setOpen] = useState(false)
-  const count = (kind !== 'all' ? 1 : 0) + (fKota ? 1 : 0) + (fProvinsi ? 1 : 0) + (fTier ? 1 : 0) + (fIndustri ? 1 : 0)
-  function reset() { setKind('all'); setFKota(''); setFProvinsi(''); setFTier(''); setFIndustri('') }
+  const count = (fKota ? 1 : 0) + (fProvinsi ? 1 : 0) + (fTier ? 1 : 0) + (fIndustri ? 1 : 0)
+  function reset() { setFKota(''); setFProvinsi(''); setFTier(''); setFIndustri('') }
   // Single-select chips: clicking the active value clears it.
   const pick = (cur: string, set: (v: string) => void, v: string) => set(cur === v ? '' : v)
 
@@ -439,11 +433,6 @@ function DatabaseFilter({ t, kind, setKind, fKota, setFKota, fProvinsi, setFProv
               <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t('Filter')}</span>
               <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{t('Reset')}</button>
             </div>
-
-            <FilterSection label={t('Tipe')}>
-              <FilterChip label="Client" active={kind === 'client'} onClick={() => setKind(kind === 'client' ? 'all' : 'client')} />
-              <FilterChip label="Contact" active={kind === 'lead'} onClick={() => setKind(kind === 'lead' ? 'all' : 'lead')} />
-            </FilterSection>
 
             <FilterSection label={t('Kota')} empty={options.kota.length === 0}>
               {options.kota.map((o) => <FilterChip key={o} label={o} active={fKota === o} onClick={() => pick(fKota, setFKota, o)} />)}
