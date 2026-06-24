@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { MultiFileUploader } from '@/components/website/FileUploader'
@@ -147,10 +148,10 @@ export function LeadFormModal({ onClose, onSave, title }: {
           </Row>
           <Row>
             <Field label={t('Tier klien')} hint={t('menentukan gaya komunikasi')}>
-              <Select value={form.tier_klien} onChange={(v) => set('tier_klien', v)} options={TIER} />
+              <Combo searchable={false} value={form.tier_klien} onChange={(v) => set('tier_klien', v)} options={TIER} />
             </Field>
             <Field label={t('Industri')}>
-              <Select value={form.industri} onChange={(v) => set('industri', v)} options={INDUSTRI} />
+              <Combo searchable={false} value={form.industri} onChange={(v) => set('industri', v)} options={INDUSTRI} />
             </Field>
           </Row>
         </Group>
@@ -158,7 +159,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
         <Group label={t('Kontak & Sumber')}>
           <Row>
             <Field label={t('Tipe kontak')}>
-              <Select value={form.contact_type} onChange={(v) => set('contact_type', v)} options={TIPE_KONTAK} />
+              <Combo searchable={false} value={form.contact_type} onChange={(v) => set('contact_type', v)} options={TIPE_KONTAK} />
             </Field>
             <Field label={t('Kontak utama')} required>
               <input value={form.contact_value} onChange={(e) => set('contact_value', e.target.value)} placeholder={form.contact_type === 'Email' ? 'email@domain.com' : '+62...'} />
@@ -169,7 +170,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
           </Field>
           <Row>
             <Field label={t('Sumber')} hint={t('dari mana kontak datang')}>
-              <Select value={form.source} onChange={(v) => set('source', v)} options={SUMBER} />
+              <Combo searchable={false} value={form.source} onChange={(v) => set('source', v)} options={SUMBER} />
             </Field>
             <Field label={t('Detail sumber')} required={needDetail} hint={t('nama event / referrer / campaign')}>
               <input value={form.detail_sumber} onChange={(e) => set('detail_sumber', e.target.value)} placeholder={t('Contoh: direferensikan Pak Andi')} />
@@ -223,14 +224,14 @@ export function LeadFormModal({ onClose, onSave, title }: {
             <ChipMulti options={JENIS_PROJECT} value={form.jenis_project} onToggle={(o) => set('jenis_project', form.jenis_project.includes(o) ? form.jenis_project.filter((x) => x !== o) : [...form.jenis_project, o])} />
           </Field>
           <Field label={t('Tujuan / objektif')} hint={t('apa yang klien mau capai')}>
-            <Select value={form.objektif} onChange={(v) => set('objektif', v)} options={OBJEKTIF} placeholder={t('Pilih objektif utama...')} />
+            <Combo searchable={false} value={form.objektif} onChange={(v) => set('objektif', v)} options={OBJEKTIF} placeholder={t('Pilih objektif utama...')} />
           </Field>
           <Row>
             <Field label={t('Estimasi budget')} hint={t('per bulan')}>
-              <Select value={form.budget_range} onChange={(v) => set('budget_range', v)} options={BUDGET} placeholder={t('Pilih range...')} />
+              <Combo searchable={false} value={form.budget_range} onChange={(v) => set('budget_range', v)} options={BUDGET} placeholder={t('Pilih range...')} />
             </Field>
             <Field label="Timeline">
-              <Select value={form.timeline} onChange={(v) => set('timeline', v)} options={TIMELINE} placeholder={t('Pilih timeline...')} />
+              <Combo searchable={false} value={form.timeline} onChange={(v) => set('timeline', v)} options={TIMELINE} placeholder={t('Pilih timeline...')} />
             </Field>
           </Row>
           <Field label={t('Brief awal')}>
@@ -241,13 +242,13 @@ export function LeadFormModal({ onClose, onSave, title }: {
         <Group label={t('Status & Assignment')}>
           <Row3>
             <Field label="Status">
-              <Select value={form.status} onChange={(v) => set('status', v)} options={STATUS8} />
+              <Combo searchable={false} value={form.status} onChange={(v) => set('status', v)} options={STATUS8} />
             </Field>
             <Field label={t('Prioritas')}>
-              <Select value={form.prioritas} onChange={(v) => set('prioritas', v)} options={PRIORITAS} />
+              <Combo searchable={false} value={form.prioritas} onChange={(v) => set('prioritas', v)} options={PRIORITAS} />
             </Field>
             <Field label="PIC" required>
-              <Select value={form.pic} onChange={(v) => set('pic', v)} options={team.map((m) => m.name)} placeholder={t('Pilih anggota tim...')} />
+              <Combo searchable={false} value={form.pic} onChange={(v) => set('pic', v)} options={team.map((m) => m.name)} placeholder={t('Pilih anggota tim...')} />
             </Field>
           </Row3>
           <Row>
@@ -310,64 +311,77 @@ function Field({ label, children, required, hint }: { label: string; children: R
     </label>
   )
 }
-function Select({ value, onChange, options, placeholder }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) {
-  return (
-    <div style={{ position: 'relative' }}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', paddingRight: 34, cursor: 'pointer', color: value ? 'var(--text)' : 'var(--text3)' }}
-      >
-        {placeholder && <option value="">{placeholder}</option>}
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-        style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
-    </div>
-  )
-}
-// Searchable dropdown for long lists (provinces, countries) — type to filter.
-function Combo({ value, onChange, options, placeholder }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) {
+// Dropdown for every form field: type to filter, and the panel is rendered in a
+// portal with position:fixed so it never moves with the modal scroll — it stays
+// anchored to the field and only scrolls internally. Closes on outside click or
+// when the page behind it scrolls.
+function Combo({ value, onChange, options, placeholder, searchable = true }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; searchable?: boolean }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
-  const ref = useRef<HTMLDivElement>(null)
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  function openPanel() {
+    const r = inputRef.current?.getBoundingClientRect()
+    if (r) setRect({ top: r.bottom + 5, left: r.left, width: r.width })
+    setQ('')
+    setOpen(true)
+  }
+
   useEffect(() => {
     if (!open) return
-    function onDoc(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
+    function onDown(e: MouseEvent) {
+      const tgt = e.target as Node
+      if (inputRef.current?.contains(tgt) || panelRef.current?.contains(tgt)) return
+      setOpen(false)
+    }
+    function onScroll(e: Event) {
+      if (panelRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    function onResize() { setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onResize)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onResize)
+    }
   }, [open])
-  const shown = options.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 80)
+
+  const shown = searchable ? options.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 80) : options
+
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div style={{ position: 'relative' }}>
       <input
-        value={open ? q : value}
-        placeholder={value || placeholder}
-        onChange={(e) => { setQ(e.target.value); setOpen(true) }}
-        onFocus={() => { setQ(''); setOpen(true) }}
-        style={{ paddingRight: 34, cursor: 'pointer' }}
+        ref={inputRef}
+        value={open && searchable ? q : value}
+        placeholder={placeholder || ''}
+        readOnly={!searchable}
+        onChange={(e) => { setQ(e.target.value); if (!open) openPanel() }}
+        onMouseDown={() => (open ? setOpen(false) : openPanel())}
+        style={{ paddingRight: 34, cursor: 'pointer', color: value ? 'var(--text)' : 'var(--text3)' }}
       />
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-        style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+        style={{ position: 'absolute', right: 11, top: '50%', transform: `translateY(-50%) rotate(${open ? 180 : 0}deg)`, pointerEvents: 'none', transition: 'transform 0.15s' }}>
         <polyline points="6 9 12 15 18 9" />
       </svg>
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 30, maxHeight: 240, overflowY: 'auto', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 12px 36px rgba(0,0,0,0.5)' }}>
+      {open && rect && createPortal(
+        <div ref={panelRef} style={{ position: 'fixed', top: rect.top, left: rect.left, width: rect.width, zIndex: 3000, maxHeight: 260, overflowY: 'auto', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 14px 40px rgba(0,0,0,0.55)' }}>
           {shown.length === 0 ? (
             <div style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text2)' }}>Tidak ada hasil</div>
           ) : shown.map((o) => (
             <div key={o}
               onMouseDown={(e) => { e.preventDefault(); onChange(o); setOpen(false); setQ('') }}
-              style={{ padding: '9px 12px', fontSize: 13.5, cursor: 'pointer', color: o === value ? 'var(--accent)' : 'var(--text)', background: o === value ? 'rgba(108,99,255,0.1)' : 'transparent' }}
+              style={{ padding: '9px 12px', fontSize: 13.5, cursor: 'pointer', color: o === value ? 'var(--accent)' : 'var(--text)', background: o === value ? 'rgba(108,99,255,0.12)' : 'transparent' }}
               onMouseOver={(e) => (e.currentTarget.style.background = 'var(--bg3)')}
-              onMouseOut={(e) => (e.currentTarget.style.background = o === value ? 'rgba(108,99,255,0.1)' : 'transparent')}>
+              onMouseOut={(e) => (e.currentTarget.style.background = o === value ? 'rgba(108,99,255,0.12)' : 'transparent')}>
               {o}
             </div>
           ))}
-        </div>
-      )}
+        </div>, document.body)}
     </div>
   )
 }
