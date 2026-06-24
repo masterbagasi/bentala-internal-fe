@@ -4,7 +4,7 @@ import { ClientDatabase } from '@/components/CRM/ClientDatabase'
 export default function ClientDatabasePage() {
   return (
     <>
-      <PageHeader title="Database Client" />
+      <PageHeader title="Database Kontak" />
       <div className="flex-1 overflow-y-auto min-h-0">
         <ClientDatabase />
       </div>
