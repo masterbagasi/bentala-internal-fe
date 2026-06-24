@@ -116,10 +116,10 @@ export function ClientDatabase() {
     const row = {
       full_name: input.full_name.trim(), jabatan: input.jabatan.trim(), brand_name: input.brand_name.trim(),
       tier_klien: input.tier_klien, industri: input.industri,
-      contact_type: ctMap[input.contact_type] ?? 'whatsapp', contact_value: input.contact_value.trim(), kontak_alt: input.kontak_alt.trim(),
+      contact_type: ctMap[input.contact_type] ?? 'whatsapp', contact_value: input.contact_value.trim(), kontak_lainnya: input.kontak_lainnya,
       source: input.source, detail_sumber: input.detail_sumber.trim(),
       jenis_project: input.jenis_project, objektif: input.objektif, budget_range: input.budget_range,
-      timeline: input.timeline, brief_awal: input.brief_awal.trim(),
+      timeline: input.timeline,
       status: input.status, prioritas: input.prioritas, pic: input.pic, next_action: input.next_action.trim(),
       follow_up_date: input.follow_up_date || null, tags: input.tags, notes: input.notes.trim(), lampiran: input.lampiran,
       nama_lokasi: input.nama_lokasi.trim(), alamat_jalan: input.alamat_jalan.trim(), alamat_rtrw: input.alamat_rtrw.trim(),
