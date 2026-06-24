@@ -35,6 +35,7 @@ interface Contact {
   value: number | null
   source: string
   date: string
+  lastContacted?: string | null
   client?: Client
   lead?: BsiLead
 }
@@ -75,6 +76,27 @@ export function ClientDatabase() {
   const [peekLead, setPeekLead] = useState<BsiLead | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [convertLead, setConvertLead] = useState<BsiLead | null>(null)
+  const [lastContact, setLastContact] = useState<Map<string, string>>(new Map())
+
+  // Last-contacted per client = the most recent interaction or message.
+  useEffect(() => {
+    let cancelled = false
+    const sb = getSupabase()
+    Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (sb as any).from('client_interactions').select('client_id, occurred_at'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (sb as any).from('client_messages').select('client_id, created_at'),
+    ]).then(([ia, msg]: [{ data: { client_id: string; occurred_at: string }[] | null }, { data: { client_id: string; created_at: string }[] | null }]) => {
+      if (cancelled) return
+      const m = new Map<string, string>()
+      const put = (cid: string, ts: string) => { const cur = m.get(cid); if (cid && ts && (!cur || ts > cur)) m.set(cid, ts) }
+      for (const r of ia.data ?? []) put(r.client_id, r.occurred_at)
+      for (const r of msg.data ?? []) put(r.client_id, r.created_at)
+      setLastContact(m)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   // Database = curated contacts: every promoted lead (in_database, not yet a
   // client) + all clients. Clients come from the realtime store.
@@ -126,7 +148,10 @@ export function ClientDatabase() {
   }
 
   const rows = useMemo(() => {
-    const all: Contact[] = [...clients.map(clientToContact), ...leads.map(leadToContact)]
+    const all: Contact[] = [
+      ...clients.map((c) => ({ ...clientToContact(c), lastContacted: lastContact.get(c.id) ?? null })),
+      ...leads.map(leadToContact),
+    ]
     const q = query.trim().toLowerCase()
     const filtered = all.filter((r) => {
       if (kind !== 'all' && r.kind !== kind) return false
@@ -135,14 +160,14 @@ export function ClientDatabase() {
     })
     const dir = sortDir === 'asc' ? 1 : -1
     return filtered.sort((a, b) => (sortKey === 'name' ? a.name.localeCompare(b.name) : String(a.date).localeCompare(String(b.date))) * dir)
-  }, [clients, leads, query, kind, sortKey, sortDir])
+  }, [clients, leads, lastContact, query, kind, sortKey, sortDir])
 
   const counts = useMemo(() => ({ client: clients.length, lead: leads.length }), [clients.length, leads.length])
 
   function exportCsv() {
-    const headers = ['Nama', 'Brand', 'Kontak', 'Tipe', 'Status', 'PIC', 'Nilai', 'Source', 'Tanggal']
+    const headers = ['Nama', 'Brand', 'Kontak', 'Tipe', 'Status', 'PIC', 'Nilai', 'Source', 'Masuk', 'Terakhir Dihubungi']
     const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const lines = rows.map((r) => [r.name, r.brand, r.contact, r.kind === 'client' ? 'Client' : 'Kontak', r.statusLabel, r.pic, r.value ?? '', r.source, (r.date || '').slice(0, 10)].map(esc).join(','))
+    const lines = rows.map((r) => [r.name, r.brand, r.contact, r.kind === 'client' ? 'Client' : 'Kontak', r.statusLabel, r.pic, r.value ?? '', r.source, (r.date || '').slice(0, 10), (r.lastContacted || '').slice(0, 10)].map(esc).join(','))
     const csv = [headers.map(esc).join(','), ...lines].join('\n')
     const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }))
     const a = document.createElement('a')
@@ -192,13 +217,14 @@ export function ClientDatabase() {
               <Th label="PIC" />
               <Th label={t('Nilai')} align="right" />
               <Th label="Source" />
-              <Th label={t('Tanggal')} onClick={() => toggleSort('date')} active={sortKey === 'date'} dir={sortDir} />
+              <Th label={t('Masuk')} onClick={() => toggleSort('date')} active={sortKey === 'date'} dir={sortDir} />
+              <Th label={t('Terakhir Dihubungi')} />
               <Th label={t('Aksi')} align="center" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={10} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>{t('Belum ada kontak.')}</td></tr>
+              <tr><td colSpan={11} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>{t('Belum ada kontak.')}</td></tr>
             ) : rows.map((r) => (
               <tr
                 key={r.id}
@@ -222,6 +248,7 @@ export function ClientDatabase() {
                 <td style={{ padding: '9px 12px', textAlign: 'right', color: 'var(--text)', whiteSpace: 'nowrap' }}>{r.value ? formatRupiah(r.value) : '—'}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{cap(r.source)}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</td>
+                <td style={{ padding: '9px 12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>{r.lastContacted ? fmtDate(r.lastContacted) : '—'}</td>
                 <td style={{ padding: '9px 12px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     <ContactAction contact={r.contact} type={r.contactType} t={t} />
