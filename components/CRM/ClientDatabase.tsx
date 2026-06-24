@@ -35,6 +35,9 @@ interface Contact {
   value: number | null
   source: string
   date: string
+  kota: string
+  provinsi: string
+  orders: number
   lastContacted?: string | null
   client?: Client
   lead?: BsiLead
@@ -98,24 +101,28 @@ function clientToContact(c: Client): Contact {
     id: `c:${c.id}`, kind: 'client', brand: c.name, pic: c.pic || '—', contact: c.contact || '',
     contactType: isEmail(c.contact || '') ? 'email' : 'whatsapp',
     statusLabel: STAGE_LABELS[c.stage] ?? c.stage, statusColor: stage?.color ?? 'var(--text2)',
-    value: c.value || 0, source: c.source || 'manual', date: c.created_at, client: c,
+    value: c.value || 0, source: c.source || 'manual', date: c.created_at, kota: '', provinsi: '', orders: 0, client: c,
   }
 }
 function leadToContact(l: BsiLead): Contact {
   const st = LEAD_STATUS[l.status] ?? { label: l.status, color: 'var(--text2)' }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const any = l as any
   return {
     id: `l:${l.id}`, kind: 'lead', brand: l.brand_name, pic: l.full_name, contact: l.contact_value || '',
     contactType: l.contact_type, statusLabel: st.label, statusColor: st.color,
-    value: null, source: l.source || l.origin || 'website', date: l.submitted_at, lead: l,
+    value: null, source: l.source || l.origin || 'website', date: l.submitted_at,
+    kota: any.kota || '', provinsi: any.provinsi || '', orders: 0, lead: l,
   }
 }
 
 export function ClientDatabase() {
   const t = useT()
-  const clients = useStore(useShallow((s) => s.clients))
+  const { clients, projects } = useStore(useShallow((s) => ({ clients: s.clients, projects: s.projects })))
   const removeClient = useStore((s) => s.removeClient)
   const [leads, setLeads] = useState<BsiLead[]>([])
   const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [kind, setKind] = useState<'all' | 'client' | 'lead'>('all')
   const [sortKey, setSortKey] = useState<'brand' | 'date'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -214,9 +221,16 @@ export function ClientDatabase() {
     return items
   }
 
+  // Jumlah order per client = number of projects linked to that client.
+  const ordersByClient = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const p of projects) if (p.client_id) m.set(p.client_id, (m.get(p.client_id) ?? 0) + 1)
+    return m
+  }, [projects])
+
   const rows = useMemo(() => {
     const all: Contact[] = [
-      ...clients.map((c) => ({ ...clientToContact(c), lastContacted: lastContact.get(c.id) ?? null })),
+      ...clients.map((c) => ({ ...clientToContact(c), lastContacted: lastContact.get(c.id) ?? null, orders: ordersByClient.get(c.id) ?? 0 })),
       ...leads.map(leadToContact),
     ]
     const q = query.trim().toLowerCase()
@@ -227,59 +241,77 @@ export function ClientDatabase() {
     })
     const dir = sortDir === 'asc' ? 1 : -1
     return filtered.sort((a, b) => (sortKey === 'brand' ? a.brand.localeCompare(b.brand) : String(a.date).localeCompare(String(b.date))) * dir)
-  }, [clients, leads, lastContact, query, kind, sortKey, sortDir])
+  }, [clients, leads, lastContact, ordersByClient, query, kind, sortKey, sortDir])
 
-  const counts = useMemo(() => ({ client: clients.length, lead: leads.length }), [clients.length, leads.length])
-
-  function exportCsv() {
-    const headers = ['Brand', 'PIC', 'Kontak', 'Status', 'Nilai', 'Source', 'Masuk', 'Terakhir Dihubungi']
-    const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const lines = rows.map((r) => [r.brand, r.pic, r.contact, r.kind === 'client' ? r.statusLabel : '-', r.value ?? '', r.source, (r.date || '').slice(0, 10), (r.lastContacted || '').slice(0, 10)].map(esc).join(','))
-    const csv = [headers.map(esc).join(','), ...lines].join('\n')
-    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `database-kontak-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+  const counts = useMemo(() => ({ all: clients.length + leads.length, client: clients.length, lead: leads.length }), [clients.length, leads.length])
 
   function toggleSort(k: 'brand' | 'date') {
     if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
     else { setSortKey(k); setSortDir(k === 'brand' ? 'asc' : 'desc') }
   }
 
-  const selectStyle: React.CSSProperties = { fontSize: 12, padding: '6px 8px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)' }
+  const KIND_FILTERS: { key: 'all' | 'client' | 'lead'; label: string; n: number }[] = [
+    { key: 'all', label: t('Semua'), n: counts.all },
+    { key: 'client', label: 'Client', n: counts.client },
+    { key: 'lead', label: t('Kontak'), n: counts.lead },
+  ]
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('Cari nama / brand / kontak...')}
-          style={{ flex: '1 1 220px', minWidth: 180, fontSize: 13, padding: '8px 12px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)' }}
-        />
-        <select value={kind} onChange={(e) => setKind(e.target.value as 'all' | 'client' | 'lead')} style={selectStyle}>
-          <option value="all">{t('Semua')} ({counts.client + counts.lead})</option>
-          <option value="client">Client ({counts.client})</option>
-          <option value="lead">Kontak ({counts.lead})</option>
-        </select>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 12, color: 'var(--text2)' }}>{rows.length} {t('kontak')}</span>
-          <button type="button" onClick={exportCsv} style={{ fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', whiteSpace: 'nowrap' }}>↓ Export CSV</button>
-          <button type="button" onClick={() => setShowAdd(true)} style={{ fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ {t('Tambah Kontak')}</button>
+        {/* Filter chips — same pill style as the Pipeline tab */}
+        {KIND_FILTERS.map((f) => {
+          const active = kind === f.key
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setKind(f.key)}
+              style={{ padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 500, border: '1px solid', background: active ? 'var(--accent)' : 'var(--bg2)', color: active ? '#fff' : 'var(--text2)', borderColor: active ? 'var(--accent)' : 'var(--border)' }}
+            >
+              {f.label} ({f.n})
+            </button>
+          )
+        })}
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Search: a button until clicked, then an inline input. Collapses on blur when empty. */}
+          {searchOpen ? (
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onBlur={() => { if (!query.trim()) setSearchOpen(false) }}
+              placeholder={t('Cari nama / brand / kontak...')}
+              style={{ width: 240, fontSize: 13, padding: '7px 12px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--accent)', color: 'var(--text)' }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              title={t('Cari')}
+              style={{ width: 34, height: 34, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer' }}
+              onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)' }}
+              onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text2)' }}
+            >
+              🔍
+            </button>
+          )}
+          <button type="button" onClick={() => setShowAdd(true)} style={{ fontSize: 13, fontWeight: 500, padding: '7px 14px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ {t('Tambah Kontak')}</button>
         </div>
       </div>
 
       <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 10 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 940 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 1180 }}>
           <thead>
             <tr style={{ background: 'var(--bg2)' }}>
               <Th label={t('Brand')} onClick={() => toggleSort('brand')} active={sortKey === 'brand'} dir={sortDir} />
               <Th label="PIC" />
               <Th label={t('Kontak')} />
+              <Th label={t('Kota')} />
+              <Th label={t('Provinsi')} />
               <Th label="Status" />
+              <Th label={t('Jumlah Order')} align="right" />
               <Th label={t('Nilai')} align="right" />
               <Th label="Source" />
               <Th label={t('Masuk')} onClick={() => toggleSort('date')} active={sortKey === 'date'} dir={sortDir} />
@@ -289,7 +321,7 @@ export function ClientDatabase() {
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>{t('Belum ada kontak.')}</td></tr>
+              <tr><td colSpan={12} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>{t('Belum ada kontak.')}</td></tr>
             ) : rows.map((r) => (
               <tr
                 key={r.id}
@@ -301,11 +333,14 @@ export function ClientDatabase() {
                 <td style={{ padding: '9px 12px', fontWeight: 600, color: 'var(--text)' }}>{r.brand || '—'}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{r.pic || '—'}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11.5 }}>{r.contact || '—'}</td>
+                <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{r.kota || '—'}</td>
+                <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{r.provinsi || '—'}</td>
                 <td style={{ padding: '9px 12px' }}>
                   {r.kind === 'client'
                     ? <span style={{ fontSize: 11, color: r.statusColor, background: r.statusColor + '22', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>{r.statusLabel}</span>
                     : <span style={{ color: 'var(--text3)' }}>—</span>}
                 </td>
+                <td style={{ padding: '9px 12px', textAlign: 'right', color: r.orders ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap' }}>{r.orders || '—'}</td>
                 <td style={{ padding: '9px 12px', textAlign: 'right', color: 'var(--text)', whiteSpace: 'nowrap' }}>{r.value ? formatRupiah(r.value) : '—'}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{cap(r.source)}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</td>
