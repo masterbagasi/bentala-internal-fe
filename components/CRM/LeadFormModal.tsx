@@ -60,7 +60,6 @@ function channelPlaceholder(ch: string): string {
 const TIER = ['UMKM', 'Small Business', 'Mid Market', 'Enterprise']
 const INDUSTRI = ['Food & beverage', 'Beauty', 'Fashion', 'Personal', 'Tech', 'Health', 'Edu', 'Other']
 const SUMBER = ['Instagram', 'TikTok', 'Website', 'Referral', 'Event', 'Cold', 'Ads', 'Lainnya']
-const JENIS_PROJECT = ['Social media mgmt', 'Meta ads', 'Branding', 'Content production', 'KOL management', 'Google ads', 'Web / design', 'Lainnya']
 const OBJEKTIF = ['Awareness', 'Engagement', 'Leads / Sales', 'Followers growth', 'Content production', 'Branding', 'Launch campaign', 'Lainnya']
 const BUDGET = ['< Rp 5 juta', 'Rp 5 — 15 juta', 'Rp 15 — 30 juta', 'Rp 30 — 50 juta', 'Rp 50 — 100 juta', '> Rp 100 juta']
 const TIMELINE = ['Urgent — sekarang', '1 — 3 bulan', '3 — 6 bulan', 'Long-term', 'Belum tentu']
@@ -104,6 +103,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
   const [form, setForm] = useState<NewLeadInput>(EMPTY)
   const [saving, setSaving] = useState(false)
   const [team, setTeam] = useState<{ name: string }[]>([])
+  const [jenisOptions, setJenisOptions] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const set = <K extends keyof NewLeadInput>(k: K, v: NewLeadInput[K]) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -111,6 +111,14 @@ export function LeadFormModal({ onClose, onSave, title }: {
     let off = false
     fetch('/api/accounts').then((r) => (r.ok ? r.json() : { accounts: [] }))
       .then((d: { accounts?: { name: string }[] }) => { if (!off) setTeam(d.accounts ?? []) }).catch(() => {})
+    // Jenis project mirrors the website's Services list (Home Page → Services).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(getSupabase() as any).from('bsi_services').select('name, sort_order').order('sort_order', { ascending: true })
+      .then(({ data }: { data: { name: string }[] | null }) => {
+        if (off) return
+        const names = (data ?? []).map((s) => s.name).filter(Boolean)
+        setJenisOptions([...names, 'Lainnya'])
+      })
     return () => { off = true }
   }, [])
 
@@ -245,7 +253,9 @@ export function LeadFormModal({ onClose, onSave, title }: {
 
         <Group label={t('Detail Project')}>
           <Field label={t('Jenis project')}>
-            <ChipMulti options={JENIS_PROJECT} value={form.jenis_project} onToggle={(o) => set('jenis_project', form.jenis_project.includes(o) ? form.jenis_project.filter((x) => x !== o) : [...form.jenis_project, o])} />
+            {jenisOptions.length === 0
+              ? <div style={{ fontSize: 12.5, color: 'var(--text2)' }}>{t('Memuat layanan...')}</div>
+              : <ChipMulti options={jenisOptions} value={form.jenis_project} onToggle={(o) => set('jenis_project', form.jenis_project.includes(o) ? form.jenis_project.filter((x) => x !== o) : [...form.jenis_project, o])} />}
           </Field>
           <Field label={t('Tujuan / objektif')}>
             <Combo searchable={false} value={form.objektif} onChange={(v) => set('objektif', v)} options={OBJEKTIF} placeholder={t('Pilih objektif utama...')} />
