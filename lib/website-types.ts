@@ -477,5 +477,9 @@ export interface BsiLead {
   submitted_at: string
   status: 'new' | 'contacted' | 'qualified' | 'closed' | 'spam'
   converted_client_id?: string | null
+  /** Promoted from the Leads inbox into the contact Database ("layak"). */
+  in_database?: boolean
+  /** 'website' = website form submission, 'manual' = added in the Database. */
+  origin?: string
   created_at: string
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -10,10 +9,11 @@ import { formatRupiah } from '@/lib/utils'
 import { CRM_STAGES, STAGE_LABELS, TEMPERATURES } from '@/lib/constants'
 import { Modal } from '@/components/shared/Modal'
 import { ClientProfile } from './ClientProfile'
+import { ClientModal } from '@/components/CRM'
+import { LeadFormModal, type NewLeadInput } from './LeadFormModal'
 import type { Client } from '@/lib/types'
 import type { BsiLead } from '@/lib/website-types'
 
-// Lead status palette (kept small + local; the Leads page owns the full UI).
 const LEAD_STATUS: Record<string, { label: string; color: string }> = {
   new:       { label: 'Baru',            color: '#6c63ff' },
   contacted: { label: 'Sudah Dihubungi', color: '#ffc542' },
@@ -22,7 +22,6 @@ const LEAD_STATUS: Record<string, { label: string; color: string }> = {
   spam:      { label: 'Spam',            color: '#ff6b6b' },
 }
 
-// One unified shape over clients + (unconverted) leads so the table is uniform.
 interface Contact {
   id: string
   kind: 'client' | 'lead'
@@ -59,7 +58,7 @@ function leadToContact(l: BsiLead): Contact {
   return {
     id: `l:${l.id}`, kind: 'lead', name: l.full_name, brand: l.brand_name, contact: l.contact_value || '',
     contactType: l.contact_type, statusLabel: st.label, statusColor: st.color,
-    pic: '—', value: null, source: 'website', date: l.submitted_at, lead: l,
+    pic: '—', value: null, source: l.origin || 'website', date: l.submitted_at, lead: l,
   }
 }
 
@@ -73,25 +72,47 @@ export function ClientDatabase() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [detailClientId, setDetailClientId] = useState<string | null>(null)
   const [peekLead, setPeekLead] = useState<BsiLead | null>(null)
+  const [showAdd, setShowAdd] = useState(false)
+  const [convertLead, setConvertLead] = useState<BsiLead | null>(null)
 
-  // Leads aren't in the global store; pull the not-yet-converted ones so the
-  // contact book keeps prospects too (they can be re-contacted later).
+  // Database = curated contacts: every promoted lead (in_database, not yet a
+  // client) + all clients. Clients come from the realtime store.
   useEffect(() => {
     let cancelled = false
     getSupabase()
       .from('bsi_leads')
       .select('*')
+      .eq('in_database', true)
       .is('converted_client_id', null)
       .order('submitted_at', { ascending: false })
       .then(({ data }) => { if (!cancelled) setLeads((data as BsiLead[] | null) ?? []) })
     return () => { cancelled = true }
   }, [])
 
+  async function handleAddContact(input: NewLeadInput) {
+    const row = {
+      full_name: input.full_name.trim(), brand_name: input.brand_name.trim(), contact_type: input.contact_type,
+      contact_value: input.contact_value.trim(), project_type: input.project_type.trim(), notes: input.notes.trim(),
+      status: input.status, origin: 'manual', in_database: true, submitted_at: new Date().toISOString(),
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (getSupabase() as any).from('bsi_leads').insert(row).select().single()
+    if (error) { alert(error.message); return }
+    if (data) setLeads((xs) => [data as BsiLead, ...xs])
+    setShowAdd(false)
+  }
+
+  async function handleConverted(clientId: string) {
+    const lead = convertLead
+    if (!lead) return
+    await getSupabase().from('bsi_leads').update({ converted_client_id: clientId }).eq('id', lead.id)
+    setLeads((xs) => xs.filter((x) => x.id !== lead.id)) // now shown as its client row
+    setConvertLead(null)
+    setPeekLead(null)
+  }
+
   const rows = useMemo(() => {
-    const all: Contact[] = [
-      ...clients.map(clientToContact),
-      ...leads.map(leadToContact),
-    ]
+    const all: Contact[] = [...clients.map(clientToContact), ...leads.map(leadToContact)]
     const q = query.trim().toLowerCase()
     const filtered = all.filter((r) => {
       if (kind !== 'all' && r.kind !== kind) return false
@@ -107,7 +128,7 @@ export function ClientDatabase() {
   function exportCsv() {
     const headers = ['Nama', 'Brand', 'Kontak', 'Tipe', 'Status', 'PIC', 'Nilai', 'Source', 'Tanggal']
     const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const lines = rows.map((r) => [r.name, r.brand, r.contact, r.kind === 'client' ? 'Client' : 'Lead', r.statusLabel, r.pic, r.value ?? '', r.source, (r.date || '').slice(0, 10)].map(esc).join(','))
+    const lines = rows.map((r) => [r.name, r.brand, r.contact, r.kind === 'client' ? 'Client' : 'Kontak', r.statusLabel, r.pic, r.value ?? '', r.source, (r.date || '').slice(0, 10)].map(esc).join(','))
     const csv = [headers.map(esc).join(','), ...lines].join('\n')
     const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }))
     const a = document.createElement('a')
@@ -136,11 +157,12 @@ export function ClientDatabase() {
         <select value={kind} onChange={(e) => setKind(e.target.value as 'all' | 'client' | 'lead')} style={selectStyle}>
           <option value="all">{t('Semua')} ({counts.client + counts.lead})</option>
           <option value="client">Client ({counts.client})</option>
-          <option value="lead">Lead ({counts.lead})</option>
+          <option value="lead">Kontak ({counts.lead})</option>
         </select>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 12, color: 'var(--text2)' }}>{rows.length} {t('kontak')}</span>
           <button type="button" onClick={exportCsv} style={{ fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', whiteSpace: 'nowrap' }}>↓ Export CSV</button>
+          <button type="button" onClick={() => setShowAdd(true)} style={{ fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ {t('Tambah Kontak')}</button>
         </div>
       </div>
 
@@ -176,7 +198,7 @@ export function ClientDatabase() {
                 <td style={{ padding: '9px 12px', color: 'var(--text2)', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11.5 }}>{r.contact || '—'}</td>
                 <td style={{ padding: '9px 12px' }}>
                   <span style={{ fontSize: 10.5, fontWeight: 600, color: r.kind === 'client' ? 'var(--accent)' : '#ffa94d', background: (r.kind === 'client' ? 'var(--accent)' : '#ffa94d') + '22', borderRadius: 20, padding: '2px 8px' }}>
-                    {r.kind === 'client' ? 'Client' : 'Lead'}
+                    {r.kind === 'client' ? 'Client' : 'Kontak'}
                   </span>
                 </td>
                 <td style={{ padding: '9px 12px' }}>
@@ -200,15 +222,33 @@ export function ClientDatabase() {
           <ClientProfile id={detailClientId} onClose={() => setDetailClientId(null)} />
         </Modal>
       )}
-      {peekLead && <LeadPeek lead={peekLead} onClose={() => setPeekLead(null)} t={t} />}
+      {peekLead && <LeadPeek lead={peekLead} onClose={() => setPeekLead(null)} onConvert={() => setConvertLead(peekLead)} t={t} />}
+      {showAdd && <LeadFormModal title={t('Tambah Kontak')} defaultStatus="qualified" onClose={() => setShowAdd(false)} onSave={handleAddContact} />}
+      {convertLead && (
+        <ClientModal
+          open
+          client={null}
+          source="website"
+          leadId={convertLead.id}
+          prefill={{
+            name: convertLead.brand_name || convertLead.full_name,
+            pic: convertLead.full_name,
+            contact: convertLead.contact_value,
+            notes: [convertLead.project_type, convertLead.notes].filter(Boolean).join(' · '),
+            stage: 'lead',
+          }}
+          onCreated={handleConverted}
+          onClose={() => setConvertLead(null)}
+        />
+      )}
     </div>
   )
 }
 
 function ContactAction({ contact, type, t }: { contact: string; type: 'whatsapp' | 'email'; t: (s: string) => string }) {
   if (!contact) return <span style={{ color: 'var(--text3)' }}>—</span>
-  const href = type === 'email' || isEmail(contact) ? `mailto:${contact}` : `https://wa.me/${digits(contact)}`
   const wa = !(type === 'email' || isEmail(contact))
+  const href = wa ? `https://wa.me/${digits(contact)}` : `mailto:${contact}`
   return (
     <a
       href={href}
@@ -222,10 +262,11 @@ function ContactAction({ contact, type, t }: { contact: string; type: 'whatsapp'
   )
 }
 
-function LeadPeek({ lead, onClose, t }: { lead: BsiLead; onClose: () => void; t: (s: string) => string }) {
-  const href = lead.contact_type === 'whatsapp' ? `https://wa.me/${digits(lead.contact_value)}` : `mailto:${lead.contact_value}`
+function LeadPeek({ lead, onClose, onConvert, t }: { lead: BsiLead; onClose: () => void; onConvert: () => void; t: (s: string) => string }) {
+  const wa = lead.contact_type === 'whatsapp'
+  const href = wa ? `https://wa.me/${digits(lead.contact_value)}` : `mailto:${lead.contact_value}`
   return (
-    <Modal open onClose={onClose} title={t('Detail Lead')} maxWidth={460}>
+    <Modal open onClose={onClose} title={t('Detail Kontak')} maxWidth={460}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 600 }}>{lead.full_name}</div>
@@ -233,14 +274,14 @@ function LeadPeek({ lead, onClose, t }: { lead: BsiLead; onClose: () => void; t:
         </div>
         <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13 }}>{lead.contact_value}</span>
-          <a href={href} target="_blank" rel="noopener noreferrer" style={{ alignSelf: 'flex-start', height: 32, padding: '0 14px', background: lead.contact_type === 'whatsapp' ? '#25D366' : 'var(--accent)', color: '#fff', borderRadius: 8, fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
-            {lead.contact_type === 'whatsapp' ? t('Buka WhatsApp') : t('Kirim Email')}
+          <a href={href} target="_blank" rel="noopener noreferrer" style={{ alignSelf: 'flex-start', height: 32, padding: '0 14px', background: wa ? '#25D366' : 'var(--accent)', color: '#fff', borderRadius: 8, fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+            {wa ? t('Buka WhatsApp') : t('Kirim Email')}
           </a>
         </div>
         {lead.project_type && <div style={{ fontSize: 13 }}><span style={{ color: 'var(--text2)' }}>{t('Project')}: </span>{lead.project_type}</div>}
         {lead.notes && <div style={{ fontSize: 12.5, lineHeight: 1.6, padding: 12, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, whiteSpace: 'pre-line' }}>{lead.notes}</div>}
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, textAlign: 'right' }}>
-          <Link href="/website/leads" style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>{t('Buka di Leads')} →</Link>
+          <button onClick={onConvert} style={{ fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>{t('Jadikan Client')}</button>
         </div>
       </div>
     </Modal>

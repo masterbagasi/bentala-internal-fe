@@ -10,7 +10,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { ListEmpty, ListError } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
 import { ClientModal } from '@/components/CRM'
-import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
+import { Modal } from '@/components/shared/Modal'
 
 const STATUS_LABELS: Record<BsiLead['status'], string> = {
   new: 'Baru',
@@ -41,34 +41,22 @@ export default function LeadsAdminPage() {
   const [query, setQuery] = useState('')
   const [convertLead, setConvertLead] = useState<BsiLead | null>(null)
   const [detailLead, setDetailLead] = useState<BsiLead | null>(null)
-  const [showLeadForm, setShowLeadForm] = useState(false)
-
-  async function handleCreateLead(input: NewLeadInput) {
-    const row = {
-      full_name: input.full_name.trim(),
-      brand_name: input.brand_name.trim(),
-      contact_type: input.contact_type,
-      contact_value: input.contact_value.trim(),
-      project_type: input.project_type.trim(),
-      notes: input.notes.trim(),
-      status: input.status,
-      submitted_at: new Date().toISOString(),
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any).from('bsi_leads').insert(row).select().single()
-    if (error) { alert(error.message); return }
-    if (data) setItems((xs) => [data as BsiLead, ...xs])
-    setShowLeadForm(false)
-  }
-
   async function load() {
     const { data, error } = await supabase
       .from('bsi_leads')
       .select('*')
+      .eq('origin', 'website')
       .order('submitted_at', { ascending: false })
     if (error) setError(error.message)
     else setItems(data ?? [])
     setLoading(false)
+  }
+
+  // Screening: mark a website lead as "worthy" → it enters the contact Database.
+  async function promote(id: string, next: boolean) {
+    const { error } = await supabase.from('bsi_leads').update({ in_database: next }).eq('id', id)
+    if (error) { alert(error.message); return }
+    setItems((xs) => xs.map((x) => (x.id === id ? { ...x, in_database: next } : x)))
   }
 
   useEffect(() => { load() }, [])
@@ -116,17 +104,8 @@ export default function LeadsAdminPage() {
         <Section
           title={t('Daftar Lead')}
           action={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ minWidth: 160, maxWidth: 280, flex: 1 }}>
-                <SearchInput value={query} onChange={setQuery} />
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowLeadForm(true)}
-                style={{ flexShrink: 0, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}
-              >
-                + {t('Tambah Lead')}
-              </button>
+            <div style={{ minWidth: 200, maxWidth: 320 }}>
+              <SearchInput value={query} onChange={setQuery} />
             </div>
           }
         >
@@ -170,6 +149,7 @@ export default function LeadsAdminPage() {
                   onUpdateStatus={(s) => updateStatus(lead.id, s)}
                   onConvert={() => setConvertLead(lead)}
                   onOpenDetail={() => setDetailLead(lead)}
+                  onPromote={(next) => promote(lead.id, next)}
                 />
               ))}
             </div>
@@ -199,10 +179,8 @@ export default function LeadsAdminPage() {
           onClose={() => setDetailLead(null)}
           onUpdateStatus={(s) => updateStatus(detailLead.id, s)}
           onConvert={() => { setConvertLead(detailLead); setDetailLead(null) }}
+          onPromote={(next) => { promote(detailLead.id, next); setDetailLead({ ...detailLead, in_database: next }) }}
         />
-      )}
-      {showLeadForm && (
-        <LeadFormModal onClose={() => setShowLeadForm(false)} onSave={handleCreateLead} />
       )}
     </PageShell>
   )
@@ -347,16 +325,6 @@ function canConvert(status: BsiLead['status']): boolean {
   return CONVERTIBLE_STATUSES.includes(status)
 }
 
-interface NewLeadInput {
-  full_name: string
-  brand_name: string
-  contact_type: BsiLead['contact_type']
-  contact_value: string
-  project_type: string
-  notes: string
-  status: BsiLead['status']
-}
-
 /* ──────────────────────────────────────────────────────────── */
 /* Lead card                                                    */
 /* ──────────────────────────────────────────────────────────── */
@@ -366,11 +334,13 @@ function LeadCard({
   onUpdateStatus,
   onConvert,
   onOpenDetail,
+  onPromote,
 }: {
   lead: BsiLead
   onUpdateStatus: (s: BsiLead['status']) => void
   onConvert: () => void
   onOpenDetail: () => void
+  onPromote: (next: boolean) => void
 }) {
   const t = useT()
   const [hovered, setHovered] = useState(false)
@@ -404,7 +374,7 @@ function LeadCard({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'auto 1fr auto auto auto auto',
+          gridTemplateColumns: 'auto 1fr auto auto auto auto auto',
           alignItems: 'center',
           gap: 14,
           padding: '14px 16px',
@@ -520,6 +490,25 @@ function LeadCard({
           <StatusPill status={lead.status} onChange={onUpdateStatus} />
         </span>
 
+        {/* Screening: promote into the contact Database */}
+        {lead.in_database ? (
+          <span
+            title={t('Sudah masuk Database')}
+            onClick={(e) => { e.stopPropagation(); onPromote(false) }}
+            style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent3)', whiteSpace: 'nowrap', cursor: 'pointer' }}
+          >
+            ✓ {t('Di Database')}
+          </span>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); onPromote(true) }}
+            title={t('Masukkan ke Database kontak')}
+            style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text)', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            → {t('Database')}
+          </button>
+        )}
+
         {/* Convert action / converted badge */}
         {lead.converted_client_id ? (
           <Link
@@ -630,11 +619,13 @@ function LeadDetailModal({
   onClose,
   onUpdateStatus,
   onConvert,
+  onPromote,
 }: {
   lead: BsiLead
   onClose: () => void
   onUpdateStatus: (s: BsiLead['status']) => void
   onConvert: () => void
+  onPromote: (next: boolean) => void
 }) {
   const t = useT()
   const submittedAt = new Date(lead.submitted_at)
@@ -711,11 +702,24 @@ function LeadDetailModal({
           </div>
         )}
 
-        {/* Footer: submitted + convert */}
+        {/* Footer: submitted + promote + convert */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
           <span style={{ fontSize: 11.5, color: 'var(--text2)' }}>
             {t('Masuk')} {submittedAt.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => onPromote(!lead.in_database)}
+            title={t('Masukkan / keluarkan dari Database kontak')}
+            style={{
+              fontSize: 12.5, fontWeight: 600, borderRadius: 8, padding: '8px 14px', cursor: 'pointer',
+              border: `1px solid ${lead.in_database ? 'var(--accent3)' : 'var(--border)'}`,
+              background: lead.in_database ? 'rgba(67,217,162,0.12)' : 'var(--bg3)',
+              color: lead.in_database ? 'var(--accent3)' : 'var(--text)',
+            }}
+          >
+            {lead.in_database ? `✓ ${t('Di Database')}` : `→ ${t('Masuk Database')}`}
+          </button>
           {lead.converted_client_id ? (
             <Link href={`/clients/${lead.converted_client_id}`} style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent3)', textDecoration: 'none' }}>
               ✓ {t('Lihat Client')}
@@ -740,75 +744,10 @@ function LeadDetailModal({
               )}
             </div>
           )}
+          </div>
         </div>
       </div>
     </Modal>
-  )
-}
-
-/* ──────────────────────────────────────────────────────────── */
-/* Add-lead form popup                                           */
-/* ──────────────────────────────────────────────────────────── */
-
-function LeadFormModal({ onClose, onSave }: { onClose: () => void; onSave: (input: NewLeadInput) => Promise<void> }) {
-  const t = useT()
-  const [form, setForm] = useState<NewLeadInput>({
-    full_name: '', brand_name: '', contact_type: 'whatsapp', contact_value: '', project_type: '', notes: '', status: 'new',
-  })
-  const [saving, setSaving] = useState(false)
-  async function save() {
-    if (!form.full_name.trim() || !form.contact_value.trim()) { alert(t('Nama & kontak wajib diisi.')); return }
-    setSaving(true)
-    try { await onSave(form) } finally { setSaving(false) }
-  }
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={t('Tambah Lead')}
-      maxWidth={480}
-      footer={<><BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary><BtnPrimary onClick={save} loading={saving}>{t('Simpan')}</BtnPrimary></>}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <LeadField label={t('Nama *')}>
-          <input value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} placeholder={t('Nama kontak')} />
-        </LeadField>
-        <LeadField label={t('Brand / Perusahaan')}>
-          <input value={form.brand_name} onChange={(e) => setForm((f) => ({ ...f, brand_name: e.target.value }))} placeholder="PT. ..." />
-        </LeadField>
-        <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 10 }}>
-          <LeadField label={t('Tipe Kontak')}>
-            <select value={form.contact_type} onChange={(e) => setForm((f) => ({ ...f, contact_type: e.target.value as BsiLead['contact_type'] }))}>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="email">Email</option>
-            </select>
-          </LeadField>
-          <LeadField label={t('Kontak *')}>
-            <input value={form.contact_value} onChange={(e) => setForm((f) => ({ ...f, contact_value: e.target.value }))} placeholder={form.contact_type === 'whatsapp' ? '+62...' : 'email@domain.com'} />
-          </LeadField>
-        </div>
-        <LeadField label={t('Jenis Project')}>
-          <input value={form.project_type} onChange={(e) => setForm((f) => ({ ...f, project_type: e.target.value }))} placeholder={t('mis. Social Media, Content, Ads')} />
-        </LeadField>
-        <LeadField label={t('Status')}>
-          <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as BsiLead['status'] }))}>
-            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-          </select>
-        </LeadField>
-        <LeadField label={t('Catatan')}>
-          <textarea rows={3} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder={t('Catatan project...')} style={{ fontFamily: 'inherit', resize: 'vertical' }} />
-        </LeadField>
-      </div>
-    </Modal>
-  )
-}
-
-function LeadField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label style={{ display: 'block' }}>
-      <span style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>{label}</span>
-      {children}
-    </label>
   )
 }
 
