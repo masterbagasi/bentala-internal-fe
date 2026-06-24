@@ -6,6 +6,7 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { MultiFileUploader } from '@/components/website/FileUploader'
 import { getSupabase } from '@/lib/supabase'
+import { KABUPATEN_BY_PROVINSI } from '@/lib/id-regions'
 
 export interface NewLeadInput {
   full_name: string
@@ -235,11 +236,17 @@ export function LeadFormModal({ onClose, onSave, title, initial, saveLabel }: {
             </Field>
           </Row>
           <Row>
-            <Field label={t('Kota / Kabupaten')}>
-              <input value={form.kota} onChange={(e) => set('kota', e.target.value)} placeholder={t('Kota / Kabupaten')} />
-            </Field>
             <Field label={t('Provinsi / State')}>
-              <Combo value={form.provinsi} onChange={(v) => set('provinsi', v)} options={PROVINSI} placeholder={t('Cari / pilih provinsi...')} />
+              {/* Changing province clears the city so it always matches. */}
+              <Combo value={form.provinsi} onChange={(v) => setForm((f) => ({ ...f, provinsi: v, kota: '' }))} options={PROVINSI} placeholder={t('Cari / pilih provinsi...')} />
+            </Field>
+            <Field label={t('Kota / Kabupaten')}>
+              <Combo
+                value={form.kota}
+                onChange={(v) => set('kota', v)}
+                options={KABUPATEN_BY_PROVINSI[form.provinsi] ?? []}
+                placeholder={form.provinsi ? t('Cari / pilih kota...') : t('Pilih provinsi dulu...')}
+              />
             </Field>
           </Row>
           <Row>
