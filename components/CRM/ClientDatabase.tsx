@@ -165,9 +165,9 @@ export function ClientDatabase() {
   const counts = useMemo(() => ({ client: clients.length, lead: leads.length }), [clients.length, leads.length])
 
   function exportCsv() {
-    const headers = ['Nama', 'Brand', 'Kontak', 'Tipe', 'Status', 'PIC', 'Nilai', 'Source', 'Masuk', 'Terakhir Dihubungi']
+    const headers = ['Nama', 'Brand', 'Kontak', 'Status', 'PIC', 'Nilai', 'Source', 'Masuk', 'Terakhir Dihubungi']
     const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const lines = rows.map((r) => [r.name, r.brand, r.contact, r.kind === 'client' ? 'Client' : 'Kontak', r.statusLabel, r.pic, r.value ?? '', r.source, (r.date || '').slice(0, 10), (r.lastContacted || '').slice(0, 10)].map(esc).join(','))
+    const lines = rows.map((r) => [r.name, r.brand, r.contact, r.kind === 'client' ? r.statusLabel : '-', r.pic, r.value ?? '', r.source, (r.date || '').slice(0, 10), (r.lastContacted || '').slice(0, 10)].map(esc).join(','))
     const csv = [headers.map(esc).join(','), ...lines].join('\n')
     const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }))
     const a = document.createElement('a')
@@ -212,7 +212,6 @@ export function ClientDatabase() {
               <Th label={t('Nama')} onClick={() => toggleSort('name')} active={sortKey === 'name'} dir={sortDir} />
               <Th label={t('Brand')} />
               <Th label={t('Kontak')} />
-              <Th label="Tipe" />
               <Th label="Status" />
               <Th label="PIC" />
               <Th label={t('Nilai')} align="right" />
@@ -224,7 +223,7 @@ export function ClientDatabase() {
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={11} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>{t('Belum ada kontak.')}</td></tr>
+              <tr><td colSpan={10} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>{t('Belum ada kontak.')}</td></tr>
             ) : rows.map((r) => (
               <tr
                 key={r.id}
@@ -237,12 +236,9 @@ export function ClientDatabase() {
                 <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{r.brand || '—'}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11.5 }}>{r.contact || '—'}</td>
                 <td style={{ padding: '9px 12px' }}>
-                  <span style={{ fontSize: 10.5, fontWeight: 600, color: r.kind === 'client' ? 'var(--accent)' : '#ffa94d', background: (r.kind === 'client' ? 'var(--accent)' : '#ffa94d') + '22', borderRadius: 20, padding: '2px 8px' }}>
-                    {r.kind === 'client' ? 'Client' : 'Kontak'}
-                  </span>
-                </td>
-                <td style={{ padding: '9px 12px' }}>
-                  <span style={{ fontSize: 11, color: r.statusColor, background: r.statusColor + '22', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>{r.statusLabel}</span>
+                  {r.kind === 'client'
+                    ? <span style={{ fontSize: 11, color: r.statusColor, background: r.statusColor + '22', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>{r.statusLabel}</span>
+                    : <span style={{ color: 'var(--text3)' }}>—</span>}
                 </td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{r.pic}</td>
                 <td style={{ padding: '9px 12px', textAlign: 'right', color: 'var(--text)', whiteSpace: 'nowrap' }}>{r.value ? formatRupiah(r.value) : '—'}</td>
