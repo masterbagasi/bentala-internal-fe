@@ -309,14 +309,16 @@ function Row3({ children }: { children: React.ReactNode }) {
   return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>{children}</div>
 }
 function Field({ label, children, required, hint }: { label: string; children: React.ReactNode; required?: boolean; hint?: string }) {
+  // A <div>, not a <label>: a <label> forwards clicks to its first labelable
+  // descendant, which double-toggles the first chip in multi-select groups.
   return (
-    <label style={{ display: 'block' }}>
+    <div>
       <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
         {label}{required && <span style={{ color: 'var(--accent2)' }}>*</span>}
         {hint && <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>{hint}</span>}
       </span>
       {children}
-    </label>
+    </div>
   )
 }
 // Dropdown for every form field: type to filter, and the panel is rendered in a
