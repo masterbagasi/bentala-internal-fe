@@ -481,5 +481,7 @@ export interface BsiLead {
   in_database?: boolean
   /** 'website' = website form submission, 'manual' = added in the Database. */
   origin?: string
+  /** Acquisition channel: instagram / whatsapp / facebook / tiktok / website / referral / email / other. */
+  source?: string
   created_at: string
 }

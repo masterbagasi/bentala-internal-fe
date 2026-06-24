@@ -59,7 +59,7 @@ function leadToContact(l: BsiLead): Contact {
   return {
     id: `l:${l.id}`, kind: 'lead', name: l.full_name, brand: l.brand_name, contact: l.contact_value || '',
     contactType: l.contact_type, statusLabel: st.label, statusColor: st.color,
-    pic: '—', value: null, source: l.origin || 'website', date: l.submitted_at, lead: l,
+    pic: '—', value: null, source: l.source || l.origin || 'website', date: l.submitted_at, lead: l,
   }
 }
 
@@ -115,8 +115,8 @@ export function ClientDatabase() {
   async function handleAddContact(input: NewLeadInput) {
     const row = {
       full_name: input.full_name.trim(), brand_name: input.brand_name.trim(), contact_type: input.contact_type,
-      contact_value: input.contact_value.trim(), project_type: input.project_type.trim(), notes: input.notes.trim(),
-      status: input.status, origin: 'manual', in_database: true, submitted_at: new Date().toISOString(),
+      contact_value: input.contact_value.trim(), source: input.source, project_type: input.project_type.trim(),
+      notes: input.notes.trim(), status: input.status, origin: 'manual', in_database: true, submitted_at: new Date().toISOString(),
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (getSupabase() as any).from('bsi_leads').insert(row).select().single()
