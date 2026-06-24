@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -10,7 +11,7 @@ import { CRM_STAGES, STAGE_LABELS } from '@/lib/constants'
 import { Modal } from '@/components/shared/Modal'
 import { ClientProfile } from './ClientProfile'
 import { ClientModal } from '@/components/CRM'
-import { LeadFormModal, type NewLeadInput } from './LeadFormModal'
+import { LeadFormModal, CONTACT_CHANNELS, type NewLeadInput } from './LeadFormModal'
 import type { Client } from '@/lib/types'
 import type { BsiLead } from '@/lib/website-types'
 
@@ -44,6 +45,53 @@ const isEmail = (s: string) => (s || '').includes('@')
 const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
 const cap = (s?: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—')
 
+// --- form <-> bsi_leads row mapping (shared by add & edit) ---
+const slugify = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+const STATUS_TO_DB: Record<string, string> = {
+  'New lead': 'new', Contacted: 'contacted', Qualified: 'qualified',
+  Prospek: 'qualified', Penawaran: 'qualified', Negosiasi: 'qualified', Won: 'closed', Lost: 'closed',
+}
+const STATUS_FROM_DB: Record<string, string> = { new: 'New lead', contacted: 'Contacted', qualified: 'Qualified', closed: 'Won', spam: 'Lost' }
+
+// Build the bsi_leads column object from form input (excludes origin/in_database/submitted_at).
+function inputToRow(input: NewLeadInput) {
+  return {
+    full_name: input.full_name.trim(), jabatan: input.jabatan.trim(), brand_name: input.brand_name.trim(),
+    tier_klien: input.tier_klien, industri: input.industri,
+    contact_type: slugify(input.contact_type) || 'whatsapp', contact_value: input.contact_value.trim(), kontak_lainnya: input.kontak_lainnya,
+    source: input.source, detail_sumber: input.detail_sumber.trim(),
+    // project_type is the legacy NOT NULL column; mirror the jenis_project list into it.
+    project_type: input.jenis_project.join(', ') || '-',
+    jenis_project: input.jenis_project, objektif: input.objektif, budget_range: input.budget_range, timeline: input.timeline,
+    status: STATUS_TO_DB[input.status] ?? 'new', prioritas: input.prioritas, pic: input.pic, next_action: input.next_action.trim(),
+    follow_up_date: input.follow_up_date || null, tags: input.tags, notes: input.notes.trim(), lampiran: input.lampiran,
+    nama_lokasi: input.nama_lokasi.trim(), alamat_jalan: input.alamat_jalan.trim(), alamat_rtrw: input.alamat_rtrw.trim(),
+    alamat_blok: input.alamat_blok.trim(), kelurahan: input.kelurahan.trim(), kecamatan: input.kecamatan.trim(),
+    kota: input.kota.trim(), provinsi: input.provinsi, kode_pos: input.kode_pos.trim(), negara: input.negara,
+  }
+}
+
+// Reverse a stored lead row into form input for editing.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function leadToInput(l: any): Partial<NewLeadInput> {
+  const channel = CONTACT_CHANNELS.find((c) => slugify(c) === l.contact_type) ?? 'WhatsApp'
+  return {
+    full_name: l.full_name ?? '', jabatan: l.jabatan ?? '', brand_name: l.brand_name ?? '',
+    tier_klien: l.tier_klien ?? 'UMKM', industri: l.industri ?? 'Food & beverage',
+    contact_type: channel, contact_value: l.contact_value ?? '',
+    kontak_lainnya: Array.isArray(l.kontak_lainnya) ? l.kontak_lainnya : [],
+    source: l.source ?? 'Instagram', detail_sumber: l.detail_sumber ?? '',
+    jenis_project: Array.isArray(l.jenis_project) ? l.jenis_project : [],
+    objektif: l.objektif ?? '', budget_range: l.budget_range ?? '', timeline: l.timeline ?? '',
+    status: STATUS_FROM_DB[l.status] ?? 'New lead', prioritas: l.prioritas ?? 'Warm',
+    pic: l.pic ?? '', next_action: l.next_action ?? '', follow_up_date: l.follow_up_date ?? '',
+    tags: Array.isArray(l.tags) ? l.tags : [], notes: l.notes ?? '', lampiran: Array.isArray(l.lampiran) ? l.lampiran : [],
+    nama_lokasi: l.nama_lokasi ?? '', alamat_jalan: l.alamat_jalan ?? '', alamat_rtrw: l.alamat_rtrw ?? '',
+    alamat_blok: l.alamat_blok ?? '', kelurahan: l.kelurahan ?? '', kecamatan: l.kecamatan ?? '',
+    kota: l.kota ?? '', provinsi: l.provinsi ?? '', kode_pos: l.kode_pos ?? '', negara: l.negara ?? 'Indonesia',
+  }
+}
+
 function clientToContact(c: Client): Contact {
   const stage = CRM_STAGES.find((x) => x.key === c.stage)
   return {
@@ -74,6 +122,7 @@ export function ClientDatabase() {
   const [detailClientId, setDetailClientId] = useState<string | null>(null)
   const [peekLead, setPeekLead] = useState<BsiLead | null>(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [editLead, setEditLead] = useState<BsiLead | null>(null)
   const [convertLead, setConvertLead] = useState<BsiLead | null>(null)
   const [lastContact, setLastContact] = useState<Map<string, string>>(new Map())
 
@@ -112,36 +161,21 @@ export function ClientDatabase() {
   }, [])
 
   async function handleAddContact(input: NewLeadInput) {
-    // Normalise the channel label to a slug ('WhatsApp'→'whatsapp', 'X (Twitter)'→'xtwitter').
-    const ct = input.contact_type.toLowerCase().replace(/[^a-z0-9]/g, '') || 'whatsapp'
-    // bsi_leads.status only allows new/contacted/qualified/closed/spam; fold the
-    // richer form statuses onto that set.
-    const statusMap: Record<string, string> = {
-      'New lead': 'new', Contacted: 'contacted', Qualified: 'qualified',
-      Prospek: 'qualified', Penawaran: 'qualified', Negosiasi: 'qualified',
-      Won: 'closed', Lost: 'closed',
-    }
-    const row = {
-      full_name: input.full_name.trim(), jabatan: input.jabatan.trim(), brand_name: input.brand_name.trim(),
-      tier_klien: input.tier_klien, industri: input.industri,
-      contact_type: ct, contact_value: input.contact_value.trim(), kontak_lainnya: input.kontak_lainnya,
-      source: input.source, detail_sumber: input.detail_sumber.trim(),
-      // project_type is the legacy NOT NULL column; mirror the jenis_project list into it.
-      project_type: input.jenis_project.join(', ') || '-',
-      jenis_project: input.jenis_project, objektif: input.objektif, budget_range: input.budget_range,
-      timeline: input.timeline,
-      status: statusMap[input.status] ?? 'new', prioritas: input.prioritas, pic: input.pic, next_action: input.next_action.trim(),
-      follow_up_date: input.follow_up_date || null, tags: input.tags, notes: input.notes.trim(), lampiran: input.lampiran,
-      nama_lokasi: input.nama_lokasi.trim(), alamat_jalan: input.alamat_jalan.trim(), alamat_rtrw: input.alamat_rtrw.trim(),
-      alamat_blok: input.alamat_blok.trim(), kelurahan: input.kelurahan.trim(), kecamatan: input.kecamatan.trim(),
-      kota: input.kota.trim(), provinsi: input.provinsi, kode_pos: input.kode_pos.trim(), negara: input.negara,
-      origin: 'manual', in_database: true, submitted_at: new Date().toISOString(),
-    }
+    const row = { ...inputToRow(input), origin: 'manual', in_database: true, submitted_at: new Date().toISOString() }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (getSupabase() as any).from('bsi_leads').insert(row).select().single()
     if (error) { alert(error.message); return }
     if (data) setLeads((xs) => [data as BsiLead, ...xs])
     setShowAdd(false)
+  }
+
+  async function handleEditSave(input: NewLeadInput) {
+    if (!editLead) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (getSupabase() as any).from('bsi_leads').update(inputToRow(input)).eq('id', editLead.id).select().single()
+    if (error) { alert(error.message); return }
+    if (data) setLeads((xs) => xs.map((x) => (x.id === editLead.id ? (data as BsiLead) : x)))
+    setEditLead(null)
   }
 
   async function handleDelete(r: Contact) {
@@ -164,6 +198,21 @@ export function ClientDatabase() {
     setLeads((xs) => xs.filter((x) => x.id !== lead.id)) // now shown as its client row
     setConvertLead(null)
     setPeekLead(null)
+  }
+
+  function actionsFor(r: Contact): MenuItem[] {
+    const items: MenuItem[] = []
+    if (r.contact) {
+      const wa = !(r.contactType === 'email' || isEmail(r.contact))
+      items.push({
+        label: wa ? t('Buka WhatsApp') : t('Kirim Email'), icon: wa ? '💬' : '✉️',
+        onClick: () => window.open(wa ? `https://wa.me/${digits(r.contact)}` : `mailto:${r.contact}`, '_blank', 'noopener'),
+      })
+    }
+    items.push({ label: t('Edit'), icon: '✏️', onClick: () => (r.kind === 'client' ? setDetailClientId(r.client!.id) : setEditLead(r.lead!)) })
+    if (r.kind === 'lead') items.push({ label: '+ Prospect', icon: '➜', onClick: () => setConvertLead(r.lead!) })
+    items.push({ label: t('Hapus'), icon: '🗑', danger: true, onClick: () => handleDelete(r) })
+    return items
   }
 
   const rows = useMemo(() => {
@@ -263,27 +312,7 @@ export function ClientDatabase() {
                 <td style={{ padding: '9px 12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>{r.lastContacted ? fmtDate(r.lastContacted) : '—'}</td>
                 <td style={{ padding: '9px 12px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <ContactAction contact={r.contact} type={r.contactType} t={t} />
-                    {r.kind === 'lead' && (
-                      <button
-                        type="button"
-                        onClick={() => setConvertLead(r.lead!)}
-                        title={t('Tambah ke CRM Pipeline (Prospect)')}
-                        style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.3)', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                      >
-                        + Prospect
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(r)}
-                      title={t('Hapus dari database')}
-                      style={{ width: 30, height: 30, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#ff6b6b', background: 'rgba(255,107,107,0.1)', border: '1px solid rgba(255,107,107,0.25)', cursor: 'pointer', fontSize: 13, lineHeight: 1 }}
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  <KebabMenu items={actionsFor(r)} />
                 </td>
               </tr>
             ))}
@@ -298,6 +327,7 @@ export function ClientDatabase() {
       )}
       {peekLead && <LeadPeek lead={peekLead} onClose={() => setPeekLead(null)} onConvert={() => setConvertLead(peekLead)} t={t} />}
       {showAdd && <LeadFormModal title={t('Tambah kontak')} onClose={() => setShowAdd(false)} onSave={handleAddContact} />}
+      {editLead && <LeadFormModal title={t('Edit kontak')} saveLabel={t('Simpan perubahan')} initial={leadToInput(editLead)} onClose={() => setEditLead(null)} onSave={handleEditSave} />}
       {convertLead && (
         <ClientModal
           open
@@ -319,20 +349,67 @@ export function ClientDatabase() {
   )
 }
 
-function ContactAction({ contact, type, t }: { contact: string; type: 'whatsapp' | 'email'; t: (s: string) => string }) {
-  if (!contact) return <span style={{ color: 'var(--text3)' }}>—</span>
-  const wa = !(type === 'email' || isEmail(contact))
-  const href = wa ? `https://wa.me/${digits(contact)}` : `mailto:${contact}`
+interface MenuItem { label: string; icon?: string; onClick: () => void; danger?: boolean }
+
+// Three-dot (kebab) row menu. The dropdown is portaled to <body> with
+// position:fixed so the table's overflow never clips it.
+function KebabMenu({ items }: { items: MenuItem[] }) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    document.addEventListener('mousedown', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+      document.removeEventListener('mousedown', close)
+    }
+  }, [open])
+
+  function toggle(e: React.MouseEvent) {
+    e.stopPropagation()
+    const r = btnRef.current!.getBoundingClientRect()
+    setPos({ top: r.bottom + 4, left: Math.max(8, r.right - 184) })
+    setOpen((o) => !o)
+  }
+
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={wa ? t('Buka WhatsApp') : t('Kirim Email')}
-      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, textDecoration: 'none', background: wa ? 'rgba(37,211,102,0.14)' : 'rgba(108,99,255,0.14)', color: wa ? '#25D366' : 'var(--accent)', border: `1px solid ${wa ? 'rgba(37,211,102,0.25)' : 'rgba(108,99,255,0.25)'}` }}
-    >
-      {wa ? '💬' : '✉️'}
-    </a>
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggle}
+        title="Aksi"
+        style={{ width: 30, height: 30, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)', background: open ? 'var(--bg3)' : 'transparent', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+      >
+        ⋯
+      </button>
+      {open && pos && createPortal(
+        <div
+          onMouseDown={(e) => e.stopPropagation()}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, width: 184, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 10px 30px rgba(0,0,0,0.45)', padding: 4, zIndex: 2000 }}
+        >
+          {items.map((it, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick() }}
+              style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 6, background: 'transparent', border: 'none', color: it.danger ? '#ff6b6b' : 'var(--text)', cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}
+              onMouseOver={(e) => (e.currentTarget.style.background = it.danger ? 'rgba(255,107,107,0.1)' : 'var(--bg3)')}
+              onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <span style={{ width: 16, textAlign: 'center', fontSize: 13 }}>{it.icon}</span>{it.label}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
 

@@ -43,7 +43,7 @@ export interface NewLeadInput {
   negara: string
 }
 
-const CONTACT_CHANNELS = ['WhatsApp', 'Email', 'Instagram', 'Facebook', 'X (Twitter)', 'TikTok', 'YouTube', 'LinkedIn', 'Telegram', 'Phone', 'Website', 'Threads', 'Snapchat', 'Pinterest', 'Lainnya']
+export const CONTACT_CHANNELS = ['WhatsApp', 'Email', 'Instagram', 'Facebook', 'X (Twitter)', 'TikTok', 'YouTube', 'LinkedIn', 'Telegram', 'Phone', 'Website', 'Threads', 'Snapchat', 'Pinterest', 'Lainnya']
 // Placeholder hint per channel so "Kontak utama" matches the selected type.
 function channelPlaceholder(ch: string): string {
   switch (ch) {
@@ -94,13 +94,15 @@ const EMPTY: NewLeadInput = {
   kota: '', provinsi: '', kode_pos: '', negara: 'Indonesia',
 }
 
-export function LeadFormModal({ onClose, onSave, title }: {
+export function LeadFormModal({ onClose, onSave, title, initial, saveLabel }: {
   onClose: () => void
   onSave: (input: NewLeadInput) => Promise<void>
   title?: string
+  initial?: Partial<NewLeadInput>
+  saveLabel?: string
 }) {
   const t = useT()
-  const [form, setForm] = useState<NewLeadInput>(EMPTY)
+  const [form, setForm] = useState<NewLeadInput>(initial ? { ...EMPTY, ...initial } : EMPTY)
   const [saving, setSaving] = useState(false)
   const [team, setTeam] = useState<{ name: string }[]>([])
   const [jenisOptions, setJenisOptions] = useState<string[]>([])
@@ -141,7 +143,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
       onClose={onClose}
       title={title ?? t('Tambah kontak')}
       maxWidth={760}
-      footer={<><BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary><BtnPrimary onClick={save} loading={saving}>{t('Simpan kontak')}</BtnPrimary></>}
+      footer={<><BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary><BtnPrimary onClick={save} loading={saving}>{saveLabel ?? t('Simpan kontak')}</BtnPrimary></>}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
         <Group label={t('Identitas')}>
