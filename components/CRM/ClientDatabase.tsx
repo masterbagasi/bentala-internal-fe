@@ -393,8 +393,13 @@ function KebabMenu({ items }: { items: MenuItem[] }) {
         ref={btnRef}
         type="button"
         onClick={toggle}
+        // Stop the global mousedown-close from firing first on our own button —
+        // otherwise it would close, then the click would re-open (never toggles).
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseOver={(e) => { e.currentTarget.style.background = 'var(--bg3)'; e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)' }}
+        onMouseOut={(e) => { e.currentTarget.style.background = open ? 'var(--bg3)' : 'transparent'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = open ? 'var(--text)' : 'var(--text2)' }}
         title="Aksi"
-        style={{ width: 30, height: 30, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)', background: open ? 'var(--bg3)' : 'transparent', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+        style={{ width: 30, height: 30, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: open ? 'var(--text)' : 'var(--text2)', background: open ? 'var(--bg3)' : 'transparent', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 16, lineHeight: 1, transition: 'background 0.12s, border-color 0.12s, color 0.12s' }}
       >
         ⋯
       </button>
