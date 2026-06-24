@@ -98,7 +98,7 @@ function EmailCompose({ client, t }: { client: Client; t: (s: string) => string 
     setSending(true)
     let ok = false, error = ''
     try {
-      const res = await fetch('/api/crm/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to, subject, body }) })
+      const res = await fetch('/api/crm/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId: client.id, to, subject, body }) })
       const data = await res.json()
       ok = !!data.ok; error = data.error || ''
     } catch (e) { error = e instanceof Error ? e.message : 'Network error' }
