@@ -179,7 +179,7 @@ export function ClientDatabase() {
               <Th label={t('Nilai')} align="right" />
               <Th label="Source" />
               <Th label={t('Tanggal')} onClick={() => toggleSort('date')} active={sortKey === 'date'} dir={sortDir} />
-              <Th label={t('Hubungi')} align="center" />
+              <Th label={t('Aksi')} align="center" />
             </tr>
           </thead>
           <tbody>
@@ -209,7 +209,19 @@ export function ClientDatabase() {
                 <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{cap(r.source)}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</td>
                 <td style={{ padding: '9px 12px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                  <ContactAction contact={r.contact} type={r.contactType} t={t} />
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <ContactAction contact={r.contact} type={r.contactType} t={t} />
+                    {r.kind === 'lead' && (
+                      <button
+                        type="button"
+                        onClick={() => setConvertLead(r.lead!)}
+                        title={t('Tambah ke CRM Pipeline (Prospect)')}
+                        style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.3)', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >
+                        → Pipeline
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -280,8 +292,9 @@ function LeadPeek({ lead, onClose, onConvert, t }: { lead: BsiLead; onClose: () 
         </div>
         {lead.project_type && <div style={{ fontSize: 13 }}><span style={{ color: 'var(--text2)' }}>{t('Project')}: </span>{lead.project_type}</div>}
         {lead.notes && <div style={{ fontSize: 12.5, lineHeight: 1.6, padding: 12, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, whiteSpace: 'pre-line' }}>{lead.notes}</div>}
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, textAlign: 'right' }}>
-          <button onClick={onConvert} style={{ fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>{t('Jadikan Client')}</button>
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+          <span style={{ fontSize: 11, color: 'var(--text2)' }}>{t('Masuk pipeline sebagai Prospect')}</span>
+          <button onClick={onConvert} style={{ fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>→ {t('Tambah ke Pipeline')}</button>
         </div>
       </div>
     </Modal>
