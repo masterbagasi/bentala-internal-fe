@@ -8,7 +8,7 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/utils'
 import { CRM_STAGES, STAGE_LABELS } from '@/lib/constants'
-import { Modal } from '@/components/shared/Modal'
+import { Modal, ConfirmDialog } from '@/components/shared/Modal'
 import { ClientProfile } from './ClientProfile'
 import { ClientModal } from '@/components/CRM'
 import { LeadFormModal, CONTACT_CHANNELS, type NewLeadInput } from './LeadFormModal'
@@ -124,6 +124,7 @@ export function ClientDatabase() {
   const [showAdd, setShowAdd] = useState(false)
   const [editLead, setEditLead] = useState<BsiLead | null>(null)
   const [convertLead, setConvertLead] = useState<BsiLead | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<Contact | null>(null)
   const [lastContact, setLastContact] = useState<Map<string, string>>(new Map())
 
   // Last-contacted per client = the most recent interaction or message.
@@ -178,9 +179,7 @@ export function ClientDatabase() {
     setEditLead(null)
   }
 
-  async function handleDelete(r: Contact) {
-    const label = r.kind === 'client' ? t('Hapus client ini dari database?') : t('Hapus kontak ini dari database?')
-    if (!confirm(label)) return
+  async function doDelete(r: Contact) {
     const supabase = getSupabase()
     if (r.kind === 'client' && r.client) {
       await supabase.from('clients').delete().eq('id', r.client.id)
@@ -210,8 +209,8 @@ export function ClientDatabase() {
       })
     }
     items.push({ label: t('Edit'), icon: '✏️', onClick: () => (r.kind === 'client' ? setDetailClientId(r.client!.id) : setEditLead(r.lead!)) })
-    if (r.kind === 'lead') items.push({ label: '+ Prospect', icon: '➜', onClick: () => setConvertLead(r.lead!) })
-    items.push({ label: t('Hapus'), icon: '🗑', danger: true, onClick: () => handleDelete(r) })
+    if (r.kind === 'lead') items.push({ label: t('Add Prospect'), onClick: () => setConvertLead(r.lead!) })
+    items.push({ label: t('Delete'), danger: true, onClick: () => setConfirmDelete(r) })
     return items
   }
 
@@ -328,6 +327,16 @@ export function ClientDatabase() {
       {peekLead && <LeadPeek lead={peekLead} onClose={() => setPeekLead(null)} onConvert={() => setConvertLead(peekLead)} t={t} />}
       {showAdd && <LeadFormModal title={t('Tambah kontak')} onClose={() => setShowAdd(false)} onSave={handleAddContact} />}
       {editLead && <LeadFormModal title={t('Edit kontak')} saveLabel={t('Simpan perubahan')} initial={leadToInput(editLead)} onClose={() => setEditLead(null)} onSave={handleEditSave} />}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title={t('Hapus dari database')}
+        message={confirmDelete?.kind === 'client' ? t('Hapus client ini dari database?') : t('Hapus kontak ini dari database?')}
+        confirmLabel={t('Hapus')}
+        cancelLabel={t('Batal')}
+        danger
+        onConfirm={() => { if (confirmDelete) doDelete(confirmDelete); setConfirmDelete(null) }}
+        onCancel={() => setConfirmDelete(null)}
+      />
       {convertLead && (
         <ClientModal
           open
