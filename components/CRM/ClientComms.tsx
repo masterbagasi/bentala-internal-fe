@@ -76,7 +76,7 @@ function WhatsAppCompose({ client, t }: { client: Client; t: (s: string) => stri
     if (!to || !body.trim()) return
     window.open(`https://wa.me/${digits(to)}?text=${encodeURIComponent(body)}`, '_blank', 'noopener')
     const a = await author()
-    const logged = await insertMessage({ client_id: client.id, channel: 'whatsapp', direction: 'out', subject: null, body: body.trim(), to_address: to, status: 'logged', author_email: a.email, author_name: a.name })
+    const logged = await insertMessage({ client_id: client.id, channel: 'whatsapp', direction: 'out', subject: null, body: body.trim(), to_address: digits(to), status: 'logged', author_email: a.email, author_name: a.name })
     if (logged) setBody('')
   }
   return (
