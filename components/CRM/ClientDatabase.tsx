@@ -112,11 +112,12 @@ export function ClientDatabase() {
   }, [])
 
   async function handleAddContact(input: NewLeadInput) {
-    const ctMap: Record<string, string> = { 'WhatsApp': 'whatsapp', 'Email': 'email', 'Phone': 'phone', 'IG DM': 'igdm', 'LinkedIn': 'linkedin' }
+    // Normalise the channel label to a slug ('WhatsApp'→'whatsapp', 'X (Twitter)'→'xtwitter').
+    const ct = input.contact_type.toLowerCase().replace(/[^a-z0-9]/g, '') || 'whatsapp'
     const row = {
       full_name: input.full_name.trim(), jabatan: input.jabatan.trim(), brand_name: input.brand_name.trim(),
       tier_klien: input.tier_klien, industri: input.industri,
-      contact_type: ctMap[input.contact_type] ?? 'whatsapp', contact_value: input.contact_value.trim(), kontak_lainnya: input.kontak_lainnya,
+      contact_type: ct, contact_value: input.contact_value.trim(), kontak_lainnya: input.kontak_lainnya,
       source: input.source, detail_sumber: input.detail_sumber.trim(),
       jenis_project: input.jenis_project, objektif: input.objektif, budget_range: input.budget_range,
       timeline: input.timeline,

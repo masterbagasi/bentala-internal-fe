@@ -43,8 +43,7 @@ export interface NewLeadInput {
   negara: string
 }
 
-const TIPE_KONTAK = ['WhatsApp', 'Email']
-const CONTACT_CHANNELS = ['Instagram', 'Facebook', 'X (Twitter)', 'TikTok', 'YouTube', 'LinkedIn', 'Telegram', 'WhatsApp', 'Email', 'Phone', 'Website', 'Threads', 'Snapchat', 'Pinterest', 'Lainnya']
+const CONTACT_CHANNELS = ['WhatsApp', 'Email', 'Instagram', 'Facebook', 'X (Twitter)', 'TikTok', 'YouTube', 'LinkedIn', 'Telegram', 'Phone', 'Website', 'Threads', 'Snapchat', 'Pinterest', 'Lainnya']
 const TIER = ['UMKM', 'Small Business', 'Mid Market', 'Enterprise']
 const INDUSTRI = ['Food & beverage', 'Beauty', 'Fashion', 'Personal', 'Tech', 'Health', 'Edu', 'Other']
 const SUMBER = ['Instagram', 'TikTok', 'Website', 'Referral', 'Event', 'Cold', 'Ads', 'Lainnya']
@@ -150,7 +149,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
         <Group label={t('Kontak & Sumber')}>
           <Row>
             <Field label={t('Tipe kontak')}>
-              <Combo searchable={false} value={form.contact_type} onChange={(v) => set('contact_type', v)} options={TIPE_KONTAK} />
+              <Combo searchable={false} value={form.contact_type} onChange={(v) => set('contact_type', v)} options={CONTACT_CHANNELS} />
             </Field>
             <Field label={t('Kontak utama')} required>
               <input value={form.contact_value} onChange={(e) => set('contact_value', e.target.value)} placeholder={form.contact_type === 'Email' ? 'email@domain.com' : '+62...'} />
