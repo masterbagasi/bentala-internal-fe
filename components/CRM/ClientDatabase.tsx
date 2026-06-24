@@ -65,6 +65,7 @@ function leadToContact(l: BsiLead): Contact {
 export function ClientDatabase() {
   const t = useT()
   const clients = useStore(useShallow((s) => s.clients))
+  const removeClient = useStore((s) => s.removeClient)
   const [leads, setLeads] = useState<BsiLead[]>([])
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<'all' | 'client' | 'lead'>('all')
@@ -100,6 +101,19 @@ export function ClientDatabase() {
     if (error) { alert(error.message); return }
     if (data) setLeads((xs) => [data as BsiLead, ...xs])
     setShowAdd(false)
+  }
+
+  async function handleDelete(r: Contact) {
+    const label = r.kind === 'client' ? t('Hapus client ini dari database?') : t('Hapus kontak ini dari database?')
+    if (!confirm(label)) return
+    const supabase = getSupabase()
+    if (r.kind === 'client' && r.client) {
+      await supabase.from('clients').delete().eq('id', r.client.id)
+      removeClient(r.client.id)
+    } else if (r.lead) {
+      await supabase.from('bsi_leads').delete().eq('id', r.lead.id)
+      setLeads((xs) => xs.filter((x) => x.id !== r.lead!.id))
+    }
   }
 
   async function handleConverted(clientId: string) {
@@ -221,6 +235,14 @@ export function ClientDatabase() {
                         + Prospect
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(r)}
+                      title={t('Hapus dari database')}
+                      style={{ width: 30, height: 30, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#ff6b6b', background: 'rgba(255,107,107,0.1)', border: '1px solid rgba(255,107,107,0.25)', cursor: 'pointer', fontSize: 13, lineHeight: 1 }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 </td>
               </tr>
