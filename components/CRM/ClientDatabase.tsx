@@ -270,40 +270,10 @@ export function ClientDatabase() {
     else { setSortKey(k); setSortDir(k === 'brand' ? 'asc' : 'desc') }
   }
 
-  const filtersActive = kind !== 'all' || fKota || fProvinsi || fTier || fIndustri
-  function resetFilters() { setKind('all'); setFKota(''); setFProvinsi(''); setFTier(''); setFIndustri('') }
-  const selectStyle: React.CSSProperties = { fontSize: 12.5, padding: '7px 10px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer', maxWidth: 170 }
-
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        {/* Filter dropdowns */}
-        <select value={kind} onChange={(e) => setKind(e.target.value as 'all' | 'client' | 'lead')} style={selectStyle}>
-          <option value="all">{t('Semua Tipe')} ({counts.all})</option>
-          <option value="client">Client ({counts.client})</option>
-          <option value="lead">Contact ({counts.lead})</option>
-        </select>
-        <select value={fKota} onChange={(e) => setFKota(e.target.value)} style={selectStyle}>
-          <option value="">{t('Semua Kota')}</option>
-          {options.kota.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
-        <select value={fProvinsi} onChange={(e) => setFProvinsi(e.target.value)} style={selectStyle}>
-          <option value="">{t('Semua Provinsi')}</option>
-          {options.provinsi.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
-        <select value={fTier} onChange={(e) => setFTier(e.target.value)} style={selectStyle}>
-          <option value="">{t('Semua Tier Klien')}</option>
-          {options.tier.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
-        <select value={fIndustri} onChange={(e) => setFIndustri(e.target.value)} style={selectStyle}>
-          <option value="">{t('Semua Industri')}</option>
-          {options.industri.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
-        {filtersActive && (
-          <button type="button" onClick={resetFilters} title={t('Reset filter')} style={{ fontSize: 12, padding: '7px 12px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer' }}>
-            ✕ {t('Reset')}
-          </button>
-        )}
+        <span style={{ fontSize: 12, color: 'var(--text2)' }}>{rows.length} {t('kontak')}</span>
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Search: a button until clicked, then an inline input. Collapses on blur when empty. */}
@@ -328,6 +298,15 @@ export function ClientDatabase() {
               🔍
             </button>
           )}
+          <DatabaseFilter
+            t={t}
+            kind={kind} setKind={setKind}
+            fKota={fKota} setFKota={setFKota}
+            fProvinsi={fProvinsi} setFProvinsi={setFProvinsi}
+            fTier={fTier} setFTier={setFTier}
+            fIndustri={fIndustri} setFIndustri={setFIndustri}
+            options={options}
+          />
           <button type="button" onClick={() => setShowAdd(true)} style={{ fontSize: 13, fontWeight: 500, padding: '7px 14px', borderRadius: 8, background: 'var(--accent)', border: 'none', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>+ {t('Tambah Kontak')}</button>
         </div>
       </div>
@@ -420,6 +399,90 @@ export function ClientDatabase() {
           onClose={() => setConvertLead(null)}
         />
       )}
+    </div>
+  )
+}
+
+// Filter button + popup — mirrors the Socmed board's BoardFilter.
+function DatabaseFilter({ t, kind, setKind, fKota, setFKota, fProvinsi, setFProvinsi, fTier, setFTier, fIndustri, setFIndustri, options }: {
+  t: (s: string) => string
+  kind: 'all' | 'client' | 'lead'; setKind: (v: 'all' | 'client' | 'lead') => void
+  fKota: string; setFKota: (v: string) => void
+  fProvinsi: string; setFProvinsi: (v: string) => void
+  fTier: string; setFTier: (v: string) => void
+  fIndustri: string; setFIndustri: (v: string) => void
+  options: { kota: string[]; provinsi: string[]; tier: string[]; industri: string[] }
+}) {
+  const [open, setOpen] = useState(false)
+  const count = (kind !== 'all' ? 1 : 0) + (fKota ? 1 : 0) + (fProvinsi ? 1 : 0) + (fTier ? 1 : 0) + (fIndustri ? 1 : 0)
+  function reset() { setKind('all'); setFKota(''); setFProvinsi(''); setFTier(''); setFIndustri('') }
+  // Single-select chips: clicking the active value clears it.
+  const pick = (cur: string, set: (v: string) => void, v: string) => set(cur === v ? '' : v)
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, height: 34, padding: '0 14px', borderRadius: 8, border: '1px solid', borderColor: count || open ? 'var(--accent)' : 'var(--border)', background: count ? 'rgba(108,99,255,0.12)' : 'var(--bg2)', color: count ? 'var(--accent)' : 'var(--text2)', cursor: 'pointer', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+        </svg>
+        {t('Filter')}{count ? ` (${count})` : ''}
+      </button>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 60 }} onClick={() => setOpen(false)} />
+          <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 70, width: 320, maxWidth: 'min(320px, 92vw)', maxHeight: '64vh', overflowY: 'auto', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t('Filter')}</span>
+              <button onClick={reset} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{t('Reset')}</button>
+            </div>
+
+            <FilterSection label={t('Tipe')}>
+              <FilterChip label="Client" active={kind === 'client'} onClick={() => setKind(kind === 'client' ? 'all' : 'client')} />
+              <FilterChip label="Contact" active={kind === 'lead'} onClick={() => setKind(kind === 'lead' ? 'all' : 'lead')} />
+            </FilterSection>
+
+            <FilterSection label={t('Kota')} empty={options.kota.length === 0}>
+              {options.kota.map((o) => <FilterChip key={o} label={o} active={fKota === o} onClick={() => pick(fKota, setFKota, o)} />)}
+            </FilterSection>
+
+            <FilterSection label={t('Provinsi')} empty={options.provinsi.length === 0}>
+              {options.provinsi.map((o) => <FilterChip key={o} label={o} active={fProvinsi === o} onClick={() => pick(fProvinsi, setFProvinsi, o)} />)}
+            </FilterSection>
+
+            <FilterSection label={t('Tier Klien')} empty={options.tier.length === 0}>
+              {options.tier.map((o) => <FilterChip key={o} label={o} active={fTier === o} onClick={() => pick(fTier, setFTier, o)} />)}
+            </FilterSection>
+
+            <FilterSection label={t('Industri')} empty={options.industri.length === 0}>
+              {options.industri.map((o) => <FilterChip key={o} label={o} active={fIndustri === o} onClick={() => pick(fIndustri, setFIndustri, o)} />)}
+            </FilterSection>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{ padding: '4px 10px', borderRadius: 16, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap', border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, background: active ? 'rgba(108,99,255,0.15)' : 'var(--bg3)', color: active ? 'var(--accent)' : 'var(--text2)', fontWeight: active ? 600 : 400 }}
+    >
+      {label}
+    </button>
+  )
+}
+
+function FilterSection({ label, children, empty }: { label: string; children: React.ReactNode; empty?: boolean }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>{label}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{empty ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span> : children}</div>
     </div>
   )
 }
