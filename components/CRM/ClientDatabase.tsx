@@ -114,6 +114,13 @@ export function ClientDatabase() {
   async function handleAddContact(input: NewLeadInput) {
     // Normalise the channel label to a slug ('WhatsApp'→'whatsapp', 'X (Twitter)'→'xtwitter').
     const ct = input.contact_type.toLowerCase().replace(/[^a-z0-9]/g, '') || 'whatsapp'
+    // bsi_leads.status only allows new/contacted/qualified/closed/spam; fold the
+    // richer form statuses onto that set.
+    const statusMap: Record<string, string> = {
+      'New lead': 'new', Contacted: 'contacted', Qualified: 'qualified',
+      Prospek: 'qualified', Penawaran: 'qualified', Negosiasi: 'qualified',
+      Won: 'closed', Lost: 'closed',
+    }
     const row = {
       full_name: input.full_name.trim(), jabatan: input.jabatan.trim(), brand_name: input.brand_name.trim(),
       tier_klien: input.tier_klien, industri: input.industri,
@@ -123,7 +130,7 @@ export function ClientDatabase() {
       project_type: input.jenis_project.join(', ') || '-',
       jenis_project: input.jenis_project, objektif: input.objektif, budget_range: input.budget_range,
       timeline: input.timeline,
-      status: input.status, prioritas: input.prioritas, pic: input.pic, next_action: input.next_action.trim(),
+      status: statusMap[input.status] ?? 'new', prioritas: input.prioritas, pic: input.pic, next_action: input.next_action.trim(),
       follow_up_date: input.follow_up_date || null, tags: input.tags, notes: input.notes.trim(), lampiran: input.lampiran,
       nama_lokasi: input.nama_lokasi.trim(), alamat_jalan: input.alamat_jalan.trim(), alamat_rtrw: input.alamat_rtrw.trim(),
       alamat_blok: input.alamat_blok.trim(), kelurahan: input.kelurahan.trim(), kecamatan: input.kecamatan.trim(),
