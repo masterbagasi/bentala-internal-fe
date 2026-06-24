@@ -122,6 +122,9 @@ export function ClientDatabase() {
       timeline: input.timeline, brief_awal: input.brief_awal.trim(),
       status: input.status, prioritas: input.prioritas, pic: input.pic, next_action: input.next_action.trim(),
       follow_up_date: input.follow_up_date || null, tags: input.tags, notes: input.notes.trim(), lampiran: input.lampiran,
+      nama_lokasi: input.nama_lokasi.trim(), alamat_jalan: input.alamat_jalan.trim(), alamat_rtrw: input.alamat_rtrw.trim(),
+      alamat_blok: input.alamat_blok.trim(), kelurahan: input.kelurahan.trim(), kecamatan: input.kecamatan.trim(),
+      kota: input.kota.trim(), provinsi: input.provinsi, kode_pos: input.kode_pos.trim(), negara: input.negara,
       origin: 'manual', in_database: true, submitted_at: new Date().toISOString(),
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

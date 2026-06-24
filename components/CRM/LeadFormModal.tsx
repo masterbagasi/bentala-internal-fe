@@ -30,6 +30,17 @@ export interface NewLeadInput {
   tags: string[]
   notes: string
   lampiran: string[]
+  // Address
+  nama_lokasi: string
+  alamat_jalan: string
+  alamat_rtrw: string
+  alamat_blok: string
+  kelurahan: string
+  kecamatan: string
+  kota: string
+  provinsi: string
+  kode_pos: string
+  negara: string
 }
 
 const TIPE_KONTAK = ['WhatsApp', 'Email', 'Phone', 'IG DM', 'LinkedIn']
@@ -44,6 +55,8 @@ const TIMELINE = ['Urgent — sekarang', '1 — 3 bulan', '3 — 6 bulan', 'Long
 const STATUS8 = ['New lead', 'Contacted', 'Qualified', 'Prospek', 'Penawaran', 'Negosiasi', 'Won', 'Lost']
 const STATUS_NEEDS_FOLLOWUP = ['Prospek', 'Penawaran', 'Negosiasi']
 const PRIORITAS = ['Hot — sekarang', 'Warm', 'Cold']
+const PROVINSI = ['Aceh', 'Sumatera Utara', 'Sumatera Barat', 'Riau', 'Kepulauan Riau', 'Jambi', 'Sumatera Selatan', 'Bangka Belitung', 'Bengkulu', 'Lampung', 'DKI Jakarta', 'Jawa Barat', 'Banten', 'Jawa Tengah', 'DI Yogyakarta', 'Jawa Timur', 'Bali', 'Nusa Tenggara Barat', 'Nusa Tenggara Timur', 'Kalimantan Barat', 'Kalimantan Tengah', 'Kalimantan Selatan', 'Kalimantan Timur', 'Kalimantan Utara', 'Sulawesi Utara', 'Gorontalo', 'Sulawesi Tengah', 'Sulawesi Barat', 'Sulawesi Selatan', 'Sulawesi Tenggara', 'Maluku', 'Maluku Utara', 'Papua', 'Papua Barat', 'Papua Selatan', 'Papua Tengah', 'Papua Pegunungan', 'Papua Barat Daya']
+const NEGARA = ['Indonesia', 'Malaysia', 'Singapura', 'Brunei Darussalam', 'Filipina', 'Thailand', 'Vietnam', 'Australia', 'Lainnya']
 
 const EMPTY: NewLeadInput = {
   full_name: '', jabatan: '', brand_name: '', tier_klien: 'UMKM', industri: 'Food & beverage',
@@ -51,6 +64,8 @@ const EMPTY: NewLeadInput = {
   jenis_project: [], objektif: '', budget_range: '', timeline: '', brief_awal: '',
   status: 'New lead', prioritas: 'Warm', pic: '', next_action: '', follow_up_date: '',
   tags: [], notes: '', lampiran: [],
+  nama_lokasi: '', alamat_jalan: '', alamat_rtrw: '', alamat_blok: '', kelurahan: '', kecamatan: '',
+  kota: '', provinsi: '', kode_pos: '', negara: 'Indonesia',
 }
 
 export function LeadFormModal({ onClose, onSave, title }: {
@@ -142,6 +157,47 @@ export function LeadFormModal({ onClose, onSave, title }: {
             </Field>
             <Field label={t('Detail sumber')} required={needDetail} hint={t('nama event / referrer / campaign')}>
               <input value={form.detail_sumber} onChange={(e) => set('detail_sumber', e.target.value)} placeholder={t('Contoh: direferensikan Pak Andi')} />
+            </Field>
+          </Row>
+        </Group>
+
+        <Group label={t('Informasi Alamat')}>
+          <Field label={t('Nama Lokasi / Kantor')}>
+            <input value={form.nama_lokasi} onChange={(e) => set('nama_lokasi', e.target.value)} placeholder={t('Contoh: Kantor Pusat PT Maju Bersama')} />
+          </Field>
+          <Field label={t('Alamat Lengkap')}>
+            <input value={form.alamat_jalan} onChange={(e) => set('alamat_jalan', e.target.value)} placeholder={t('Jalan / Nomor Gedung')} />
+          </Field>
+          <Row>
+            <Field label={t('RT / RW')} hint={t('opsional')}>
+              <input value={form.alamat_rtrw} onChange={(e) => set('alamat_rtrw', e.target.value)} placeholder="001 / 002" />
+            </Field>
+            <Field label={t('Blok / Unit / Lantai')} hint={t('opsional')}>
+              <input value={form.alamat_blok} onChange={(e) => set('alamat_blok', e.target.value)} placeholder={t('Blok A / Lt. 3')} />
+            </Field>
+          </Row>
+          <Row>
+            <Field label={t('Kelurahan / Desa')}>
+              <input value={form.kelurahan} onChange={(e) => set('kelurahan', e.target.value)} placeholder={t('Kelurahan / Desa')} />
+            </Field>
+            <Field label={t('Kecamatan')}>
+              <input value={form.kecamatan} onChange={(e) => set('kecamatan', e.target.value)} placeholder={t('Kecamatan')} />
+            </Field>
+          </Row>
+          <Row>
+            <Field label={t('Kota / Kabupaten')}>
+              <input value={form.kota} onChange={(e) => set('kota', e.target.value)} placeholder={t('Kota / Kabupaten')} />
+            </Field>
+            <Field label={t('Provinsi / State')}>
+              <Select value={form.provinsi} onChange={(v) => set('provinsi', v)} options={PROVINSI} placeholder={t('Pilih provinsi...')} />
+            </Field>
+          </Row>
+          <Row>
+            <Field label={t('Kode Pos')}>
+              <input value={form.kode_pos} onChange={(e) => set('kode_pos', e.target.value)} placeholder="40123" />
+            </Field>
+            <Field label={t('Negara')}>
+              <Select value={form.negara} onChange={(v) => set('negara', v)} options={NEGARA} />
             </Field>
           </Row>
         </Group>
