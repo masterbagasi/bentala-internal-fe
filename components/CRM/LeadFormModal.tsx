@@ -111,9 +111,9 @@ export function LeadFormModal({ onClose, onSave, title }: {
     let off = false
     fetch('/api/accounts').then((r) => (r.ok ? r.json() : { accounts: [] }))
       .then((d: { accounts?: { name: string }[] }) => { if (!off) setTeam(d.accounts ?? []) }).catch(() => {})
-    // Jenis project mirrors the website's Services list (Home Page → Services).
+    // Jenis project mirrors the website's *active* Services (Home Page → Services).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(getSupabase() as any).from('bsi_services').select('name, sort_order').order('sort_order', { ascending: true })
+    ;(getSupabase() as any).from('bsi_services').select('name, sort_order').eq('is_published', true).order('sort_order', { ascending: true })
       .then(({ data }: { data: { name: string }[] | null }) => {
         if (off) return
         const names = (data ?? []).map((s) => s.name).filter(Boolean)
