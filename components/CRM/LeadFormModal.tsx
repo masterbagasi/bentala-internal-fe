@@ -131,7 +131,6 @@ export function LeadFormModal({ onClose, onSave, title }: {
 
   async function save() {
     if (!form.brand_name.trim()) { alert(t('Brand / perusahaan wajib diisi.')); return }
-    if (!form.contact_value.trim()) { alert(t('Kontak utama wajib diisi.')); return }
     setSaving(true)
     try { await onSave({ ...form, kontak_lainnya: form.kontak_lainnya.filter((c) => c.value.trim()) }) } finally { setSaving(false) }
   }
@@ -172,7 +171,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
             <Field label={t('Tipe kontak')}>
               <Combo searchable={false} value={form.contact_type} onChange={(v) => set('contact_type', v)} options={CONTACT_CHANNELS} />
             </Field>
-            <Field label={t('Kontak utama')} required>
+            <Field label={t('Kontak utama')}>
               <input value={form.contact_value} onChange={(e) => set('contact_value', e.target.value)} placeholder={channelPlaceholder(form.contact_type)} />
             </Field>
           </Row>
