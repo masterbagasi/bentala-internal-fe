@@ -258,23 +258,25 @@ export function ClientDatabase() {
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {/* Filter chips — same pill style as the Pipeline tab */}
-        {KIND_FILTERS.map((f) => {
-          const active = kind === f.key
-          return (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setKind(f.key)}
-              style={{ padding: '5px 14px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 500, border: '1px solid', background: active ? 'var(--accent)' : 'var(--bg2)', color: active ? '#fff' : 'var(--text2)', borderColor: active ? 'var(--accent)' : 'var(--border)' }}
-            >
-              {f.label} ({f.n})
-            </button>
-          )
-        })}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+        {/* Underline tabs — same style as the Socmed / website page menus */}
+        <div style={{ display: 'flex', gap: 22, alignItems: 'center' }}>
+          {KIND_FILTERS.map((f) => {
+            const active = kind === f.key
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setKind(f.key)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 12px', marginBottom: -1, borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`, color: active ? 'var(--text)' : 'var(--text2)', fontSize: 13, fontWeight: active ? 600 : 500, whiteSpace: 'nowrap', transition: 'color 0.15s, border-color 0.15s' }}
+              >
+                {f.label} ({f.n})
+              </button>
+            )
+          })}
+        </div>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8 }}>
           {/* Search: a button until clicked, then an inline input. Collapses on blur when empty. */}
           {searchOpen ? (
             <input
