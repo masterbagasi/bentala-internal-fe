@@ -367,16 +367,15 @@ function KebabMenu({ items }: { items: MenuItem[] }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
 
+  // Close on scroll/resize so the fixed menu never drifts away from its button.
   useEffect(() => {
     if (!open) return
     const close = () => setOpen(false)
     window.addEventListener('scroll', close, true)
     window.addEventListener('resize', close)
-    document.addEventListener('mousedown', close)
     return () => {
       window.removeEventListener('scroll', close, true)
       window.removeEventListener('resize', close)
-      document.removeEventListener('mousedown', close)
     }
   }, [open])
 
@@ -393,9 +392,6 @@ function KebabMenu({ items }: { items: MenuItem[] }) {
         ref={btnRef}
         type="button"
         onClick={toggle}
-        // Stop the global mousedown-close from firing first on our own button —
-        // otherwise it would close, then the click would re-open (never toggles).
-        onMouseDown={(e) => e.stopPropagation()}
         onMouseOver={(e) => { e.currentTarget.style.background = 'var(--bg3)'; e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text)' }}
         onMouseOut={(e) => { e.currentTarget.style.background = open ? 'var(--bg3)' : 'transparent'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = open ? 'var(--text)' : 'var(--text2)' }}
         title="Aksi"
@@ -404,8 +400,11 @@ function KebabMenu({ items }: { items: MenuItem[] }) {
         ⋯
       </button>
       {open && pos && createPortal(
+        <>
+          {/* Transparent backdrop: a click anywhere (including back on the ⋯
+              button, which it covers) closes the menu — no event-race. */}
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1999 }} />
         <div
-          onMouseDown={(e) => e.stopPropagation()}
           style={{ position: 'fixed', top: pos.top, left: pos.left, width: 184, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 10px 30px rgba(0,0,0,0.45)', padding: 4, zIndex: 2000 }}
         >
           {items.map((it, i) => (
@@ -420,7 +419,8 @@ function KebabMenu({ items }: { items: MenuItem[] }) {
               {it.label}
             </button>
           ))}
-        </div>,
+        </div>
+        </>,
         document.body,
       )}
     </>
