@@ -119,6 +119,8 @@ export function ClientDatabase() {
       tier_klien: input.tier_klien, industri: input.industri,
       contact_type: ct, contact_value: input.contact_value.trim(), kontak_lainnya: input.kontak_lainnya,
       source: input.source, detail_sumber: input.detail_sumber.trim(),
+      // project_type is the legacy NOT NULL column; mirror the jenis_project list into it.
+      project_type: input.jenis_project.join(', ') || '-',
       jenis_project: input.jenis_project, objektif: input.objektif, budget_range: input.budget_range,
       timeline: input.timeline,
       status: input.status, prioritas: input.prioritas, pic: input.pic, next_action: input.next_action.trim(),
