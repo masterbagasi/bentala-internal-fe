@@ -167,7 +167,7 @@ export default function LeadsAdminPage() {
             pic: convertLead.full_name,
             contact: convertLead.contact_value,
             notes: [convertLead.project_type, convertLead.notes].filter(Boolean).join(' · '),
-            stage: 'lead',
+            stage: 'prospect',
           }}
           onCreated={handleConverted}
           onClose={() => setConvertLead(null)}

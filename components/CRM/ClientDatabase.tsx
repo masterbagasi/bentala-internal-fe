@@ -49,7 +49,7 @@ function clientToContact(c: Client): Contact {
   return {
     id: `c:${c.id}`, kind: 'client', name: c.name, brand: c.name, contact: c.contact || '',
     contactType: isEmail(c.contact || '') ? 'email' : 'whatsapp',
-    statusLabel: STAGE_LABELS[c.stage] ?? c.stage, statusColor: stage?.color ?? (c.stage === 'inactive' ? '#8b8fa8' : 'var(--text2)'),
+    statusLabel: STAGE_LABELS[c.stage] ?? c.stage, statusColor: stage?.color ?? 'var(--text2)',
     pic: c.internal || '—', value: c.value || 0, source: c.source || 'manual', date: c.created_at, client: c,
   }
 }
@@ -235,7 +235,7 @@ export function ClientDatabase() {
             pic: convertLead.full_name,
             contact: convertLead.contact_value,
             notes: [convertLead.project_type, convertLead.notes].filter(Boolean).join(' · '),
-            stage: 'lead',
+            stage: 'prospect',
           }}
           onCreated={handleConverted}
           onClose={() => setConvertLead(null)}

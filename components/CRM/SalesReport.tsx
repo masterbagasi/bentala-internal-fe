@@ -10,7 +10,8 @@ import { formatRupiah } from '@/lib/utils'
 import { useSalesTargets } from '@/hooks/useSalesTargets'
 
 const INTERNALS = ['Dandi', 'Naufal', 'Reinaldi', 'Faizal']
-const FUNNEL = ['lead', 'pitch', 'close', 'invoice']
+const FUNNEL = ['prospect', 'contacted', 'qualified', 'discovery', 'proposal', 'negotiation', 'won', 'client']
+const WON_STAGES = ['won', 'client']
 const mk = (iso: string) => (iso || '').slice(0, 7)
 
 export function SalesReport() {
@@ -22,7 +23,7 @@ export function SalesReport() {
 
   const funnel = useMemo(() => FUNNEL.map(k => ({ k, label: STAGE_LABELS[k] ?? k, n: clients.filter(c => c.stage === k).length })), [clients])
   const pipeline = useMemo(() => {
-    const open = clients.filter(c => c.stage !== 'inactive')
+    const open = clients.filter(c => !WON_STAGES.includes(c.stage) && c.stage !== 'lost')
     return {
       total: open.reduce((n, c) => n + (c.value || 0), 0),
       weighted: Math.round(open.reduce((n, c) => n + (c.value || 0) * (STAGE_PROBABILITY[c.stage] ?? 0), 0)),
@@ -30,8 +31,8 @@ export function SalesReport() {
   }, [clients])
   const winLoss = useMemo(() => INTERNALS.map(p => {
     const mine = clients.filter(c => c.internal === p)
-    const won = mine.filter(c => c.stage === 'close' || c.stage === 'invoice').length
-    const lost = mine.filter(c => c.stage === 'inactive').length
+    const won = mine.filter(c => WON_STAGES.includes(c.stage)).length
+    const lost = mine.filter(c => c.stage === 'lost').length
     return { p, won, lost, rate: won + lost ? Math.round((won / (won + lost)) * 100) : 0 }
   }), [clients])
   const months = useMemo(() => Array.from({ length: 6 }, (_, i) => {

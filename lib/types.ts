@@ -102,7 +102,7 @@ export interface Post {
   last_change_at?: string | null  // when that change happened (unread markers)
 }
 
-export type ClientStage = 'lead' | 'pitch' | 'close' | 'invoice' | 'inactive'
+export type ClientStage = 'prospect' | 'contacted' | 'qualified' | 'discovery' | 'proposal' | 'negotiation' | 'won' | 'lost' | 'client'
 
 export interface Client {
   id: string

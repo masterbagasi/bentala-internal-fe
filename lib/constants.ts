@@ -93,29 +93,40 @@ export const WS_STATUS_COLS = [
 ] as const
 
 export const STAGE_LABELS: Record<string, string> = {
-  lead:     'Lead',
-  pitch:    'Pitching',
-  close:    'Closed',
-  invoice:  'Invoice',
-  inactive: 'Inactive',
+  prospect:    'Prospect',
+  contacted:   'Contacted',
+  qualified:   'Qualified',
+  discovery:   'Discovery Meeting',
+  proposal:    'Proposal Sent',
+  negotiation: 'Negotiation',
+  won:         'Won',
+  lost:        'Lost',
+  client:      'Client',
 }
 
+// Full B2B sales funnel — the kanban columns in order.
 export const CRM_STAGES = [
-  { key: 'lead',    label: 'Lead / Prospek', color: '#8b8fa8' },
-  { key: 'pitch',   label: 'Pitching',       color: '#5b9bd5' },
-  { key: 'close',   label: 'Closed',         color: '#43d9a2' },
-  { key: 'invoice', label: 'Invoice',        color: '#ffc542' },
+  { key: 'prospect',    label: 'Prospect',          color: '#8b8fa8' },
+  { key: 'contacted',   label: 'Contacted',         color: '#6c8fd5' },
+  { key: 'qualified',   label: 'Qualified',         color: '#5b9bd5' },
+  { key: 'discovery',   label: 'Discovery Meeting', color: '#7e6bd5' },
+  { key: 'proposal',    label: 'Proposal Sent',     color: '#a78bfa' },
+  { key: 'negotiation', label: 'Negotiation',       color: '#ffc542' },
+  { key: 'won',         label: 'Won',               color: '#43d9a2' },
+  { key: 'lost',        label: 'Lost',              color: '#ff6b6b' },
+  { key: 'client',      label: 'Client',            color: '#2bb673' },
 ] as const
 
-// The board shows an extra Inactive/lost column; CRM_STAGES (used by filters) stays 4.
-export const CRM_BOARD_STAGES = [
-  ...CRM_STAGES,
-  { key: 'inactive', label: 'Inactive', color: '#8b8fa8' },
-] as const
+// The board renders the full funnel; CRM_STAGES already includes every column.
+export const CRM_BOARD_STAGES = CRM_STAGES
 
-// Weighted-forecast probability per stage (open deals only; inactive = lost = 0).
+// Deals that are closed-won (revenue) or lost — excluded from "open pipeline".
+export const CLOSED_STAGES = ['won', 'lost', 'client'] as const
+
+// Weighted-forecast probability per stage (won/client = 1, lost = 0).
 export const STAGE_PROBABILITY: Record<string, number> = {
-  lead: 0.2, pitch: 0.5, close: 0.9, invoice: 1, inactive: 0,
+  prospect: 0.1, contacted: 0.2, qualified: 0.35, discovery: 0.5,
+  proposal: 0.65, negotiation: 0.8, won: 1, client: 1, lost: 0,
 }
 
 // Deal "temperature" (lead qualification) — orthogonal to stage. Shown as a

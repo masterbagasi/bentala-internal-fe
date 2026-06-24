@@ -7,7 +7,7 @@ import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
-import { CRM_STAGES, CRM_BOARD_STAGES, STAGE_LABELS, SERVICE_OPTIONS, STAGE_PROBABILITY, TEMPERATURES } from '@/lib/constants'
+import { CRM_STAGES, CRM_BOARD_STAGES, STAGE_LABELS, SERVICE_OPTIONS, STAGE_PROBABILITY, TEMPERATURES, CLOSED_STAGES } from '@/lib/constants'
 import { formatRupiah } from '@/lib/utils'
 import { useLogActivity } from '@/hooks/useData'
 import { logStageChange } from '@/lib/log-interaction'
@@ -112,7 +112,7 @@ export function CRMPage() {
 
   const [closingThisMonth, setClosingThisMonth] = useState(false)
   const ym = (() => { const d = new Date(); return `${d.getFullYear()}-${`${d.getMonth()+1}`.padStart(2,'0')}` })()
-  const openDeals = clients.filter(c => c.stage !== 'inactive')
+  const openDeals = clients.filter(c => !CLOSED_STAGES.includes(c.stage as typeof CLOSED_STAGES[number]))
   const totalPipeline = openDeals.reduce((n, c) => n + (c.value || 0), 0)
   const weightedForecast = Math.round(openDeals.reduce((n, c) => n + (c.value || 0) * (STAGE_PROBABILITY[c.stage] ?? 0), 0))
 
@@ -154,8 +154,8 @@ export function CRMPage() {
 
   function moveToStage(client: Client, toStage: string) {
     if (client.stage === toStage) return
-    if (toStage === 'inactive') { setReasonReq({ client, toStage, required: true }); return }
-    if (toStage === 'close' || toStage === 'invoice') { setReasonReq({ client, toStage, required: false }); return }
+    if (toStage === 'lost') { setReasonReq({ client, toStage, required: true }); return }
+    if (toStage === 'won' || toStage === 'client') { setReasonReq({ client, toStage, required: false }); return }
     void applyStageMove(client, toStage)
   }
 
@@ -289,7 +289,7 @@ export function CRMPage() {
                     </div>
                   )}
                   {c.expected_close && (() => {
-                    const open = c.stage !== 'close' && c.stage !== 'invoice' && c.stage !== 'inactive'
+                    const open = !CLOSED_STAGES.includes(c.stage as typeof CLOSED_STAGES[number])
                     const overdue = open && c.expected_close < today
                     return (
                       <div style={{ fontSize: 11, color: overdue ? '#ff6b6b' : 'var(--text2)', marginBottom: 4 }}>
@@ -370,7 +370,7 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
     name:     client?.name    || prefill?.name    || '',
     pic:      client?.pic     || prefill?.pic     || '',
     contact:  client?.contact || prefill?.contact || '',
-    stage:    client?.stage   || prefill?.stage   || 'lead',
+    stage:    client?.stage   || prefill?.stage   || 'prospect',
     value:          client?.value?.toString() || '',
     service:        client?.service || prefill?.service || 'smm',
     internal:       client?.internal || 'Dandi',
@@ -435,11 +435,7 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FG label="Stage">
             <select value={form.stage} onChange={e => setForm(f=>({...f,stage:e.target.value as ClientStage}))}>
-              <option value="lead">{t('Lead / Prospek')}</option>
-              <option value="pitch">{t('Pitching / Proposal')}</option>
-              <option value="close">{t('Closed / Deal')}</option>
-              <option value="invoice">Invoice</option>
-              <option value="inactive">Inactive</option>
+              {CRM_BOARD_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </FG>
           <FG label={t('Nilai Deal (Rp)')}>
