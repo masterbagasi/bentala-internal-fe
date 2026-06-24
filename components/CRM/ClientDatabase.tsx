@@ -399,11 +399,11 @@ function KebabMenu({ items }: { items: MenuItem[] }) {
               key={i}
               type="button"
               onClick={(e) => { e.stopPropagation(); setOpen(false); it.onClick() }}
-              style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 6, background: 'transparent', border: 'none', color: it.danger ? '#ff6b6b' : 'var(--text)', cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}
+              style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 6, background: 'transparent', border: 'none', color: it.danger ? '#ff6b6b' : 'var(--text)', cursor: 'pointer', fontSize: 12.5, fontWeight: 500 }}
               onMouseOver={(e) => (e.currentTarget.style.background = it.danger ? 'rgba(255,107,107,0.1)' : 'var(--bg3)')}
               onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span style={{ width: 16, textAlign: 'center', fontSize: 13 }}>{it.icon}</span>{it.label}
+              {it.label}
             </button>
           ))}
         </div>,
