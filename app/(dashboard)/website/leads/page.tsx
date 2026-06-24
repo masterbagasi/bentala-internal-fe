@@ -10,6 +10,7 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { ListEmpty, ListError } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
 import { ClientModal } from '@/components/CRM'
+import { Modal } from '@/components/shared/Modal'
 
 const STATUS_LABELS: Record<BsiLead['status'], string> = {
   new: 'Baru',
@@ -39,6 +40,7 @@ export default function LeadsAdminPage() {
   const [filter, setFilter] = useState<BsiLead['status'] | 'all'>('all')
   const [query, setQuery] = useState('')
   const [convertLead, setConvertLead] = useState<BsiLead | null>(null)
+  const [detailLead, setDetailLead] = useState<BsiLead | null>(null)
 
   async function load() {
     const { data, error } = await supabase
@@ -139,6 +141,7 @@ export default function LeadsAdminPage() {
                   lead={lead}
                   onUpdateStatus={(s) => updateStatus(lead.id, s)}
                   onConvert={() => setConvertLead(lead)}
+                  onOpenDetail={() => setDetailLead(lead)}
                 />
               ))}
             </div>
@@ -160,6 +163,14 @@ export default function LeadsAdminPage() {
           }}
           onCreated={handleConverted}
           onClose={() => setConvertLead(null)}
+        />
+      )}
+      {detailLead && (
+        <LeadDetailModal
+          lead={detailLead}
+          onClose={() => setDetailLead(null)}
+          onUpdateStatus={(s) => updateStatus(detailLead.id, s)}
+          onConvert={() => { setConvertLead(detailLead); setDetailLead(null) }}
         />
       )}
     </PageShell>
@@ -306,24 +317,17 @@ function LeadCard({
   lead,
   onUpdateStatus,
   onConvert,
+  onOpenDetail,
 }: {
   lead: BsiLead
   onUpdateStatus: (s: BsiLead['status']) => void
   onConvert: () => void
+  onOpenDetail: () => void
 }) {
   const t = useT()
-  const [expanded, setExpanded] = useState(false)
   const [hovered, setHovered] = useState(false)
   const submittedAt = new Date(lead.submitted_at)
   const accent = STATUS_COLORS[lead.status]
-
-  const hasMeta = !!(
-    lead.notes ||
-    lead.utm_source ||
-    lead.utm_medium ||
-    lead.utm_campaign ||
-    lead.referrer
-  )
 
   const phoneDigits = lead.contact_value.replace(/[^\d]/g, '')
   const primaryHref =
@@ -334,12 +338,18 @@ function LeadCard({
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={onOpenDetail}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenDetail() } }}
+      title={t('Lihat detail lead')}
       style={{
         background: 'var(--bg2)',
-        border: `1px solid ${hovered ? `${accent}40` : 'var(--border)'}`,
+        border: `1px solid ${hovered ? `${accent}55` : 'var(--border)'}`,
         borderRadius: 10,
         overflow: 'hidden',
-        transition: 'border-color 0.15s ease, transform 0.15s ease',
+        cursor: 'pointer',
+        transition: 'border-color 0.15s ease, background 0.15s ease',
       }}
     >
       {/* Header row — always visible */}
@@ -458,7 +468,9 @@ function LeadCard({
         </div>
 
         {/* Status pill (clickable dropdown) */}
-        <StatusPill status={lead.status} onChange={onUpdateStatus} />
+        <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
+          <StatusPill status={lead.status} onChange={onUpdateStatus} />
+        </span>
 
         {/* Convert action / converted badge */}
         {lead.converted_client_id ? (
@@ -504,8 +516,8 @@ function LeadCard({
           </span>
         </div>
 
-        {/* Primary action + expand */}
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        {/* Primary quick action (detail + the rest live in the popup) */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
           <a
             href={primaryHref}
             target="_blank"
@@ -547,126 +559,122 @@ function LeadCard({
               </svg>
             )}
           </a>
-          {hasMeta && (
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              aria-label={expanded ? t('Tutup detail') : t('Lihat detail')}
-              title={expanded ? t('Tutup detail') : t('Lihat detail')}
-              style={{
-                height: 32,
-                width: 32,
-                borderRadius: 8,
-                background: expanded ? 'var(--bg3)' : 'transparent',
-                border: '1px solid var(--border)',
-                color: 'var(--text2)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'transform 0.2s ease, background 0.15s ease',
-              }}
-            >
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                style={{
-                  transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s ease',
-                }}
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-          )}
         </div>
       </div>
+    </div>
+  )
+}
 
-      {/* Expanded detail */}
-      {expanded && hasMeta && (
-        <div
-          style={{
-            padding: '14px 16px 16px 16px',
-            borderTop: '1px solid var(--border)',
-            background: 'rgba(0,0,0,0.18)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 14,
-          }}
-        >
-          {lead.notes && (
-            <div>
-              <SectionLabel>{t('Catatan Project')}</SectionLabel>
-              <div
-                style={{
-                  fontSize: 12.5,
-                  color: 'var(--text)',
-                  lineHeight: 1.6,
-                  padding: 12,
-                  background: 'var(--bg3)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  whiteSpace: 'pre-line',
-                }}
-              >
-                {lead.notes}
-              </div>
-            </div>
-          )}
+/* ──────────────────────────────────────────────────────────── */
+/* Lead detail popup — notes, tracking, and the full actions     */
+/* ──────────────────────────────────────────────────────────── */
 
-          {(lead.utm_source || lead.utm_medium || lead.utm_campaign || lead.referrer) && (
-            <div>
-              <SectionLabel>Tracking</SectionLabel>
-              <dl
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                  gap: 8,
-                  margin: 0,
-                }}
-              >
-                {lead.utm_source && <MetaItem label="UTM Source" value={lead.utm_source} />}
-                {lead.utm_medium && <MetaItem label="Medium" value={lead.utm_medium} />}
-                {lead.utm_campaign && <MetaItem label="Campaign" value={lead.utm_campaign} />}
-                {lead.referrer && <MetaItem label="Referrer" value={lead.referrer} mono />}
-              </dl>
-            </div>
-          )}
+function LeadDetailModal({
+  lead,
+  onClose,
+  onUpdateStatus,
+  onConvert,
+}: {
+  lead: BsiLead
+  onClose: () => void
+  onUpdateStatus: (s: BsiLead['status']) => void
+  onConvert: () => void
+}) {
+  const t = useT()
+  const submittedAt = new Date(lead.submitted_at)
+  const phoneDigits = lead.contact_value.replace(/[^\d]/g, '')
+  const primaryHref =
+    lead.contact_type === 'whatsapp' ? `https://wa.me/${phoneDigits}` : `mailto:${lead.contact_value}`
+  const hasTracking = !!(lead.utm_source || lead.utm_medium || lead.utm_campaign || lead.referrer)
 
+  return (
+    <Modal open onClose={onClose} title={t('Detail Lead')} maxWidth={560}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Identity */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Avatar name={lead.full_name} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>{lead.full_name}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)' }}>{lead.brand_name}</div>
+          </div>
+          <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
+            <StatusPill status={lead.status} onChange={onUpdateStatus} />
+          </span>
+        </div>
+
+        {/* Contact + quick actions */}
+        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <ContactIcon type={lead.contact_type} />
+            <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {lead.contact_value}
+            </span>
+          </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <a
               href={primaryHref}
               target="_blank"
               rel="noopener noreferrer"
-              style={{
-                height: 32,
-                padding: '0 14px',
-                background: lead.contact_type === 'whatsapp' ? '#25D366' : 'var(--accent)',
-                color: '#fff',
-                borderRadius: 8,
-                fontSize: 12,
-                fontWeight: 500,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                textDecoration: 'none',
-              }}
+              style={{ height: 34, padding: '0 14px', background: lead.contact_type === 'whatsapp' ? '#25D366' : 'var(--accent)', color: '#fff', borderRadius: 8, fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
             >
               {lead.contact_type === 'whatsapp' ? t('Buka WhatsApp') : t('Kirim Email')}
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="7" y1="17" x2="17" y2="7" />
-                <polyline points="7 7 17 7 17 17" />
+                <line x1="7" y1="17" x2="17" y2="7" /><polyline points="7 7 17 7 17 17" />
               </svg>
             </a>
             <CopyButton value={lead.contact_value} />
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Project type */}
+        <div>
+          <SectionLabel>{t('Jenis Project')}</SectionLabel>
+          <div style={{ fontSize: 13, color: 'var(--text)' }}>{lead.project_type || '—'}</div>
+        </div>
+
+        {/* Notes */}
+        {lead.notes && (
+          <div>
+            <SectionLabel>{t('Catatan Project')}</SectionLabel>
+            <div style={{ fontSize: 12.5, color: 'var(--text)', lineHeight: 1.6, padding: 12, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, whiteSpace: 'pre-line' }}>
+              {lead.notes}
+            </div>
+          </div>
+        )}
+
+        {/* Tracking */}
+        {hasTracking && (
+          <div>
+            <SectionLabel>Tracking</SectionLabel>
+            <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, margin: 0 }}>
+              {lead.utm_source && <MetaItem label="UTM Source" value={lead.utm_source} />}
+              {lead.utm_medium && <MetaItem label="Medium" value={lead.utm_medium} />}
+              {lead.utm_campaign && <MetaItem label="Campaign" value={lead.utm_campaign} />}
+              {lead.referrer && <MetaItem label="Referrer" value={lead.referrer} mono />}
+            </dl>
+          </div>
+        )}
+
+        {/* Footer: submitted + convert */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          <span style={{ fontSize: 11.5, color: 'var(--text2)' }}>
+            {t('Masuk')} {submittedAt.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
+          {lead.converted_client_id ? (
+            <Link href={`/clients/${lead.converted_client_id}`} style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent3)', textDecoration: 'none' }}>
+              ✓ {t('Lihat Client')}
+            </Link>
+          ) : (
+            <button
+              onClick={onConvert}
+              style={{ fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}
+            >
+              {t('Jadikan Client')}
+            </button>
+          )}
+        </div>
+      </div>
+    </Modal>
   )
 }
 
