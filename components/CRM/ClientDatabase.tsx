@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/utils'
-import { CRM_STAGES, STAGE_LABELS, TEMPERATURES } from '@/lib/constants'
+import { CRM_STAGES, STAGE_LABELS } from '@/lib/constants'
 import { Modal } from '@/components/shared/Modal'
 import { ClientProfile } from './ClientProfile'
 import { ClientModal } from '@/components/CRM'
@@ -25,13 +25,12 @@ const LEAD_STATUS: Record<string, { label: string; color: string }> = {
 interface Contact {
   id: string
   kind: 'client' | 'lead'
-  name: string
   brand: string
+  pic: string
   contact: string
   contactType: 'whatsapp' | 'email'
   statusLabel: string
   statusColor: string
-  pic: string
   value: number | null
   source: string
   date: string
@@ -48,18 +47,18 @@ const cap = (s?: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1) :
 function clientToContact(c: Client): Contact {
   const stage = CRM_STAGES.find((x) => x.key === c.stage)
   return {
-    id: `c:${c.id}`, kind: 'client', name: c.name, brand: c.name, contact: c.contact || '',
+    id: `c:${c.id}`, kind: 'client', brand: c.name, pic: c.pic || '—', contact: c.contact || '',
     contactType: isEmail(c.contact || '') ? 'email' : 'whatsapp',
     statusLabel: STAGE_LABELS[c.stage] ?? c.stage, statusColor: stage?.color ?? 'var(--text2)',
-    pic: c.internal || '—', value: c.value || 0, source: c.source || 'manual', date: c.created_at, client: c,
+    value: c.value || 0, source: c.source || 'manual', date: c.created_at, client: c,
   }
 }
 function leadToContact(l: BsiLead): Contact {
   const st = LEAD_STATUS[l.status] ?? { label: l.status, color: 'var(--text2)' }
   return {
-    id: `l:${l.id}`, kind: 'lead', name: l.full_name, brand: l.brand_name, contact: l.contact_value || '',
+    id: `l:${l.id}`, kind: 'lead', brand: l.brand_name, pic: l.full_name, contact: l.contact_value || '',
     contactType: l.contact_type, statusLabel: st.label, statusColor: st.color,
-    pic: '—', value: null, source: l.source || l.origin || 'website', date: l.submitted_at, lead: l,
+    value: null, source: l.source || l.origin || 'website', date: l.submitted_at, lead: l,
   }
 }
 
@@ -70,7 +69,7 @@ export function ClientDatabase() {
   const [leads, setLeads] = useState<BsiLead[]>([])
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<'all' | 'client' | 'lead'>('all')
-  const [sortKey, setSortKey] = useState<'name' | 'date'>('date')
+  const [sortKey, setSortKey] = useState<'brand' | 'date'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [detailClientId, setDetailClientId] = useState<string | null>(null)
   const [peekLead, setPeekLead] = useState<BsiLead | null>(null)
@@ -155,19 +154,19 @@ export function ClientDatabase() {
     const q = query.trim().toLowerCase()
     const filtered = all.filter((r) => {
       if (kind !== 'all' && r.kind !== kind) return false
-      if (q && !`${r.name} ${r.brand} ${r.contact}`.toLowerCase().includes(q)) return false
+      if (q && !`${r.brand} ${r.pic} ${r.contact}`.toLowerCase().includes(q)) return false
       return true
     })
     const dir = sortDir === 'asc' ? 1 : -1
-    return filtered.sort((a, b) => (sortKey === 'name' ? a.name.localeCompare(b.name) : String(a.date).localeCompare(String(b.date))) * dir)
+    return filtered.sort((a, b) => (sortKey === 'brand' ? a.brand.localeCompare(b.brand) : String(a.date).localeCompare(String(b.date))) * dir)
   }, [clients, leads, lastContact, query, kind, sortKey, sortDir])
 
   const counts = useMemo(() => ({ client: clients.length, lead: leads.length }), [clients.length, leads.length])
 
   function exportCsv() {
-    const headers = ['Nama', 'Brand', 'Kontak', 'Status', 'PIC', 'Nilai', 'Source', 'Masuk', 'Terakhir Dihubungi']
+    const headers = ['Brand', 'PIC', 'Kontak', 'Status', 'Nilai', 'Source', 'Masuk', 'Terakhir Dihubungi']
     const esc = (v: string | number) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const lines = rows.map((r) => [r.name, r.brand, r.contact, r.kind === 'client' ? r.statusLabel : '-', r.pic, r.value ?? '', r.source, (r.date || '').slice(0, 10), (r.lastContacted || '').slice(0, 10)].map(esc).join(','))
+    const lines = rows.map((r) => [r.brand, r.pic, r.contact, r.kind === 'client' ? r.statusLabel : '-', r.value ?? '', r.source, (r.date || '').slice(0, 10), (r.lastContacted || '').slice(0, 10)].map(esc).join(','))
     const csv = [headers.map(esc).join(','), ...lines].join('\n')
     const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }))
     const a = document.createElement('a')
@@ -177,9 +176,9 @@ export function ClientDatabase() {
     URL.revokeObjectURL(url)
   }
 
-  function toggleSort(k: 'name' | 'date') {
+  function toggleSort(k: 'brand' | 'date') {
     if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    else { setSortKey(k); setSortDir(k === 'name' ? 'asc' : 'desc') }
+    else { setSortKey(k); setSortDir(k === 'brand' ? 'asc' : 'desc') }
   }
 
   const selectStyle: React.CSSProperties = { fontSize: 12, padding: '6px 8px', borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)' }
@@ -209,11 +208,10 @@ export function ClientDatabase() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 940 }}>
           <thead>
             <tr style={{ background: 'var(--bg2)' }}>
-              <Th label={t('Nama')} onClick={() => toggleSort('name')} active={sortKey === 'name'} dir={sortDir} />
-              <Th label={t('Brand')} />
+              <Th label={t('Brand')} onClick={() => toggleSort('brand')} active={sortKey === 'brand'} dir={sortDir} />
+              <Th label="PIC" />
               <Th label={t('Kontak')} />
               <Th label="Status" />
-              <Th label="PIC" />
               <Th label={t('Nilai')} align="right" />
               <Th label="Source" />
               <Th label={t('Masuk')} onClick={() => toggleSort('date')} active={sortKey === 'date'} dir={sortDir} />
@@ -223,7 +221,7 @@ export function ClientDatabase() {
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={10} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>{t('Belum ada kontak.')}</td></tr>
+              <tr><td colSpan={9} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>{t('Belum ada kontak.')}</td></tr>
             ) : rows.map((r) => (
               <tr
                 key={r.id}
@@ -232,15 +230,14 @@ export function ClientDatabase() {
                 onMouseOver={(e) => (e.currentTarget.style.background = 'var(--bg2)')}
                 onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
               >
-                <td style={{ padding: '9px 12px', fontWeight: 600, color: 'var(--text)' }}>{r.name}</td>
-                <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{r.brand || '—'}</td>
+                <td style={{ padding: '9px 12px', fontWeight: 600, color: 'var(--text)' }}>{r.brand || '—'}</td>
+                <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{r.pic || '—'}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11.5 }}>{r.contact || '—'}</td>
                 <td style={{ padding: '9px 12px' }}>
                   {r.kind === 'client'
                     ? <span style={{ fontSize: 11, color: r.statusColor, background: r.statusColor + '22', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>{r.statusLabel}</span>
                     : <span style={{ color: 'var(--text3)' }}>—</span>}
                 </td>
-                <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{r.pic}</td>
                 <td style={{ padding: '9px 12px', textAlign: 'right', color: 'var(--text)', whiteSpace: 'nowrap' }}>{r.value ? formatRupiah(r.value) : '—'}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)' }}>{cap(r.source)}</td>
                 <td style={{ padding: '9px 12px', color: 'var(--text2)', whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</td>
