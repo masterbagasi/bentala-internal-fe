@@ -44,6 +44,19 @@ export interface NewLeadInput {
 }
 
 const CONTACT_CHANNELS = ['WhatsApp', 'Email', 'Instagram', 'Facebook', 'X (Twitter)', 'TikTok', 'YouTube', 'LinkedIn', 'Telegram', 'Phone', 'Website', 'Threads', 'Snapchat', 'Pinterest', 'Lainnya']
+// Placeholder hint per channel so "Kontak utama" matches the selected type.
+function channelPlaceholder(ch: string): string {
+  switch (ch) {
+    case 'WhatsApp':
+    case 'Phone': return '+62...'
+    case 'Email': return 'email@domain.com'
+    case 'Website': return 'https://...'
+    case 'YouTube': return 'nama channel / link'
+    case 'LinkedIn': return 'nama / link profil'
+    case 'Lainnya': return 'username / link / nomor'
+    default: return '@username'
+  }
+}
 const TIER = ['UMKM', 'Small Business', 'Mid Market', 'Enterprise']
 const INDUSTRI = ['Food & beverage', 'Beauty', 'Fashion', 'Personal', 'Tech', 'Health', 'Edu', 'Other']
 const SUMBER = ['Instagram', 'TikTok', 'Website', 'Referral', 'Event', 'Cold', 'Ads', 'Lainnya']
@@ -152,7 +165,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
               <Combo searchable={false} value={form.contact_type} onChange={(v) => set('contact_type', v)} options={CONTACT_CHANNELS} />
             </Field>
             <Field label={t('Kontak utama')} required>
-              <input value={form.contact_value} onChange={(e) => set('contact_value', e.target.value)} placeholder={form.contact_type === 'Email' ? 'email@domain.com' : '+62...'} />
+              <input value={form.contact_value} onChange={(e) => set('contact_value', e.target.value)} placeholder={channelPlaceholder(form.contact_type)} />
             </Field>
           </Row>
 
@@ -166,7 +179,7 @@ export function LeadFormModal({ onClose, onSave, title }: {
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px 1fr auto', gap: 8 }}>
                   <Combo searchable={false} value={c.channel} placeholder={t('Channel...')} options={CONTACT_CHANNELS}
                     onChange={(v) => set('kontak_lainnya', form.kontak_lainnya.map((x, j) => (j === i ? { ...x, channel: v } : x)))} />
-                  <input value={c.value} placeholder={t('username / link / nomor')}
+                  <input value={c.value} placeholder={channelPlaceholder(c.channel)}
                     onChange={(e) => set('kontak_lainnya', form.kontak_lainnya.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} />
                   <button type="button" onClick={() => set('kontak_lainnya', form.kontak_lainnya.filter((_, j) => j !== i))}
                     style={{ width: 38, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg3)', color: '#ff6b6b', cursor: 'pointer', fontSize: 14 }}>✕</button>
