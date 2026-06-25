@@ -548,24 +548,24 @@ function KebabMenu({ items }: { items: MenuItem[] }) {
 function DRow({ label, value }: { label: string; value?: React.ReactNode }) {
   if (value === undefined || value === null || value === '') return null
   return (
-    <div style={{ display: 'flex', gap: 12, fontSize: 13, lineHeight: 1.5 }}>
-      <span style={{ width: 130, flexShrink: 0, color: 'var(--text2)' }}>{label}</span>
-      <span style={{ color: 'var(--text)', wordBreak: 'break-word', flex: 1 }}>{value}</span>
+    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 12, fontSize: 13, lineHeight: 1.5, alignItems: 'baseline' }}>
+      <span style={{ color: 'var(--text2)' }}>{label}</span>
+      <span style={{ color: 'var(--text)', wordBreak: 'break-word' }}>{value}</span>
     </div>
   )
 }
 function DSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>{label}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>{children}</div>
+    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+      <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text3)', fontWeight: 700, marginBottom: 10 }}>{label}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
     </div>
   )
 }
 function PeekChips({ items }: { items: string[] }) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {items.map((x, i) => <span key={i} style={{ fontSize: 11.5, padding: '3px 10px', borderRadius: 16, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)' }}>{x}</span>)}
+      {items.map((x, i) => <span key={i} style={{ fontSize: 11.5, fontWeight: 500, padding: '3px 10px', borderRadius: 16, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.25)', color: 'var(--accent)' }}>{x}</span>)}
     </div>
   )
 }
@@ -589,6 +589,8 @@ function LeadPeek({ lead, onClose, onConvert, onEdit, t }: { lead: BsiLead; onCl
   const fileName = (u: string) => decodeURIComponent(u.split('/').pop()?.split('?')[0] ?? u)
   // Only allow http(s) attachment URLs into href — blocks javascript:/data: schemes.
   const safeUrl = (u: string) => /^https?:\/\//i.test(u) ? u : null
+  const initials = (lead.brand_name || lead.full_name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+  const prioColor = /hot/i.test(L.prioritas || '') ? '#ff6b6b' : /warm/i.test(L.prioritas || '') ? '#ffc542' : /cold/i.test(L.prioritas || '') ? '#54a0ff' : 'var(--text2)'
 
   return (
     <Modal
@@ -597,26 +599,32 @@ function LeadPeek({ lead, onClose, onConvert, onEdit, t }: { lead: BsiLead; onCl
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* Header */}
-        <div>
-          <div style={{ fontSize: 17, fontWeight: 700 }}>{lead.brand_name || lead.full_name || '—'}</div>
-          {(lead.full_name || L.jabatan) && (
-            <div style={{ fontSize: 12.5, color: 'var(--text2)', marginTop: 2 }}>{[lead.full_name, L.jabatan].filter(Boolean).join(' · ')}</div>
-          )}
-          {(L.tier_klien || L.industri || L.prioritas) && (
-            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-              {[L.tier_klien, L.industri, L.prioritas].filter(Boolean).map((x: string, i: number) => (
-                <span key={i} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: 'rgba(108,99,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.25)' }}>{x}</span>
-              ))}
-            </div>
-          )}
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 700, color: 'var(--accent)', background: 'rgba(108,99,255,0.14)', border: '1px solid rgba(108,99,255,0.28)' }}>{initials}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.25 }}>{lead.brand_name || lead.full_name || '—'}</div>
+            {(lead.full_name || L.jabatan) && (
+              <div style={{ fontSize: 12.5, color: 'var(--text2)', marginTop: 2 }}>{[lead.full_name, L.jabatan].filter(Boolean).join(' · ')}</div>
+            )}
+          </div>
         </div>
 
+        {(L.tier_klien || L.industri || L.prioritas) && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: -4 }}>
+            {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(108,99,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.25)' }}>{L.tier_klien}</span>}
+            {L.industri && <span style={{ fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}>{L.industri}</span>}
+            {L.prioritas && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${prioColor}1f`, color: prioColor, border: `1px solid ${prioColor}55` }}>{L.prioritas}</span>}
+          </div>
+        )}
+
         {/* Primary contact */}
-        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontSize: 11, color: 'var(--text2)' }}>{channel}</span>
-          <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13 }}>{lead.contact_value || '—'}</span>
+        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text3)', fontWeight: 700, marginBottom: 3 }}>{channel}</div>
+            <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13.5, color: 'var(--text)', wordBreak: 'break-all' }}>{lead.contact_value || '—'}</div>
+          </div>
           {href && (
-            <a href={href} target="_blank" rel="noopener noreferrer" style={{ alignSelf: 'flex-start', height: 32, padding: '0 14px', background: isWaC ? '#25D366' : 'var(--accent)', color: '#fff', borderRadius: 8, fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+            <a href={href} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, height: 34, padding: '0 14px', background: isWaC ? '#25D366' : 'var(--accent)', color: '#fff', borderRadius: 8, fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', whiteSpace: 'nowrap' }}>
               {isWaC ? t('Buka WhatsApp') : isEmailC ? t('Kirim Email') : t('Buka link')}
             </a>
           )}
