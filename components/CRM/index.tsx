@@ -513,13 +513,8 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
   )
 }
 
-function CSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', color: 'var(--text2)', marginBottom: 14 }}>{title}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>{children}</div>
-    </div>
-  )
+function CSection({ children }: { title?: string; children: React.ReactNode }) {
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>{children}</div>
 }
 
 function FG({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
