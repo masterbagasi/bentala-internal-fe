@@ -86,6 +86,19 @@ export function ContactDetails({ lead, hideHeader, showEmpty }: { lead: any; hid
   if (showEmpty) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {!hideHeader && (
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 700, color: 'var(--accent)', background: 'rgba(108,99,255,0.14)', border: '1px solid rgba(108,99,255,0.28)' }}>{initials}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.25 }}>{L.brand_name || L.full_name || '—'}</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 20, background: 'rgba(108,99,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.25)' }}>{L.tier_klien}</span>}
+                {L.industri && <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 9px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}>{L.industri}</span>}
+                {L.prioritas && <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 20, background: `${prioColor}1f`, color: prioColor, border: `1px solid ${prioColor}55` }}>{L.prioritas}</span>}
+              </div>
+            </div>
+          </div>
+        )}
         <DSection label={t('Identitas')}>
           <FRow label={t('Nama kontak')} value={L.full_name} />
           <FRow label={t('Posisi')} value={L.jabatan} />

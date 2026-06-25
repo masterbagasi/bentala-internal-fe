@@ -553,7 +553,7 @@ function LeadPeek({ lead, onClose, onConvert, onEdit, t }: { lead: BsiLead; onCl
       open onClose={onClose} title={t('Detail Kontak')} maxWidth={560}
       footer={<><BtnSecondary onClick={onEdit}>{t('Edit')}</BtnSecondary><BtnPrimary onClick={onConvert}>+ Prospect</BtnPrimary></>}
     >
-      <ContactDetails lead={lead} />
+      <ContactDetails lead={lead} showEmpty />
     </Modal>
   )
 }
