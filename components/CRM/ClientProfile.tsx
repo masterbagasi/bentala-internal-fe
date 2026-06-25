@@ -8,7 +8,9 @@ import { useShallow } from 'zustand/react/shallow'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/utils'
-import { CRM_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
+import { CRM_STAGES, SERVICE_OPTIONS } from '@/lib/constants'
+import { logStageChange } from '@/lib/log-interaction'
+import type { Client, ClientStage } from '@/lib/types'
 import { ClientTimeline } from './ClientTimeline'
 import { ClientComms } from './ClientComms'
 import { ContactDetails } from './ContactDetails'
@@ -20,7 +22,17 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
   // as a full page it pads itself and shows a back-to-CRM link.
   const inModal = !!onClose
   const { clients, projects, invoices } = useStore(useShallow((s) => ({ clients: s.clients, projects: s.projects, invoices: s.invoices })))
+  const upsertClient = useStore((s) => s.upsertClient)
   const client = clients.find(c => c.id === id)
+
+  async function changeStage(c: Client, newStage: ClientStage) {
+    if (newStage === c.stage) return
+    const prev = c.stage
+    upsertClient({ ...c, stage: newStage }) // optimistic
+    const { error } = await getSupabase().from('clients').update({ stage: newStage }).eq('id', c.id)
+    if (error) { upsertClient({ ...c, stage: prev }); alert(error.message); return }
+    logStageChange(c.id, prev, newStage)
+  }
 
   // The contact form's rich fields live on the linked bsi_leads row (set when
   // the contact was promoted via "+ Prospect"). Fetch it so Detail Client shows
@@ -65,7 +77,16 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <span style={{ fontSize: 18, fontWeight: 700 }}>{client.name}</span>
-              <span style={{ fontSize: 12, color: stageColor, background: stageColor + '22', borderRadius: 20, padding: '2px 10px' }}>{STAGE_LABELS[client.stage] ?? client.stage}</span>
+              <select
+                value={client.stage}
+                onChange={(e) => changeStage(client, e.target.value as ClientStage)}
+                title={t('Ubah status')}
+                style={{ fontSize: 12, fontWeight: 600, color: stageColor, background: stageColor + '22', border: `1px solid ${stageColor}55`, borderRadius: 20, padding: '3px 12px', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
+              >
+                {CRM_STAGES.map((s) => (
+                  <option key={s.key} value={s.key} style={{ color: 'var(--text)', background: 'var(--bg2)' }}>{s.label}</option>
+                ))}
+              </select>
             </div>
             <div style={{ fontSize: 13, color: 'var(--text2)', display: 'grid', gap: 4 }}>
               <div>{t('PIC')}: {client.pic || '—'} · {client.contact || '—'}</div>
