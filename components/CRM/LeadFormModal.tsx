@@ -6,7 +6,7 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { MultiFileUploader } from '@/components/website/FileUploader'
 import { getSupabase } from '@/lib/supabase'
-import { KABUPATEN_BY_PROVINSI } from '@/lib/id-regions'
+import { KABUPATEN_BY_PROVINSI, ALL_KABUPATEN } from '@/lib/id-regions'
 
 export interface NewLeadInput {
   full_name: string
@@ -244,8 +244,8 @@ export function LeadFormModal({ onClose, onSave, title, initial, saveLabel }: {
               <Combo
                 value={form.kota}
                 onChange={(v) => set('kota', v)}
-                options={KABUPATEN_BY_PROVINSI[form.provinsi] ?? []}
-                placeholder={form.provinsi ? t('Cari / pilih kota...') : t('Pilih provinsi dulu...')}
+                options={form.provinsi ? (KABUPATEN_BY_PROVINSI[form.provinsi] ?? ALL_KABUPATEN) : ALL_KABUPATEN}
+                placeholder={t('Cari / pilih kota...')}
               />
             </Field>
           </Row>

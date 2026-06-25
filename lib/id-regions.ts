@@ -41,3 +41,9 @@ export const KABUPATEN_BY_PROVINSI: Record<string, string[]> = {
   'Papua Pegunungan': ['Kabupaten Jayawijaya', 'Kabupaten Lanny Jaya', 'Kabupaten Mamberamo Tengah', 'Kabupaten Nduga', 'Kabupaten Pegunungan Bintang', 'Kabupaten Tolikara', 'Kabupaten Yahukimo', 'Kabupaten Yalimo'],
   'Papua Barat Daya': ['Kabupaten Maybrat', 'Kabupaten Raja Ampat', 'Kabupaten Sorong', 'Kabupaten Sorong Selatan', 'Kabupaten Tambrauw', 'Kota Sorong'],
 }
+
+// Flat, sorted list of every kota/kabupaten — used as the fallback options for
+// the city dropdown when no province is selected yet.
+export const ALL_KABUPATEN: string[] = Array.from(
+  new Set(Object.values(KABUPATEN_BY_PROVINSI).flat()),
+).sort((a, b) => a.localeCompare(b))
