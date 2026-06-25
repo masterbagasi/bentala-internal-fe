@@ -8,7 +8,7 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/utils'
 import { CRM_STAGES, STAGE_LABELS } from '@/lib/constants'
-import { Modal, ConfirmDialog } from '@/components/shared/Modal'
+import { Modal, ConfirmDialog, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
 import { ClientProfile } from './ClientProfile'
 import { ClientModal } from '@/components/CRM'
 import { LeadFormModal, CONTACT_CHANNELS, type NewLeadInput } from './LeadFormModal'
@@ -364,7 +364,7 @@ export function ClientDatabase() {
           <ClientProfile id={detailClientId} onClose={() => setDetailClientId(null)} />
         </Modal>
       )}
-      {peekLead && <LeadPeek lead={peekLead} onClose={() => setPeekLead(null)} onConvert={() => setConvertLead(peekLead)} t={t} />}
+      {peekLead && <LeadPeek lead={peekLead} onClose={() => setPeekLead(null)} onConvert={() => setConvertLead(peekLead)} onEdit={() => { setEditLead(peekLead); setPeekLead(null) }} t={t} />}
       {showAdd && <LeadFormModal title={t('Tambah kontak')} onClose={() => setShowAdd(false)} onSave={handleAddContact} />}
       {editLead && <LeadFormModal title={t('Edit kontak')} saveLabel={t('Simpan perubahan')} initial={leadToInput(editLead)} onClose={() => setEditLead(null)} onSave={handleEditSave} />}
       <ConfirmDialog
@@ -545,28 +545,133 @@ function KebabMenu({ items }: { items: MenuItem[] }) {
   )
 }
 
-function LeadPeek({ lead, onClose, onConvert, t }: { lead: BsiLead; onClose: () => void; onConvert: () => void; t: (s: string) => string }) {
-  const wa = lead.contact_type === 'whatsapp'
-  const href = wa ? `https://wa.me/${digits(lead.contact_value)}` : `mailto:${lead.contact_value}`
+function DRow({ label, value }: { label: string; value?: React.ReactNode }) {
+  if (value === undefined || value === null || value === '') return null
   return (
-    <Modal open onClose={onClose} title={t('Detail Kontak')} maxWidth={460}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', gap: 12, fontSize: 13, lineHeight: 1.5 }}>
+      <span style={{ width: 130, flexShrink: 0, color: 'var(--text2)' }}>{label}</span>
+      <span style={{ color: 'var(--text)', wordBreak: 'break-word', flex: 1 }}>{value}</span>
+    </div>
+  )
+}
+function DSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', fontWeight: 700, marginBottom: 8 }}>{label}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>{children}</div>
+    </div>
+  )
+}
+function PeekChips({ items }: { items: string[] }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {items.map((x, i) => <span key={i} style={{ fontSize: 11.5, padding: '3px 10px', borderRadius: 16, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)' }}>{x}</span>)}
+    </div>
+  )
+}
+
+// Detail Kontak — shows every field the add/edit form captures, kept in sync
+// via the shared bsi_leads row.
+function LeadPeek({ lead, onClose, onConvert, onEdit, t }: { lead: BsiLead; onClose: () => void; onConvert: () => void; onEdit: () => void; t: (s: string) => string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const L = lead as any
+  const ct = String(lead.contact_type)
+  const channel = CONTACT_CHANNELS.find((c) => slugify(c) === ct) ?? cap(ct)
+  const isEmailC = ct === 'email' || isEmail(lead.contact_value)
+  const isWaC = ct === 'whatsapp' || ct === 'phone'
+  const href = !lead.contact_value ? null : isEmailC ? `mailto:${lead.contact_value}` : isWaC ? `https://wa.me/${digits(lead.contact_value)}` : (/^https?:\/\//.test(lead.contact_value) ? lead.contact_value : null)
+  const statusLabel = LEAD_STATUS[lead.status]?.label ?? lead.status
+  const jenis: string[] = Array.isArray(L.jenis_project) ? L.jenis_project : []
+  const tags: string[] = Array.isArray(L.tags) ? L.tags : []
+  const lainnya: { channel: string; value: string }[] = Array.isArray(L.kontak_lainnya) ? L.kontak_lainnya : []
+  const lampiran: string[] = Array.isArray(L.lampiran) ? L.lampiran : []
+  const addr = [L.alamat_jalan, L.alamat_blok, L.alamat_rtrw ? `RT/RW ${L.alamat_rtrw}` : '', L.kelurahan, L.kecamatan, L.kota, L.provinsi, L.kode_pos, L.negara].filter(Boolean).join(', ')
+  const fileName = (u: string) => decodeURIComponent(u.split('/').pop()?.split('?')[0] ?? u)
+
+  return (
+    <Modal
+      open onClose={onClose} title={t('Detail Kontak')} maxWidth={560}
+      footer={<><BtnSecondary onClick={onEdit}>{t('Edit')}</BtnSecondary><BtnPrimary onClick={onConvert}>+ Prospect</BtnPrimary></>}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Header */}
         <div>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>{lead.full_name}</div>
-          <div style={{ fontSize: 12, color: 'var(--text2)' }}>{lead.brand_name}</div>
+          <div style={{ fontSize: 17, fontWeight: 700 }}>{lead.brand_name || lead.full_name || '—'}</div>
+          {(lead.full_name || L.jabatan) && (
+            <div style={{ fontSize: 12.5, color: 'var(--text2)', marginTop: 2 }}>{[lead.full_name, L.jabatan].filter(Boolean).join(' · ')}</div>
+          )}
+          {(L.tier_klien || L.industri || L.prioritas) && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+              {[L.tier_klien, L.industri, L.prioritas].filter(Boolean).map((x: string, i: number) => (
+                <span key={i} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 20, background: 'rgba(108,99,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.25)' }}>{x}</span>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Primary contact */}
         <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13 }}>{lead.contact_value}</span>
-          <a href={href} target="_blank" rel="noopener noreferrer" style={{ alignSelf: 'flex-start', height: 32, padding: '0 14px', background: wa ? '#25D366' : 'var(--accent)', color: '#fff', borderRadius: 8, fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
-            {wa ? t('Buka WhatsApp') : t('Kirim Email')}
-          </a>
+          <span style={{ fontSize: 11, color: 'var(--text2)' }}>{channel}</span>
+          <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13 }}>{lead.contact_value || '—'}</span>
+          {href && (
+            <a href={href} target="_blank" rel="noopener noreferrer" style={{ alignSelf: 'flex-start', height: 32, padding: '0 14px', background: isWaC ? '#25D366' : 'var(--accent)', color: '#fff', borderRadius: 8, fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+              {isWaC ? t('Buka WhatsApp') : isEmailC ? t('Kirim Email') : t('Buka link')}
+            </a>
+          )}
         </div>
-        {lead.project_type && <div style={{ fontSize: 13 }}><span style={{ color: 'var(--text2)' }}>{t('Project')}: </span>{lead.project_type}</div>}
-        {lead.notes && <div style={{ fontSize: 12.5, lineHeight: 1.6, padding: 12, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, whiteSpace: 'pre-line' }}>{lead.notes}</div>}
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-          <span style={{ fontSize: 11, color: 'var(--text2)' }}>{t('Masuk pipeline sebagai Prospect')}</span>
-          <button onClick={onConvert} style={{ fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>+ Prospect</button>
-        </div>
+
+        {lainnya.length > 0 && (
+          <DSection label={t('Kontak lainnya')}>
+            {lainnya.map((c, i) => <DRow key={i} label={c.channel} value={c.value} />)}
+          </DSection>
+        )}
+
+        {(L.source || L.detail_sumber) && (
+          <DSection label={t('Sumber')}>
+            <DRow label={t('Sumber')} value={cap(L.source)} />
+            <DRow label={t('Detail sumber')} value={L.detail_sumber} />
+          </DSection>
+        )}
+
+        {(L.nama_lokasi || addr) && (
+          <DSection label={t('Alamat')}>
+            <DRow label={t('Nama lokasi')} value={L.nama_lokasi} />
+            <DRow label={t('Alamat')} value={addr} />
+          </DSection>
+        )}
+
+        {(jenis.length > 0 || L.objektif || L.budget_range || L.timeline) && (
+          <DSection label={t('Detail Project')}>
+            {jenis.length > 0 && <DRow label={t('Jenis project')} value={<PeekChips items={jenis} />} />}
+            <DRow label={t('Objektif')} value={L.objektif} />
+            <DRow label={t('Budget')} value={L.budget_range} />
+            <DRow label="Timeline" value={L.timeline} />
+          </DSection>
+        )}
+
+        <DSection label={t('Status & Assignment')}>
+          <DRow label="Status" value={statusLabel} />
+          <DRow label="PIC" value={L.pic} />
+          <DRow label={t('Next action')} value={L.next_action} />
+          <DRow label={t('Follow-up')} value={L.follow_up_date ? fmtDate(L.follow_up_date) : ''} />
+          {tags.length > 0 && <DRow label="Tags" value={<PeekChips items={tags} />} />}
+        </DSection>
+
+        {lead.notes && (
+          <DSection label={t('Catatan')}>
+            <div style={{ fontSize: 12.5, lineHeight: 1.6, padding: 12, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, whiteSpace: 'pre-line' }}>{lead.notes}</div>
+          </DSection>
+        )}
+
+        {lampiran.length > 0 && (
+          <DSection label={t('Lampiran')}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {lampiran.map((u, i) => (
+                <a key={i} href={u} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--accent)', textDecoration: 'none', wordBreak: 'break-all' }}>📎 {fileName(u)}</a>
+              ))}
+            </div>
+          </DSection>
+        )}
       </div>
     </Modal>
   )
