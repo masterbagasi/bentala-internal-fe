@@ -12,7 +12,6 @@ import { CRM_STAGES, SERVICE_OPTIONS } from '@/lib/constants'
 import { logStageChange } from '@/lib/log-interaction'
 import type { Client, ClientStage } from '@/lib/types'
 import { ClientTimeline } from './ClientTimeline'
-import { ClientComms } from './ClientComms'
 import { ContactDetails } from './ContactDetails'
 
 export function ClientProfile({ id, onClose }: { id: string; onClose?: () => void }) {
@@ -139,8 +138,6 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
             ))}
           </Panel>
 
-          {/* Communications */}
-          <ClientComms client={client} />
         </div>
 
         {/* Timeline (added in Task 4) */}
