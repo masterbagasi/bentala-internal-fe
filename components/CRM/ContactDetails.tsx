@@ -27,9 +27,12 @@ function DRow({ label, value }: { label: string; value?: React.ReactNode }) {
 }
 function DSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-      <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text3)', fontWeight: 700, marginBottom: 10 }}>{label}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
+    <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ width: 3, height: 12, borderRadius: 2, background: 'var(--accent)', flexShrink: 0 }} />
+        <span style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text2)', fontWeight: 700 }}>{label}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>{children}</div>
     </div>
   )
 }
