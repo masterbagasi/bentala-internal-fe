@@ -376,14 +376,26 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
     contact:  client?.contact || prefill?.contact || '',
     stage:    client?.stage   || prefill?.stage   || 'prospect',
     value:          client?.value?.toString() || '',
-    service:        client?.service || prefill?.service || 'smm',
-    internal:       client?.internal || 'Dandi',
+    service:        client?.service || prefill?.service || '',
+    internal:       client?.internal || '',
     notes:          client?.notes   || prefill?.notes   || '',
     source:         client?.source  || sourceProp       || 'manual',
     expected_close: client?.expected_close || '',
     temperature: client?.temperature || '',
   })
   const [loading, setLoading] = useState(false)
+  // Internal PIC = registered accounts; Service Type = active website services.
+  const [accounts, setAccounts] = useState<string[]>([])
+  const [services, setServices] = useState<string[]>([])
+  useEffect(() => {
+    let off = false
+    fetch('/api/accounts').then((r) => (r.ok ? r.json() : { accounts: [] }))
+      .then((d: { accounts?: { name: string }[] }) => { if (!off) setAccounts((d.accounts ?? []).map((a) => a.name).filter(Boolean)) }).catch(() => {})
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(getSupabase() as any).from('bsi_services').select('name, sort_order').eq('is_published', true).order('sort_order', { ascending: true })
+      .then(({ data }: { data: { name: string }[] | null }) => { if (!off) setServices((data ?? []).map((s) => s.name).filter(Boolean)) })
+    return () => { off = true }
+  }, [])
 
   async function handleSave() {
     if (!form.name.trim()) { alert(t('Nama client wajib diisi!')); return }
@@ -424,7 +436,7 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
       title={client ? 'Edit Client' : t('Tambah Client Baru')}
       footer={<><BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary><BtnPrimary onClick={handleSave} loading={loading}>{t('Simpan')}</BtnPrimary></>}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <FG label={t('Nama Client / Brand *')}>
           <input type="text" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} placeholder="PT. ..." />
         </FG>
@@ -459,15 +471,18 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
         </div>
         <FG label={t('Jenis Layanan')}>
           <select value={form.service} onChange={e => setForm(f=>({...f,service:e.target.value}))}>
-            {SERVICE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            <option value="">{t('Pilih layanan...')}</option>
+            {form.service && !services.includes(form.service) && (
+              <option value={form.service}>{SERVICE_OPTIONS.find(o => o.value === form.service)?.label ?? form.service}</option>
+            )}
+            {services.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </FG>
         <FG label={t('PIC Internal')}>
           <select value={form.internal} onChange={e => setForm(f=>({...f,internal:e.target.value}))}>
-            <option value="Dandi">Dandi (CEO)</option>
-            <option value="Naufal">Naufal (CCO)</option>
-            <option value="Reinaldi">Reinaldi (CBO)</option>
-            <option value="Faizal">Faizal (COO)</option>
+            <option value="">{t('Pilih PIC...')}</option>
+            {form.internal && !accounts.includes(form.internal) && <option value={form.internal}>{form.internal}</option>}
+            {accounts.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </FG>
         <FG label={t('Sumber')}>
@@ -488,7 +503,7 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
 function FG({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 5 }}>{label}</label>
+      <label style={{ display: 'block', fontSize: 12.5, fontWeight: 500, color: 'var(--text2)', marginBottom: 7 }}>{label}</label>
       {children}
     </div>
   )
