@@ -12,6 +12,7 @@ import { Modal, ConfirmDialog, BtnPrimary, BtnSecondary } from '@/components/sha
 import { ClientProfile } from './ClientProfile'
 import { ClientModal } from '@/components/CRM'
 import { LeadFormModal, CONTACT_CHANNELS, type NewLeadInput } from './LeadFormModal'
+import { ContactDetails } from './ContactDetails'
 import type { Client } from '@/lib/types'
 import type { BsiLead } from '@/lib/website-types'
 
@@ -545,147 +546,14 @@ function KebabMenu({ items }: { items: MenuItem[] }) {
   )
 }
 
-function DRow({ label, value }: { label: string; value?: React.ReactNode }) {
-  if (value === undefined || value === null || value === '') return null
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 12, fontSize: 13, lineHeight: 1.5, alignItems: 'baseline' }}>
-      <span style={{ color: 'var(--text2)' }}>{label}</span>
-      <span style={{ color: 'var(--text)', wordBreak: 'break-word' }}>{value}</span>
-    </div>
-  )
-}
-function DSection({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-      <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text3)', fontWeight: 700, marginBottom: 10 }}>{label}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
-    </div>
-  )
-}
-function PeekChips({ items }: { items: string[] }) {
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {items.map((x, i) => <span key={i} style={{ fontSize: 11.5, fontWeight: 500, padding: '3px 10px', borderRadius: 16, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.25)', color: 'var(--accent)' }}>{x}</span>)}
-    </div>
-  )
-}
-
-// Detail Kontak — shows every field the add/edit form captures, kept in sync
-// via the shared bsi_leads row.
+// Detail Kontak — wraps the shared ContactDetails (synced with the add/edit form).
 function LeadPeek({ lead, onClose, onConvert, onEdit, t }: { lead: BsiLead; onClose: () => void; onConvert: () => void; onEdit: () => void; t: (s: string) => string }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const L = lead as any
-  const ct = String(lead.contact_type)
-  const channel = CONTACT_CHANNELS.find((c) => slugify(c) === ct) ?? cap(ct)
-  const isEmailC = ct === 'email' || isEmail(lead.contact_value)
-  const isWaC = ct === 'whatsapp' || ct === 'phone'
-  const href = !lead.contact_value ? null : isEmailC ? `mailto:${lead.contact_value}` : isWaC ? `https://wa.me/${digits(lead.contact_value)}` : (/^https?:\/\//.test(lead.contact_value) ? lead.contact_value : null)
-  const statusLabel = LEAD_STATUS[lead.status]?.label ?? lead.status
-  const jenis: string[] = Array.isArray(L.jenis_project) ? L.jenis_project : []
-  const tags: string[] = Array.isArray(L.tags) ? L.tags : []
-  const lainnya: { channel: string; value: string }[] = Array.isArray(L.kontak_lainnya) ? L.kontak_lainnya : []
-  const lampiran: string[] = Array.isArray(L.lampiran) ? L.lampiran : []
-  const addr = [L.alamat_jalan, L.alamat_blok, L.alamat_rtrw ? `RT/RW ${L.alamat_rtrw}` : '', L.kelurahan, L.kecamatan, L.kota, L.provinsi, L.kode_pos, L.negara].filter(Boolean).join(', ')
-  const fileName = (u: string) => decodeURIComponent(u.split('/').pop()?.split('?')[0] ?? u)
-  // Only allow http(s) attachment URLs into href — blocks javascript:/data: schemes.
-  const safeUrl = (u: string) => /^https?:\/\//i.test(u) ? u : null
-  const initials = (lead.brand_name || lead.full_name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
-  const prioColor = /hot/i.test(L.prioritas || '') ? '#ff6b6b' : /warm/i.test(L.prioritas || '') ? '#ffc542' : /cold/i.test(L.prioritas || '') ? '#54a0ff' : 'var(--text2)'
-
   return (
     <Modal
       open onClose={onClose} title={t('Detail Kontak')} maxWidth={560}
       footer={<><BtnSecondary onClick={onEdit}>{t('Edit')}</BtnSecondary><BtnPrimary onClick={onConvert}>+ Prospect</BtnPrimary></>}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Header */}
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 700, color: 'var(--accent)', background: 'rgba(108,99,255,0.14)', border: '1px solid rgba(108,99,255,0.28)' }}>{initials}</div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.25 }}>{lead.brand_name || lead.full_name || '—'}</div>
-            {(lead.full_name || L.jabatan) && (
-              <div style={{ fontSize: 12.5, color: 'var(--text2)', marginTop: 2 }}>{[lead.full_name, L.jabatan].filter(Boolean).join(' · ')}</div>
-            )}
-          </div>
-        </div>
-
-        {(L.tier_klien || L.industri || L.prioritas) && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: -4 }}>
-            {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(108,99,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.25)' }}>{L.tier_klien}</span>}
-            {L.industri && <span style={{ fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}>{L.industri}</span>}
-            {L.prioritas && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${prioColor}1f`, color: prioColor, border: `1px solid ${prioColor}55` }}>{L.prioritas}</span>}
-          </div>
-        )}
-
-        {/* Primary contact */}
-        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text3)', fontWeight: 700, marginBottom: 3 }}>{channel}</div>
-            <div style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 13.5, color: 'var(--text)', wordBreak: 'break-all' }}>{lead.contact_value || '—'}</div>
-          </div>
-          {href && (
-            <a href={href} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0, height: 34, padding: '0 14px', background: isWaC ? '#25D366' : 'var(--accent)', color: '#fff', borderRadius: 8, fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-              {isWaC ? t('Buka WhatsApp') : isEmailC ? t('Kirim Email') : t('Buka link')}
-            </a>
-          )}
-        </div>
-
-        {lainnya.length > 0 && (
-          <DSection label={t('Kontak lainnya')}>
-            {lainnya.map((c, i) => <DRow key={i} label={c.channel} value={c.value} />)}
-          </DSection>
-        )}
-
-        {(L.source || L.detail_sumber) && (
-          <DSection label={t('Sumber')}>
-            <DRow label={t('Sumber')} value={cap(L.source)} />
-            <DRow label={t('Detail sumber')} value={L.detail_sumber} />
-          </DSection>
-        )}
-
-        {(L.nama_lokasi || addr) && (
-          <DSection label={t('Alamat')}>
-            <DRow label={t('Nama lokasi')} value={L.nama_lokasi} />
-            <DRow label={t('Alamat')} value={addr} />
-          </DSection>
-        )}
-
-        {(jenis.length > 0 || L.objektif || L.budget_range || L.timeline) && (
-          <DSection label={t('Detail Project')}>
-            {jenis.length > 0 && <DRow label={t('Jenis project')} value={<PeekChips items={jenis} />} />}
-            <DRow label={t('Objektif')} value={L.objektif} />
-            <DRow label={t('Budget')} value={L.budget_range} />
-            <DRow label="Timeline" value={L.timeline} />
-          </DSection>
-        )}
-
-        <DSection label={t('Status & Assignment')}>
-          <DRow label="Status" value={statusLabel} />
-          <DRow label="PIC" value={L.pic} />
-          <DRow label={t('Next action')} value={L.next_action} />
-          <DRow label={t('Follow-up')} value={L.follow_up_date ? fmtDate(L.follow_up_date) : ''} />
-          {tags.length > 0 && <DRow label="Tags" value={<PeekChips items={tags} />} />}
-        </DSection>
-
-        {lead.notes && (
-          <DSection label={t('Catatan')}>
-            <div style={{ fontSize: 12.5, lineHeight: 1.6, padding: 12, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, whiteSpace: 'pre-line' }}>{lead.notes}</div>
-          </DSection>
-        )}
-
-        {lampiran.length > 0 && (
-          <DSection label={t('Lampiran')}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {lampiran.map((u, i) => {
-                const safe = safeUrl(u)
-                return safe
-                  ? <a key={i} href={safe} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--accent)', textDecoration: 'none', wordBreak: 'break-all' }}>📎 {fileName(u)}</a>
-                  : <span key={i} style={{ fontSize: 12.5, color: 'var(--text2)', wordBreak: 'break-all' }}>📎 {fileName(u)}</span>
-              })}
-            </div>
-          </DSection>
-        )}
-      </div>
+      <ContactDetails lead={lead} />
     </Modal>
   )
 }

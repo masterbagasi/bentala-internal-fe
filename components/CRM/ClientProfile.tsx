@@ -1,16 +1,18 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { getSupabase } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/utils'
 import { CRM_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
 import { ClientTimeline } from './ClientTimeline'
 import { ClientTasks } from './ClientTasks'
 import { ClientComms } from './ClientComms'
+import { ContactDetails } from './ContactDetails'
 
 export function ClientProfile({ id, onClose }: { id: string; onClose?: () => void }) {
   const t = useT()
@@ -20,6 +22,21 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
   const inModal = !!onClose
   const { clients, projects, invoices } = useStore(useShallow((s) => ({ clients: s.clients, projects: s.projects, invoices: s.invoices })))
   const client = clients.find(c => c.id === id)
+
+  // The contact form's rich fields live on the linked bsi_leads row (set when
+  // the contact was promoted via "+ Prospect"). Fetch it so Detail Client shows
+  // the same content as Add Contact.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [leadRow, setLeadRow] = useState<any | null>(null)
+  const leadId = client?.lead_id
+  useEffect(() => {
+    if (!leadId) { setLeadRow(null); return }
+    let off = false
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(getSupabase() as any).from('bsi_leads').select('*').eq('id', leadId).maybeSingle()
+      .then(({ data }: { data: unknown }) => { if (!off) setLeadRow(data) })
+    return () => { off = true }
+  }, [leadId])
 
   const clientProjects = useMemo(() => projects.filter(p => p.client_id === id), [projects, id])
   const clientInvoices = useMemo(() => invoices.filter(i => i.client_id === id), [invoices, id])
@@ -67,6 +84,13 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
               </div>
             </div>
           </div>
+
+          {/* Contact info — same fields as the Add Contact form (from the linked lead) */}
+          {leadRow && (
+            <Panel title={t('Informasi Kontak')}>
+              <ContactDetails lead={leadRow} hideHeader />
+            </Panel>
+          )}
 
           {/* Financial summary */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
