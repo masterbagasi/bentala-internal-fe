@@ -587,6 +587,8 @@ function LeadPeek({ lead, onClose, onConvert, onEdit, t }: { lead: BsiLead; onCl
   const lampiran: string[] = Array.isArray(L.lampiran) ? L.lampiran : []
   const addr = [L.alamat_jalan, L.alamat_blok, L.alamat_rtrw ? `RT/RW ${L.alamat_rtrw}` : '', L.kelurahan, L.kecamatan, L.kota, L.provinsi, L.kode_pos, L.negara].filter(Boolean).join(', ')
   const fileName = (u: string) => decodeURIComponent(u.split('/').pop()?.split('?')[0] ?? u)
+  // Only allow http(s) attachment URLs into href — blocks javascript:/data: schemes.
+  const safeUrl = (u: string) => /^https?:\/\//i.test(u) ? u : null
 
   return (
     <Modal
@@ -666,9 +668,12 @@ function LeadPeek({ lead, onClose, onConvert, onEdit, t }: { lead: BsiLead; onCl
         {lampiran.length > 0 && (
           <DSection label={t('Lampiran')}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {lampiran.map((u, i) => (
-                <a key={i} href={u} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--accent)', textDecoration: 'none', wordBreak: 'break-all' }}>📎 {fileName(u)}</a>
-              ))}
+              {lampiran.map((u, i) => {
+                const safe = safeUrl(u)
+                return safe
+                  ? <a key={i} href={safe} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--accent)', textDecoration: 'none', wordBreak: 'break-all' }}>📎 {fileName(u)}</a>
+                  : <span key={i} style={{ fontSize: 12.5, color: 'var(--text2)', wordBreak: 'break-all' }}>📎 {fileName(u)}</span>
+              })}
             </div>
           </DSection>
         )}
