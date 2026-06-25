@@ -90,15 +90,22 @@ export function ContactDetails({ lead, hideHeader, showEmpty }: { lead: any; hid
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {!hideHeader && (
-          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 700, color: 'var(--accent)', background: 'rgba(108,99,255,0.14)', border: '1px solid rgba(108,99,255,0.28)' }}>{initials}</div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.25 }}>{L.brand_name || L.full_name || '—'}</div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 20, background: 'rgba(108,99,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.25)' }}>{L.tier_klien}</span>}
-                {L.industri && <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 9px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}>{L.industri}</span>}
-                {L.prioritas && <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 20, background: `${prioColor}1f`, color: prioColor, border: `1px solid ${prioColor}55` }}>{L.prioritas}</span>}
+          <div style={{ display: 'flex', gap: 15, alignItems: 'center', padding: '16px 18px', borderRadius: 16, background: 'linear-gradient(135deg, rgba(108,99,255,0.14), rgba(108,99,255,0.02))', border: '1px solid rgba(108,99,255,0.22)' }}>
+            <div style={{ width: 54, height: 54, borderRadius: 15, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 21, fontWeight: 800, color: '#fff', background: 'linear-gradient(140deg, var(--accent), #a78bfa)', boxShadow: '0 8px 18px rgba(108,99,255,0.4)' }}>{initials}</div>
+            <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{L.brand_name || L.full_name || '—'}</div>
+                {(L.full_name || L.jabatan) && (L.brand_name) && (
+                  <div style={{ fontSize: 12.5, color: 'var(--text2)', marginTop: 2 }}>{[L.full_name, L.jabatan].filter(Boolean).join(' · ')}</div>
+                )}
               </div>
+              {(L.tier_klien || L.industri || L.prioritas) && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(108,99,255,0.16)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.3)' }}>{L.tier_klien}</span>}
+                  {L.industri && <span style={{ fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: 'var(--bg2)', color: 'var(--text2)', border: '1px solid var(--border)' }}>{L.industri}</span>}
+                  {L.prioritas && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${prioColor}24`, color: prioColor, border: `1px solid ${prioColor}66` }}>{L.prioritas}</span>}
+                </div>
+              )}
             </div>
           </div>
         )}
