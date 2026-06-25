@@ -436,74 +436,98 @@ export function ClientModal({ open, client, onClose, prefill, source: sourceProp
       title={client ? 'Edit Client' : t('Tambah Client Baru')}
       footer={<><BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary><BtnPrimary onClick={handleSave} loading={loading}>{t('Simpan')}</BtnPrimary></>}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <FG label={t('Nama Client / Brand *')}>
-          <input type="text" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} placeholder="PT. ..." />
-        </FG>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FG label={t('PIC Client')}>
-            <input type="text" value={form.pic} onChange={e => setForm(f=>({...f,pic:e.target.value}))} placeholder={t('Nama PIC')} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+        <CSection title={t('Klien')}>
+          <FG label={t('Nama Client / Brand')} required>
+            <input type="text" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} placeholder="PT. ..." />
           </FG>
-          <FG label={t('Kontak (WA/Email)')}>
-            <input type="text" value={form.contact} onChange={e => setForm(f=>({...f,contact:e.target.value}))} placeholder="+62..." />
-          </FG>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FG label="Stage">
-            <select value={form.stage} onChange={e => setForm(f=>({...f,stage:e.target.value as ClientStage}))}>
-              {CRM_BOARD_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <FG label={t('PIC Client')}>
+              <input type="text" value={form.pic} onChange={e => setForm(f=>({...f,pic:e.target.value}))} placeholder={t('Nama PIC')} />
+            </FG>
+            <FG label={t('Kontak (WA/Email)')}>
+              <input type="text" value={form.contact} onChange={e => setForm(f=>({...f,contact:e.target.value}))} placeholder="+62..." />
+            </FG>
+          </div>
+        </CSection>
+
+        <CSection title={t('Deal')}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <FG label="Stage">
+              <select value={form.stage} onChange={e => setForm(f=>({...f,stage:e.target.value as ClientStage}))}>
+                {CRM_BOARD_STAGES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+            </FG>
+            <FG label={t('Nilai Deal (Rp)')}>
+              <input type="number" value={form.value} onChange={e => setForm(f=>({...f,value:e.target.value}))} placeholder="0" />
+            </FG>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <FG label={t('Perkiraan Closing')}>
+              <input type="date" value={form.expected_close} onChange={e => setForm(f=>({...f,expected_close:e.target.value}))} />
+            </FG>
+            <FG label={t('Temperature')}>
+              <select value={form.temperature} onChange={e => setForm(f=>({...f,temperature:e.target.value}))}>
+                <option value="">—</option>
+                {TEMPERATURES.map(tp => <option key={tp.key} value={tp.key}>{tp.label}</option>)}
+              </select>
+            </FG>
+          </div>
+        </CSection>
+
+        <CSection title={t('Layanan & Assignment')}>
+          <FG label={t('Jenis Layanan')}>
+            <select value={form.service} onChange={e => setForm(f=>({...f,service:e.target.value}))}>
+              <option value="">{t('Pilih layanan...')}</option>
+              {form.service && !services.includes(form.service) && (
+                <option value={form.service}>{SERVICE_OPTIONS.find(o => o.value === form.service)?.label ?? form.service}</option>
+              )}
+              {services.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </FG>
-          <FG label={t('Nilai Deal (Rp)')}>
-            <input type="number" value={form.value} onChange={e => setForm(f=>({...f,value:e.target.value}))} placeholder="0" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <FG label={t('PIC Internal')}>
+              <select value={form.internal} onChange={e => setForm(f=>({...f,internal:e.target.value}))}>
+                <option value="">{t('Pilih PIC...')}</option>
+                {form.internal && !accounts.includes(form.internal) && <option value={form.internal}>{form.internal}</option>}
+                {accounts.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </FG>
+            <FG label={t('Sumber')}>
+              <select value={form.source} onChange={e => setForm(f=>({...f,source:e.target.value}))}>
+                <option value="manual">Manual</option>
+                <option value="website">Website</option>
+                <option value="referral">Referral</option>
+              </select>
+            </FG>
+          </div>
+        </CSection>
+
+        <CSection title={t('Catatan')}>
+          <FG label={t('Catatan')}>
+            <textarea value={form.notes} onChange={e => setForm(f=>({...f,notes:e.target.value}))} placeholder={t('Catatan terkait client...')} style={{ fontFamily: 'inherit', resize: 'vertical' }} />
           </FG>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FG label={t('Perkiraan Closing')}>
-            <input type="date" value={form.expected_close} onChange={e => setForm(f=>({...f,expected_close:e.target.value}))} />
-          </FG>
-          <FG label={t('Temperature')}>
-            <select value={form.temperature} onChange={e => setForm(f=>({...f,temperature:e.target.value}))}>
-              <option value="">—</option>
-              {TEMPERATURES.map(tp => <option key={tp.key} value={tp.key}>{tp.label}</option>)}
-            </select>
-          </FG>
-        </div>
-        <FG label={t('Jenis Layanan')}>
-          <select value={form.service} onChange={e => setForm(f=>({...f,service:e.target.value}))}>
-            <option value="">{t('Pilih layanan...')}</option>
-            {form.service && !services.includes(form.service) && (
-              <option value={form.service}>{SERVICE_OPTIONS.find(o => o.value === form.service)?.label ?? form.service}</option>
-            )}
-            {services.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </FG>
-        <FG label={t('PIC Internal')}>
-          <select value={form.internal} onChange={e => setForm(f=>({...f,internal:e.target.value}))}>
-            <option value="">{t('Pilih PIC...')}</option>
-            {form.internal && !accounts.includes(form.internal) && <option value={form.internal}>{form.internal}</option>}
-            {accounts.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </FG>
-        <FG label={t('Sumber')}>
-          <select value={form.source} onChange={e => setForm(f=>({...f,source:e.target.value}))}>
-            <option value="manual">Manual</option>
-            <option value="website">Website</option>
-            <option value="referral">Referral</option>
-          </select>
-        </FG>
-        <FG label={t('Catatan')}>
-          <textarea value={form.notes} onChange={e => setForm(f=>({...f,notes:e.target.value}))} placeholder={t('Catatan terkait client...')} />
-        </FG>
+        </CSection>
       </div>
     </Modal>
   )
 }
 
-function FG({ label, children }: { label: string; children: React.ReactNode }) {
+function CSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <label style={{ display: 'block', fontSize: 12.5, fontWeight: 500, color: 'var(--text2)', marginBottom: 7 }}>{label}</label>
+      <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', color: 'var(--text2)', marginBottom: 14 }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>{children}</div>
+    </div>
+  )
+}
+
+function FG({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 12.5, fontWeight: 500, color: 'var(--text2)', marginBottom: 7 }}>
+        {label}{required && <span style={{ color: 'var(--accent2)', marginLeft: 3 }}>*</span>}
+      </label>
       {children}
     </div>
   )
