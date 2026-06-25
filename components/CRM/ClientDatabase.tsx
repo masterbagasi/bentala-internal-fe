@@ -197,6 +197,12 @@ export function ClientDatabase() {
     if (r.kind === 'client' && r.client) {
       await supabase.from('clients').delete().eq('id', r.client.id)
       removeClient(r.client.id)
+      // Keep the source contact: un-convert the linked lead so it returns to the
+      // database as a contact instead of vanishing with the client.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any).from('bsi_leads').update({ converted_client_id: null }).eq('converted_client_id', r.client.id).eq('in_database', true).select()
+      const restored = (data ?? []) as BsiLead[]
+      if (restored.length) setLeads((xs) => [...restored, ...xs.filter((x) => !restored.some((d) => d.id === x.id))])
     } else if (r.lead) {
       await supabase.from('bsi_leads').delete().eq('id', r.lead.id)
       setLeads((xs) => xs.filter((x) => x.id !== r.lead!.id))

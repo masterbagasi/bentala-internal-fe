@@ -138,6 +138,10 @@ export function CRMPage() {
     if (!confirm(t('Hapus client ini?'))) return
     const supabase = getSupabase()
     await supabase.from('clients').delete().eq('id', id)
+    // Don't lose the source contact: un-convert the linked bsi_leads row so it
+    // reappears in the Database instead of being orphaned by the deleted client.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('bsi_leads').update({ converted_client_id: null }).eq('converted_client_id', id)
     logActivity('Client dihapus')
   }
 
