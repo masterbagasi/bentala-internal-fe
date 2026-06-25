@@ -10,7 +10,6 @@ import { getSupabase } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/utils'
 import { CRM_STAGES, STAGE_LABELS, SERVICE_OPTIONS } from '@/lib/constants'
 import { ClientTimeline } from './ClientTimeline'
-import { ClientTasks } from './ClientTasks'
 import { ClientComms } from './ClientComms'
 import { ContactDetails } from './ContactDetails'
 
@@ -118,9 +117,6 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
               </Link>
             ))}
           </Panel>
-
-          {/* Tasks */}
-          <ClientTasks clientId={client.id} />
 
           {/* Communications */}
           <ClientComms client={client} />
