@@ -392,7 +392,8 @@ function Combo({ value, onChange, options, placeholder, searchable = true }: { v
     }
   }, [open])
 
-  const shown = searchable ? options.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 80) : options
+  // Cap high enough to show the full kota/kabupaten (514) and country lists.
+  const shown = searchable ? options.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 600) : options
 
   return (
     <div style={{ position: 'relative' }}>
