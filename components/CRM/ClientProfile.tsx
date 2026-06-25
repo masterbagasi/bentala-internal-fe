@@ -105,12 +105,11 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
             </div>
           </div>
 
-          {/* Contact info — same fields as the Add Contact form (from the linked lead) */}
-          {leadRow && (
-            <Panel title={t('Informasi Kontak')}>
-              <ContactDetails lead={leadRow} hideHeader />
-            </Panel>
-          )}
+          {/* Contact info — every Add Contact field (from the linked lead),
+              empty ones shown as "—" so gaps are visible. */}
+          <Panel title={t('Informasi Kontak')}>
+            <ContactDetails lead={leadRow ?? {}} hideHeader showEmpty />
+          </Panel>
 
           {/* Financial summary */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>

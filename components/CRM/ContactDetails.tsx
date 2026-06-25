@@ -40,9 +40,19 @@ function Chips({ items }: { items: string[] }) {
     </div>
   )
 }
+// Always-rendered row — shows a muted "—" placeholder when the value is empty.
+function FRow({ label, value }: { label: string; value?: React.ReactNode }) {
+  const empty = value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: 12, fontSize: 13, lineHeight: 1.5, alignItems: 'baseline' }}>
+      <span style={{ color: 'var(--text2)' }}>{label}</span>
+      <span style={{ color: empty ? 'var(--text3)' : 'var(--text)', wordBreak: 'break-word' }}>{empty ? '—' : value}</span>
+    </div>
+  )
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function ContactDetails({ lead, hideHeader }: { lead: any; hideHeader?: boolean }) {
+export function ContactDetails({ lead, hideHeader, showEmpty }: { lead: any; hideHeader?: boolean; showEmpty?: boolean }) {
   const t = useT()
   const L = lead
   const ct = String(L.contact_type ?? '')
@@ -60,6 +70,69 @@ export function ContactDetails({ lead, hideHeader }: { lead: any; hideHeader?: b
   const safeUrl = (u: string) => (/^https?:\/\//i.test(u) ? u : null)
   const initials = (L.brand_name || L.full_name || '?').trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
   const prioColor = /hot/i.test(L.prioritas || '') ? '#ff6b6b' : /warm/i.test(L.prioritas || '') ? '#ffc542' : /cold/i.test(L.prioritas || '') ? '#54a0ff' : 'var(--text2)'
+  const lampiranNode = lampiran.length === 0 ? null : (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {lampiran.map((u, i) => {
+        const safe = safeUrl(u)
+        return safe
+          ? <a key={i} href={safe} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--accent)', textDecoration: 'none', wordBreak: 'break-all' }}>📎 {fileName(u)}</a>
+          : <span key={i} style={{ fontSize: 12.5, color: 'var(--text2)', wordBreak: 'break-all' }}>📎 {fileName(u)}</span>
+      })}
+    </div>
+  )
+
+  // Full form readout — every field the Add Contact form has, blanks shown as
+  // "—" so it's clear what still needs filling.
+  if (showEmpty) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <DSection label={t('Identitas')}>
+          <FRow label={t('Nama kontak')} value={L.full_name} />
+          <FRow label={t('Posisi')} value={L.jabatan} />
+          <FRow label={t('Brand / perusahaan')} value={L.brand_name} />
+          <FRow label={t('Tier klien')} value={L.tier_klien} />
+          <FRow label={t('Industri')} value={L.industri} />
+        </DSection>
+        <DSection label={t('Kontak & Sumber')}>
+          <FRow label={t('Tipe kontak')} value={channel} />
+          <FRow label={t('Kontak utama')} value={L.contact_value} />
+          <FRow label={t('Kontak lainnya')} value={lainnya.length ? <Chips items={lainnya.map((c) => `${c.channel}: ${c.value}`)} /> : ''} />
+          <FRow label={t('Sumber')} value={cap(L.source)} />
+          <FRow label={t('Detail sumber')} value={L.detail_sumber} />
+        </DSection>
+        <DSection label={t('Informasi Alamat')}>
+          <FRow label={t('Nama Lokasi / Kantor')} value={L.nama_lokasi} />
+          <FRow label={t('Alamat Lengkap')} value={L.alamat_jalan} />
+          <FRow label={t('RT / RW')} value={L.alamat_rtrw} />
+          <FRow label={t('Blok / Unit / Lantai')} value={L.alamat_blok} />
+          <FRow label={t('Kelurahan / Desa')} value={L.kelurahan} />
+          <FRow label={t('Kecamatan')} value={L.kecamatan} />
+          <FRow label={t('Kota / Kabupaten')} value={L.kota} />
+          <FRow label={t('Provinsi')} value={L.provinsi} />
+          <FRow label={t('Kode Pos')} value={L.kode_pos} />
+          <FRow label={t('Negara')} value={L.negara} />
+        </DSection>
+        <DSection label={t('Detail Project')}>
+          <FRow label={t('Jenis project')} value={jenis.length ? <Chips items={jenis} /> : ''} />
+          <FRow label={t('Objektif')} value={L.objektif} />
+          <FRow label={t('Budget')} value={L.budget_range} />
+          <FRow label="Timeline" value={L.timeline} />
+        </DSection>
+        <DSection label={t('Status & Assignment')}>
+          <FRow label="Status" value={statusLabel} />
+          <FRow label={t('Prioritas')} value={L.prioritas} />
+          <FRow label="PIC" value={L.pic} />
+          <FRow label={t('Next action')} value={L.next_action} />
+          <FRow label={t('Follow-up date')} value={L.follow_up_date ? fmtDate(L.follow_up_date) : ''} />
+          <FRow label="Tags" value={tags.length ? <Chips items={tags} /> : ''} />
+        </DSection>
+        <DSection label={t('Notes & Lampiran')}>
+          <FRow label="Notes" value={L.notes} />
+          <FRow label={t('Lampiran')} value={lampiranNode} />
+        </DSection>
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
