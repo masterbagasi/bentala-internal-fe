@@ -62,8 +62,8 @@ export const BPI_STATUS_COLS = [
   { key: 'todo',      label: 'Idea',          color: '#8b8fa8' },
   { key: 'brief',     label: 'Brief',         color: '#64b5f6' },
   { key: 'produksi',  label: 'Production',    color: '#5b9bd5' },
-  { key: 'revisi',    label: 'Revisi',        color: '#a78bfa' },
   { key: 'review',    label: 'Review',        color: '#ffc542', locked: true },
+  { key: 'revisi',    label: 'Revisi',        color: '#a78bfa' },
   { key: 'ready',     label: 'Ready to Post', color: '#43d9a2' },
   { key: 'published', label: 'Published',     color: '#22c55e' },
 ] as const
@@ -75,8 +75,8 @@ export const SMM_STATUS_COLS = [
   { key: 'todo',      label: 'Idea',          color: '#8b8fa8' },
   { key: 'brief',     label: 'Brief',         color: '#64b5f6' },
   { key: 'produksi',  label: 'Production',    color: '#5b9bd5' },
-  { key: 'revisi',    label: 'Revisi',        color: '#a78bfa' },
   { key: 'review',    label: 'Review',        color: '#ffc542' },
+  { key: 'revisi',    label: 'Revisi',        color: '#a78bfa' },
   { key: 'ready',     label: 'Ready to Post', color: '#43d9a2' },
   { key: 'published', label: 'Published',     color: '#22c55e' },
 ] as const
@@ -86,9 +86,9 @@ export const WS_STATUS_COLS = [
   // "To Do List" maps to BPI's "Brief" — a post enters the production worksheet
   // once it's briefed. While at 'todo' (BPI "Idea") it must NOT appear here.
   { key: 'brief',     label: 'To Do List',  color: '#8b8fa8' },
-  { key: 'revisi',    label: 'Revisi',      color: '#a78bfa', locked: true },
   { key: 'produksi',  label: 'Production',  color: '#5b9bd5' },
   { key: 'review',    label: 'Review',      color: '#ffc542' },
+  { key: 'revisi',    label: 'Revisi',      color: '#a78bfa', locked: true },
   { key: 'done',      label: 'Done',        color: '#43d9a2' },
 ] as const
 
