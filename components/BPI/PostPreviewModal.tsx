@@ -8,6 +8,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
 import { deleteFile } from '@/lib/storage'
 import { isUploadedFile } from '@/lib/attachments'
+import { SubtaskEditor } from './SubtaskEditor'
+import type { Subtask } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 import { TeamAvatar } from '@/components/shared/StatusBadge'
 import { BPI_STATUS_COLS } from '@/lib/constants'
@@ -37,6 +39,10 @@ interface PostPreviewModalProps {
   onEdit: (id: string) => void
   /** When false (workspace pages), the "Edit Post" button is hidden. */
   canEdit?: boolean
+  /** My Task / Team context: project-origin tasks follow the Video Production /
+   *  Design Studio flow, so their status is changed only by dragging on the
+   *  board (a static pill here, no free dropdown). Personal tasks stay free. */
+  restrictStatus?: boolean
   /** Epoch ms the viewer last opened this task; sections changed by others
    *  after this (and the Activity rows) are flagged as new. Omit it (e.g. when
    *  opening from chat/notifications) and the modal resolves it from the store
@@ -44,7 +50,7 @@ interface PostPreviewModalProps {
   seenSince?: number
 }
 
-export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true, seenSince }: PostPreviewModalProps) {
+export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true, restrictStatus = false, seenSince }: PostPreviewModalProps) {
   const t = useT()
   const isMobile = useIsMobile()
   const { posts, upsertPost, meEmail, chatUnread, clearChatUnread } = useStore(useShallow((s) => ({ posts: s.posts, upsertPost: s.upsertPost, meEmail: s.meEmail, chatUnread: s.chatUnread, clearChatUnread: s.clearChatUnread })))
@@ -448,6 +454,15 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     }
   }
 
+  async function saveSubtasks(next: Subtask[]) {
+    if (!post) return
+    const fresh = useStore.getState().posts.find(p => p.id === post.id) ?? post
+    upsertPost({ ...fresh, subtasks: next } as Post) // optimistic
+    const sb = getSupabase() as unknown as { from: (t: string) => any }
+    const { error } = await sb.from('posts').update({ subtasks: next }).eq('id', post.id)
+    if (error) { upsertPost(fresh); alert(t('Gagal menyimpan: ') + (error.message || '')) }
+  }
+
   async function deleteReference(url: string) {
     if (!post) return
     const fresh = useStore.getState().posts.find(p => p.id === post.id) ?? post
@@ -467,7 +482,9 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       wide
       title={t('Detail Task')}
       headerRight={
-        canEdit ? (
+        // Project tasks in My Task / Team follow the VP/DS flow → static pill
+        // (status moves only by board drag). Personal tasks keep the free dropdown.
+        canEdit && !(restrictStatus && post.entity !== 'personal') ? (
         <>
           <span style={{ position: 'relative', display: 'inline-flex' }}>
           <button
@@ -564,7 +581,10 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
 
       {/* Meta grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
-        <MetaItem label={t('Tanggal Task')} value={formatDate(post.date)} mark={dateMark} />
+        <MetaItem label={post.entity === 'personal' ? t('Due date') : t('Tanggal Task')} value={post.date ? formatDate(post.date) : (post.entity === 'personal' ? t('No due date') : '—')} mark={dateMark} />
+        {post.entity === 'personal' && <MetaItem label={t('Dibuat')} value={post.created_at ? new Date(post.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'} />}
+        {/* Socmed-only meta — hidden for a personal My Task task. */}
+        {post.entity !== 'personal' && (<>
         <MetaItem label={t('Platform')} mark={platformMark} value={
           (post.platforms || []).length ? (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -600,19 +620,31 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
             </div>
           )
         })()} />
+        </>)}
       </div>
 
-      {/* Headline + Brief — always shown to mirror the edit form */}
+      {/* Headline + Brief — hidden for a personal task. */}
+      {post.entity !== 'personal' && (<>
       <CopyField label={t('Headline')} value={post.headline} emptyText={t('Belum ada headline.')} mark={headlineMark} />
       <CopyField label="Brief" value={post.brief} emptyText={t('Belum ada brief.')} mark={briefMark} />
+      </>)}
 
       {/* Caption / Hashtags / Notes — only when present */}
       {post.caption && <CopyField label="Caption" value={post.caption} mark={captionMark} />}
       {post.hashtags && <CopyField label="Hashtags" value={post.hashtags} color="#6b9bff" mark={hashtagsMark} />}
-      {post.notes && <CopyField label={t('Catatan')} value={post.notes} mark={notesMark} />}
+      {/* Description (personal My Task) — above Notes. */}
+      {post.entity === 'personal' && <CopyField label={t('Description')} value={post.description || ''} emptyText={t('What is this task about?')} />}
+      {post.entity !== 'personal' && post.notes && <CopyField label={t('Catatan')} value={post.notes} mark={notesMark} />}
+      {/* Subtasks (personal My Task) — tick off live. */}
+      {post.entity === 'personal' && (
+        <div style={{ marginBottom: 18 }}>
+          <SubtaskEditor value={post.subtasks} onChange={saveSubtasks} />
+        </div>
+      )}
 
       {/* Reference — separate bucket; added via Add/Edit Task. Shown ABOVE File
-          Attachments. */}
+          Attachments. Hidden for personal tasks (they use File Attachments). */}
+      {post.entity !== 'personal' && (
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>{t('Referensi')}</div>
         {referenceItems.length > 0 ? (
@@ -632,6 +664,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
           <div style={{ fontSize: 12, color: 'var(--text3)', padding: '4px 2px' }}>{t('Belum ada reference. Tambah lewat Edit Task.')}</div>
         )}
       </div>
+      )}
 
       {/* Attachments — links + uploaded files + an uploader so files can be
           added straight from the details view (no need to open Edit). */}
@@ -695,8 +728,9 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       </div>
 
       {/* Detail Revisi — above comments + activity. Editable here (Socmed
-          Management); read-only preview on the worksheet pages. */}
-      {(canEdit || (post.revisions?.length ?? 0) > 0) && (
+          Management); read-only preview on the worksheet pages. Hidden for a
+          personal My Task task. */}
+      {post.entity !== 'personal' && (canEdit || (post.revisions?.length ?? 0) > 0) && (
         <RevisiSection
           revisions={post.revisions ?? []}
           canEdit={canEdit}
@@ -711,15 +745,18 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
           comments; the change history stays under the Activity tab). */}
       <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }}>
-            <Tab label={t('Chat')} active={detailTab === 'chat'} onClick={() => setDetailTab('chat')} />
-            {chatHasUnread && (
-              <span title={t('Ada chat baru')} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent2)', marginLeft: 4, marginTop: 1, flexShrink: 0 }} />
-            )}
-          </span>
-          <Tab label={t('Aktivitas')} active={detailTab === 'activity'} onClick={() => setDetailTab('activity')} />
+          {/* Chat is hidden for a personal My Task task — only Activity remains. */}
+          {post.entity !== 'personal' && (
+            <span style={{ display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }}>
+              <Tab label={t('Chat')} active={detailTab === 'chat'} onClick={() => setDetailTab('chat')} />
+              {chatHasUnread && (
+                <span title={t('Ada chat baru')} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent2)', marginLeft: 4, marginTop: 1, flexShrink: 0 }} />
+              )}
+            </span>
+          )}
+          <Tab label={t('Aktivitas')} active={detailTab === 'activity' || post.entity === 'personal'} onClick={() => setDetailTab('activity')} />
         </div>
-        {detailTab === 'activity' ? (
+        {(detailTab === 'activity' || post.entity === 'personal') ? (
           <PostHistoryFeed rows={history} accounts={comments.accounts} />
         ) : me && post ? (
           <div style={{ height: 460, display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg2)' }}>

@@ -235,6 +235,14 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
         if (mineColKey(post) === colKey) return
         const smmKey = MINE_COL_STATUS[colKey]
         if (!smmKey) return
+        // Project-origin tasks follow the Video Production / Design Studio flow:
+        // once Ready/Published they're locked in Done, and you can't drag a card
+        // INTO Done or Revisi (those happen via SMM / the revision popup). Personal
+        // tasks are free — they can move to any column, including Revisi and Done.
+        if (post.entity !== 'personal') {
+          if (post.status === 'ready' || post.status === 'published') return
+          if (colKey === 'done' || colKey === 'revisi') return
+        }
         const updates = smmUpdates(post, smmKey)
         upsertPost({ ...post, ...updates } as Post) // optimistic
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -396,7 +404,13 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               showTrackStatus={!boardTrack && !mineScope}
               colSet={boardTrack || mineScope ? WS_STATUS_COLS : SMM_STATUS_COLS}
               noDropCols={boardTrack ? ['revisi', 'done'] : undefined}
-              lockDrag={boardTrack ? (p => p.status === 'ready' || p.status === 'published') : undefined}
+              lockDrag={
+                boardTrack ? (p => p.status === 'ready' || p.status === 'published')
+                // My Task / Team: project tasks follow the VP/DS lock (Done is
+                // released only by SMM); personal tasks are never locked.
+                : mineScope ? (p => p.entity !== 'personal' && (p.status === 'ready' || p.status === 'published'))
+                : undefined
+              }
               colOf={
                 mineScope ? mineColKey
                 : boardTrack === 'video' ? (p => trackColKey(p.video_status, p.status))
@@ -435,6 +449,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             open={!!previewPostId}
             postId={previewPostId}
             canEdit={canEdit}
+            restrictStatus={!!mineScope}
             seenSince={previewSince}
             onClose={() => setPreviewPostId(null)}
             onEdit={id => { setPreviewPostId(null); openEdit(id) }}
