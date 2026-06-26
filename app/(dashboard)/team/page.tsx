@@ -54,10 +54,12 @@ export default function TeamPage() {
     [accounts, active],
   )
 
-  // Only briefed tasks count (To Do List = brief), matching the WS boards.
+  // Team tasks = briefed (To Do List = brief), non-deleted, and either assigned
+  // to someone (tagged) or a personal task. Independent of the accounts list, so
+  // the overview totals show immediately even before /api/accounts resolves.
   const allPosts = useMemo(
-    () => posts.filter(p => !p.deleted_at && p.status !== 'todo' && accounts.some(a => isAccountTask(p, a))),
-    [posts, accounts],
+    () => posts.filter(p => !p.deleted_at && p.status !== 'todo' && ((p.tagged && p.tagged.length > 0) || p.entity === 'personal')),
+    [posts],
   )
 
   if (!ready) return null
