@@ -67,14 +67,6 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
   const agg = useMemo(() => tally(posts), [posts])
   const soon = useMemo(() => dueSoon(posts), [posts])
 
-  const perAccount = useMemo(() => {
-    if (!accounts) return null
-    return accounts
-      .map(a => ({ account: a, ...tally(posts.filter(p => isAccountTask(p, a))) }))
-      .filter(r => r.total > 0)
-      .sort((x, y) => y.open - x.open || y.total - x.total)
-  }, [accounts, posts])
-
   // Task source: how many of the tasks come from each project (Master Bagasi,
   // Bagasian, …) vs Personal. Columns are built from the live projects list, so
   // a new project shows up automatically once it has tasks.
@@ -88,18 +80,24 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
     return Array.from(m.entries()).map(([key, name]) => ({ key, name }))
   }, [projects, posts, t])
 
-  const sourceRows = useMemo(() => {
-    if (!sourceCols || !accounts) return null
+  // One combined row per account: status counts (by WS column) AND source counts
+  // (by project), so the overview is a single complete table.
+  const rows = useMemo(() => {
+    if (!accounts) return null
     return accounts
       .map(a => {
         const mine = posts.filter(p => isAccountTask(p, a))
-        const counts: Record<string, number> = {}
-        for (const p of mine) { const k = sourceKey(p); counts[k] = (counts[k] || 0) + 1 }
-        return { account: a, counts, total: mine.length }
+        const status: Record<string, number> = { brief: 0, produksi: 0, review: 0, revisi: 0, done: 0 }
+        const source: Record<string, number> = {}
+        for (const p of mine) {
+          const sc = mineColKey(p); if (sc in status) status[sc] += 1
+          const sk = sourceKey(p); source[sk] = (source[sk] || 0) + 1
+        }
+        return { account: a, status, source, total: mine.length, done: status.done }
       })
       .filter(r => r.total > 0)
       .sort((x, y) => y.total - x.total)
-  }, [sourceCols, accounts, posts])
+  }, [accounts, posts])
 
   const sourceSingle = useMemo(() => {
     if (!sourceCols || accounts) return null
@@ -115,10 +113,10 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
     { label: t('Due 7 hari'),    value: soon,      color: '#ffc542' },
   ]
 
-  // Compact fixed count columns; the name and (especially) the workload bar
-  // absorb the extra width so a full-screen layout stays purposeful, not sparse.
-  const grid = 'minmax(200px, 1.4fr) repeat(5, 64px) minmax(260px, 2.4fr)'
-  const srcGrid = sourceCols ? `minmax(160px, 1.4fr) repeat(${sourceCols.length}, minmax(56px, 0.8fr)) 70px` : ''
+  // Single combined table: account · 5 status columns · N source columns · total.
+  const nSrc = sourceCols?.length ?? 0
+  const colGrid = `minmax(190px, 1.5fr) repeat(5, 52px) repeat(${nSrc}, minmax(70px, 0.85fr)) 72px`
+  const divider: React.CSSProperties = { borderLeft: '1px solid var(--border)' }
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -147,96 +145,67 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
         </div>
       </div>
 
-      {/* Per account — labelled count columns (fixes the bare-number table) plus
-          a completion bar. Only rendered in the Team overview. */}
-      {perAccount && (
+      {/* By account — ONE combined table: status columns + source (project)
+          columns + total. Only rendered in the Team overview. */}
+      {rows && sourceCols && (
         <div>
           <SectionLabel>{t('Per Akun')}</SectionLabel>
-          {perAccount.length === 0 ? (
+          {rows.length === 0 ? (
             <div style={{ fontSize: 13, color: 'var(--text3)', padding: '6px 2px' }}>{t('Belum ada task.')}</div>
           ) : (
             <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
-              <div style={{ minWidth: 760 }}>
-              {/* Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 8, alignItems: 'center', padding: '9px 14px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
-                <span style={hStyle}>{t('Akun')}</span>
-                {WS_STATUS_COLS.map(c => (
-                  <span key={c.key} style={{ ...hStyle, textAlign: 'center', display: 'inline-flex', gap: 5, alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ width: 7, height: 7, borderRadius: 2, background: c.color }} />{SHORT[c.key]}
-                  </span>
-                ))}
-                <span style={{ ...hStyle, textAlign: 'right' }}>{t('Beban kerja')}</span>
-              </div>
-              {/* Rows */}
-              {perAccount.map((r, i) => {
-                const pct = r.total ? Math.round((r.done / r.total) * 100) : 0
-                return (
-                  <div
-                    key={r.account.email}
-                    onClick={onAccountClick ? () => onAccountClick(r.account) : undefined}
-                    onKeyDown={onAccountClick ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAccountClick(r.account) } }) : undefined}
-                    role={onAccountClick ? 'button' : undefined}
-                    tabIndex={onAccountClick ? 0 : undefined}
-                    title={onAccountClick ? `${t('Lihat board')} ${r.account.name}` : undefined}
-                    onMouseOver={onAccountClick ? (e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg2)' }) : undefined}
-                    onMouseOut={onAccountClick ? (e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }) : undefined}
-                    style={{ display: 'grid', gridTemplateColumns: grid, gap: 8, alignItems: 'center', padding: '11px 14px', borderTop: i === 0 ? 'none' : '1px solid var(--border)', cursor: onAccountClick ? 'pointer' : 'default' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                      <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: '50%', background: `hsl(${avatarHue(r.account.name)} 42% 30%)`, color: '#fff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {(r.account.name[0] || '?').toUpperCase()}
+                <div style={{ minWidth: 540 + nSrc * 78 }}>
+                  {/* Header */}
+                  <div style={{ display: 'grid', gridTemplateColumns: colGrid, gap: 8, alignItems: 'center', padding: '9px 14px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
+                    <span style={hStyle}>{t('Akun')}</span>
+                    {WS_STATUS_COLS.map(c => (
+                      <span key={c.key} style={{ ...hStyle, textAlign: 'center', display: 'inline-flex', gap: 5, alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ width: 7, height: 7, borderRadius: 2, background: c.color }} />{SHORT[c.key]}
                       </span>
-                      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.name}</span>
-                        <span style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.email}</span>
-                      </span>
-                    </div>
-                    {WS_STATUS_COLS.map(c => {
-                      const v = r.counts[c.key] ?? 0
-                      return (
-                        <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? c.color : 'var(--text3)' }}>{v}</span>
-                      )
-                    })}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'stretch', minWidth: 0 }}>
-                      <span style={{ fontSize: 11.5, color: 'var(--text2)', textAlign: 'right' }}><b style={{ color: 'var(--text)' }}>{r.done}</b>/{r.total} · {pct}%</span>
-                      <StatusBar counts={r.counts} total={r.total} height={7} />
-                    </div>
+                    ))}
+                    {sourceCols.map((c, idx) => (
+                      <span key={c.key} style={{ ...hStyle, textAlign: 'center', ...(idx === 0 ? divider : null), paddingLeft: idx === 0 ? 8 : 0 }}>{c.name}</span>
+                    ))}
+                    <span style={{ ...hStyle, textAlign: 'right', ...divider, paddingLeft: 8 }}>{t('Total')}</span>
                   </div>
-                )
-              })}
-              </div>
+                  {/* Rows */}
+                  {rows.map((r, i) => (
+                    <div
+                      key={r.account.email}
+                      onClick={onAccountClick ? () => onAccountClick(r.account) : undefined}
+                      onKeyDown={onAccountClick ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAccountClick(r.account) } }) : undefined}
+                      role={onAccountClick ? 'button' : undefined}
+                      tabIndex={onAccountClick ? 0 : undefined}
+                      title={onAccountClick ? `${t('Lihat board')} ${r.account.name}` : undefined}
+                      onMouseOver={onAccountClick ? (e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg2)' }) : undefined}
+                      onMouseOut={onAccountClick ? (e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }) : undefined}
+                      style={{ display: 'grid', gridTemplateColumns: colGrid, gap: 8, alignItems: 'center', padding: '11px 14px', borderTop: i === 0 ? 'none' : '1px solid var(--border)', cursor: onAccountClick ? 'pointer' : 'default' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                        <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: '50%', background: `hsl(${avatarHue(r.account.name)} 42% 30%)`, color: '#fff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {(r.account.name[0] || '?').toUpperCase()}
+                        </span>
+                        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                          <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.name}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.email}</span>
+                        </span>
+                      </div>
+                      {WS_STATUS_COLS.map(c => {
+                        const v = r.status[c.key] ?? 0
+                        return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? c.color : 'var(--text3)' }}>{v}</span>
+                      })}
+                      {sourceCols.map((c, idx) => {
+                        const v = r.source[c.key] ?? 0
+                        return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? (c.key === 'personal' ? '#a78bfa' : 'var(--text)') : 'var(--text3)', ...(idx === 0 ? divider : null), paddingLeft: idx === 0 ? 8 : 0 }}>{v}</span>
+                      })}
+                      <span style={{ textAlign: 'right', fontSize: 13, fontWeight: 800, color: 'var(--text)', ...divider, paddingLeft: 8 }}>{r.total}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Task source per account — Personal vs each project (Team overview). */}
-      {sourceRows && sourceCols && sourceRows.length > 0 && (
-        <div>
-          <SectionLabel>{t('Sumber Task')}</SectionLabel>
-          <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <div style={{ minWidth: 240 + sourceCols.length * 76 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: srcGrid, gap: 8, alignItems: 'center', padding: '9px 14px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
-                  <span style={hStyle}>{t('Akun')}</span>
-                  {sourceCols.map(c => <span key={c.key} style={{ ...hStyle, textAlign: 'center' }}>{c.name}</span>)}
-                  <span style={{ ...hStyle, textAlign: 'right' }}>{t('Total')}</span>
-                </div>
-                {sourceRows.map((r, i) => (
-                  <div key={r.account.email} style={{ display: 'grid', gridTemplateColumns: srcGrid, gap: 8, alignItems: 'center', padding: '10px 14px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.name}</span>
-                    {sourceCols.map(c => {
-                      const v = r.counts[c.key] ?? 0
-                      return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? (c.key === 'personal' ? '#a78bfa' : 'var(--text)') : 'var(--text3)' }}>{v}</span>
-                    })}
-                    <span style={{ textAlign: 'right', fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>{r.total}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
