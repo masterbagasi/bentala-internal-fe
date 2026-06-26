@@ -87,7 +87,8 @@ export async function middleware(request: NextRequest) {
     // Super-admin-only settings pages (Manage Access + Project Socmed).
     const isSuperOnlyPage =
       pathname === '/settings/access' || pathname.startsWith('/settings/access/') ||
-      pathname === '/settings/projects' || pathname.startsWith('/settings/projects/')
+      pathname === '/settings/projects' || pathname.startsWith('/settings/projects/') ||
+      pathname === '/team' || pathname.startsWith('/team/')
 
     // Escape hatch: a super admin can always open these (no DB read).
     if (isSuper && isSuperOnlyPage) {
