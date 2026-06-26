@@ -82,10 +82,12 @@ export function TaskDashboard({ posts, accounts }: { posts: Post[]; accounts?: A
     { label: t('Due 7 hari'),    value: soon,      color: '#ffc542' },
   ]
 
-  const grid = 'minmax(140px, 1.6fr) repeat(5, minmax(38px, 0.55fr)) minmax(108px, 1fr)'
+  // Compact fixed count columns; the name and (especially) the workload bar
+  // absorb the extra width so a full-screen layout stays purposeful, not sparse.
+  const grid = 'minmax(200px, 1.4fr) repeat(5, 64px) minmax(260px, 2.4fr)'
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 22, maxWidth: 1200 }}>
+    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
       {/* KPIs — each tile carries a hairline accent in its metric colour. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
         {kpis.map(k => (
@@ -120,6 +122,8 @@ export function TaskDashboard({ posts, accounts }: { posts: Post[]; accounts?: A
             <div style={{ fontSize: 13, color: 'var(--text3)', padding: '6px 2px' }}>{t('Belum ada task.')}</div>
           ) : (
             <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+              <div style={{ minWidth: 760 }}>
               {/* Header */}
               <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 8, alignItems: 'center', padding: '9px 14px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
                 <span style={hStyle}>{t('Akun')}</span>
@@ -136,10 +140,13 @@ export function TaskDashboard({ posts, accounts }: { posts: Post[]; accounts?: A
                 return (
                   <div key={r.account.email} style={{ display: 'grid', gridTemplateColumns: grid, gap: 8, alignItems: 'center', padding: '11px 14px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                      <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: '50%', background: `hsl(${avatarHue(r.account.name)} 42% 30%)`, color: '#fff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: '50%', background: `hsl(${avatarHue(r.account.name)} 42% 30%)`, color: '#fff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {(r.account.name[0] || '?').toUpperCase()}
                       </span>
-                      <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.name}</span>
+                      <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.email}</span>
+                      </span>
                     </div>
                     {WS_STATUS_COLS.map(c => {
                       const v = r.counts[c.key] ?? 0
@@ -147,15 +154,15 @@ export function TaskDashboard({ posts, accounts }: { posts: Post[]; accounts?: A
                         <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? c.color : 'var(--text3)' }}>{v}</span>
                       )
                     })}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-end' }}>
-                      <span style={{ fontSize: 11.5, color: 'var(--text2)' }}><b style={{ color: 'var(--text)' }}>{r.done}</b>/{r.total} · {pct}%</span>
-                      <div style={{ width: '100%', maxWidth: 120 }}>
-                        <StatusBar counts={r.counts} total={r.total} height={6} />
-                      </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'stretch', minWidth: 0 }}>
+                      <span style={{ fontSize: 11.5, color: 'var(--text2)', textAlign: 'right' }}><b style={{ color: 'var(--text)' }}>{r.done}</b>/{r.total} · {pct}%</span>
+                      <StatusBar counts={r.counts} total={r.total} height={7} />
                     </div>
                   </div>
                 )
               })}
+              </div>
+              </div>
             </div>
           )}
         </div>
