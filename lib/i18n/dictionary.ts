@@ -27,6 +27,13 @@ const SEED: Record<string, string> = {
   'Distribusi Status': 'Status Distribution',
   'Task per Project': 'Tasks per Project',
   'Total Task': 'Total Tasks',
+  // ── Team / My Task dashboard ──
+  'Belum selesai': 'In progress',
+  'Due 7 hari': 'Due in 7 days',
+  'Sebaran Status': 'Status spread',
+  'Per Akun': 'By account',
+  'Beban kerja': 'Workload',
+  'Belum ada task.': 'No tasks yet.',
   'Proporsi task per status': 'Share of tasks by status',
   'Mengikuti urutan List/Board': 'In List/Board order',
   'Rincian status untuk tiap project socmed': 'Status breakdown for each socmed project',
