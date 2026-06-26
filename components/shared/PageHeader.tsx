@@ -9,6 +9,12 @@ import { DateRangePicker } from '@/components/Social/DateRangePicker'
 
 // ── Tab icons ──
 const TAB_ICONS: Record<string, React.ReactNode> = {
+  dashboard: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/>
+      <rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>
+    </svg>
+  ),
   list: (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
@@ -69,6 +75,7 @@ const TAB_ICONS: Record<string, React.ReactNode> = {
 }
 
 const TAB_LABELS: Record<string, string> = {
+  dashboard: 'Dashboard',
   list: 'List',
   board: 'Board',
   calendar: 'Calendar',
@@ -81,7 +88,7 @@ const TAB_LABELS: Record<string, string> = {
 }
 
 // ── Types ──
-export type TabKey = 'list' | 'board' | 'calendar' | 'files' | 'analytics' | 'brief' | 'accounts' | 'reports' | 'plan'
+export type TabKey = 'dashboard' | 'list' | 'board' | 'calendar' | 'files' | 'analytics' | 'brief' | 'accounts' | 'reports' | 'plan'
 
 interface PageHeaderProps {
   title: string
