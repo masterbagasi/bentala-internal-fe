@@ -113,6 +113,36 @@ function smmUpdates(p: Post, colKey: string): Partial<Post> {
     default: return { status: colKey as Post['status'] } // todo / brief
   }
 }
+
+// My Task board reuses the Video Production columns (WS_STATUS_COLS: To Do List ·
+// Revisi · Production · Review · Done). A post's overall status maps to a column
+// directly (no per-track logic, since My Task aggregates any project's posts).
+export function mineColKey(p: Post): string {
+  // Derive from the SAME logic the SMM board uses (status + tracks), then fold
+  // it into the WS columns — so My Task and All Project always agree.
+  switch (smmColKey(p)) {
+    case 'revisi': return 'revisi'
+    case 'produksi': return 'produksi'
+    case 'review': return 'review'
+    case 'ready':
+    case 'published':
+    case 'done': return 'done'
+    default: return 'brief' // todo + brief → To Do List
+  }
+}
+// A task belongs to an account's personal board when that account is tagged on
+// it, OR it's that account's own personal/ad-hoc task. Shared by My Task, the
+// Team per-account tabs, and the summary dashboards so they always agree.
+export function isAccountTask(p: Post, acct: { email: string; name: string }): boolean {
+  const tags = (p.tagged || []).map(x => (x || '').toLowerCase())
+  const taggedMe = tags.includes(acct.email.toLowerCase())
+  const myPersonal = p.entity === 'personal' && (p.created_by || '') === acct.name
+  return taggedMe || myPersonal
+}
+// Dropping a card on a My Task column sets the post's status accordingly.
+const MINE_COL_STATUS: Record<string, Post['status']> = {
+  brief: 'brief', revisi: 'revisi', produksi: 'produksi', review: 'review', done: 'ready',
+}
 import { formatDate, byPostDateAsc } from '@/lib/utils'
 import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
@@ -145,10 +175,12 @@ interface BPIPageProps {
   currentUser?: string
   activeTab: BPITabType
   filters: PostFilters
+  /** "My Task" mode: show tasks tagging me OR created by me, across all projects. */
+  mineScope?: { email: string; name: string }
 }
 
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
-  function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters }, ref) {
+  function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters, mineScope }, ref) {
     const t = useT()
     const { posts, removePost, upsertPost, meEmail, postSeen, chatUnread, clearChatUnread } = useStore(useShallow((s) => ({ posts: s.posts, removePost: s.removePost, upsertPost: s.upsertPost, meEmail: s.meEmail, postSeen: s.postSeen, chatUnread: s.chatUnread, clearChatUnread: s.clearChatUnread })))
     const markPostRead = useMarkPostRead()
@@ -179,7 +211,8 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     // Project dropdown in the post modal: empty on "All Project", pre-selected
     // on the bpi/bsi boards, hidden on workspace (ws) pages.
     const projectScope: 'bpi' | 'bsi' | 'all' | undefined =
-      allProjects ? 'all'
+      mineScope ? undefined
+      : allProjects ? 'all'
       : picScope ? undefined
       : (entity === 'bpi' || entity === 'bsi') ? entity
       : undefined
@@ -195,6 +228,21 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       picScope === VP_PIC ? 'video' : picScope === DS_PIC ? 'design' : null
 
     async function moveOnBoard(post: Post, colKey: string) {
+      // My Task uses the WS columns but writes the SAME updates as the SMM board
+      // (status + every applicable track) so All Project / Video Production stay
+      // in sync. No revision popup — dropping on Revisi just sets it.
+      if (mineScope) {
+        if (mineColKey(post) === colKey) return
+        const smmKey = MINE_COL_STATUS[colKey]
+        if (!smmKey) return
+        const updates = smmUpdates(post, smmKey)
+        upsertPost({ ...post, ...updates } as Post) // optimistic
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (getSupabase() as any).from('posts').update(updates).eq('id', post.id)
+        if (error) { upsertPost(post); return }
+        logActivity(`Task "${post.title}" dipindahkan`)
+        return
+      }
       // Video Production / Design Studio: Done belongs to the Socmed Management
       // board. Once a post is Ready to Post / Published its track cards sit in
       // Done and are LOCKED here — they can't be dragged back to Review or
@@ -226,12 +274,18 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       // Scope: all socmed projects, by assigned PIC (workspace), or by entity (board).
       // All Project = combined view of every socmed post regardless of slug, so
       // posts on newly-created projects appear too. Only board/PIC modes scope.
-      if (allProjects
-        ? false
+      if (mineScope) {
+        // My Task receives project tasks ONLY via tagging; plus my own personal
+        // tasks (the private 'personal' bucket created from here).
+        if (!isAccountTask(p, mineScope)) return false
+      } else if (allProjects
+        // All Project shows every project EXCEPT the private My Task bucket.
+        ? p.entity === 'personal'
         : picScope ? !(p.pics || []).includes(picScope) : p.entity !== entity) return false
-      // Video Production / Design Studio only pick a post up once it's briefed.
-      // While it's still at 'todo' (Socmed Management "Idea") it must NOT appear
-      // on these boards at all — it surfaces only when the status reaches 'brief'.
+      // The per-PIC workspace boards only pick a post up once it's briefed: while
+      // it's still at 'todo' (Socmed Management "Idea") it must NOT appear there.
+      // My Task is different — a task that tags you is a direct assignment, so it
+      // shows at any status (a 'todo' folds into the To Do List column).
       if (picScope && p.status === 'todo') return false
       if (filters.platforms.length && !filters.platforms.some(x => ((p.platforms || []) as string[]).includes(x))) return false
       if (filters.contentTypes.length && !filters.contentTypes.some(x => (p.content_types || []).includes(x))) return false
@@ -241,9 +295,12 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
         if (!filters.ratios.some(x => rs.includes(x))) return false
       }
       if (filters.month && (p.date || '').slice(0, 7) !== filters.month) return false
-      if (filters.statuses.length && !filters.statuses.includes(p.status)) return false
+      // My Task groups by its WS columns, so its Status filter matches the folded
+      // column key, not the raw post status.
+      if (filters.statuses.length && !filters.statuses.includes(mineScope ? mineColKey(p) : p.status)) return false
+      if (filters.projects.length && !filters.projects.includes(p.entity)) return false
       return true
-    }), [posts, allProjects, picScope, entity, filters])
+    }), [posts, allProjects, picScope, entity, filters, mineScope])
 
     // Ids of tasks with an unseen change made by someone else → drives the card
     // dots and the per-column counts. Recomputes live as posts stream in or the
@@ -336,19 +393,20 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               unreadIds={unreadIds}
               onReadColumn={readColumn}
               accounts={accounts}
-              showTrackStatus={!boardTrack}
-              colSet={boardTrack ? WS_STATUS_COLS : SMM_STATUS_COLS}
+              showTrackStatus={!boardTrack && !mineScope}
+              colSet={boardTrack || mineScope ? WS_STATUS_COLS : SMM_STATUS_COLS}
               noDropCols={boardTrack ? ['revisi', 'done'] : undefined}
               lockDrag={boardTrack ? (p => p.status === 'ready' || p.status === 'published') : undefined}
               colOf={
-                boardTrack === 'video' ? (p => trackColKey(p.video_status, p.status))
+                mineScope ? mineColKey
+                : boardTrack === 'video' ? (p => trackColKey(p.video_status, p.status))
                 : boardTrack === 'design' ? (p => trackColKey(p.design_status, p.status))
                 : smmColKey
               }
               onMove={moveOnBoard}
             />
           )}
-          {activeTab === 'calendar' && <ContentCalendar entity={allProjects ? 'all' : (calEntity ?? entity)} onPostClick={openPreview} filters={filters} />}
+          {activeTab === 'calendar' && <ContentCalendar entity={mineScope ? 'all' : (allProjects ? 'all' : (calEntity ?? entity))} mineScope={mineScope} onPostClick={openPreview} filters={filters} />}
           {activeTab === 'files' && <FilesTab posts={filtered} />}
           {activeTab === 'analytics' && (
             allProjects
@@ -367,6 +425,9 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             editId={editPostId}
             entity={entity}
             projectScope={projectScope}
+            hideSelfAccount={!!mineScope}
+            defaultStatus={mineScope ? 'brief' : undefined}
+            personal={!!mineScope}
           />
         )}
         {previewPostId && (
@@ -1032,9 +1093,11 @@ function KanbanCard({
 function EntityGlyph({ entity }: { entity: string }) {
   const projects = useSocmedProjects(false)
   const proj = projects.find(p => p.slug === entity)
-  const label = proj?.glyph || (entity === 'ws' ? 'ws' : proj ? projectGlyph(proj.name) : entity.slice(0, 3))
+  // Private My Task bucket shows "me"; the ad-hoc "other" shows "OT".
+  const label = entity === 'personal' ? 'me'
+    : proj?.glyph || (entity === 'ws' ? 'ws' : entity === 'other' ? 'OT' : proj ? projectGlyph(proj.name) : entity.slice(0, 3))
   const color = proj?.color || '#5a5a60'
-  const title = proj?.name || (entity === 'ws' ? 'Workspace' : entity)
+  const title = entity === 'personal' ? 'My Task' : proj?.name || (entity === 'ws' ? 'Workspace' : entity === 'other' ? 'Other' : entity)
   return (
     <span
       title={title}
@@ -1119,14 +1182,27 @@ export interface PostFilters {
   ratios: string[]
   month: string
   statuses: string[]
+  projects: string[]
 }
-export const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: [], ratios: [], month: '', statuses: [] }
+export const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: [], ratios: [], month: '', statuses: [], projects: [] }
 
 // Owns filter state + the data the popup needs (accounts, months for an entity).
 export function useBoardFilter(scope: string | { pic: string }) {
   const posts = useStore((s) => s.posts)
+  const socmed = useSocmedProjects(true)
   const [filters, setFilters] = useState<PostFilters>(EMPTY_FILTERS)
   const [accounts, setAccounts] = useState<{ email: string; name: string }[]>([])
+  // Project filter only makes sense on the combined "All Project" board; on a
+  // single-project / per-PIC board everything is one project already.
+  const projects = useMemo(() => {
+    if (!(typeof scope === 'string' && scope === 'all')) return [] as { slug: string; name: string }[]
+    const present = new Set(posts.map(p => p.entity).filter(Boolean))
+    present.add('other') // always offer the ad-hoc "Other" bucket
+    present.delete('personal') // private My Task tasks never appear on All Project
+    const nameOf = (slug: string) => socmed.find(p => p.slug === slug)?.name
+      || (slug === 'other' ? 'Other' : slug === 'bpi' ? 'BPI' : slug === 'bsi' ? 'BSI' : slug)
+    return Array.from(present).sort().map(slug => ({ slug, name: nameOf(slug) }))
+  }, [posts, scope, socmed])
   useEffect(() => {
     let cancelled = false
     fetch('/api/accounts')
@@ -1144,21 +1220,25 @@ export function useBoardFilter(scope: string | { pic: string }) {
     for (const p of posts) if (inScope(p) && p.date) set.add(p.date.slice(0, 7))
     return Array.from(set).sort().reverse()
   }, [posts, scope])
-  return { filters, setFilters, accounts, months }
+  return { filters, setFilters, accounts, months, projects }
 }
 
 // Filter button + popup. Render in the page header's tab row.
-export function BoardFilter({ filters, setFilters, accounts, months }: {
+export function BoardFilter({ filters, setFilters, accounts, months, projects = [], personal = false }: {
   filters: PostFilters
   setFilters: React.Dispatch<React.SetStateAction<PostFilters>>
   accounts: { email: string; name: string }[]
   months: string[]
+  projects?: { slug: string; name: string }[]
+  // My Task: show only the filters that apply to personal tasks (Status + Month).
+  personal?: boolean
 }) {
   const t = useT()
   const [open, setOpen] = useState(false)
-  const count =
-    filters.platforms.length + filters.contentTypes.length + filters.tagged.length +
-    filters.ratios.length + filters.statuses.length + (filters.month ? 1 : 0)
+  const count = personal
+    ? filters.statuses.length + (filters.month ? 1 : 0)
+    : filters.platforms.length + filters.contentTypes.length + filters.tagged.length +
+      filters.ratios.length + filters.statuses.length + filters.projects.length + (filters.month ? 1 : 0)
   return (
     <div style={{ position: 'relative' }}>
       <button
@@ -1177,7 +1257,7 @@ export function BoardFilter({ filters, setFilters, accounts, months }: {
         {t('Filter')}{count ? ` (${count})` : ''}
       </button>
       {open && (
-        <FilterPopup filters={filters} setFilters={setFilters} accounts={accounts} months={months} onClose={() => setOpen(false)} />
+        <FilterPopup filters={filters} setFilters={setFilters} accounts={accounts} months={months} projects={projects} personal={personal} onClose={() => setOpen(false)} />
       )}
     </div>
   )
@@ -1214,11 +1294,13 @@ function FilterSection({ label, children }: { label: string; children: React.Rea
   )
 }
 
-function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
+function FilterPopup({ filters, setFilters, accounts, months, projects, personal = false, onClose }: {
   filters: PostFilters
   setFilters: React.Dispatch<React.SetStateAction<PostFilters>>
   accounts: { email: string; name: string }[]
   months: string[]
+  projects: { slug: string; name: string }[]
+  personal?: boolean
   onClose: () => void
 }) {
   const t = useT()
@@ -1245,6 +1327,17 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
           </button>
         </div>
 
+        {!personal && projects.length > 0 && (
+          <FilterSection label={t('Project')}>
+            {projects.map(p => (
+              <FilterChip key={p.slug} label={p.name} active={filters.projects.includes(p.slug)}
+                onClick={() => setFilters(f => ({ ...f, projects: toggle(f.projects, p.slug) }))} />
+            ))}
+          </FilterSection>
+        )}
+
+        {/* Socmed-only filters — hidden on My Task (personal tasks have none). */}
+        {!personal && (<>
         <FilterSection label={t('Sosial Media')}>
           {POST_PLATFORMS.map(p => (
             <FilterChip key={p.key} label={p.label} active={filters.platforms.includes(p.key)}
@@ -1274,8 +1367,9 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
               onClick={() => setFilters(f => ({ ...f, ratios: toggle(f.ratios, r.key) }))} />
           ))}
         </FilterSection>
+        </>)}
 
-        <FilterSection label={t('Bulan Posting')}>
+        <FilterSection label={personal ? t('Jatuh Tempo') : t('Bulan Posting')}>
           {months.length === 0 ? (
             <span style={{ fontSize: 12, color: 'var(--text2)' }}>—</span>
           ) : months.map(ym => (
@@ -1285,7 +1379,7 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
         </FilterSection>
 
         <FilterSection label={t('Status')}>
-          {BPI_STATUS_COLS.map(s => (
+          {(personal ? WS_STATUS_COLS : BPI_STATUS_COLS).map(s => (
             <FilterChip key={s.key} label={s.label} active={filters.statuses.includes(s.key)}
               onClick={() => setFilters(f => ({ ...f, statuses: toggle(f.statuses, s.key) }))} />
           ))}
