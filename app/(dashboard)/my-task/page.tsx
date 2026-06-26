@@ -60,7 +60,7 @@ export default function MyTaskPage() {
         }
       />
       <div className="flex-1 overflow-y-auto min-h-0">
-        {me && tab === 'dashboard' && <TaskDashboard posts={myPosts} />}
+        {me && tab === 'dashboard' && <TaskDashboard posts={myPosts} projects={bf.projects} />}
         {me && tab !== 'dashboard' && (
           <BPIPage ref={ref} entity="bpi" mineScope={me} activeTab={tab as BPITabType} filters={bf.filters} currentUser="" />
         )}

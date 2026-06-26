@@ -62,7 +62,7 @@ function StatusBar({ counts, total, height = 10 }: { counts: Record<string, numb
   )
 }
 
-export function TaskDashboard({ posts, accounts, onAccountClick }: { posts: Post[]; accounts?: Acct[]; onAccountClick?: (a: Acct) => void }) {
+export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { posts: Post[]; accounts?: Acct[]; projects?: { slug: string; name: string }[]; onAccountClick?: (a: Acct) => void }) {
   const t = useT()
   const agg = useMemo(() => tally(posts), [posts])
   const soon = useMemo(() => dueSoon(posts), [posts])
@@ -75,6 +75,39 @@ export function TaskDashboard({ posts, accounts, onAccountClick }: { posts: Post
       .sort((x, y) => y.open - x.open || y.total - x.total)
   }, [accounts, posts])
 
+  // Task source: how many of the tasks come from each project (Master Bagasi,
+  // Bagasian, …) vs Personal. Columns are built from the live projects list, so
+  // a new project shows up automatically once it has tasks.
+  const sourceKey = (p: Post) => (p.entity === 'personal' ? 'personal' : (p.entity || 'other'))
+  const sourceCols = useMemo(() => {
+    if (!projects) return null
+    const m = new Map<string, string>()
+    m.set('personal', t('Personal'))
+    for (const p of projects) m.set(p.slug, p.name)
+    for (const p of posts) { const k = sourceKey(p); if (!m.has(k)) m.set(k, k === 'other' ? t('Other') : k) }
+    return Array.from(m.entries()).map(([key, name]) => ({ key, name }))
+  }, [projects, posts, t])
+
+  const sourceRows = useMemo(() => {
+    if (!sourceCols || !accounts) return null
+    return accounts
+      .map(a => {
+        const mine = posts.filter(p => isAccountTask(p, a))
+        const counts: Record<string, number> = {}
+        for (const p of mine) { const k = sourceKey(p); counts[k] = (counts[k] || 0) + 1 }
+        return { account: a, counts, total: mine.length }
+      })
+      .filter(r => r.total > 0)
+      .sort((x, y) => y.total - x.total)
+  }, [sourceCols, accounts, posts])
+
+  const sourceSingle = useMemo(() => {
+    if (!sourceCols || accounts) return null
+    const counts: Record<string, number> = {}
+    for (const p of posts) { const k = sourceKey(p); counts[k] = (counts[k] || 0) + 1 }
+    return counts
+  }, [sourceCols, accounts, posts])
+
   const kpis = [
     { label: t('Total Task'),    value: agg.total, color: 'var(--text)' },
     { label: t('Belum selesai'), value: agg.open,  color: '#5b9bd5' },
@@ -85,6 +118,7 @@ export function TaskDashboard({ posts, accounts, onAccountClick }: { posts: Post
   // Compact fixed count columns; the name and (especially) the workload bar
   // absorb the extra width so a full-screen layout stays purposeful, not sparse.
   const grid = 'minmax(200px, 1.4fr) repeat(5, 64px) minmax(260px, 2.4fr)'
+  const srcGrid = sourceCols ? `minmax(160px, 1.4fr) repeat(${sourceCols.length}, minmax(56px, 0.8fr)) 70px` : ''
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -175,6 +209,49 @@ export function TaskDashboard({ posts, accounts, onAccountClick }: { posts: Post
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Task source per account — Personal vs each project (Team overview). */}
+      {sourceRows && sourceCols && sourceRows.length > 0 && (
+        <div>
+          <SectionLabel>{t('Sumber Task')}</SectionLabel>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ minWidth: 240 + sourceCols.length * 76 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: srcGrid, gap: 8, alignItems: 'center', padding: '9px 14px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
+                  <span style={hStyle}>{t('Akun')}</span>
+                  {sourceCols.map(c => <span key={c.key} style={{ ...hStyle, textAlign: 'center' }}>{c.name}</span>)}
+                  <span style={{ ...hStyle, textAlign: 'right' }}>{t('Total')}</span>
+                </div>
+                {sourceRows.map((r, i) => (
+                  <div key={r.account.email} style={{ display: 'grid', gridTemplateColumns: srcGrid, gap: 8, alignItems: 'center', padding: '10px 14px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.name}</span>
+                    {sourceCols.map(c => {
+                      const v = r.counts[c.key] ?? 0
+                      return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? (c.key === 'personal' ? '#a78bfa' : 'var(--text)') : 'var(--text3)' }}>{v}</span>
+                    })}
+                    <span style={{ textAlign: 'right', fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>{r.total}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Task source — single account (My Task). */}
+      {sourceSingle && sourceCols && (
+        <div>
+          <SectionLabel>{t('Sumber Task')}</SectionLabel>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {sourceCols.map(c => (
+              <div key={c.key} style={{ flex: '1 1 120px', minWidth: 120, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: c.key === 'personal' ? '#a78bfa' : 'var(--text)' }}>{sourceSingle[c.key] ?? 0}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text2)', marginTop: 2 }}>{c.name}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

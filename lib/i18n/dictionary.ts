@@ -36,6 +36,7 @@ const SEED: Record<string, string> = {
   'Belum ada task.': 'No tasks yet.',
   'Lihat board': 'View board',
   'Kembali ke Overview': 'Back to Overview',
+  'Sumber Task': 'Task source',
   'Proporsi task per status': 'Share of tasks by status',
   'Mengikuti urutan List/Board': 'In List/Board order',
   'Rincian status untuk tiap project socmed': 'Status breakdown for each socmed project',

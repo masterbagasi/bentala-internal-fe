@@ -77,7 +77,7 @@ export default function TeamPage() {
         {/* Overview is the single landing — drill into a person by clicking their
             row in the By-account table (no per-account tab strip). */}
         {active === 'overview' && (
-          <TaskDashboard posts={allPosts} accounts={accounts} onAccountClick={a => { setInnerTab('board'); setActive(a.email) }} />
+          <TaskDashboard posts={allPosts} accounts={accounts} projects={bf.projects} onAccountClick={a => { setInnerTab('board'); setActive(a.email) }} />
         )}
         {activeAcct && (
           <>
@@ -93,7 +93,7 @@ export default function TeamPage() {
               </div>
             </div>
             {innerTab === 'dashboard'
-              ? <TaskDashboard posts={posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, activeAcct))} />
+              ? <TaskDashboard posts={posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, activeAcct))} projects={bf.projects} />
               : <BPIPage ref={ref} entity="bpi" mineScope={activeAcct} activeTab={innerTab as BPITabType} filters={bf.filters} currentUser="" />}
           </>
         )}
