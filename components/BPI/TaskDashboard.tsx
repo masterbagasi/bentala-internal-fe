@@ -115,8 +115,10 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
 
   // Single combined table: account · 5 status columns · N source columns · total.
   const nSrc = sourceCols?.length ?? 0
-  const colGrid = `minmax(190px, 1.5fr) repeat(5, 52px) repeat(${nSrc}, minmax(70px, 0.85fr)) 72px`
-  const divider: React.CSSProperties = { borderLeft: '1px solid var(--border)' }
+  const colGrid = `minmax(200px, 1.4fr) repeat(5, 58px) repeat(${nSrc}, minmax(82px, 0.9fr)) 78px`
+  // Group boundary: a slightly brighter rule than the row separators, so STATUS /
+  // SOURCE / TOTAL read as three blocks rather than one long strip.
+  const groupDiv: React.CSSProperties = { borderLeft: '1px solid rgba(255,255,255,0.12)', paddingLeft: 10 }
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -156,18 +158,23 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
             <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
                 <div style={{ minWidth: 540 + nSrc * 78 }}>
-                  {/* Header */}
-                  <div style={{ display: 'grid', gridTemplateColumns: colGrid, gap: 8, alignItems: 'center', padding: '9px 14px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
+                  {/* Group-label tier — brackets the Status and Source blocks. */}
+                  <div style={{ display: 'grid', gridTemplateColumns: colGrid, gap: 8, alignItems: 'end', padding: '9px 14px 4px', background: 'var(--bg2)' }}>
+                    <span />
+                    <span style={{ ...gStyle, gridColumn: '2 / 7', ...groupDiv }}>{t('Status')}</span>
+                    <span style={{ ...gStyle, gridColumn: `7 / ${7 + nSrc}`, ...groupDiv }}>{t('Sumber')}</span>
+                    <span style={{ ...gStyle, gridColumn: `${7 + nSrc} / ${8 + nSrc}`, ...groupDiv, textAlign: 'right' }}>{t('Total')}</span>
+                  </div>
+                  {/* Column-label tier. */}
+                  <div style={{ display: 'grid', gridTemplateColumns: colGrid, gap: 8, alignItems: 'center', padding: '0 14px 9px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
                     <span style={hStyle}>{t('Akun')}</span>
-                    {WS_STATUS_COLS.map(c => (
-                      <span key={c.key} style={{ ...hStyle, textAlign: 'center', display: 'inline-flex', gap: 5, alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ width: 7, height: 7, borderRadius: 2, background: c.color }} />{SHORT[c.key]}
-                      </span>
+                    {WS_STATUS_COLS.map((c, idx) => (
+                      <span key={c.key} style={{ ...hStyle, textAlign: 'center', whiteSpace: 'nowrap', color: c.color, ...(idx === 0 ? groupDiv : null) }}>{SHORT[c.key]}</span>
                     ))}
                     {sourceCols.map((c, idx) => (
-                      <span key={c.key} style={{ ...hStyle, textAlign: 'center', ...(idx === 0 ? divider : null), paddingLeft: idx === 0 ? 8 : 0 }}>{c.name}</span>
+                      <span key={c.key} style={{ ...hStyle, textAlign: 'center', lineHeight: 1.25, ...(idx === 0 ? groupDiv : null) }}>{c.name}</span>
                     ))}
-                    <span style={{ ...hStyle, textAlign: 'right', ...divider, paddingLeft: 8 }}>{t('Total')}</span>
+                    <span />
                   </div>
                   {/* Rows */}
                   {rows.map((r, i) => (
@@ -191,15 +198,15 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
                           <span style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.email}</span>
                         </span>
                       </div>
-                      {WS_STATUS_COLS.map(c => {
+                      {WS_STATUS_COLS.map((c, idx) => {
                         const v = r.status[c.key] ?? 0
-                        return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? c.color : 'var(--text3)' }}>{v}</span>
+                        return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? c.color : 'var(--text3)', ...(idx === 0 ? groupDiv : null) }}>{v}</span>
                       })}
                       {sourceCols.map((c, idx) => {
                         const v = r.source[c.key] ?? 0
-                        return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? (c.key === 'personal' ? '#a78bfa' : 'var(--text)') : 'var(--text3)', ...(idx === 0 ? divider : null), paddingLeft: idx === 0 ? 8 : 0 }}>{v}</span>
+                        return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? (c.key === 'personal' ? '#a78bfa' : 'var(--text)') : 'var(--text3)', ...(idx === 0 ? groupDiv : null) }}>{v}</span>
                       })}
-                      <span style={{ textAlign: 'right', fontSize: 13, fontWeight: 800, color: 'var(--text)', ...divider, paddingLeft: 8 }}>{r.total}</span>
+                      <span style={{ textAlign: 'right', fontSize: 13, fontWeight: 800, color: 'var(--text)', ...groupDiv }}>{r.total}</span>
                     </div>
                   ))}
                 </div>
@@ -229,6 +236,11 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
 
 const hStyle: React.CSSProperties = {
   fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text3)',
+}
+
+// Group eyebrow (STATUS / SOURCE / TOTAL) — brighter than the column labels.
+const gStyle: React.CSSProperties = {
+  fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text2)', textAlign: 'center',
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {

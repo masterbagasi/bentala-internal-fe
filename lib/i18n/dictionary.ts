@@ -37,6 +37,7 @@ const SEED: Record<string, string> = {
   'Lihat board': 'View board',
   'Kembali ke Overview': 'Back to Overview',
   'Sumber Task': 'Task source',
+  'Sumber': 'Source',
   'Proporsi task per status': 'Share of tasks by status',
   'Mengikuti urutan List/Board': 'In List/Board order',
   'Rincian status untuk tiap project socmed': 'Status breakdown for each socmed project',
