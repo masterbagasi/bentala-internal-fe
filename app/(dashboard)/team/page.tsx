@@ -54,8 +54,9 @@ export default function TeamPage() {
     [accounts, active],
   )
 
+  // Only briefed tasks count (To Do List = brief), matching the WS boards.
   const allPosts = useMemo(
-    () => posts.filter(p => !p.deleted_at && accounts.some(a => isAccountTask(p, a))),
+    () => posts.filter(p => !p.deleted_at && p.status !== 'todo' && accounts.some(a => isAccountTask(p, a))),
     [posts, accounts],
   )
 
@@ -90,7 +91,7 @@ export default function TeamPage() {
               ))}
             </div>
             {innerTab === 'dashboard'
-              ? <TaskDashboard posts={posts.filter(p => !p.deleted_at && isAccountTask(p, activeAcct))} />
+              ? <TaskDashboard posts={posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, activeAcct))} />
               : <BPIPage ref={ref} entity="bpi" mineScope={activeAcct} activeTab={innerTab as BPITabType} filters={bf.filters} currentUser="" />}
           </>
         )}

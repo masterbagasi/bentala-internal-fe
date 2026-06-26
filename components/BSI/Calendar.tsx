@@ -16,6 +16,8 @@ interface ContentCalendarProps {
   /** Board filters — applied live so the calendar reacts the moment a chip
    *  is toggled, exactly like the List/Board views (no refresh needed). */
   filters?: PostFilters
+  /** My Task mode: scope to tasks tagging me OR created by me (overrides entity). */
+  mineScope?: { email: string; name: string }
 }
 
 // Mirror of the List/Board predicate so the calendar filters identically.
@@ -41,7 +43,7 @@ const WS_MAP: Record<string, string> = { 'ws-fz': 'Video Production', 'ws-rn': '
 
 const FALLBACK_COLOR = '#8b8fff'
 
-export function ContentCalendar({ entity, onPostClick, filters }: ContentCalendarProps) {
+export function ContentCalendar({ entity, onPostClick, filters, mineScope }: ContentCalendarProps) {
   const t = useT()
   const { posts, calState, setCalState } = useStore(useShallow((s) => ({ posts: s.posts, calState: s.calState, setCalState: s.setCalState })))
   // A task's accent = its project's brand colour (same as the sidebar/menu
@@ -69,8 +71,18 @@ export function ContentCalendar({ entity, onPostClick, filters }: ContentCalenda
 
   function getEntityPosts(): Post[] {
     const member = WS_MAP[entity]
-    const scoped = entity === 'all'
-      ? posts.slice()
+    const scoped = mineScope
+      ? posts.filter(p => {
+          // Only briefed tasks enter an account's worksheet, like the WS boards
+          // (Video Production / Design Studio) — a 'todo' (Idea) hasn't entered yet.
+          if (p.status === 'todo') return false
+          const tags = (p.tagged || []).map(x => (x || '').toLowerCase())
+          const taggedMe = tags.includes(mineScope.email.toLowerCase())
+          const myPersonal = p.entity === 'personal' && (p.created_by || '') === mineScope.name
+          return taggedMe || myPersonal
+        })
+      : entity === 'all'
+      ? posts.filter(p => p.entity !== 'personal') // private My Task bucket stays out
       : member
         ? posts.filter(p => (p.pics || []).includes(member))
         : posts.filter(p => p.entity === entity)

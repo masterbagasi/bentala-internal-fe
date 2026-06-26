@@ -282,11 +282,11 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
         // All Project shows every project EXCEPT the private My Task bucket.
         ? p.entity === 'personal'
         : picScope ? !(p.pics || []).includes(picScope) : p.entity !== entity) return false
-      // The per-PIC workspace boards only pick a post up once it's briefed: while
-      // it's still at 'todo' (Socmed Management "Idea") it must NOT appear there.
-      // My Task is different — a task that tags you is a direct assignment, so it
-      // shows at any status (a 'todo' folds into the To Do List column).
-      if (picScope && p.status === 'todo') return false
+      // Like the per-PIC workspace boards (Video Production / Design Studio),
+      // My Task / Team only pick a task up once it's briefed: while it's still at
+      // 'todo' (Socmed Management "Idea") it must NOT appear in an account's
+      // worksheet — it surfaces only when the status reaches 'brief' (To Do List).
+      if ((picScope || mineScope) && p.status === 'todo') return false
       if (filters.platforms.length && !filters.platforms.some(x => ((p.platforms || []) as string[]).includes(x))) return false
       if (filters.contentTypes.length && !filters.contentTypes.some(x => (p.content_types || []).includes(x))) return false
       if (filters.tagged.length && !filters.tagged.some(x => (p.tagged || []).includes(x))) return false

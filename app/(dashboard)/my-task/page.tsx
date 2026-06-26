@@ -30,8 +30,11 @@ export default function MyTaskPage() {
     })
   }, [])
 
+  // Only briefed tasks enter the worksheet (To Do List = brief), like Video
+  // Production / Design Studio — an 'todo' (Idea) hasn't entered yet, so the
+  // Dashboard summary excludes it too (stays in sync with the board).
   const myPosts = useMemo(
-    () => (me ? posts.filter(p => !p.deleted_at && isAccountTask(p, me)) : []),
+    () => (me ? posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, me)) : []),
     [posts, me],
   )
 
