@@ -1,16 +1,110 @@
-import { PageHeader } from '@/components/shared/PageHeader'
-import { TeamPage } from '@/components/Team'
-import { Section } from '@/components/website/Section'
+'use client'
 
-export default function TeamPageRoute() {
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
+import { BPIPage, useBoardFilter, isAccountTask, type BPIPageHandle, type BPITabType } from '@/components/BPI'
+import { TaskDashboard } from '@/components/BPI/TaskDashboard'
+import { useStore } from '@/hooks/useStore'
+import { useT } from '@/lib/i18n/LanguageProvider'
+import { getSupabase } from '@/lib/supabase'
+import { isSuperAdmin } from '@/lib/access'
+
+type Acct = { email: string; name: string }
+
+// "Team" — super-admin-only window into every account's board. Overview = a
+// summary across all accounts; each account tab = that account's full board.
+export default function TeamPage() {
+  const t = useT()
+  const router = useRouter()
+  const ref = useRef<BPIPageHandle>(null)
+  const bf = useBoardFilter('all')
+  const posts = useStore(s => s.posts)
+
+  const [ready, setReady] = useState(false)
+  const [accounts, setAccounts] = useState<Acct[]>([])
+  // active = 'overview' or an account email
+  const [active, setActive] = useState<string>('overview')
+  const [innerTab, setInnerTab] = useState<TabKey>('board')
+
+  // Guard: super admin only. Non-supers are bounced to their own My Task.
+  useEffect(() => {
+    let cancelled = false
+    getSupabase().auth.getUser().then(({ data }) => {
+      if (cancelled) return
+      if (!isSuperAdmin(data.user?.email)) { router.replace('/my-task'); return }
+      setReady(true)
+    })
+    return () => { cancelled = true }
+  }, [router])
+
+  // Accounts list drives the per-account tabs.
+  useEffect(() => {
+    if (!ready) return
+    let cancelled = false
+    fetch('/api/accounts')
+      .then(r => (r.ok ? r.json() : { accounts: [] }))
+      .then((d: { accounts?: Acct[] }) => { if (!cancelled) setAccounts(d.accounts ?? []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [ready])
+
+  const activeAcct = useMemo(
+    () => accounts.find(a => a.email === active) ?? null,
+    [accounts, active],
+  )
+
+  const allPosts = useMemo(
+    () => posts.filter(p => !p.deleted_at && accounts.some(a => isAccountTask(p, a))),
+    [posts, accounts],
+  )
+
+  if (!ready) return null
+
   return (
     <>
-      <PageHeader title="Team & Roles" />
-      <div className="flex-1 overflow-y-auto min-h-0" style={{ padding: 24 }}>
-        <Section title="Anggota Tim">
-          <TeamPage />
-        </Section>
+      <PageHeader
+        title="Team"
+        action={
+          activeAcct
+            ? <button onClick={() => ref.current?.openEdit()} style={{ height: 32, padding: '0 14px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>+ {t('Tambah Task')}</button>
+            : undefined
+        }
+      />
+
+      {/* Account switcher row */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg2)' }}>
+        <button onClick={() => setActive('overview')} style={chip(active === 'overview')}>{t('Overview')}</button>
+        {accounts.map(a => (
+          <button key={a.email} onClick={() => setActive(a.email)} style={chip(active === a.email)}>{a.name}</button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {active === 'overview' && <TaskDashboard posts={allPosts} accounts={accounts} />}
+        {activeAcct && (
+          <>
+            <div style={{ display: 'flex', gap: 6, padding: '8px 24px 0' }}>
+              {(['dashboard', 'board', 'list', 'calendar', 'files'] as TabKey[]).map(tk => (
+                <button key={tk} onClick={() => setInnerTab(tk)} style={chip(innerTab === tk)}>{tk}</button>
+              ))}
+            </div>
+            {innerTab === 'dashboard'
+              ? <TaskDashboard posts={posts.filter(p => !p.deleted_at && isAccountTask(p, activeAcct))} />
+              : <BPIPage ref={ref} entity="bpi" mineScope={activeAcct} activeTab={innerTab as BPITabType} filters={bf.filters} currentUser="" />}
+          </>
+        )}
       </div>
     </>
   )
+}
+
+function chip(activeState: boolean): React.CSSProperties {
+  return {
+    height: 30, padding: '0 12px', borderRadius: 8, cursor: 'pointer',
+    border: `1px solid ${activeState ? 'var(--accent)' : 'var(--border)'}`,
+    background: activeState ? 'rgba(108,99,255,0.15)' : 'var(--bg3)',
+    color: activeState ? 'var(--accent)' : 'var(--text2)',
+    fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', textTransform: 'capitalize',
+  }
 }
