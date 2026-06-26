@@ -356,7 +356,7 @@ function Field({ label, children, required, hint }: { label: string; children: R
 // portal with position:fixed so it never moves with the modal scroll — it stays
 // anchored to the field and only scrolls internally. Closes on outside click or
 // when the page behind it scrolls.
-function Combo({ value, onChange, options, placeholder, searchable = true }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; searchable?: boolean }) {
+export function Combo({ value, onChange, options, placeholder, searchable = true }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; searchable?: boolean }) {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null)

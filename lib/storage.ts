@@ -3,6 +3,18 @@ import { getSupabase } from './supabase'
 
 const BUCKET = 'bsi-website'
 
+// Build a storage key that KEEPS the original filename as the final segment, so
+// the UI shows real names (e.g. "brief deck.pdf") instead of an opaque id. The
+// timestamp+random goes in a folder to guarantee uniqueness without clobbering
+// the name: `${prefix}/${stamp}-${rand}/${original}`.
+function buildUploadPath(prefix: string, fileName: string, ext: string): string {
+  const safePrefix = prefix.replace(/[^a-z0-9-]/gi, '').toLowerCase() || 'misc'
+  const stamp = Date.now()
+  const random = Math.random().toString(36).slice(2, 8)
+  const safeName = (fileName || '').trim().replace(/[^\w.\-() ]+/g, '_').replace(/\s+/g, ' ').slice(0, 120) || `file.${ext}`
+  return `${safePrefix}/${stamp}-${random}/${safeName}`
+}
+
 /**
  * Resumable (TUS) upload for large files (videos > 50 MB).
  *
@@ -23,10 +35,7 @@ export function uploadFileResumable(
 ): { promise: Promise<UploadResult>; abort: () => void } {
   const supabase = getSupabase()
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
-  const safePrefix = prefix.replace(/[^a-z0-9-]/gi, '').toLowerCase() || 'misc'
-  const stamp = Date.now()
-  const random = Math.random().toString(36).slice(2, 8)
-  const path = `${safePrefix}/${stamp}-${random}.${ext}`
+  const path = buildUploadPath(prefix, file.name, ext)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -126,10 +135,7 @@ export async function uploadFile(file: File, prefix: string): Promise<UploadResu
   const supabase = getSupabase()
 
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
-  const safePrefix = prefix.replace(/[^a-z0-9-]/gi, '').toLowerCase() || 'misc'
-  const stamp = Date.now()
-  const random = Math.random().toString(36).slice(2, 8)
-  const path = `${safePrefix}/${stamp}-${random}.${ext}`
+  const path = buildUploadPath(prefix, file.name, ext)
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
     cacheControl: '3600',
@@ -176,10 +182,7 @@ export function uploadFileWithProgress(
 ): { promise: Promise<UploadResult>; abort: () => void } {
   const supabase = getSupabase()
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
-  const safePrefix = prefix.replace(/[^a-z0-9-]/gi, '').toLowerCase() || 'misc'
-  const stamp = Date.now()
-  const random = Math.random().toString(36).slice(2, 8)
-  const path = `${safePrefix}/${stamp}-${random}.${ext}`
+  const path = buildUploadPath(prefix, file.name, ext)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

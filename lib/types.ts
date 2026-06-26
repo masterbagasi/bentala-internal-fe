@@ -94,6 +94,7 @@ export interface Post {
   created_by: string      // name of the user who created the post
   ratio: string           // content aspect ratio, e.g. '1:1', '9:16'
   files: string[]         // uploaded attachment URLs (any file type)
+  reference_files?: string[] // separate "Reference" bucket (links + uploads)
   revisions?: PostRevision[] // revision requests (Socmed Management)
   created_at: string
   updated_at: string
@@ -410,6 +411,9 @@ export interface ClientInteraction {
   summary: string
   occurred_at: string
   next_follow_up: string | null
+  next_follow_up_via: string | null
+  next_follow_up_target: string | null
+  next_follow_up_note: string | null
   follow_up_done: boolean
   files: string[]
   author_email: string | null

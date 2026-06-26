@@ -49,6 +49,7 @@ const DEFAULT_FORM = {
   tagged: [] as string[],
   ratio: '',
   files: [] as string[],
+  reference_files: [] as string[],
 }
 
 export function PostModal({ open, onClose, editId, entity, projectScope }: PostModalProps) {
@@ -63,7 +64,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
   const [originalTagged, setOriginalTagged] = useState<string[]>([])
   // Snapshot of the post's fields at edit-time, used to log what changed.
   const [originalForm, setOriginalForm] = useState<typeof DEFAULT_FORM | null>(null)
-  const [linkInput, setLinkInput] = useState('')
+  const [refLinkInput, setRefLinkInput] = useState('')
   const [currentUserName, setCurrentUserName] = useState('')
   const [currentUserEmail, setCurrentUserEmail] = useState('')
   // Real login accounts (for the Tag Akun picker) — replaces the old dummy
@@ -96,15 +97,12 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
     }
   }, [open])
 
-  function addLink() {
-    const v = linkInput.trim()
+  function addRefLink() {
+    const v = refLinkInput.trim()
     if (!v) return
-    // Never persist a javascript:/data:/vbscript:/file:/blob: link — it would
-    // later be rendered as a clickable href (XSS). Plain links and http(s) URLs
-    // are fine; a bare host (drive.google.com) gets https:// at render time.
     if (DANGEROUS_SCHEME.test(v)) { alert(t('Link tidak valid — gunakan URL http(s).')); return }
-    setForm(f => (f.files.includes(v) ? f : { ...f, files: [...f.files, v] }))
-    setLinkInput('')
+    setForm(f => (f.reference_files.includes(v) ? f : { ...f, reference_files: [...f.reference_files, v] }))
+    setRefLinkInput('')
   }
 
   // Hashtags: auto-prefix '#' on the first char and on every space.
@@ -162,6 +160,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
         tagged:        p.tagged || [],
         ratio:         p.ratio || '',
         files:         p.files || [],
+        reference_files: p.reference_files || [],
       }
       setForm(loaded)
       setOriginalTagged(p.tagged || [])
@@ -272,6 +271,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
       tagged:        form.tagged,
       ratio:         form.ratio,
       files:         form.files,
+      reference_files: form.reference_files,
     }
 
     if (editId) {
@@ -297,6 +297,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
         if (!same(form.content_types, o.content_types)) { upd.content_types = data.content_types; upd.pics = data.pics }
         if (!same(form.tagged, o.tagged)) upd.tagged = data.tagged
         if (!same(form.files, o.files)) upd.files = data.files
+        if (!same(form.reference_files, o.reference_files)) upd.reference_files = data.reference_files
         if (!same(form.video_link, o.video_link)) upd.video_link = data.video_link
         if (!same(form.design_link, o.design_link)) upd.design_link = data.design_link
         if (!same(form.video_file_url, o.video_file_url)) upd.video_file_url = data.video_file_url
@@ -352,8 +353,8 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
 
   // Split the attachment list: pasted links render as openable chips below,
   // uploaded files go to the media uploader (which previews them as thumbnails).
-  const attachmentLinks = form.files.filter(u => !isUploadedFile(u))
-  const attachmentFiles = form.files.filter(isUploadedFile)
+  const refLinks = form.reference_files.filter(u => !isUploadedFile(u))
+  const refFiles = form.reference_files.filter(isUploadedFile)
 
   return (
     <Modal
@@ -510,75 +511,39 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
           />
         </FormGroup>
 
-        {/* 8. Lampiran File — link atau upload */}
-        <FormGroup label={t('Lampiran File')}>
+        {/* 8. Reference — separate bucket (links + uploads) shown as its own
+            section in the task detail. (File Attachments are added from the task
+            detail, not here.) */}
+        <FormGroup label={t('Referensi')}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             <input
               type="text"
               inputMode="url"
               placeholder={t('Tempel link apa pun (Drive / Figma / URL)...')}
-              value={linkInput}
-              onChange={e => setLinkInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLink() } }}
+              value={refLinkInput}
+              onChange={e => setRefLinkInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRefLink() } }}
               style={{ flex: 1 }}
             />
-            <button
-              type="button"
-              onClick={addLink}
-              style={{
-                flexShrink: 0, padding: '0 16px', borderRadius: 8, cursor: 'pointer',
-                background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 13, fontWeight: 600,
-              }}
-            >
+            <button type="button" onClick={addRefLink} style={{ flexShrink: 0, padding: '0 16px', borderRadius: 8, cursor: 'pointer', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>
               + Link
             </button>
           </div>
-
-          {/* Pasted links — openable chips. Kept separate from the uploader so a
-              Drive/Figma/any URL isn't rendered as a broken <img> thumbnail. */}
-          {attachmentLinks.length > 0 && (
+          {refLinks.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
-              {attachmentLinks.map(link => (
-                <div
-                  key={link}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: 8,
-                    background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
-                  }}
-                >
+              {refLinks.map(link => (
+                <div key={link} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8 }}>
                   <span aria-hidden style={{ fontSize: 14, flexShrink: 0 }}>🔗</span>
-                  <a
-                    href={linkHref(link)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={link}
-                    style={{
-                      flex: 1, minWidth: 0, fontSize: 12, color: 'var(--accent)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none',
-                    }}
-                  >
-                    {link}
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setForm(f => ({ ...f, files: f.files.filter(u => u !== link) }))}
-                    title={t('Hapus')}
-                    style={{
-                      width: 28, height: 28, flexShrink: 0, borderRadius: 6, cursor: 'pointer',
-                      background: 'var(--bg2)', border: '1px solid var(--border)', color: '#ff6b6b', fontSize: 14,
-                    }}
-                  >
-                    ×
-                  </button>
+                  <a href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={link} style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}>{link}</a>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, reference_files: f.reference_files.filter(u => u !== link) }))} title={t('Hapus')} style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 6, cursor: 'pointer', background: 'var(--bg2)', border: '1px solid var(--border)', color: '#ff6b6b', fontSize: 14 }}>×</button>
                 </div>
               ))}
             </div>
           )}
-
           <MultiFileUploader
-            value={attachmentFiles}
-            onChange={urls => setForm(f => ({ ...f, files: [...f.files.filter(u => !isUploadedFile(u)), ...urls] }))}
-            prefix="posts/files"
+            value={refFiles}
+            onChange={urls => setForm(f => ({ ...f, reference_files: [...f.reference_files.filter(u => !isUploadedFile(u)), ...urls] }))}
+            prefix="posts/reference"
             accept="all"
           />
         </FormGroup>

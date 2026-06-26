@@ -7,6 +7,7 @@ import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
 import { deleteFile } from '@/lib/storage'
+import { isUploadedFile } from '@/lib/attachments'
 import { formatDate } from '@/lib/utils'
 import { TeamAvatar } from '@/components/shared/StatusBadge'
 import { BPI_STATUS_COLS } from '@/lib/constants'
@@ -327,6 +328,17 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
   // the order is a clean newest→oldest with nothing sinking to the bottom.
   attachments.sort((a, b) => (b.at ?? -1) - (a.at ?? -1))
 
+  // Reference bucket — a separate list (post.reference_files), added via Add/Edit
+  // Task, shown as its own section below File Attachments.
+  const referenceItems: { icon: string; label: string; url: string; at?: number }[] = []
+  const seenRef = new Set<string>()
+  ;(post.reference_files || []).forEach(u => {
+    if (!u || seenRef.has(u)) return
+    seenRef.add(u)
+    referenceItems.push({ icon: attachIcon(u), label: linkNames[u] ?? attachLabel(u), url: u, at: uploadTimeFromUrl(u) ?? postCreatedMs })
+  })
+  referenceItems.sort((a, b) => (b.at ?? -1) - (a.at ?? -1))
+
   // Files that can be previewed in-app (image/video/pdf) — links are excluded,
   // so the preview popup can page left/right through actual files only.
   const previewFiles = attachments.filter(a => previewKind(a.url) !== 'other')
@@ -434,6 +446,17 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     } catch (e) {
       alert(t('Gagal menghapus: ') + ((e as { message?: string })?.message || t('Coba lagi.')))
     }
+  }
+
+  async function deleteReference(url: string) {
+    if (!post) return
+    const fresh = useStore.getState().posts.find(p => p.id === post.id) ?? post
+    const next = (fresh.reference_files || []).filter(u => u !== url)
+    upsertPost({ ...fresh, reference_files: next } as Post) // optimistic
+    const sb = getSupabase() as unknown as { from: (t: string) => any }
+    const { error } = await sb.from('posts').update({ reference_files: next }).eq('id', post.id)
+    if (error) { upsertPost(fresh); alert(t('Gagal menghapus: ') + (error.message || '')); return }
+    try { if (isUploadedFile(url)) await deleteFile(url) } catch { /* best-effort */ }
   }
 
   return (
@@ -587,6 +610,28 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       {post.caption && <CopyField label="Caption" value={post.caption} mark={captionMark} />}
       {post.hashtags && <CopyField label="Hashtags" value={post.hashtags} color="#6b9bff" mark={hashtagsMark} />}
       {post.notes && <CopyField label={t('Catatan')} value={post.notes} mark={notesMark} />}
+
+      {/* Reference — separate bucket; added via Add/Edit Task. Shown ABOVE File
+          Attachments. */}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>{t('Referensi')}</div>
+        {referenceItems.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, alignItems: 'start' }}>
+            {referenceItems.map(a => (
+              <AttachCard
+                key={a.url}
+                label={a.label}
+                url={a.url}
+                time={a.at ? formatUploadTime(a.at) : undefined}
+                onOpen={() => openAttachment(a.url, a.label)}
+                onDelete={() => setConfirmReq({ message: t('Hapus "{label}"?').replace('{label}', a.label), onConfirm: () => deleteReference(a.url) })}
+              />
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text3)', padding: '4px 2px' }}>{t('Belum ada reference. Tambah lewat Edit Task.')}</div>
+        )}
+      </div>
 
       {/* Attachments — links + uploaded files + an uploader so files can be
           added straight from the details view (no need to open Edit). */}
@@ -788,9 +833,12 @@ function attachLabel(url: string): string {
 // so the leading number in the filename is the upload time. Returns ms epoch, or
 // undefined for pasted links / non-conforming names.
 function uploadTimeFromUrl(url: string): number | undefined {
-  let name = url
-  try { name = new URL(url).pathname.split('/').pop() || url } catch { /* keep raw */ }
-  const m = name.match(/^(\d{10,16})/)
+  // The upload timestamp prefixes a path segment — historically the filename
+  // (`${stamp}-${rand}.ext`), now the parent folder (`${stamp}-${rand}/name`).
+  // Scan segments so both layouts resolve a time.
+  let segs: string[] = [url]
+  try { segs = new URL(url).pathname.split('/').filter(Boolean) } catch { /* keep raw */ }
+  const m = segs.map(s => s.match(/^(\d{10,16})/)).find(Boolean)
   if (!m) return undefined
   let n = Number(m[1])
   if (!Number.isFinite(n)) return undefined

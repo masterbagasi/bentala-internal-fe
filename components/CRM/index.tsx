@@ -13,6 +13,7 @@ import { useLogActivity } from '@/hooks/useData'
 import { logStageChange } from '@/lib/log-interaction'
 import { followUpTone, todayISODate } from '@/lib/follow-up'
 import { StageReasonModal } from './StageReasonModal'
+import { StageSelect } from './StageSelect'
 import type { Client, ClientStage } from '@/lib/types'
 
 export function CRMPage() {
@@ -350,7 +351,8 @@ export function CRMPage() {
       )}
 
       {detailId && (
-        <Modal open onClose={() => setDetailId(null)} title={t('Detail Client')} maxWidth={1040}>
+        <Modal open onClose={() => setDetailId(null)} title={t('Detail Client')} maxWidth={1040} className="h-[88vh]"
+          headerRight={(() => { const dc = clients.find(c => c.id === detailId); return dc ? <StageSelect client={dc} /> : null })()}>
           <ClientProfile id={detailId} onClose={() => setDetailId(null)} />
         </Modal>
       )}

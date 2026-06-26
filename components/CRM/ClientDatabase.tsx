@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
@@ -8,11 +9,9 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/utils'
 import { CRM_STAGES, STAGE_LABELS } from '@/lib/constants'
-import { Modal, ConfirmDialog, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
-import { ClientProfile } from './ClientProfile'
+import { ConfirmDialog } from '@/components/shared/Modal'
 import { ClientModal } from '@/components/CRM'
 import { LeadFormModal, CONTACT_CHANNELS, type NewLeadInput } from './LeadFormModal'
-import { ContactDetails } from './ContactDetails'
 import type { Client } from '@/lib/types'
 import type { BsiLead } from '@/lib/website-types'
 
@@ -121,6 +120,7 @@ function leadToContact(l: BsiLead): Contact {
 
 export function ClientDatabase() {
   const t = useT()
+  const router = useRouter()
   const { clients, projects } = useStore(useShallow((s) => ({ clients: s.clients, projects: s.projects })))
   const removeClient = useStore((s) => s.removeClient)
   const [leads, setLeads] = useState<BsiLead[]>([])
@@ -132,8 +132,6 @@ export function ClientDatabase() {
   const [fIndustri, setFIndustri] = useState('')
   const [sortKey, setSortKey] = useState<'brand' | 'date'>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  const [detailClientId, setDetailClientId] = useState<string | null>(null)
-  const [peekLead, setPeekLead] = useState<BsiLead | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [editLead, setEditLead] = useState<BsiLead | null>(null)
   const [convertLead, setConvertLead] = useState<BsiLead | null>(null)
@@ -173,6 +171,22 @@ export function ClientDatabase() {
       .then(({ data }) => { if (!cancelled) setLeads((data as BsiLead[] | null) ?? []) })
     return () => { cancelled = true }
   }, [])
+
+  // The contact-detail PAGE (/clients/database/<id>) sends Edit / + Prospect
+  // back here as ?edit=<id> / ?convert=<id> so those flows keep their existing
+  // modals + save logic. Resolve once the leads are loaded, then clean the URL.
+  const intentDone = useRef(false)
+  useEffect(() => {
+    if (intentDone.current || !leads.length) return
+    const params = new URLSearchParams(window.location.search)
+    const editId = params.get('edit'), convertId = params.get('convert')
+    if (!editId && !convertId) { intentDone.current = true; return }
+    const lead = leads.find((l) => l.id === (editId || convertId))
+    if (!lead) return // wait for the leads list (or it isn't a database contact)
+    intentDone.current = true
+    if (editId) setEditLead(lead); else setConvertLead(lead)
+    router.replace('/clients/database')
+  }, [leads, router])
 
   async function handleAddContact(input: NewLeadInput) {
     const row = { ...inputToRow(input), origin: 'manual', in_database: true, submitted_at: new Date().toISOString() }
@@ -215,7 +229,6 @@ export function ClientDatabase() {
     await getSupabase().from('bsi_leads').update({ converted_client_id: clientId }).eq('id', lead.id)
     setLeads((xs) => xs.filter((x) => x.id !== lead.id)) // now shown as its client row
     setConvertLead(null)
-    setPeekLead(null)
   }
 
   function actionsFor(r: Contact): MenuItem[] {
@@ -227,7 +240,7 @@ export function ClientDatabase() {
         onClick: () => window.open(wa ? `https://wa.me/${digits(r.contact)}` : `mailto:${r.contact}`, '_blank', 'noopener'),
       })
     }
-    items.push({ label: t('Edit'), icon: '✏️', onClick: () => (r.kind === 'client' ? setDetailClientId(r.client!.id) : setEditLead(r.lead!)) })
+    items.push({ label: t('Edit'), icon: '✏️', onClick: () => (r.kind === 'client' ? router.push(`/clients/${r.client!.id}`) : setEditLead(r.lead!)) })
     if (r.kind === 'lead') items.push({ label: t('Add Prospect'), onClick: () => setConvertLead(r.lead!) })
     items.push({ label: t('Delete'), danger: true, onClick: () => setConfirmDelete(r) })
     return items
@@ -337,7 +350,13 @@ export function ClientDatabase() {
             ) : rows.map((r) => (
               <tr
                 key={r.id}
-                onClick={() => (r.kind === 'client' ? setDetailClientId(r.client!.id) : setPeekLead(r.lead!))}
+                onClick={() => {
+                  // From the Database (contacts) menu every row opens the Detail
+                  // Kontak page. A client shows its linked contact record (lead);
+                  // a manual client with no lead falls back to its client detail.
+                  if (r.kind === 'client') router.push(r.client!.lead_id ? `/clients/database/${r.client!.lead_id}` : `/clients/${r.client!.id}`)
+                  else router.push(`/clients/database/${r.lead!.id}`)
+                }}
                 style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                 onMouseOver={(e) => (e.currentTarget.style.background = 'var(--bg2)')}
                 onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
@@ -366,12 +385,6 @@ export function ClientDatabase() {
         </table>
       </div>
 
-      {detailClientId && (
-        <Modal open onClose={() => setDetailClientId(null)} title={t('Detail Client')} maxWidth={1040}>
-          <ClientProfile id={detailClientId} onClose={() => setDetailClientId(null)} />
-        </Modal>
-      )}
-      {peekLead && <LeadPeek lead={peekLead} onClose={() => setPeekLead(null)} onConvert={() => setConvertLead(peekLead)} onEdit={() => { setEditLead(peekLead); setPeekLead(null) }} t={t} />}
       {showAdd && <LeadFormModal title={t('Tambah kontak')} onClose={() => setShowAdd(false)} onSave={handleAddContact} />}
       {editLead && <LeadFormModal title={t('Edit kontak')} saveLabel={t('Simpan perubahan')} initial={leadToInput(editLead)} onClose={() => setEditLead(null)} onSave={handleEditSave} />}
       <ConfirmDialog
@@ -549,18 +562,6 @@ function KebabMenu({ items }: { items: MenuItem[] }) {
         document.body,
       )}
     </>
-  )
-}
-
-// Detail Kontak — wraps the shared ContactDetails (synced with the add/edit form).
-function LeadPeek({ lead, onClose, onConvert, onEdit, t }: { lead: BsiLead; onClose: () => void; onConvert: () => void; onEdit: () => void; t: (s: string) => string }) {
-  return (
-    <Modal
-      open onClose={onClose} title={t('Detail Kontak')} maxWidth={560}
-      footer={<><BtnSecondary onClick={onEdit}>{t('Edit')}</BtnSecondary><BtnPrimary onClick={onConvert}>+ Prospect</BtnPrimary></>}
-    >
-      <ContactDetails lead={lead} showEmpty />
-    </Modal>
   )
 }
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { MultiFileUploader } from '@/components/website/FileUploader'
+import { Combo } from './LeadFormModal'
 import { DANGEROUS_SCHEME, isUploadedFile, linkHref } from '@/lib/attachments'
 import type { InteractionType } from '@/lib/types'
 
@@ -11,6 +12,23 @@ const TYPES: { value: InteractionType; label: string }[] = [
   { value: 'call', label: '📞 Telepon' }, { value: 'meeting', label: '🤝 Meeting' },
   { value: 'whatsapp', label: '💬 WhatsApp' }, { value: 'email', label: '✉️ Email' }, { value: 'note', label: '📝 Catatan' },
 ]
+
+// Channels for the NEXT follow-up — how the next contact will happen.
+const FOLLOWUP_CHANNELS = ['WhatsApp', 'Telepon', 'Email', 'Zoom Meeting', 'Google Meet', 'Instagram', 'Meeting langsung', 'Lainnya']
+
+// Per-channel destination field — what to fill in (phone, account, link, …).
+function targetPlaceholder(via: string): string {
+  switch (via) {
+    case 'WhatsApp':
+    case 'Telepon': return 'Nomor telepon…'
+    case 'Email': return 'Alamat email…'
+    case 'Instagram': return 'Username / akun Instagram…'
+    case 'Zoom Meeting':
+    case 'Google Meet': return 'Link meeting…'
+    case 'Meeting langsung': return 'Lokasi pertemuan…'
+    default: return 'Detail tujuan…'
+  }
+}
 
 function todayInput(): string {
   const d = new Date()
@@ -23,6 +41,9 @@ export function InteractionComposer({ clientId, onLogged }: { clientId: string; 
   const [summary, setSummary] = useState('')
   const [occurred, setOccurred] = useState(todayInput())
   const [followUp, setFollowUp] = useState('')
+  const [followUpVia, setFollowUpVia] = useState('')
+  const [followUpTarget, setFollowUpTarget] = useState('')
+  const [followUpNote, setFollowUpNote] = useState('')
   const [files, setFiles] = useState<string[]>([])
   const [linkInput, setLinkInput] = useState('')
   const [saving, setSaving] = useState(false)
@@ -48,13 +69,16 @@ export function InteractionComposer({ clientId, onLogged }: { clientId: string; 
       summary: summary.trim(),
       occurred_at: new Date(occurred).toISOString(),
       next_follow_up: followUp || null,
+      next_follow_up_via: followUp ? (followUpVia || null) : null,
+      next_follow_up_target: followUp ? (followUpTarget.trim() || null) : null,
+      next_follow_up_note: followUp ? (followUpNote.trim() || null) : null,
       files,
       author_email: u.user?.email ?? null,
       author_name: meta.full_name ?? meta.name ?? u.user?.email?.split('@')[0] ?? null,
     })
     setSaving(false)
     if (error) { alert(t('Gagal menyimpan: ') + error.message); return }
-    setSummary(''); setFollowUp(''); setFiles([]); setType('call'); setOccurred(todayInput())
+    setSummary(''); setFollowUp(''); setFollowUpVia(''); setFollowUpTarget(''); setFollowUpNote(''); setFiles([]); setType('call'); setOccurred(todayInput())
     onLogged?.()
   }
 
@@ -70,8 +94,21 @@ export function InteractionComposer({ clientId, onLogged }: { clientId: string; 
         <input type="date" value={occurred} onChange={e => setOccurred(e.target.value)} />
       </div>
       <textarea rows={3} placeholder={t('Ringkasan interaksi...')} value={summary} onChange={e => setSummary(e.target.value)} style={{ fontFamily: 'inherit', resize: 'vertical' }} />
-      <label style={{ fontSize: 12, color: 'var(--text2)' }}>{t('Follow-up berikutnya (opsional)')}</label>
-      <input type="date" value={followUp} onChange={e => setFollowUp(e.target.value)} />
+
+      {/* Follow-up plan — grouped so the date, channel and note read as one unit. */}
+      <div style={{ background: 'rgba(108,99,255,0.06)', border: '1px solid rgba(108,99,255,0.18)', borderRadius: 10, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--accent)' }}>
+          {t('Follow-up berikutnya')} <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0, color: 'var(--text3)' }}>· {t('opsional')}</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <input type="date" value={followUp} onChange={e => setFollowUp(e.target.value)} />
+          <Combo searchable={false} value={followUpVia} onChange={setFollowUpVia} options={FOLLOWUP_CHANNELS} placeholder={t('Via… (opsional)')} />
+        </div>
+        {followUpVia && (
+          <input type="text" placeholder={t(targetPlaceholder(followUpVia))} value={followUpTarget} onChange={e => setFollowUpTarget(e.target.value)} />
+        )}
+        <input type="text" placeholder={t('Catatan follow-up…')} value={followUpNote} onChange={e => setFollowUpNote(e.target.value)} />
+      </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
         <input type="text" inputMode="url" placeholder={t('Tempel link apa pun...')} value={linkInput} onChange={e => setLinkInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLink() } }} style={{ flex: 1 }} />
