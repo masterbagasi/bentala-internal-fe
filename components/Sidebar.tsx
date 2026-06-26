@@ -443,6 +443,9 @@ export function Sidebar() {
         // Unified chat — a top-level item right under Dashboard (not nested in a
         // section). Lists every Socmed Management room the user can access.
         { href: '/chat', label: 'Chat', icon: <ChatBubbleIcon />, color: COLOR.blue },
+        // Personal board: tasks tagging me or created by me (ungated — everyone
+        // has their own). Route /my-task isn't a managed section.
+        { href: '/my-task', label: 'My Task', icon: <TaskIcon />, color: COLOR.green },
       ],
     },
     {
@@ -458,8 +461,8 @@ export function Sidebar() {
     },
     {
       id: 'smm',
-      badge: <BrandBadge text="smm" />,
-      fullLabel: 'Socmed Management',
+      badge: <BrandBadge text="proj" />,
+      fullLabel: 'Projects',
       items: [
         // "All Project" combined board — gated by the `smm.all` access grant
         // (super admins see it implicitly; others need it granted).
@@ -475,6 +478,9 @@ export function Sidebar() {
             { href: `/smm/${p.slug}`,        label: 'Projects',     icon: <ListIcon />,  color: p.color },
           ],
         })),
+        // Relocated from the old "Productions" section (now "Team").
+        { href: '/projects', label: 'All Projects', icon: <FolderIcon />, color: COLOR.orange },
+        { href: '/tasks',    label: 'Task Board',   icon: <TaskIcon />,   color: COLOR.green },
       ],
     },
     {
@@ -501,12 +507,17 @@ export function Sidebar() {
       ],
     },
     {
-      id: 'projects',
-      badge: <BrandBadge text="proj." />,
-      fullLabel: 'Projects',
+      id: 'team',
+      badge: <BrandBadge text="team" />,
+      fullLabel: 'Team',
       items: [
-        { href: '/projects',     label: 'All Projects',     icon: <FolderIcon />, color: COLOR.orange },
-        { href: '/tasks',        label: 'Task Board',       icon: <TaskIcon />,   color: COLOR.green },
+        // Super-admin-only window into every account's board (Overview + per
+        // account). Gated with access.isSuper here AND in middleware.
+        ...(access.isSuper
+          ? [{ href: '/team', label: 'Team', icon: <TaskIcon />, color: COLOR.green }]
+          : []),
+        // Video Production / Design Studio are kept available until the cutover
+        // (Task 9) so the live team isn't disrupted mid-work.
         { href: '/bpi-faizal',   label: 'Video Production', icon: <VideoIcon />,  color: COLOR.red },
         { href: '/bpi-reinaldi', label: 'Design Studio',    icon: <DesignIcon />, color: COLOR.purple },
       ],
