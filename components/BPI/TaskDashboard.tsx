@@ -62,7 +62,7 @@ function StatusBar({ counts, total, height = 10 }: { counts: Record<string, numb
   )
 }
 
-export function TaskDashboard({ posts, accounts }: { posts: Post[]; accounts?: Acct[] }) {
+export function TaskDashboard({ posts, accounts, onAccountClick }: { posts: Post[]; accounts?: Acct[]; onAccountClick?: (a: Acct) => void }) {
   const t = useT()
   const agg = useMemo(() => tally(posts), [posts])
   const soon = useMemo(() => dueSoon(posts), [posts])
@@ -138,7 +138,17 @@ export function TaskDashboard({ posts, accounts }: { posts: Post[]; accounts?: A
               {perAccount.map((r, i) => {
                 const pct = r.total ? Math.round((r.done / r.total) * 100) : 0
                 return (
-                  <div key={r.account.email} style={{ display: 'grid', gridTemplateColumns: grid, gap: 8, alignItems: 'center', padding: '11px 14px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+                  <div
+                    key={r.account.email}
+                    onClick={onAccountClick ? () => onAccountClick(r.account) : undefined}
+                    onKeyDown={onAccountClick ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAccountClick(r.account) } }) : undefined}
+                    role={onAccountClick ? 'button' : undefined}
+                    tabIndex={onAccountClick ? 0 : undefined}
+                    title={onAccountClick ? `${t('Lihat board')} ${r.account.name}` : undefined}
+                    onMouseOver={onAccountClick ? (e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg2)' }) : undefined}
+                    onMouseOut={onAccountClick ? (e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }) : undefined}
+                    style={{ display: 'grid', gridTemplateColumns: grid, gap: 8, alignItems: 'center', padding: '11px 14px', borderTop: i === 0 ? 'none' : '1px solid var(--border)', cursor: onAccountClick ? 'pointer' : 'default' }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                       <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: '50%', background: `hsl(${avatarHue(r.account.name)} 42% 30%)`, color: '#fff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {(r.account.name[0] || '?').toUpperCase()}

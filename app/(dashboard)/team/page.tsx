@@ -73,22 +73,24 @@ export default function TeamPage() {
         }
       />
 
-      {/* Account switcher row */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '10px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg2)' }}>
-        <button onClick={() => setActive('overview')} style={chip(active === 'overview')}>{t('Overview')}</button>
-        {accounts.map(a => (
-          <button key={a.email} onClick={() => setActive(a.email)} style={chip(active === a.email)}>{a.name}</button>
-        ))}
-      </div>
-
       <div className="flex-1 overflow-y-auto min-h-0">
-        {active === 'overview' && <TaskDashboard posts={allPosts} accounts={accounts} />}
+        {/* Overview is the single landing — drill into a person by clicking their
+            row in the By-account table (no per-account tab strip). */}
+        {active === 'overview' && (
+          <TaskDashboard posts={allPosts} accounts={accounts} onAccountClick={a => { setInnerTab('board'); setActive(a.email) }} />
+        )}
         {activeAcct && (
           <>
-            <div style={{ display: 'flex', gap: 6, padding: '8px 24px 0' }}>
-              {(['dashboard', 'board', 'list', 'calendar', 'files'] as TabKey[]).map(tk => (
-                <button key={tk} onClick={() => setInnerTab(tk)} style={chip(innerTab === tk)}>{tk}</button>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '12px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg2)' }}>
+              <button onClick={() => setActive('overview')} style={backBtn}>← {t('Kembali ke Overview')}</button>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{activeAcct.name}</span>
+              <span style={{ fontSize: 12, color: 'var(--text3)' }}>{activeAcct.email}</span>
+              <span style={{ flex: 1 }} />
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {(['dashboard', 'board', 'list', 'calendar', 'files'] as TabKey[]).map(tk => (
+                  <button key={tk} onClick={() => setInnerTab(tk)} style={chip(innerTab === tk)}>{tk}</button>
+                ))}
+              </div>
             </div>
             {innerTab === 'dashboard'
               ? <TaskDashboard posts={posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, activeAcct))} />
@@ -98,6 +100,12 @@ export default function TeamPage() {
       </div>
     </>
   )
+}
+
+const backBtn: React.CSSProperties = {
+  height: 30, padding: '0 12px', borderRadius: 8, cursor: 'pointer',
+  border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text2)',
+  fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap',
 }
 
 function chip(activeState: boolean): React.CSSProperties {

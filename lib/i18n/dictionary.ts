@@ -34,6 +34,8 @@ const SEED: Record<string, string> = {
   'Per Akun': 'By account',
   'Beban kerja': 'Workload',
   'Belum ada task.': 'No tasks yet.',
+  'Lihat board': 'View board',
+  'Kembali ke Overview': 'Back to Overview',
   'Proporsi task per status': 'Share of tasks by status',
   'Mengikuti urutan List/Board': 'In List/Board order',
   'Rincian status untuk tiap project socmed': 'Status breakdown for each socmed project',
