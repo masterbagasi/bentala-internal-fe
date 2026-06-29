@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { BPIPage, BoardFilter, useBoardFilter, isAccountTask } from '@/components/BPI'
 import { TaskDashboard } from '@/components/BPI/TaskDashboard'
+import { DateRangePicker } from '@/components/Social/DateRangePicker'
 import { useStore } from '@/hooks/useStore'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
@@ -19,6 +20,8 @@ export default function TeamPage() {
   const router = useRouter()
   const bf = useBoardFilter('all')
   const posts = useStore(s => s.posts)
+  const dateRange = useStore(s => s.dateRange)
+  const setDateRange = useStore(s => s.setDateRange)
 
   const [ready, setReady] = useState(false)
   const [accounts, setAccounts] = useState<Acct[]>([])
@@ -92,15 +95,16 @@ export default function TeamPage() {
                 <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>{activeAcct.email}</span>
               </span>
               <span style={{ flex: 1 }} />
-              {/* Filter + date (month) for the list below. Preview only. */}
+              {/* Status filter + date-range filter for the view. Preview only. */}
+              <DateRangePicker value={dateRange} onChange={setDateRange} />
               <BoardFilter filters={bf.filters} setFilters={bf.setFilters} accounts={bf.accounts} months={bf.months} projects={bf.projects} personal />
               <button onClick={() => setActive('overview')} aria-label={t('Tutup')} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', fontSize: 15 }}>✕</button>
             </div>
             {/* One scroll: dashboard summary on top, read-only list below. */}
             <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-              <TaskDashboard posts={posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, activeAcct))} projects={bf.projects} />
+              <TaskDashboard posts={posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, activeAcct) && (!p.date || (p.date.slice(0, 10) >= dateRange.from && p.date.slice(0, 10) <= dateRange.to)))} projects={bf.projects} />
               <div style={{ borderTop: '1px solid var(--border)' }}>
-                <BPIPage entity="bpi" mineScope={activeAcct} activeTab="list" filters={bf.filters} currentUser="" readOnly />
+                <BPIPage entity="bpi" mineScope={activeAcct} activeTab="list" filters={bf.filters} dateRange={dateRange} currentUser="" readOnly />
               </div>
             </div>
           </div>

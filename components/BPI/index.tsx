@@ -179,10 +179,12 @@ interface BPIPageProps {
   mineScope?: { email: string; name: string }
   /** Preview-only: hide Edit/Add/Delete and open task details read-only. */
   readOnly?: boolean
+  /** Optional date-range filter (by post date). Undated tasks are kept. */
+  dateRange?: { from: string; to: string }
 }
 
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
-  function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters, mineScope, readOnly = false }, ref) {
+  function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters, mineScope, readOnly = false, dateRange }, ref) {
     const t = useT()
     const { posts, removePost, upsertPost, meEmail, postSeen, chatUnread, clearChatUnread } = useStore(useShallow((s) => ({ posts: s.posts, removePost: s.removePost, upsertPost: s.upsertPost, meEmail: s.meEmail, postSeen: s.postSeen, chatUnread: s.chatUnread, clearChatUnread: s.clearChatUnread })))
     const markPostRead = useMarkPostRead()
@@ -305,12 +307,16 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
         if (!filters.ratios.some(x => rs.includes(x))) return false
       }
       if (filters.month && (p.date || '').slice(0, 7) !== filters.month) return false
+      if (dateRange) {
+        const d = (p.date || '').slice(0, 10)
+        if (d && (d < dateRange.from || d > dateRange.to)) return false
+      }
       // My Task groups by its WS columns, so its Status filter matches the folded
       // column key, not the raw post status.
       if (filters.statuses.length && !filters.statuses.includes(mineScope ? mineColKey(p) : p.status)) return false
       if (filters.projects.length && !filters.projects.includes(p.entity)) return false
       return true
-    }), [posts, allProjects, picScope, entity, filters, mineScope])
+    }), [posts, allProjects, picScope, entity, filters, mineScope, dateRange])
 
     // Ids of tasks with an unseen change made by someone else → drives the card
     // dots and the per-column counts. Recomputes live as posts stream in or the
