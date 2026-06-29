@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
-import { BPIPage, useBoardFilter, isAccountTask, type BPIPageHandle, type BPITabType } from '@/components/BPI'
+import { PageHeader } from '@/components/shared/PageHeader'
+import { BPIPage, BoardFilter, useBoardFilter, isAccountTask } from '@/components/BPI'
 import { TaskDashboard } from '@/components/BPI/TaskDashboard'
 import { useStore } from '@/hooks/useStore'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -17,7 +17,6 @@ type Acct = { email: string; name: string }
 export default function TeamPage() {
   const t = useT()
   const router = useRouter()
-  const ref = useRef<BPIPageHandle>(null)
   const bf = useBoardFilter('all')
   const posts = useStore(s => s.posts)
 
@@ -25,7 +24,6 @@ export default function TeamPage() {
   const [accounts, setAccounts] = useState<Acct[]>([])
   // active = 'overview' or an account email
   const [active, setActive] = useState<string>('overview')
-  const [innerTab, setInnerTab] = useState<TabKey>('board')
 
   // Guard: super admin only. Non-supers are bounced to their own My Task.
   useEffect(() => {
@@ -77,7 +75,7 @@ export default function TeamPage() {
       <PageHeader title="Team" />
 
       <div className="flex-1 overflow-y-auto min-h-0">
-        <TaskDashboard posts={allPosts} accounts={accounts} projects={bf.projects} onAccountClick={a => { setInnerTab('board'); setActive(a.email) }} />
+        <TaskDashboard posts={allPosts} accounts={accounts} projects={bf.projects} onAccountClick={a => setActive(a.email)} />
       </div>
 
       {/* Account board opens as a popup over the Overview. */}
@@ -94,18 +92,16 @@ export default function TeamPage() {
                 <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>{activeAcct.email}</span>
               </span>
               <span style={{ flex: 1 }} />
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {(['dashboard', 'board', 'list', 'calendar', 'files'] as TabKey[]).map(tk => (
-                  <button key={tk} onClick={() => setInnerTab(tk)} style={chip(innerTab === tk)}>{tk}</button>
-                ))}
-              </div>
-              <button onClick={() => ref.current?.openEdit()} style={{ height: 30, padding: '0 12px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>+ {t('Tambah Task')}</button>
+              {/* Filter + date (month) for the list below. Preview only. */}
+              <BoardFilter filters={bf.filters} setFilters={bf.setFilters} accounts={bf.accounts} months={bf.months} projects={bf.projects} personal />
               <button onClick={() => setActive('overview')} aria-label={t('Tutup')} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', fontSize: 15 }}>✕</button>
             </div>
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-              {innerTab === 'dashboard'
-                ? <TaskDashboard posts={posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, activeAcct))} projects={bf.projects} />
-                : <BPIPage ref={ref} entity="bpi" mineScope={activeAcct} activeTab={innerTab as BPITabType} filters={bf.filters} currentUser="" />}
+            {/* One scroll: dashboard summary on top, read-only list below. */}
+            <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              <TaskDashboard posts={posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, activeAcct))} projects={bf.projects} />
+              <div style={{ borderTop: '1px solid var(--border)' }}>
+                <BPIPage entity="bpi" mineScope={activeAcct} activeTab="list" filters={bf.filters} currentUser="" readOnly />
+              </div>
             </div>
           </div>
         </div>
@@ -120,12 +116,3 @@ function hue(name: string): number {
   return h
 }
 
-function chip(activeState: boolean): React.CSSProperties {
-  return {
-    height: 30, padding: '0 12px', borderRadius: 8, cursor: 'pointer',
-    border: `1px solid ${activeState ? 'var(--accent)' : 'var(--border)'}`,
-    background: activeState ? 'rgba(108,99,255,0.15)' : 'var(--bg3)',
-    color: activeState ? 'var(--accent)' : 'var(--text2)',
-    fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', textTransform: 'capitalize',
-  }
-}

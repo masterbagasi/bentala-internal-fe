@@ -177,10 +177,12 @@ interface BPIPageProps {
   filters: PostFilters
   /** "My Task" mode: show tasks tagging me OR created by me, across all projects. */
   mineScope?: { email: string; name: string }
+  /** Preview-only: hide Edit/Add/Delete and open task details read-only. */
+  readOnly?: boolean
 }
 
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
-  function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters, mineScope }, ref) {
+  function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters, mineScope, readOnly = false }, ref) {
     const t = useT()
     const { posts, removePost, upsertPost, meEmail, postSeen, chatUnread, clearChatUnread } = useStore(useShallow((s) => ({ posts: s.posts, removePost: s.removePost, upsertPost: s.upsertPost, meEmail: s.meEmail, postSeen: s.postSeen, chatUnread: s.chatUnread, clearChatUnread: s.clearChatUnread })))
     const markPostRead = useMarkPostRead()
@@ -220,7 +222,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     // Only the Socmed Management boards (bpi / bsi / all) can create, edit or
     // delete posts. Workspace pages (Video Production / Design Studio) are
     // work-only: view, change status, and attach files — but not edit the post.
-    const canEdit = !picScope
+    const canEdit = !picScope && !readOnly
 
     // Which board this is: the video track, the design track, or the combined
     // SMM board (null). Drag-to-move writes the right field per board.
