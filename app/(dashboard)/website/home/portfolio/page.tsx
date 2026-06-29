@@ -1056,6 +1056,7 @@ function PortfolioModal({
   const [posterPickerOpen, setPosterPickerOpen] = useState(false)
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
   const [thumbnailProgress, setThumbnailProgress] = useState(0)
+  const [coverUrlBusy, setCoverUrlBusy] = useState(false)
   const [form, setForm] = useState<FormState>(
     initial
       ? {
@@ -1306,6 +1307,36 @@ function PortfolioModal({
     }
   }
 
+  // Re-fetch a cover straight from the media URL (Instagram/TikTok/etc): grab the
+  // post's OpenGraph image, mirror it to storage, and fall back to a video frame.
+  // Lets a card recover when the automatic cover failed during add.
+  async function handleCoverFromUrl() {
+    const url = form.media_url
+    if (!url || coverUrlBusy) return
+    setError(null)
+    setCoverUrlBusy(true)
+    try {
+      let cover: string | null = null
+      try {
+        const res = await fetch(`/api/og-preview?url=${encodeURIComponent(url)}`)
+        const og = (await res.json()) as { thumbnail_url?: string | null; video_url?: string | null }
+        if (og.thumbnail_url) cover = (await mirrorOgImageToStorage(og.thumbnail_url)) ?? og.thumbnail_url
+        if (!cover) {
+          const frame = await captureCoverFromVideoUrl(og.video_url || url)
+          if (frame) cover = frame.thumbnailUrl
+        }
+      } catch { /* fall through to the error message below */ }
+      if (cover) {
+        update('thumbnail_url', cover)
+        setMediaPreviewError(false)
+      } else {
+        setError(t('Tidak bisa mengambil cover dari URL ini (kemungkinan diblokir Instagram). Upload gambar cover manual di bawah.'))
+      }
+    } finally {
+      setCoverUrlBusy(false)
+    }
+  }
+
   function requestReplace() {
     setConfirm({
       title: 'Replace media?',
@@ -1452,6 +1483,20 @@ function PortfolioModal({
             </svg>
             {t('Dari Video')}
           </button>
+          {form.media_url && !form.media_url.includes('/storage/v1/') && (
+            <button
+              type="button"
+              onClick={handleCoverFromUrl}
+              disabled={coverUrlBusy || thumbnailUploading}
+              style={coverActionBtn(false)}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+              {coverUrlBusy ? t('Mengambil…') : t('Dari URL')}
+            </button>
+          )}
           {form.thumbnail_url && (
             <button
               type="button"

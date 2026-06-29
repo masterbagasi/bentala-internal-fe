@@ -115,13 +115,17 @@ function extractJsonLdImage(html: string): string | null {
   return null
 }
 
-// Instagram's /embed/ HTML embeds a JSON blob in a <script>. Pull a likely
-// image URL out of any inline JSON when meta tags aren't enough.
+// Instagram's /embed/ HTML embeds the post JSON inside a <script>, but it is
+// escaped — keys and values look like  \"display_url\":\"https:\/\/…\"  — so a
+// regex expecting literal quotes finds nothing. Match the key with optional
+// backslashes around the quotes, then JSON-unescape the captured URL.
 function extractInlineJsonImage(html: string): string | null {
-  const re = /"(?:display_url|image_url|thumbnail_url|thumbnail_src)"\s*:\s*"([^"]+)"/i
+  const re = /\\?"(?:display_url|image_url|thumbnail_url|thumbnail_src)\\?"\s*:\s*\\?"([^"]+?)\\?"/i
   const m = html.match(re)
   if (!m) return null
-  return m[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/')
+  return m[1]
+    .replace(/\\u([\da-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/\\/g, '')
 }
 
 function absoluteUrl(maybeRelative: string, base: URL): string | null {
