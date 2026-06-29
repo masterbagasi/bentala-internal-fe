@@ -1317,9 +1317,11 @@ function PortfolioModal({
     setCoverUrlBusy(true)
     try {
       let cover: string | null = null
+      let tried: string[] | undefined
       try {
         const res = await fetch(`/api/og-preview?url=${encodeURIComponent(url)}`)
-        const og = (await res.json()) as { thumbnail_url?: string | null; video_url?: string | null }
+        const og = (await res.json()) as { thumbnail_url?: string | null; video_url?: string | null; tried?: string[] }
+        tried = og.tried
         if (og.thumbnail_url) cover = (await mirrorOgImageToStorage(og.thumbnail_url)) ?? og.thumbnail_url
         if (!cover) {
           const frame = await captureCoverFromVideoUrl(og.video_url || url)
@@ -1330,7 +1332,8 @@ function PortfolioModal({
         update('thumbnail_url', cover)
         setMediaPreviewError(false)
       } else {
-        setError(t('Tidak bisa mengambil cover dari URL ini (kemungkinan diblokir Instagram). Upload gambar cover manual di bawah.'))
+        const dbg = tried?.length ? ` (${tried.join(' → ')})` : ''
+        setError(t('Tidak bisa mengambil cover dari URL ini (kemungkinan diblokir Instagram). Upload gambar cover manual di bawah.') + dbg)
       }
     } finally {
       setCoverUrlBusy(false)

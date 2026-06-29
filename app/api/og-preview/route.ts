@@ -235,6 +235,33 @@ function instagramEmbedUrl(url: URL): string | null {
   return `https://www.instagram.com/${m[1]}/${m[2]}/embed/captioned/`
 }
 
+// Instagram's media redirect returns the post image straight from the CDN
+// (GET /p/<id>/media/?size=l → 302 → ...fbcdn.net/...jpg). This survives the
+// login wall far better than scraping the embed HTML — which datacenter IPs
+// (e.g. the server this runs on) routinely get served instead of the post.
+async function instagramMediaRedirect(url: URL): Promise<OgResult | null> {
+  if (!/(^|\.)(instagram\.com|instagr\.am)$/.test(url.hostname)) return null
+  const m = url.pathname.match(/\/(p|reel|reels|tv)\/([^/]+)/)
+  if (!m) return null
+  for (const size of ['l', 'm']) {
+    const mediaUrl = `https://www.instagram.com/${m[1]}/${m[2]}/media/?size=${size}`
+    try {
+      const res = await fetch(mediaUrl, {
+        headers: { 'User-Agent': USER_AGENTS[0] },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      })
+      const loc = res.headers.get('location')
+      if (loc && /(fbcdn\.net|cdninstagram\.com)/i.test(loc)) {
+        return { thumbnail_url: loc, video_url: null, title: null, og_type: null, source: 'instagram-media-redirect' }
+      }
+    } catch {
+      // try the next size / fall through to embed scraping
+    }
+  }
+  return null
+}
+
 async function fetchHtml(target: string, ua: string): Promise<string | null> {
   try {
     const upstream = await fetch(target, {
@@ -362,7 +389,13 @@ export async function GET(req: Request) {
   if (oembed) return jsonOk(oembed)
   tried.push('oembed')
 
-  // 3. Instagram /embed/ — much friendlier to scrapers than the main URL.
+  // 3. Instagram media redirect — the post image straight from the CDN. Tried
+  //    before HTML scraping because it survives the login wall datacenters hit.
+  const igMedia = await instagramMediaRedirect(parsed)
+  if (igMedia) return jsonOk(igMedia)
+  tried.push('instagram-media-redirect')
+
+  // 4. Instagram /embed/ — much friendlier to scrapers than the main URL.
   const igEmbed = instagramEmbedUrl(parsed)
   if (igEmbed) {
     const embedUrl = new URL(igEmbed)
