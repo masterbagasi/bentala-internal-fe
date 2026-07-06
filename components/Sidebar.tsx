@@ -258,26 +258,24 @@ function SidebarLogo({ isExpanded }: { isExpanded: boolean }) {
     )
   }
 
-  // The bundled fallback is a dark wordmark. The `.sidebar-logo` class adapts
-  // it per theme (invert→white on the dark rail, untouched dark on the light
-  // rail) so it never disappears — inline `filter` would override that, so we
-  // leave it off for the fallback. Admin-uploaded URLs pass through as-is;
-  // editors are expected to upload an asset that suits both themes.
-  const isUsingFallback = logoUrl === FALLBACK_LOGO_SRC
-
+  // The brand mark (bundled fallback OR admin-uploaded — most uploads are a
+  // white wordmark meant for the dark rail) is flattened to a monochrome
+  // silhouette by the `.sidebar-logo` class: white on the dark rail, black on
+  // the light one, so it always reads regardless of the source asset's colour.
+  // Applied unconditionally — an inline `filter` would override the class, so
+  // there's none here.
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img loading="lazy" decoding="async"
       src={logoUrl}
       alt="Bentala"
-      className={isUsingFallback ? 'sidebar-logo' : undefined}
+      className="sidebar-logo"
       style={{
         height: heightPx,
         width: 'auto',
         display: 'block',
         transition: 'height 0.22s ease',
         objectFit: 'contain',
-        filter: isUsingFallback ? undefined : 'none',
         flexShrink: 0,
       }}
     />
