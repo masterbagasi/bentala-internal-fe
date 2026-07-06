@@ -1,5 +1,8 @@
+'use client'
+
 import { POST_STATUS_LABELS, POST_STATUS_COLORS, POST_PLATFORMS } from '@/lib/constants'
 import { PlatformIcon } from './PlatformIcon'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface StatusBadgeProps {
   status: string
@@ -49,6 +52,7 @@ const PROJ_COLORS: Record<string, { bg: string; color: string }> = {
 }
 
 export function StatusBadge({ status, type = 'post', label: labelProp, className }: StatusBadgeProps) {
+  const t = useT()
   let bg = '#2e3147'
   let color = '#8b8fa8'
   let label = status
@@ -60,19 +64,19 @@ export function StatusBadge({ status, type = 'post', label: labelProp, className
   } else if (type === 'stage') {
     const c = STAGE_COLORS[status] || STAGE_COLORS.lead
     bg = c.bg; color = c.color
-    label = { lead: 'Lead', pitch: 'Pitching', close: 'Closed', invoice: 'Invoice', inactive: 'Inactive' }[status] || status
+    label = { lead: t('Lead'), pitch: t('Pitching'), close: t('Closing'), invoice: t('Invoice'), inactive: t('Nonaktif') }[status] || status
   } else if (type === 'inv') {
     const c = INV_COLORS[status] || INV_COLORS.pending
     bg = c.bg; color = c.color
-    label = { pending: 'Menunggu', dp: 'DP', paid: 'Lunas', overdue: 'Overdue' }[status] || status
+    label = { pending: t('Menunggu'), dp: t('DP'), paid: t('Lunas'), overdue: t('Jatuh Tempo') }[status] || status
   } else if (type === 'task') {
     const c = TASK_COLORS[status] || TASK_COLORS.todo
     bg = c.bg; color = c.color
-    label = { todo: 'To Do', progress: 'In Progress', review: 'Review', done: 'Done' }[status] || status
+    label = { todo: t('Belum Dikerjakan'), progress: t('Sedang Dikerjakan'), review: t('Review'), done: t('Selesai') }[status] || status
   } else if (type === 'proj') {
     const c = PROJ_COLORS[status] || PROJ_COLORS.active
     bg = c.bg; color = c.color
-    label = { active: 'Active', hold: 'On Hold', done: 'Done', cancelled: 'Cancelled' }[status] || status
+    label = { active: t('Aktif'), hold: t('Ditunda'), done: t('Selesai'), cancelled: t('Dibatalkan') }[status] || status
   }
 
   return (

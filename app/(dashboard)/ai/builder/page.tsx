@@ -6,7 +6,7 @@ export const metadata = { title: 'Content Builder — AI Studio' }
 
 export default function BuilderPage() {
   return (
-    <PageShell title="Content Builder">
+    <PageShell title="Perakit Konten">
       <div style={{ padding: '24px 32px', maxWidth: 900, margin: '0 auto' }}>
         <Suspense fallback={null}>
           <ContentBuilder />

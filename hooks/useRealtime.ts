@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { useStore } from './useStore'
-import type { Post, Client, Task, ActivityLog, Project, Invoice } from '@/lib/types'
+import type { Post, Client, Task, ActivityLog, Project, Invoice, Contact, Deal, CrmProject, CrmTask, CrmInvoice, CrmInvoiceItem } from '@/lib/types'
 
 /**
  * useRealtime
@@ -13,6 +13,12 @@ import type { Post, Client, Task, ActivityLog, Project, Invoice } from '@/lib/ty
 export function useRealtime() {
   const {
     upsertPost,    removePost,
+    upsertContact, removeContact,
+    upsertDeal,    removeDeal,
+    upsertCrmProject, removeCrmProject,
+    upsertCrmTask,    removeCrmTask,
+    upsertCrmInvoice, removeCrmInvoice,
+    upsertCrmInvoiceItem, removeCrmInvoiceItem,
     upsertClient,  removeClient,
     upsertTask,    removeTask,
     upsertProject, removeProject,
@@ -40,12 +46,46 @@ export function useRealtime() {
         }
       })
 
+      // Contacts (CRM v2 master data)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts' }, (payload) => {
+        if (payload.eventType === 'DELETE') removeContact(payload.old.id as string)
+        else upsertContact(payload.new as Contact)
+      })
+
+      // Deals (CRM v2 pipeline)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, (payload) => {
+        if (payload.eventType === 'DELETE') removeDeal(payload.old.id as string)
+        else upsertDeal(payload.new as Deal)
+      })
+
+      // CRM projects + tasks
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_projects' }, (payload) => {
+        if (payload.eventType === 'DELETE') removeCrmProject(payload.old.id as string)
+        else upsertCrmProject(payload.new as CrmProject)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_tasks' }, (payload) => {
+        if (payload.eventType === 'DELETE') removeCrmTask(payload.old.id as string)
+        else upsertCrmTask(payload.new as CrmTask)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_invoices' }, (payload) => {
+        if (payload.eventType === 'DELETE') removeCrmInvoice(payload.old.id as string)
+        else upsertCrmInvoice(payload.new as CrmInvoice)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_invoice_items' }, (payload) => {
+        if (payload.eventType === 'DELETE') removeCrmInvoiceItem(payload.old.id as string)
+        else upsertCrmInvoiceItem(payload.new as CrmInvoiceItem)
+      })
+
       // Clients
       .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, (payload) => {
         if (payload.eventType === 'DELETE') {
           removeClient(payload.old.id as string)
         } else {
-          upsertClient(payload.new as Client)
+          const nc = payload.new as Client & { deleted_at?: string | null }
+          // Soft-deleted clients drop out of the pipeline; a restore (deleted_at
+          // cleared) flows back in as a normal upsert.
+          if (nc.deleted_at) removeClient(nc.id)
+          else upsertClient(nc)
         }
       })
 
@@ -116,5 +156,5 @@ export function useRealtime() {
       authSub.subscription.unsubscribe()
       if (channel) supabase.removeChannel(channel)
     }
-  }, [upsertPost, removePost, upsertClient, removeClient, upsertTask, removeTask, upsertProject, removeProject, upsertInvoice, removeInvoice, addActivity])
+  }, [upsertPost, removePost, upsertContact, removeContact, upsertDeal, removeDeal, upsertCrmProject, removeCrmProject, upsertCrmTask, removeCrmTask, upsertCrmInvoice, removeCrmInvoice, upsertCrmInvoiceItem, removeCrmInvoiceItem, upsertClient, removeClient, upsertTask, removeTask, upsertProject, removeProject, upsertInvoice, removeInvoice, addActivity])
 }

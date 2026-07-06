@@ -494,7 +494,7 @@ export function DesignGeneratorModal({
                     </div>
                     {!fmt.enabled && (
                       <span style={{
-                        fontSize: 9, fontWeight: 700, color: 'var(--accent)',
+                        fontSize: 9, fontWeight: 700, color: 'var(--link)',
                         background: 'rgba(108,99,255,0.12)', padding: '2px 8px',
                         borderRadius: 10, alignSelf: 'flex-start', marginTop: 4,
                       }}>

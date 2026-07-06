@@ -11,6 +11,7 @@ import { PrimaryActionButton } from '@/components/website/PageActions'
 import { FormField, inputStyle } from '@/components/website/FormField'
 import { IconBtn, ListEmpty, ListError, ModalShell } from '@/components/website/SimpleList'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
+import { confirmDialog } from '@/lib/confirm-dialog'
 import { Section } from '@/components/website/Section'
 import { useIsMobile } from '@/hooks/useIsMobile'
 
@@ -178,7 +179,7 @@ export default function CollaborationsAdminPage() {
   useEffect(() => { load() }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus brand ini?'))) return
+    if (!(await confirmDialog(t('Hapus brand ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const { error } = await supabase.from('bsi_collaborations').delete().eq('id', id)
     if (error) { alert(error.message); return }
     setItems((xs) => xs.filter((x) => x.id !== id))

@@ -7,6 +7,7 @@ import { useRegisterPageAction } from '@/components/website/PageActionsContext'
 import { PrimaryActionButton } from '@/components/website/PageActions'
 import { FormField, inputStyle } from '@/components/website/FormField'
 import { ActionButton, IconBtn, ListEmpty, ListError, ModalShell, RowCard } from '@/components/website/SimpleList'
+import { confirmDialog } from '@/lib/confirm-dialog'
 import { Section } from '@/components/website/Section'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -101,7 +102,7 @@ export default function SocialAdminPage() {
   useEffect(() => { load() }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus link ini?'))) return
+    if (!(await confirmDialog(t('Hapus link ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const { error } = await supabase.from('bsi_social_links').delete().eq('id', id)
     if (error) { alert(error.message); return }
     setItems((xs) => xs.filter((x) => x.id !== id))

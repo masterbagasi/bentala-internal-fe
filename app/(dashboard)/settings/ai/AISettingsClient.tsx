@@ -234,8 +234,8 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
         padding: '10px 14px',
         background: 'transparent',
         border: 'none',
-        borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-        color: active ? 'var(--text)' : 'var(--text2)',
+        borderBottom: active ? '2px solid #60a5fa' : '2px solid transparent',
+        color: active ? '#60a5fa' : 'var(--text2)',
         fontSize: 13, fontWeight: 600, cursor: 'pointer',
         marginBottom: -1,
       }}
@@ -642,7 +642,7 @@ function FeatureConfigBlock({
             {' '}{providerStatus.hasDbKey ? '✓ DB' : providerStatus.hasEnvKey ? '✓ env' : t('✗ kosong')}
           </span>
           <button onClick={onJumpToProviders} style={{
-            background: 'transparent', border: 'none', color: 'var(--accent)',
+            background: 'transparent', border: 'none', color: 'var(--link)',
             fontWeight: 700, fontSize: 11, cursor: 'pointer', padding: 0,
           }}>{t('Kelola key →')}</button>
         </div>
@@ -898,7 +898,7 @@ function ProviderCard({ status, onChange }: { status: ProviderStatus; onChange: 
             }}>
               <div style={{ marginBottom: 4 }}>
                 <strong style={{ color: 'var(--text)' }}>{t('Cara dapat key:')}</strong>{' '}
-                <a href={hint.dashboard} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                <a href={hint.dashboard} target="_blank" rel="noreferrer" style={{ color: 'var(--link)', fontWeight: 700 }}>
                   {hint.dashboard.replace(/^https?:\/\//, '')}
                 </a>
               </div>

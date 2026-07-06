@@ -227,7 +227,7 @@ export default function ImageProviderSettings({ onClose }: Props) {
                   <div style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.5 }}>
                     {t('Key dikelola via')} <strong style={{ color: 'var(--text)' }}>Settings → AI Integrations</strong>. {t('Generate akan otomatis pakai key tsb.')}
                   </div>
-                  <a href="/settings/ai" style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                  <a href="/settings/ai" style={{ fontSize: 11, fontWeight: 700, color: 'var(--link)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
                     {t('Kelola')} →
                   </a>
                 </div>

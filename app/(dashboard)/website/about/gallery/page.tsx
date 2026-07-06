@@ -576,7 +576,7 @@ function PhotoCard({
             padding: '3px 8px',
             background: 'rgba(0,0,0,0.7)',
             backdropFilter: 'blur(8px)',
-            color: 'var(--accent)',
+            color: 'var(--link)',
             fontSize: 10,
             fontWeight: 700,
             letterSpacing: '0.04em',

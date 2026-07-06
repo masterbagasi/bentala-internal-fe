@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -325,6 +326,26 @@ function canConvert(status: BsiLead['status']): boolean {
   return CONVERTIBLE_STATUSES.includes(status)
 }
 
+/* Equal-size "progress step" chips (Database / Client) so the control rail
+   lines up the same way on every row. Outline = not done yet (an action);
+   filled green = done (a state you can revert). */
+const CHIP_BASE: CSSProperties = {
+  height: 30, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  gap: 5, padding: '0 14px', borderRadius: 8, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer',
+  border: '1px solid var(--border)', transition: 'all 0.15s ease',
+}
+function progressChip(done: boolean): CSSProperties {
+  return done
+    ? { ...CHIP_BASE, background: 'rgba(67,217,162,0.13)', border: '1px solid rgba(67,217,162,0.42)', color: 'var(--accent3)' }
+    : { ...CHIP_BASE, background: 'var(--bg3)', color: 'var(--text2)' }
+}
+function primaryChip(): CSSProperties {
+  return { ...CHIP_BASE, background: 'var(--accent)', border: '1px solid var(--accent)', color: '#fff' }
+}
+function disabledChip(): CSSProperties {
+  return { ...CHIP_BASE, background: 'transparent', border: '1px dashed var(--border)', color: 'var(--text3)', cursor: 'not-allowed', opacity: 0.7 }
+}
+
 /* ──────────────────────────────────────────────────────────── */
 /* Lead card                                                    */
 /* ──────────────────────────────────────────────────────────── */
@@ -362,7 +383,8 @@ function LeadCard({
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenDetail() } }}
       title={t('Lihat detail lead')}
       style={{
-        background: 'var(--bg2)',
+        position: 'relative',
+        background: hovered ? 'var(--bg3)' : 'var(--bg2)',
         border: `1px solid ${hovered ? `${accent}55` : 'var(--border)'}`,
         borderRadius: 10,
         overflow: 'hidden',
@@ -370,19 +392,21 @@ function LeadCard({
         transition: 'border-color 0.15s ease, background 0.15s ease',
       }}
     >
-      {/* Header row — always visible */}
+      {/* Status accent bar — scan each lead's stage straight down the list */}
+      <span aria-hidden style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: accent }} />
+
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'auto 1fr auto auto auto auto auto',
+          display: 'flex',
           alignItems: 'center',
-          gap: 14,
-          padding: '14px 16px',
+          gap: 16,
+          flexWrap: 'wrap',
+          padding: '13px 16px 13px 18px',
         }}
       >
         <Avatar name={lead.full_name} />
 
-        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ flex: '1 1 240px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {/* Line 1: name + brand */}
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
             <span
@@ -485,84 +509,50 @@ function LeadCard({
           </div>
         </div>
 
-        {/* Status pill (clickable dropdown) */}
-        <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex' }}>
-          <StatusPill status={lead.status} onChange={onUpdateStatus} />
-        </span>
-
-        {/* Screening: promote into the contact Database */}
-        {lead.in_database ? (
-          <span
-            title={t('Sudah masuk Database')}
-            onClick={(e) => { e.stopPropagation(); onPromote(false) }}
-            style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent3)', whiteSpace: 'nowrap', cursor: 'pointer' }}
-          >
-            ✓ {t('Di Database')}
-          </span>
-        ) : (
-          <button
-            onClick={(e) => { e.stopPropagation(); onPromote(true) }}
-            title={t('Masukkan ke Database kontak')}
-            style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text)', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 9px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-          >
-            → {t('Database')}
-          </button>
-        )}
-
-        {/* Convert action / converted badge */}
-        {lead.converted_client_id ? (
-          <Link
-            href={`/clients/${lead.converted_client_id}`}
-            onClick={(e) => e.stopPropagation()}
-            style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent3)', textDecoration: 'none', whiteSpace: 'nowrap' }}
-          >
-            ✓ {t('Jadi Client')}
-          </Link>
-        ) : (
-          <button
-            disabled={!canConvert(lead.status)}
-            title={canConvert(lead.status) ? undefined : t("Tandai 'Sudah Dihubungi' atau 'Qualified' dulu")}
-            onClick={(e) => { e.stopPropagation(); if (canConvert(lead.status)) onConvert() }}
-            style={{
-              fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '5px 10px', whiteSpace: 'nowrap', border: 'none',
-              color: canConvert(lead.status) ? '#fff' : 'var(--text2)',
-              background: canConvert(lead.status) ? 'var(--accent)' : 'var(--bg3)',
-              cursor: canConvert(lead.status) ? 'pointer' : 'not-allowed',
-              opacity: canConvert(lead.status) ? 1 : 0.7,
-            }}
-          >
-            {t('Jadikan Client')}
-          </button>
-        )}
-
-        {/* Date — clean & tabular */}
+        {/* Control rail — fixed columns so every row lines up vertically */}
         <div
-          style={{
-            fontSize: 11,
-            color: 'var(--text2)',
-            fontVariantNumeric: 'tabular-nums',
-            whiteSpace: 'nowrap',
-            textAlign: 'right',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1,
-          }}
-          title={submittedAt.toLocaleString('id-ID', {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          onClick={(e) => e.stopPropagation()}
+          style={{ display: 'grid', gridTemplateColumns: '162px 116px 132px 56px auto', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: 'auto' }}
         >
-          <span style={{ color: 'var(--text)', fontWeight: 500 }}>{formatDay(submittedAt)}</span>
-          <span style={{ opacity: 0.7 }}>
-            {submittedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        </div>
+          <StatusPill status={lead.status} onChange={onUpdateStatus} />
 
-        {/* Primary quick action (detail + the rest live in the popup) */}
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+          {/* Step 1 — Database */}
+          {lead.in_database ? (
+            <button onClick={() => onPromote(false)} title={t('Sudah di Database — klik untuk keluarkan')} style={progressChip(true)}>
+              ✓ {t('Database')}
+            </button>
+          ) : (
+            <button onClick={() => onPromote(true)} title={t('Masukkan ke Database kontak')} style={progressChip(false)}>
+              + {t('Database')}
+            </button>
+          )}
+
+          {/* Step 2 — Client */}
+          {lead.converted_client_id ? (
+            <Link href={`/clients/${lead.converted_client_id}`} title={t('Buka client')} style={{ ...progressChip(true), textDecoration: 'none' }}>
+              ✓ {t('Client')}
+            </Link>
+          ) : (
+            <button
+              disabled={!canConvert(lead.status)}
+              title={canConvert(lead.status) ? t('Jadikan client') : t("Tandai 'Sudah Dihubungi' atau 'Qualified' dulu")}
+              onClick={() => { if (canConvert(lead.status)) onConvert() }}
+              style={canConvert(lead.status) ? primaryChip() : disabledChip()}
+            >
+              {t('Jadikan Client')}
+            </button>
+          )}
+
+          {/* Submitted date */}
+          <div
+            style={{ fontSize: 11, color: 'var(--text2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 1, lineHeight: 1.3 }}
+            title={submittedAt.toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          >
+            <span style={{ color: 'var(--text)', fontWeight: 600 }}>{formatDay(submittedAt)}</span>
+            <span style={{ opacity: 0.6 }}>{submittedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+
+          {/* Quick contact — WhatsApp / Email */}
           <a
             href={primaryHref}
             target="_blank"
@@ -702,49 +692,50 @@ function LeadDetailModal({
           </div>
         )}
 
-        {/* Footer: submitted + promote + convert */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-          <span style={{ fontSize: 11.5, color: 'var(--text2)' }}>
-            {t('Masuk')} {submittedAt.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            onClick={() => onPromote(!lead.in_database)}
-            title={t('Masukkan / keluarkan dari Database kontak')}
-            style={{
-              fontSize: 12.5, fontWeight: 600, borderRadius: 8, padding: '8px 14px', cursor: 'pointer',
-              border: `1px solid ${lead.in_database ? 'var(--accent3)' : 'var(--border)'}`,
-              background: lead.in_database ? 'rgba(67,217,162,0.12)' : 'var(--bg3)',
-              color: lead.in_database ? 'var(--accent3)' : 'var(--text)',
-            }}
-          >
-            {lead.in_database ? `✓ ${t('Di Database')}` : `→ ${t('Masuk Database')}`}
-          </button>
-          {lead.converted_client_id ? (
-            <Link href={`/clients/${lead.converted_client_id}`} style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent3)', textDecoration: 'none' }}>
-              ✓ {t('Lihat Client')}
-            </Link>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-              <button
-                disabled={!canConvert(lead.status)}
-                onClick={() => { if (canConvert(lead.status)) onConvert() }}
-                style={{
-                  fontSize: 13, fontWeight: 600, borderRadius: 8, padding: '8px 16px', border: 'none',
-                  color: canConvert(lead.status) ? '#fff' : 'var(--text2)',
-                  background: canConvert(lead.status) ? 'var(--accent)' : 'var(--bg3)',
-                  cursor: canConvert(lead.status) ? 'pointer' : 'not-allowed',
-                  opacity: canConvert(lead.status) ? 1 : 0.7,
-                }}
-              >
-                {t('Jadikan Client')}
-              </button>
-              {!canConvert(lead.status) && (
-                <span style={{ fontSize: 10.5, color: 'var(--text2)' }}>{t("Status harus 'Sudah Dihubungi' / 'Qualified'")}</span>
+        {/* Footer: when it arrived + the two pipeline steps */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--text2)', fontVariantNumeric: 'tabular-nums' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 14" /></svg>
+              {submittedAt.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </span>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              {/* Step 1 — Database */}
+              {lead.in_database ? (
+                <button onClick={() => onPromote(false)} title={t('Sudah di Database — klik untuk keluarkan')} style={progressChip(true)}>
+                  ✓ {t('Database')}
+                </button>
+              ) : (
+                <button onClick={() => onPromote(true)} title={t('Masukkan ke Database kontak')} style={progressChip(false)}>
+                  + {t('Database')}
+                </button>
+              )}
+
+              {/* Step 2 — Client */}
+              {lead.converted_client_id ? (
+                <Link href={`/clients/${lead.converted_client_id}`} style={{ ...progressChip(true), textDecoration: 'none' }}>
+                  ✓ {t('Lihat Client')}
+                </Link>
+              ) : (
+                <button
+                  disabled={!canConvert(lead.status)}
+                  onClick={() => { if (canConvert(lead.status)) onConvert() }}
+                  style={canConvert(lead.status) ? primaryChip() : disabledChip()}
+                >
+                  {t('Jadikan Client')}
+                </button>
               )}
             </div>
-          )}
           </div>
+
+          {/* Why "Jadikan Client" is locked — full-width note so it never breaks the row */}
+          {!lead.converted_client_id && !canConvert(lead.status) && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11, color: 'var(--text2)', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 11px' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" /><line x1="12" y1="11" x2="12" y2="16" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+              {t("Untuk jadi client, set status ke 'Sudah Dihubungi' atau 'Qualified' dulu.")}
+            </span>
+          )}
         </div>
       </div>
     </Modal>

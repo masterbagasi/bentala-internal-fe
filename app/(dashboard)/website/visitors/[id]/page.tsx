@@ -96,7 +96,7 @@ export default function VisitorDetailPage() {
               <Card>
                 <CardTitle>{t('Info Visitor')}</CardTitle>
                 <Row label={t('Visitor ID')}>
-                  <code style={{ fontSize: 11, color: 'var(--accent)', wordBreak: 'break-all' }}>{visitor.visitor_id}</code>
+                  <code style={{ fontSize: 11, color: 'var(--link)', wordBreak: 'break-all' }}>{visitor.visitor_id}</code>
                 </Row>
                 <Row label={t('Status')}>
                   {visitor.is_lead ? (
@@ -137,7 +137,7 @@ export default function VisitorDetailPage() {
                   </Row>
                   <Row label="Project">{lead.project_type}</Row>
                   {lead.notes && <Row label={t('Catatan')}>{lead.notes}</Row>}
-                  <Link href={`/website/leads`} style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>
+                  <Link href={`/website/leads`} style={{ fontSize: 11, color: 'var(--link)', textDecoration: 'none' }}>
                     {t('Buka di Leads →')}
                   </Link>
                 </Card>
@@ -152,7 +152,7 @@ export default function VisitorDetailPage() {
                     <div key={s.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 11 }}>
                       <div style={{ color: 'var(--text)', fontWeight: 600 }}>{formatDate(s.started_at)}</div>
                       <div style={{ color: 'var(--text2)', marginTop: 2 }}>
-                        Landing: <code style={{ color: 'var(--accent)' }}>{s.landing_path}</code>
+                        Landing: <code style={{ color: 'var(--link)' }}>{s.landing_path}</code>
                       </div>
                       <div style={{ color: 'var(--text2)' }}>
                         {s.pageview_count} pages · {s.event_count} events

@@ -7,7 +7,7 @@ import { VP_STAGES } from '@/lib/constants'
 export default function VideoPipelinePage() {
   return (
     <>
-      <PageHeader title="Video Pipeline" />
+      <PageHeader title="Pipeline Video" />
       <div className="flex-1 overflow-hidden min-h-0">
         <PipelinePage member="Video Production" stages={[...VP_STAGES]} />
       </div>

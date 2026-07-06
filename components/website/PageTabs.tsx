@@ -82,11 +82,11 @@ export function PageTabs({ title, tabs, action }: Props) {
                 fontSize: 13,
                 fontWeight: isActive ? 600 : 400,
                 textDecoration: 'none',
-                borderBottom: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                borderBottom: `2px solid ${isActive ? '#60a5fa' : 'transparent'}`,
                 marginBottom: -1,
                 whiteSpace: 'nowrap',
                 transition: 'color 0.15s, border-color 0.15s',
-                color: isActive ? 'var(--accent)' : 'var(--text2)',
+                color: isActive ? '#60a5fa' : 'var(--text2)',
               }}
             >
               {tab.icon}

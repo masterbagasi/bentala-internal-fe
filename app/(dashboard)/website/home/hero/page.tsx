@@ -13,6 +13,7 @@ import { useRegisterPageAction } from '@/components/website/PageActionsContext'
 import { SaveActions } from '@/components/website/PageActions'
 import { RichTextEditor } from '@/components/website/RichTextEditor'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
+import { confirmDialog } from '@/lib/confirm-dialog'
 import { Section, Subgroup } from '@/components/website/Section'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -224,8 +225,8 @@ export default function HeroEditorPage() {
     setSaving(false)
   }
 
-  function handleDiscard() {
-    if (!confirm(t('Batalkan semua perubahan yang belum disimpan? Form akan kembali ke versi terakhir yang tersimpan.'))) {
+  async function handleDiscard() {
+    if (!(await confirmDialog(t('Batalkan semua perubahan yang belum disimpan? Form akan kembali ke versi terakhir yang tersimpan.')))) {
       return
     }
     setForm(savedForm)
@@ -344,7 +345,7 @@ export default function HeroEditorPage() {
                     background: 'var(--bg3)',
                     border: '1px solid var(--border)',
                     borderRadius: 8,
-                    color: 'var(--accent)',
+                    color: 'var(--link)',
                     fontSize: 12,
                     fontWeight: 500,
                     cursor: 'pointer',

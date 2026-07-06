@@ -17,6 +17,7 @@ import {
 } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { confirmDialog } from '@/lib/confirm-dialog'
 
 const ACCOUNT_OPTIONS = [
   { value: 'bpi_ig', label: 'Bentala Project — Instagram' },
@@ -78,7 +79,7 @@ export default function NewsAdminPage() {
   }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus post ini? Tidak bisa di-undo.'))) return
+    if (!(await confirmDialog(t('Hapus post ini? Tidak bisa di-undo.'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const { error } = await supabase.from('bsi_news_feed').delete().eq('id', id)
     if (error) {
       alert(error.message)

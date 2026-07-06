@@ -22,13 +22,18 @@ export function isPostUnread(
   post: Pick<Post, 'id' | 'last_actor' | 'last_change_at'>,
   meEmail: string | null,
   postSeen: Record<string, number>,
+  meName?: string | null,
 ): boolean {
   const actor = post.last_actor
   if (!actor || !post.last_change_at) return false
   // Until we know who the viewer is, don't flag anything — otherwise the
   // viewer's own just-made change could briefly show before meEmail loads.
   if (!meEmail) return false
-  if (actor.toLowerCase() === meEmail.toLowerCase()) return false
+  // The actor never sees their own change. last_actor is usually the email, but
+  // some older/edge changes stored it as the display name — match either.
+  const a = actor.toLowerCase()
+  if (a === meEmail.toLowerCase()) return false
+  if (meName && a === meName.toLowerCase()) return false
   const changedAt = Date.parse(post.last_change_at)
   if (Number.isNaN(changedAt)) return false
   const seenAt = postSeen[post.id] ?? 0
@@ -53,8 +58,9 @@ export function isPostMarked(
   meEmail: string | null,
   postSeen: Record<string, number>,
   chatUnread: Record<string, number>,
+  meName?: string | null,
 ): boolean {
-  return isPostUnread(post, meEmail, postSeen) || isChatUnread(post, chatUnread)
+  return isPostUnread(post, meEmail, postSeen, meName) || isChatUnread(post, chatUnread)
 }
 
 /** Does a post belong to a given board's scope? Mirrors BPIPage's `filtered`. */
@@ -83,10 +89,11 @@ export function countUnreadInScope(
   meEmail: string | null,
   postSeen: Record<string, number>,
   chatUnread: Record<string, number>,
+  meName?: string | null,
 ): number {
   let n = 0
   for (const p of posts) {
-    if (postInScope(p, scope) && isPostMarked(p, meEmail, postSeen, chatUnread)) n++
+    if (postInScope(p, scope) && isPostMarked(p, meEmail, postSeen, chatUnread, meName)) n++
   }
   return n
 }

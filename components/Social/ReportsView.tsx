@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { SUBJECTS, CONNECTED_SUBJECTS, REPORT_NARRATIVE } from './mock'
 import { Card, StatCard, SectionTitle, fmtNum } from './ui'
+import { htmlToPlain } from '@/lib/rich-text'
 import { SocialFilterChip } from './AnalyticsView'
 import { SocialFilterButton, SocialFilterLabel } from './FilterButton'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -65,7 +66,7 @@ export function ReportsView({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
           {topPosts.map(p => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 9 }}>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.caption || '(tanpa caption)'}</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{htmlToPlain(p.caption) || '(tanpa caption)'}</span>
               <span style={{ fontSize: 12, color: 'var(--text2)' }}>Reach <strong style={{ color: 'var(--text)' }}>{dash(p.reach)}</strong></span>
               <span style={{ fontSize: 12, color: 'var(--text2)' }}>Likes <strong style={{ color: 'var(--text)' }}>{fmtNum(p.likes)}</strong></span>
             </div>

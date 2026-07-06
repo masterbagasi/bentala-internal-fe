@@ -40,6 +40,8 @@ export function postTracks(post: Post): RevisionTrack[] {
 interface RevisiModalProps {
   open: boolean
   post: Post
+  /** email → display name, to label the tagged-account chips. */
+  accounts?: Record<string, { name: string; avatarUrl?: string | null }>
   /** Set → edit an existing revision. Unset → create a new one. */
   editing?: PostRevision | null
   /** Create mode only: also flip the post + selected tracks to 'revisi'. */
@@ -48,14 +50,18 @@ interface RevisiModalProps {
   onSaved?: (post: Post) => void
 }
 
-export function RevisiModal({ open, post, editing, applyStatus = true, onClose, onSaved }: RevisiModalProps) {
+export function RevisiModal({ open, post, accounts, editing, applyStatus = true, onClose, onSaved }: RevisiModalProps) {
   const t = useT()
   const upsertPost = useStore((s) => s.upsertPost)
 
+  // "Untuk" now targets the accounts tagged on the task (the people doing it),
+  // not the Video/Design disciplines. The disciplines are still flipped to
+  // 'revisi' behind the scenes so the SMM / VP / DS boards behave as before.
   const avail = useMemo(() => postTracks(post), [post])
-  const single = avail.length === 1
+  const tagged = useMemo(() => Array.from(new Set((post.tagged || []).map(e => (e || '').toLowerCase()).filter(Boolean))), [post.tagged])
+  const nameOf = (email: string) => accounts?.[email.toLowerCase()]?.name || email.split('@')[0] || email
 
-  const [selected, setSelected] = useState<RevisionTrack[]>(avail)
+  const [selectedAccts, setSelectedAccts] = useState<string[]>(tagged)
   const [detail, setDetail] = useState('')
   // Reference links (committed via "+ Link") + the in-progress input.
   const [links, setLinks] = useState<string[]>([])
@@ -72,7 +78,7 @@ export function RevisiModal({ open, post, editing, applyStatus = true, onClose, 
   // Reset the form whenever the popup (re)opens or the target revision changes.
   useEffect(() => {
     if (!open) return
-    setSelected(editing ? editing.tracks.filter(tk => avail.includes(tk)) : avail)
+    setSelectedAccts(editing?.accounts?.length ? editing.accounts.filter(e => tagged.includes((e || '').toLowerCase())) : tagged)
     setDetail(editing?.detail ?? '')
     setLinks(editing ? revisionLinks(editing) : [])
     setLinkInput('')
@@ -96,9 +102,8 @@ export function RevisiModal({ open, post, editing, applyStatus = true, onClose, 
     return () => { cancelled = true }
   }, [open])
 
-  function toggleTrack(tk: RevisionTrack) {
-    if (single) return // the only track stays selected
-    setSelected(prev => (prev.includes(tk) ? prev.filter(x => x !== tk) : [...prev, tk]))
+  function toggleAcct(email: string) {
+    setSelectedAccts(prev => (prev.includes(email) ? prev.filter(x => x !== email) : [...prev, email]))
   }
 
   function addLink() {
@@ -145,7 +150,7 @@ export function RevisiModal({ open, post, editing, applyStatus = true, onClose, 
   }
 
   const uploading = uploads.length > 0
-  const canSave = selected.length > 0 && detail.trim().length > 0 && !saving && !uploading
+  const canSave = detail.trim().length > 0 && !saving && !uploading
 
   async function save() {
     if (!canSave) return
@@ -158,7 +163,10 @@ export function RevisiModal({ open, post, editing, applyStatus = true, onClose, 
       const allLinks = pending && !links.includes(pending) ? [...links, pending] : links
       const rec: PostRevision = {
         id: editing?.id ?? rid(),
-        tracks: selected,
+        // Keep the disciplines on the record so the SMM / worksheet boards read
+        // exactly as before; the new `accounts` is who the revision is FOR.
+        tracks: avail,
+        accounts: selectedAccts,
         detail: detail.trim(),
         reference_links: allLinks,
         files: uploaded,
@@ -188,10 +196,20 @@ export function RevisiModal({ open, post, editing, applyStatus = true, onClose, 
       const statusUpd: Record<string, unknown> = {}
       if (applyStatus && !editing) {
         statusUpd.status = 'revisi'
-        if (selected.includes('video')) statusUpd.video_status = 'revisi'
-        if (selected.includes('design')) statusUpd.design_status = 'revisi'
+        if (avail.includes('video')) statusUpd.video_status = 'revisi'
+        if (avail.includes('design')) statusUpd.design_status = 'revisi'
         const { error: stErr } = await sb().from('posts').update(statusUpd).eq('id', post.id)
         if (stErr) throw stErr
+        // Land the Revisi in each addressed account's My Task worksheet (each
+        // account's My Task is its own worksheet), so it shows there live.
+        const targets = Array.from(new Set((selectedAccts.length ? selectedAccts : tagged).map(e => (e || '').toLowerCase()).filter(Boolean)))
+        if (targets.length) {
+          const nowTs = new Date().toISOString()
+          await sb().from('post_task_status').upsert(
+            targets.map(email => ({ post_id: post.id, email, status: 'revisi', updated_at: nowTs })),
+            { onConflict: 'post_id,email' },
+          )
+        }
       }
 
       const fresh = useStore.getState().posts.find(p => p.id === post.id) ?? post
@@ -201,10 +219,10 @@ export function RevisiModal({ open, post, editing, applyStatus = true, onClose, 
       // Log to the post's activity feed.
       if (me.email) {
         const verb = editing ? t('memperbarui revisi') : t('membuat revisi')
-        const trackLabel = selected.map(tk => TRACKS[tk].label).join(' & ')
+        const label = selectedAccts.length ? selectedAccts.map(nameOf).join(', ') : avail.map(tk => TRACKS[tk].label).join(' & ')
         await sb().from('post_comments').insert({
           post_id: post.id, type: 'activity', author_email: me.email, author_name: me.name,
-          body: `${verb} (${trackLabel})`,
+          body: `${verb} (${label})`,
         })
       }
 
@@ -242,37 +260,42 @@ export function RevisiModal({ open, post, editing, applyStatus = true, onClose, 
         </div>
       }
     >
-      {/* 1 — Tracks (Video Production / Design Studio). Multi-select when the
-            post has both content types; auto-locked when it has only one. */}
+      {/* 1 — Untuk: the accounts tagged on the task. Multi-select; defaults to all
+            tagged. The disciplines still flip to 'revisi' behind the scenes. */}
       <Field label={t('Untuk')}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {avail.map(tk => {
-            const on = selected.includes(tk)
-            const m = TRACKS[tk]
-            return (
-              <button
-                key={tk}
-                type="button"
-                onClick={() => toggleTrack(tk)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 7,
-                  padding: '7px 12px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  cursor: single ? 'default' : 'pointer',
-                  color: on ? m.color : 'var(--text2)',
-                  background: on ? m.color + '1f' : 'var(--bg3)',
-                  border: `1px solid ${on ? m.color + '88' : 'var(--border)'}`,
-                }}
-              >
-                {m.label}
-                {on && (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </button>
-            )
-          })}
-        </div>
+        {tagged.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: 'var(--text3)', background: 'var(--bg3)', border: '1px dashed var(--border)', borderRadius: 9, padding: '10px 13px' }}>
+            {t('Belum ada akun yang di-tag pada task ini.')}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {tagged.map(email => {
+              const on = selectedAccts.includes(email)
+              return (
+                <button
+                  key={email}
+                  type="button"
+                  onClick={() => toggleAcct(email)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 7,
+                    padding: '6px 12px 6px 6px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    color: on ? REVISI : 'var(--text2)',
+                    background: on ? REVISI + '1f' : 'var(--bg3)',
+                    border: `1px solid ${on ? REVISI + '88' : 'var(--border)'}`,
+                  }}
+                >
+                  <MiniAvatar name={nameOf(email)} size={22} />
+                  {nameOf(email)}
+                  {on && (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </Field>
 
       {/* 2 — Revision detail */}
@@ -565,14 +588,20 @@ function RevisiCard({
           {t('REVISI')}
         </span>
         <span style={{ width: 1, height: 12, background: 'var(--border)', flexShrink: 0 }} />
-        {rev.tracks.map(tk => {
-          const m = TRACKS[tk]
-          return (
-            <span key={tk} style={{ fontSize: 11, fontWeight: 600, color: m.color, background: m.color + '16', border: `1px solid ${m.color}38`, borderRadius: 7, padding: '3px 9px' }}>
-              {m.label}
-            </span>
-          )
-        })}
+        {rev.accounts && rev.accounts.length > 0
+          ? rev.accounts.map(email => (
+              <span key={email} style={{ fontSize: 11, fontWeight: 600, color: REVISI, background: REVISI + '16', border: `1px solid ${REVISI}38`, borderRadius: 7, padding: '3px 9px' }}>
+                {email.split('@')[0] || email}
+              </span>
+            ))
+          : rev.tracks.map(tk => {
+              const m = TRACKS[tk]
+              return (
+                <span key={tk} style={{ fontSize: 11, fontWeight: 600, color: m.color, background: m.color + '16', border: `1px solid ${m.color}38`, borderRadius: 7, padding: '3px 9px' }}>
+                  {m.label}
+                </span>
+              )
+            })}
         <span style={{ flex: 1 }} />
         {canEdit && (
           <button

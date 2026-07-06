@@ -9,6 +9,7 @@ import { FormField, inputStyle, textareaStyle } from '@/components/website/FormF
 import { ActionButton, IconBtn, ListEmpty, ListError, ModalShell, RowCard } from '@/components/website/SimpleList'
 import { Section } from '@/components/website/Section'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { confirmDialog } from '@/lib/confirm-dialog'
 
 const SUGGESTED_PAGES =['/', '/about', '/portfolio', '/news', '/contact']
 
@@ -41,7 +42,7 @@ export default function SeoAdminPage() {
   useEffect(() => { load() }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus entry SEO ini?'))) return
+    if (!(await confirmDialog(t('Hapus entry SEO ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const { error } = await supabase.from('bsi_seo').delete().eq('id', id)
     if (error) { alert(error.message); return }
     setItems((xs) => xs.filter((x) => x.id !== id))
@@ -69,7 +70,7 @@ export default function SeoAdminPage() {
                     background: 'var(--bg3)',
                     borderRadius: 4,
                     fontSize: 12,
-                    color: 'var(--accent)',
+                    color: 'var(--link)',
                     flexShrink: 0,
                   }}
                 >

@@ -126,7 +126,7 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
                 textOverflow: 'ellipsis',
               }}
             >
-              {title}
+              {t(title)}
             </span>
           </div>
 
@@ -156,7 +156,7 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
                   return (
                     <TabButton
                       key={tab.href}
-                      label={tab.label}
+                      label={t(tab.label)}
                       icon={tab.icon}
                       active={active}
                       asLink={tab.href}
@@ -168,7 +168,7 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
                   return (
                     <TabButton
                       key={tab.key}
-                      label={tab.label}
+                      label={t(tab.label)}
                       icon={tab.icon}
                       active={active}
                       onClick={() => tabs.onChange(tab.key)}
@@ -207,7 +207,7 @@ function TabButton({
     padding: '12px 14px',
     background: 'none',
     border: 'none',
-    borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
+    borderBottom: `2px solid ${active ? '#60a5fa' : 'transparent'}`,
     marginBottom: -1,
     fontSize: 13,
     fontWeight: active ? 600 : 400,
@@ -219,7 +219,7 @@ function TabButton({
     // Parent color drives the icon glyph (svg uses currentColor).
     // The label is wrapped in its own span with the gradient class
     // so the icon stays visible while only the text is gradient-filled.
-    color: active ? 'var(--accent)' : 'var(--text2)',
+    color: active ? '#60a5fa' : 'var(--text2)',
   }
   const labelEl = active ? (
     <span className="tab-active-text">{label}</span>

@@ -1,13 +1,16 @@
-import { PageGroupShell } from '@/components/website/PageGroupShell'
+'use client'
 
-const TABS = [
-  { href: '/website/about/content', label: 'About Content' },
-  { href: '/website/about/gallery', label: 'Gallery' },
-]
+import { PageGroupShell } from '@/components/website/PageGroupShell'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export default function AboutLayout({ children }: { children: React.ReactNode }) {
+  const t = useT()
+  const tabs = [
+    { href: '/website/about/content', label: t('Konten About') },
+    { href: '/website/about/gallery', label: t('Galeri') },
+  ]
   return (
-    <PageGroupShell title="About Page" tabs={TABS}>
+    <PageGroupShell title={t('Halaman About')} tabs={tabs}>
       {children}
     </PageGroupShell>
   )

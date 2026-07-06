@@ -49,7 +49,7 @@ export function PipelineSummary({ items, stages, member }: PipelineSummaryProps)
           { label: t('Total Konten'), value: total, color: 'var(--text)' },
           { label: t('Sedang Berjalan'), value: inProgress, color: '#ffc542' },
           { label: t('Selesai'), value: completed, color: '#43d9a2' },
-          { label: 'Completion Rate', value: `${completionRate}%`, color: 'var(--accent)' },
+          { label: 'Completion Rate', value: `${completionRate}%`, color: 'var(--link)' },
         ].map(stat => (
           <div key={stat.label} style={{
             background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '16px 18px',

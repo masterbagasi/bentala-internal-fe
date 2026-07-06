@@ -4,7 +4,7 @@ import { PostTracker } from '@/components/BSI/PostTracker'
 export default function BSIPostsPage() {
   return (
     <>
-      <PageHeader title="Post Tracker" />
+      <PageHeader title="Pelacak Postingan" />
       <div className="flex-1 overflow-y-auto min-h-0" style={{ padding: 24 }}>
         <PostTracker entity="bsi" />
       </div>

@@ -4,7 +4,9 @@ import { useState, useMemo } from 'react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
+import { POST_STATUS_COLORS, POST_STATUS_LABELS } from '@/lib/constants'
 import { useSocmedProjects } from '@/lib/socmed-projects'
+import { projectGlyph } from '@/lib/project-glyph'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { PostModal } from '@/components/BPI/PostModal'
 import type { PostFilters } from '@/components/BPI'
@@ -42,19 +44,30 @@ const MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt'
 const WS_MAP: Record<string, string> = { 'ws-fz': 'Video Production', 'ws-rn': 'Design Studio' }
 
 const FALLBACK_COLOR = '#8b8fff'
+// Canonical board status order — drives the calendar legend so it reads the
+// same as the board columns.
+const STATUS_ORDER = ['todo', 'brief', 'produksi', 'review', 'revisi', 'ready', 'published', 'done']
 
 export function ContentCalendar({ entity, onPostClick, filters, mineScope }: ContentCalendarProps) {
   const t = useT()
   const { posts, calState, setCalState } = useStore(useShallow((s) => ({ posts: s.posts, calState: s.calState, setCalState: s.setCalState })))
-  // A task's accent = its project's brand colour (same as the sidebar/menu
-  // icon), so on the All Project calendar you can tell projects apart at a
-  // glance — Bentala Project orange, Bentala Studio purple, Master Bagasi blue…
-  const allProjectsList = useSocmedProjects(false) // incl. archived so old tasks still colour
-  const colorOf = useMemo(() => {
-    const m: Record<string, string> = {}
-    for (const p of allProjectsList) m[p.slug] = p.color || FALLBACK_COLOR
-    return (post: Post) => m[post.entity] || FALLBACK_COLOR
+  // A task's accent = its STATUS colour, matching the board columns (Idea,
+  // Brief, Production, Review, Revisi, Ready, Published, Done) so the calendar
+  // reads exactly like the board at a glance.
+  const colorOf = useMemo(() => (post: Post) => POST_STATUS_COLORS[post.status] || FALLBACK_COLOR, [])
+  // On the All Project calendar, each task also carries a small dot in its
+  // project's brand colour so you can tell which account it belongs to without
+  // losing the status colour.
+  const allProjectsList = useSocmedProjects(false) // incl. archived so old tasks still resolve
+  const projInfo = useMemo(() => {
+    const m: Record<string, { color: string; name: string; glyph: string }> = {}
+    for (const p of allProjectsList) m[p.slug] = { color: p.color || FALLBACK_COLOR, name: p.name, glyph: p.glyph || projectGlyph(p.name) }
+    return m
   }, [allProjectsList])
+  const projColorOf = (post: Post) => projInfo[post.entity]?.color || FALLBACK_COLOR
+  const projNameOf = (post: Post) => projInfo[post.entity]?.name || post.entity
+  const projGlyphOf = (post: Post) => projInfo[post.entity]?.glyph || projectGlyph(post.entity)
+  const showProject = entity === 'all'
   const [previewPostId, setPreviewPostId] = useState<string | null>(null)
   const [addDate, setAddDate] = useState<string | null>(null)
   const [dayPopup, setDayPopup] = useState<{ date: string; x: number; y: number } | null>(null)
@@ -92,6 +105,12 @@ export function ContentCalendar({ entity, onPostClick, filters, mineScope }: Con
   }
 
   const entityPosts = getEntityPosts()
+  // Legend reflects the statuses actually present, in board order.
+  const presentStatuses = STATUS_ORDER.filter(s => entityPosts.some(p => p.status === s))
+  // Projects present in this (All Project) view, for the account legend.
+  const projectsInView = showProject
+    ? allProjectsList.filter(pr => pr.active && entityPosts.some(p => p.entity === pr.slug))
+    : []
 
   // Two-month planner: this month + the next, so plans that straddle a month
   // boundary stay visible. The selects/arrows drive the first (left) month.
@@ -136,13 +155,25 @@ export function ContentCalendar({ entity, onPostClick, filters, mineScope }: Con
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto', flexWrap: 'wrap' }}>
-          {/* Platform legend */}
-          {entity === 'all' && (
+          {/* Status legend — same colours as the board columns (square chips) */}
+          {presentStatuses.length > 0 && (
             <div className="bcal-legend">
-              {allProjectsList.filter(p => p.active).map(p => (
-                <span key={p.slug}><i style={{ background: p.color || FALLBACK_COLOR }} />{p.name}</span>
+              {presentStatuses.map(s => (
+                <span key={s}><i style={{ background: POST_STATUS_COLORS[s] || FALLBACK_COLOR }} />{POST_STATUS_LABELS[s] || s}</span>
               ))}
             </div>
+          )}
+
+          {/* Account legend — brand colours per project (round chips) */}
+          {projectsInView.length > 0 && (
+            <>
+              <span className="bcal-legend-sep" aria-hidden />
+              <div className="bcal-legend bcal-legend-proj">
+                {projectsInView.map(pr => (
+                  <span key={pr.slug}><span className="bcal-pgly" style={{ background: pr.color || FALLBACK_COLOR }}>{pr.glyph || projectGlyph(pr.name)}</span>{pr.name}</span>
+                ))}
+              </div>
+            </>
           )}
 
           {/* Quick jump */}
@@ -182,6 +213,10 @@ export function ContentCalendar({ entity, onPostClick, filters, mineScope }: Con
             posts={entityPosts}
             today={today}
             colorOf={colorOf}
+            projColorOf={projColorOf}
+            projNameOf={projNameOf}
+            projGlyphOf={projGlyphOf}
+            showProject={showProject}
             onDayClick={handleDayClick}
             onPostClick={handlePostClick}
           />
@@ -197,6 +232,10 @@ export function ContentCalendar({ entity, onPostClick, filters, mineScope }: Con
             y={dayPopup.y}
             posts={entityPosts.filter(p => p.date === dayPopup.date)}
             colorOf={colorOf}
+            projColorOf={projColorOf}
+            projNameOf={projNameOf}
+            projGlyphOf={projGlyphOf}
+            showProject={showProject}
             onClose={() => setDayPopup(null)}
             onPostClick={(id, e) => handlePostClick(e, id)}
             onAddPost={() => { setAddDate(dayPopup.date); setDayPopup(null) }}
@@ -222,13 +261,17 @@ export function ContentCalendar({ entity, onPostClick, filters, mineScope }: Con
 
 // ── Month Panel ──
 function MonthPanel({
-  year, month, posts, today, colorOf, onDayClick, onPostClick,
+  year, month, posts, today, colorOf, projColorOf, projNameOf, projGlyphOf, showProject, onDayClick, onPostClick,
 }: {
   year: number
   month: number
   posts: Post[]
   today: Date
   colorOf: (p: Post) => string
+  projColorOf: (p: Post) => string
+  projNameOf: (p: Post) => string
+  projGlyphOf: (p: Post) => string
+  showProject: boolean
   onDayClick: (e: React.MouseEvent, dateStr: string) => void
   onPostClick: (e: React.MouseEvent, id: string) => void
 }) {
@@ -291,10 +334,11 @@ function MonthPanel({
                       type="button"
                       className="bcal-pill"
                       style={{ ['--pc' as string]: c2 }}
-                      title={p.title}
+                      title={showProject ? `${projNameOf(p)} — ${p.title}` : p.title}
                       onClick={(e) => onPostClick(e, p.id)}
                     >
-                      {p.title}
+                      {showProject && <span className="bcal-pgly" style={{ background: projColorOf(p) }}>{projGlyphOf(p)}</span>}
+                      <span className="bcal-pill-txt">{p.title}</span>
                     </button>
                   )
                 })}
@@ -312,13 +356,17 @@ function MonthPanel({
 
 // ── Day Popup ──
 function DayPopup({
-  date, x, y, posts, colorOf, onClose, onPostClick, onAddPost,
+  date, x, y, posts, colorOf, projColorOf, projNameOf, projGlyphOf, showProject, onClose, onPostClick, onAddPost,
 }: {
   date: string
   x: number
   y: number
   posts: Post[]
   colorOf: (p: Post) => string
+  projColorOf: (p: Post) => string
+  projNameOf: (p: Post) => string
+  projGlyphOf: (p: Post) => string
+  showProject: boolean
   onClose: () => void
   onPostClick: (id: string, e: React.MouseEvent) => void
   onAddPost: () => void
@@ -342,6 +390,7 @@ function DayPopup({
       ) : posts.map(p => (
         <button key={p.id} type="button" className="bcal-pop-item" onClick={(e) => onPostClick(p.id, e)}>
           <span className="bcal-pop-dot" style={{ background: colorOf(p) }} />
+          {showProject && <span className="bcal-pgly" style={{ background: projColorOf(p) }} title={projNameOf(p)}>{projGlyphOf(p)}</span>}
           <span className="bcal-pop-title">{p.title}</span>
         </button>
       ))}
@@ -356,6 +405,8 @@ const CAL_CSS = `
 .bcal-legend { display:flex; align-items:center; gap:14px; font-size:11.5px; color:var(--text2); margin-right:2px; }
 .bcal-legend span { display:inline-flex; align-items:center; gap:5px; }
 .bcal-legend i { width:9px; height:9px; border-radius:3px; display:inline-block; }
+.bcal-legend-proj i { border-radius:50%; }
+.bcal-legend-sep { width:1px; height:14px; background:var(--border); display:inline-block; flex-shrink:0; }
 
 .bcal-seg { display:inline-flex; align-items:stretch; background:var(--bg3); border:1px solid var(--border); border-radius:9px; overflow:hidden; }
 .bcal-seg-btn { display:flex; align-items:center; justify-content:center; gap:4px; min-width:34px; padding:7px 10px; background:transparent; border:none; border-left:1px solid var(--border); color:var(--text); font-size:12.5px; font-weight:600; cursor:pointer; transition:background .14s, color .14s; }
@@ -392,7 +443,9 @@ const CAL_CSS = `
 .bcal-cell:hover .bcal-add { opacity:0.9; }
 
 .bcal-pills { display:flex; flex-direction:column; gap:3px; }
-.bcal-pill { display:block; width:100%; text-align:left; font-size:10.5px; font-weight:500; line-height:1.3; padding:3px 6px 3px 7px; border:none; border-left:2.5px solid var(--pc); border-radius:4px; background:color-mix(in srgb, var(--pc) 16%, transparent); color:var(--text); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:filter .12s, transform .12s; }
+.bcal-pill { display:flex; align-items:center; gap:5px; width:100%; text-align:left; font-size:10.5px; font-weight:500; line-height:1.3; padding:3px 6px 3px 7px; border:none; border-left:2.5px solid var(--pc); border-radius:4px; background:color-mix(in srgb, var(--pc) 16%, transparent); color:var(--text); cursor:pointer; overflow:hidden; transition:filter .12s, transform .12s; }
+.bcal-pill-txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.bcal-pgly { flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; height:13px; min-width:13px; padding:0 3px; border-radius:3px; font-size:7.5px; font-weight:800; letter-spacing:.02em; color:#fff; line-height:1; box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 0 0 .5px rgba(0,0,0,.25); }
 .bcal-pill:hover { filter:brightness(1.18); transform:translateX(1px); }
 .bcal-pill:focus-visible { outline:2px solid var(--pc); outline-offset:1px; }
 .bcal-more { font-size:10px; font-weight:600; color:var(--text2); padding:1px 2px; }
@@ -413,7 +466,7 @@ const CAL_CSS = `
 @media (max-width: 560px) {
   .bcal-days { grid-auto-rows:84px; }
   .bcal-cell { height:84px; }
-  .bcal-legend { display:none; }
+  .bcal-legend, .bcal-legend-sep { display:none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bcal-cell, .bcal-pill, .bcal-add, .bcal-seg-btn, .bcal-pop-add { transition:none; }

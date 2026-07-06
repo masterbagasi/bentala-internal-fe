@@ -14,54 +14,45 @@ interface ModalProps {
   wide?: boolean
   maxWidth?: number
   className?: string
+  /** 'right' docks as a full-height overlay panel on the right edge; 'inline'
+   *  renders the panel in normal flow (no backdrop), filling its container —
+   *  used for split-view layouts where it sits beside the content. */
+  dock?: 'center' | 'right' | 'inline'
 }
 
 export function Modal({
   open, onClose, title, children, footer, headerRight,
-  wide = false, maxWidth, className,
+  wide = false, maxWidth, className, dock = 'center',
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile()
 
-  // ESC key to close
+  // ESC key to close — the inline panel lets its host own Escape so it doesn't
+  // also dismiss the surrounding view in one keystroke.
   useEffect(() => {
+    if (dock === 'inline') return
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape' && open) onClose()
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
-  }, [open, onClose])
+  }, [open, onClose, dock])
 
-  // Prevent body scroll when open
+  // Prevent body scroll when open — but not for the inline panel, which lives
+  // in normal flow beside the page rather than over it.
   useEffect(() => {
+    if (dock === 'inline') return
     document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [open])
+  }, [open, dock])
 
   if (!open) return null
 
-  return (
-    <div
-      ref={overlayRef}
-      className="fixed inset-0 flex items-center justify-center z-[1000]"
-      style={{ background: 'rgba(0,0,0,0.7)' }}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
-    >
-      <div
-        className={cn('animate-slide-up', className)}
-        style={{
-          background: 'var(--bg2)',
-          border: '1px solid var(--border)',
-          borderRadius: 12,
-          width: maxWidth || (wide ? 640 : 480),
-          maxWidth: isMobile ? 'calc(100vw - 24px)' : '95vw',
-          maxHeight: isMobile ? '90dvh' : '90vh',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+  const inline = dock === 'inline'
+  const docked = dock === 'right' && !isMobile
+
+  const panel = (
+    <>
         {/* Header */}
         {(title || headerRight) && (
           <div
@@ -118,6 +109,55 @@ export function Modal({
             {footer}
           </div>
         )}
+    </>
+  )
+
+  // Inline: a plain panel that fills its parent (split-view), no backdrop.
+  if (inline) {
+    return (
+      <div
+        className={cn('animate-slide-right', className)}
+        style={{
+          background: 'var(--bg2)',
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        {panel}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={overlayRef}
+      className={cn(
+        'fixed inset-0 flex z-[1000]',
+        docked ? 'items-stretch justify-end' : 'items-center justify-center',
+      )}
+      style={{ background: 'rgba(0,0,0,0.7)' }}
+      onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
+    >
+      <div
+        className={cn(docked ? 'animate-slide-right' : 'animate-slide-up', className)}
+        style={{
+          background: 'var(--bg2)',
+          border: '1px solid var(--border)',
+          borderRadius: docked ? '12px 0 0 12px' : 12,
+          width: maxWidth || (wide ? 640 : 480),
+          maxWidth: isMobile ? 'calc(100vw - 24px)' : '95vw',
+          height: docked ? '100dvh' : undefined,
+          maxHeight: docked ? '100dvh' : isMobile ? '90dvh' : '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {panel}
       </div>
     </div>
   )

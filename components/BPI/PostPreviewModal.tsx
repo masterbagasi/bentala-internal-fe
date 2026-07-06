@@ -8,6 +8,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
 import { deleteFile } from '@/lib/storage'
 import { isUploadedFile } from '@/lib/attachments'
+import { htmlToPlain, isRichHtml, RichTextView } from '@/lib/rich-text'
 import { SubtaskEditor } from './SubtaskEditor'
 import type { Subtask } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
@@ -39,18 +40,28 @@ interface PostPreviewModalProps {
   onEdit: (id: string) => void
   /** When false (workspace pages), the "Edit Post" button is hidden. */
   canEdit?: boolean
+  /** Whether the "Edit Task" button shows — only the task creator (or a super
+   *  admin) may open the full edit form. Non-creators keep every other detail
+   *  action (files, chat, status, revisions). Defaults to `canEdit`. */
+  canEditTask?: boolean
   /** My Task / Team context: project-origin tasks follow the Video Production /
    *  Design Studio flow, so their status is changed only by dragging on the
    *  board (a static pill here, no free dropdown). Personal tasks stay free. */
   restrictStatus?: boolean
+  /** My Task: force the static status pill (no dropdown) even for a personal
+   *  task — used when the viewer isn't the task's creator, so only the creator
+   *  can send it to Revisi or finalize it (Ready to Post / Done). */
+  forceStaticStatus?: boolean
   /** Epoch ms the viewer last opened this task; sections changed by others
    *  after this (and the Activity rows) are flagged as new. Omit it (e.g. when
    *  opening from chat/notifications) and the modal resolves it from the store
    *  and marks the task read itself, matching the Projects board. */
   seenSince?: number
+  /** 'right' docks as an overlay panel; 'inline' renders in flow for split-view. */
+  dock?: 'center' | 'right' | 'inline'
 }
 
-export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true, restrictStatus = false, seenSince }: PostPreviewModalProps) {
+export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true, canEditTask, restrictStatus = false, forceStaticStatus = false, seenSince, dock = 'center' }: PostPreviewModalProps) {
   const t = useT()
   const isMobile = useIsMobile()
   const { posts, upsertPost, meEmail, chatUnread, clearChatUnread } = useStore(useShallow((s) => ({ posts: s.posts, upsertPost: s.upsertPost, meEmail: s.meEmail, chatUnread: s.chatUnread, clearChatUnread: s.clearChatUnread })))
@@ -480,11 +491,12 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       open={open}
       onClose={handleClose}
       wide
+      dock={dock}
       title={t('Detail Task')}
       headerRight={
         // Project tasks in My Task / Team follow the VP/DS flow → static pill
         // (status moves only by board drag). Personal tasks keep the free dropdown.
-        canEdit && !(restrictStatus && post.entity !== 'personal') ? (
+        canEdit && !forceStaticStatus && !(restrictStatus && post.entity !== 'personal') ? (
         <>
           <span style={{ position: 'relative', display: 'inline-flex' }}>
           <button
@@ -560,7 +572,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
               </button>
             )}
             <BtnSecondary onClick={handleClose}>{t('Tutup')}</BtnSecondary>
-            {canEdit && (
+            {(canEditTask ?? canEdit) && (
               <button
                 onClick={() => { handleClose(); onEdit(post.id) }}
                 style={{ background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
@@ -934,7 +946,7 @@ function AttachPreviewBody({ url, label }: { url: string; label: string }) {
   return (
     <div style={{ textAlign: 'center', padding: 24, fontSize: 13, color: 'var(--text2)' }}>
       {t('Preview tidak tersedia.')}{' '}
-      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{t('Buka di tab baru')}</a>
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--link)' }}>{t('Buka di tab baru')}</a>
     </div>
   )
 }
@@ -990,7 +1002,7 @@ function UploadingCard({ name, progress, onCancel, cancelLabel }: { name: string
   return (
     <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ height: 90, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--bg2)' }}>
-        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)' }}>{pct}%</span>
+        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--link)' }}>{pct}%</span>
         <div style={{ width: '78%', height: 5, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}>
           <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', borderRadius: 3, transition: 'width 0.15s ease' }} />
         </div>
@@ -1244,12 +1256,13 @@ function CopyField({
   const t = useT()
   const [copied, setCopied] = useState(false)
   const text = (value ?? '').toString()
-  const hasText = text.trim().length > 0
+  const hasText = htmlToPlain(text).trim().length > 0
 
   async function copy() {
     if (!hasText) return
     try {
-      await navigator.clipboard.writeText(text)
+      // Copy as plain text so it pastes cleanly into Instagram/TikTok etc.
+      await navigator.clipboard.writeText(htmlToPlain(text))
       setCopied(true)
       setTimeout(() => setCopied(false), 1200)
     } catch {}
@@ -1291,13 +1304,24 @@ function CopyField({
           )}
         </button>
       </div>
-      <pre style={{
-        fontSize: 13, lineHeight: 1.7, color: hasText ? (color ?? 'var(--text)') : 'var(--text2)',
-        background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
-        whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit', margin: 0,
-      }}>
-        {hasText ? text : (emptyText ?? '—')}
-      </pre>
+      {hasText && isRichHtml(text) ? (
+        <RichTextView
+          value={text}
+          style={{
+            fontSize: 13, lineHeight: 1.7, color: color ?? 'var(--text)',
+            background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
+            wordBreak: 'break-word', fontFamily: 'inherit', margin: 0,
+          }}
+        />
+      ) : (
+        <pre style={{
+          fontSize: 13, lineHeight: 1.7, color: hasText ? (color ?? 'var(--text)') : 'var(--text2)',
+          background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit', margin: 0,
+        }}>
+          {hasText ? text : (emptyText ?? '—')}
+        </pre>
+      )}
     </div>
   )
 }

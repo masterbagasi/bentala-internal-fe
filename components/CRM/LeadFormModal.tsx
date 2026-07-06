@@ -45,6 +45,54 @@ export interface NewLeadInput {
 }
 
 export const CONTACT_CHANNELS = ['WhatsApp', 'Email', 'Instagram', 'Facebook', 'X (Twitter)', 'TikTok', 'YouTube', 'LinkedIn', 'Telegram', 'Phone', 'Website', 'Threads', 'Snapchat', 'Pinterest', 'Lainnya']
+
+// ── Shared form ⇄ bsi_leads mappers (used by the Database list + the contact
+//    detail page, so editing works the same everywhere). ──
+const slugify = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+const STATUS_TO_DB: Record<string, string> = {
+  'New lead': 'new', Contacted: 'contacted', Qualified: 'qualified',
+  Prospek: 'qualified', Penawaran: 'qualified', Negosiasi: 'qualified', Won: 'closed', Lost: 'closed',
+}
+const STATUS_FROM_DB: Record<string, string> = { new: 'New lead', contacted: 'Contacted', qualified: 'Qualified', closed: 'Won', spam: 'Lost' }
+
+// Build the bsi_leads column object from form input (excludes origin/in_database/submitted_at).
+export function inputToRow(input: NewLeadInput) {
+  return {
+    full_name: input.full_name.trim(), jabatan: input.jabatan.trim(), brand_name: input.brand_name.trim(),
+    tier_klien: input.tier_klien, industri: input.industri,
+    contact_type: slugify(input.contact_type) || 'whatsapp', contact_value: input.contact_value.trim(), kontak_lainnya: input.kontak_lainnya,
+    source: input.source, detail_sumber: input.detail_sumber.trim(),
+    // project_type is the legacy NOT NULL column; mirror the jenis_project list into it.
+    project_type: input.jenis_project.join(', ') || '-',
+    jenis_project: input.jenis_project, objektif: input.objektif, budget_range: input.budget_range, timeline: input.timeline,
+    status: STATUS_TO_DB[input.status] ?? 'new', prioritas: input.prioritas, pic: input.pic, next_action: input.next_action.trim(),
+    follow_up_date: input.follow_up_date || null, tags: input.tags, notes: input.notes.trim(), lampiran: input.lampiran,
+    nama_lokasi: input.nama_lokasi.trim(), alamat_jalan: input.alamat_jalan.trim(), alamat_rtrw: input.alamat_rtrw.trim(),
+    alamat_blok: input.alamat_blok.trim(), kelurahan: input.kelurahan.trim(), kecamatan: input.kecamatan.trim(),
+    kota: input.kota.trim(), provinsi: input.provinsi, kode_pos: input.kode_pos.trim(), negara: input.negara,
+  }
+}
+
+// Reverse a stored lead row into form input for editing.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function leadToInput(l: any): Partial<NewLeadInput> {
+  const channel = CONTACT_CHANNELS.find((c) => slugify(c) === l.contact_type) ?? 'WhatsApp'
+  return {
+    full_name: l.full_name ?? '', jabatan: l.jabatan ?? '', brand_name: l.brand_name ?? '',
+    tier_klien: l.tier_klien ?? 'UMKM', industri: l.industri ?? 'Food & beverage',
+    contact_type: channel, contact_value: l.contact_value ?? '',
+    kontak_lainnya: Array.isArray(l.kontak_lainnya) ? l.kontak_lainnya : [],
+    source: l.source ?? 'Instagram', detail_sumber: l.detail_sumber ?? '',
+    jenis_project: Array.isArray(l.jenis_project) ? l.jenis_project : [],
+    objektif: l.objektif ?? '', budget_range: l.budget_range ?? '', timeline: l.timeline ?? '',
+    status: STATUS_FROM_DB[l.status] ?? 'New lead', prioritas: l.prioritas ?? 'Warm',
+    pic: l.pic ?? '', next_action: l.next_action ?? '', follow_up_date: l.follow_up_date ?? '',
+    tags: Array.isArray(l.tags) ? l.tags : [], notes: l.notes ?? '', lampiran: Array.isArray(l.lampiran) ? l.lampiran : [],
+    nama_lokasi: l.nama_lokasi ?? '', alamat_jalan: l.alamat_jalan ?? '', alamat_rtrw: l.alamat_rtrw ?? '',
+    alamat_blok: l.alamat_blok ?? '', kelurahan: l.kelurahan ?? '', kecamatan: l.kecamatan ?? '',
+    kota: l.kota ?? '', provinsi: l.provinsi ?? '', kode_pos: l.kode_pos ?? '', negara: l.negara ?? 'Indonesia',
+  }
+}
 // Placeholder hint per channel so "Kontak utama" matches the selected type.
 function channelPlaceholder(ch: string): string {
   switch (ch) {
@@ -62,12 +110,11 @@ const TIER = ['UMKM', 'Small Business', 'Mid Market', 'Enterprise']
 const INDUSTRI = ['Food & beverage', 'Beauty', 'Fashion', 'Personal', 'Tech', 'Health', 'Edu', 'Other']
 const SUMBER = ['Instagram', 'TikTok', 'Website', 'Referral', 'Event', 'Cold', 'Ads', 'Lainnya']
 const OBJEKTIF = ['Awareness', 'Engagement', 'Leads / Sales', 'Followers growth', 'Content production', 'Branding', 'Launch campaign', 'Lainnya']
-const BUDGET = ['< Rp 5 juta', 'Rp 5 — 15 juta', 'Rp 15 — 30 juta', 'Rp 30 — 50 juta', 'Rp 50 — 100 juta', '> Rp 100 juta']
 const TIMELINE = ['Urgent — sekarang', '1 — 3 bulan', '3 — 6 bulan', 'Long-term', 'Belum tentu']
 const STATUS8 = ['New lead', 'Contacted', 'Qualified', 'Prospek', 'Penawaran', 'Negosiasi', 'Won', 'Lost']
 const PRIORITAS = ['Hot — sekarang', 'Warm', 'Cold']
-const PROVINSI = ['Aceh', 'Sumatera Utara', 'Sumatera Barat', 'Riau', 'Kepulauan Riau', 'Jambi', 'Sumatera Selatan', 'Bangka Belitung', 'Bengkulu', 'Lampung', 'DKI Jakarta', 'Jawa Barat', 'Banten', 'Jawa Tengah', 'DI Yogyakarta', 'Jawa Timur', 'Bali', 'Nusa Tenggara Barat', 'Nusa Tenggara Timur', 'Kalimantan Barat', 'Kalimantan Tengah', 'Kalimantan Selatan', 'Kalimantan Timur', 'Kalimantan Utara', 'Sulawesi Utara', 'Gorontalo', 'Sulawesi Tengah', 'Sulawesi Barat', 'Sulawesi Selatan', 'Sulawesi Tenggara', 'Maluku', 'Maluku Utara', 'Papua', 'Papua Barat', 'Papua Selatan', 'Papua Tengah', 'Papua Pegunungan', 'Papua Barat Daya']
-const NEGARA = [
+export const PROVINSI = ['Aceh', 'Sumatera Utara', 'Sumatera Barat', 'Riau', 'Kepulauan Riau', 'Jambi', 'Sumatera Selatan', 'Bangka Belitung', 'Bengkulu', 'Lampung', 'DKI Jakarta', 'Jawa Barat', 'Banten', 'Jawa Tengah', 'DI Yogyakarta', 'Jawa Timur', 'Bali', 'Nusa Tenggara Barat', 'Nusa Tenggara Timur', 'Kalimantan Barat', 'Kalimantan Tengah', 'Kalimantan Selatan', 'Kalimantan Timur', 'Kalimantan Utara', 'Sulawesi Utara', 'Gorontalo', 'Sulawesi Tengah', 'Sulawesi Barat', 'Sulawesi Selatan', 'Sulawesi Tenggara', 'Maluku', 'Maluku Utara', 'Papua', 'Papua Barat', 'Papua Selatan', 'Papua Tengah', 'Papua Pegunungan', 'Papua Barat Daya']
+export const NEGARA = [
   'Indonesia', 'Malaysia', 'Singapura', 'Brunei Darussalam', 'Filipina', 'Thailand', 'Vietnam', 'Myanmar', 'Kamboja', 'Laos', 'Timor Leste',
   'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan',
   'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan', 'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Bulgaria', 'Burkina Faso', 'Burundi',
@@ -196,7 +243,7 @@ export function LeadFormModal({ onClose, onSave, title, initial, saveLabel }: {
                 </div>
               ))}
               <button type="button" onClick={() => set('kontak_lainnya', [...form.kontak_lainnya, { channel: 'Instagram', value: '' }])}
-                style={{ alignSelf: 'flex-start', fontSize: 12.5, fontWeight: 600, color: 'var(--accent)', background: 'rgba(108,99,255,0.1)', border: '1px dashed rgba(108,99,255,0.4)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer' }}>
+                style={{ alignSelf: 'flex-start', fontSize: 12.5, fontWeight: 600, color: 'var(--link)', background: 'rgba(108,99,255,0.1)', border: '1px dashed rgba(108,99,255,0.4)', borderRadius: 8, padding: '7px 14px', cursor: 'pointer' }}>
                 + {t('Tambah kontak')}
               </button>
             </div>
@@ -270,7 +317,16 @@ export function LeadFormModal({ onClose, onSave, title, initial, saveLabel }: {
           </Field>
           <Row>
             <Field label={t('Estimasi budget')}>
-              <Combo searchable={false} value={form.budget_range} onChange={(v) => set('budget_range', v)} options={BUDGET} placeholder={t('Pilih range...')} />
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.budget_range}
+                onChange={(e) => {
+                  const n = e.target.value.replace(/\D/g, '')
+                  set('budget_range', n ? `Rp ${Number(n).toLocaleString('id-ID')}` : '')
+                }}
+                placeholder="Rp 0"
+              />
             </Field>
             <Field label="Timeline">
               <Combo searchable={false} value={form.timeline} onChange={(v) => set('timeline', v)} options={TIMELINE} placeholder={t('Pilih timeline...')} />
@@ -301,8 +357,8 @@ export function LeadFormModal({ onClose, onSave, title, initial, saveLabel }: {
           <Field label="Tags">
             <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 8, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', background: 'var(--bg3)' }}>
               {form.tags.map((tag) => (
-                <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--accent)', background: 'rgba(108,99,255,0.16)', borderRadius: 16, padding: '3px 9px' }}>
-                  {tag}<button type="button" onClick={() => set('tags', form.tags.filter((x) => x !== tag))} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
+                <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--link)', background: 'rgba(108,99,255,0.16)', borderRadius: 16, padding: '3px 9px' }}>
+                  {tag}<button type="button" onClick={() => set('tags', form.tags.filter((x) => x !== tag))} style={{ background: 'none', border: 'none', color: 'var(--link)', cursor: 'pointer', padding: 0, lineHeight: 1 }}>×</button>
                 </span>
               ))}
               <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}

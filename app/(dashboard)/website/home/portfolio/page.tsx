@@ -13,6 +13,7 @@ import { VideoPosterPicker } from '@/components/website/VideoPosterPicker'
 import { FileUploader } from '@/components/website/FileUploader'
 import { Section } from '@/components/website/Section'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { confirmDialog } from '@/lib/confirm-dialog'
 
 const CATEGORIES: BsiPortfolio['category'][] = ['video', 'photo', 'design', 'intl']
 const CATEGORY_LABELS: Record<BsiPortfolio['category'], string> = {
@@ -350,7 +351,7 @@ export default function PortfolioAdminPage() {
   }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus item ini?'))) return
+    if (!(await confirmDialog(t('Hapus item ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const { error } = await supabase.from('bsi_portfolio').delete().eq('id', id)
     if (error) {
       alert(error.message)
@@ -1688,7 +1689,7 @@ function PortfolioModal({
                   rel="noopener noreferrer"
                   style={{
                     fontSize: 11,
-                    color: 'var(--accent)',
+                    color: 'var(--link)',
                     textDecoration: 'underline',
                     wordBreak: 'break-all',
                     maxWidth: '90%',
@@ -1880,7 +1881,7 @@ function PortfolioModal({
                   alignItems: 'center',
                   gap: 8,
                   fontSize: 11,
-                  color: 'var(--accent)',
+                  color: 'var(--link)',
                 }}
               >
                 <div

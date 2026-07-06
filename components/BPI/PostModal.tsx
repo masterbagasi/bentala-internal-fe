@@ -1,19 +1,22 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Modal, BtnPrimary, BtnSecondary } from '@/components/shared/Modal'
+import { Modal, BtnPrimary, BtnSecondary, BtnDanger } from '@/components/shared/Modal'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useLogActivity } from '@/hooks/useData'
-import { BPI_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
+import { BPI_STATUS_COLS, WS_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
 import { MultiFileUploader } from '@/components/website/FileUploader'
 import { SingleDatePicker } from '@/components/Social/DateRangePicker'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { useSocmedProjects } from '@/lib/socmed-projects'
-import type { Post } from '@/lib/types'
+import type { Post, Subtask } from '@/lib/types'
+import { SubtaskEditor } from './SubtaskEditor'
 import { DANGEROUS_SCHEME, isUploadedFile, linkHref } from '@/lib/attachments'
+import { RichTextEditor } from '@/components/website/RichTextEditor'
+import { plainToRich } from '@/lib/rich-text'
 
 interface PostModalProps {
   open: boolean
@@ -24,6 +27,15 @@ interface PostModalProps {
    *  below the name. A concrete slug pre-selects that project; 'all' starts
    *  empty. Omitted on workspace pages (post keeps its 'ws' entity). */
   projectScope?: string
+  /** My Task mode: hide the current user's own account from the Tag Account
+   *  picker (you don't tag yourself; My Task already shows tasks you created). */
+  hideSelfAccount?: boolean
+  /** Initial status for a NEW task (My Task starts at Brief / To Do List so the
+   *  task is visible there immediately instead of as a hidden 'todo' Idea). */
+  defaultStatus?: Post['status']
+  /** My Task "personal" mode for a NEW task: a stripped-down form (Name, Status,
+   *  Date, Notes, Reference) with no project/socmed fields; saved to 'other'. */
+  personal?: boolean
 }
 
 type Platform = (typeof POST_PLATFORMS)[number]['key']
@@ -50,17 +62,32 @@ const DEFAULT_FORM = {
   ratio: '',
   files: [] as string[],
   reference_files: [] as string[],
+  description: '',
+  due_date: '',
+  subtasks: [] as Subtask[],
 }
 
-export function PostModal({ open, onClose, editId, entity, projectScope }: PostModalProps) {
+export function PostModal({ open, onClose, editId, entity, projectScope, hideSelfAccount, defaultStatus, personal }: PostModalProps) {
+  // Personal form only applies to NEW tasks. Editing an existing task (incl. a
+  // project task you were tagged in) the full form shows so nothing is stripped
+  // or moved by accident.
   const t = useT()
   const { posts, upsertPost } = useStore(useShallow((s) => ({ posts: s.posts, upsertPost: s.upsertPost })))
+  // Personal form for NEW personal tasks, and for EDITING a personal task — but
+  // NOT when editing a project task opened from My Task (keep its full form).
+  const personalMode = !!personal && (!editId || posts.find(p => p.id === editId)?.entity === 'personal')
   const logActivity = useLogActivity()
   // Every active socmed project — so the Project dropdown auto-includes new
   // projects (e.g. Master Bagasi) the moment they're added, with no code change.
   const socmedProjects = useSocmedProjects(true)
   const [form, setForm] = useState(DEFAULT_FORM)
   const [loading, setLoading] = useState(false)
+  // Guard against losing unsaved work when the popup is closed by accident
+  // (backdrop click / Escape / ✕ / Batal). Snapshot the form as it opened; if it
+  // has since changed, closing asks to confirm instead of discarding silently.
+  const initialFormRef = useRef<typeof DEFAULT_FORM | null>(null)
+  const [showDiscard, setShowDiscard] = useState(false)
+  const [notice, setNotice] = useState('') // themed replacement for native alert()
   const [originalTagged, setOriginalTagged] = useState<string[]>([])
   // Snapshot of the post's fields at edit-time, used to log what changed.
   const [originalForm, setOriginalForm] = useState<typeof DEFAULT_FORM | null>(null)
@@ -100,8 +127,8 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
   function addRefLink() {
     const v = refLinkInput.trim()
     if (!v) return
-    if (DANGEROUS_SCHEME.test(v)) { alert(t('Link tidak valid — gunakan URL http(s).')); return }
-    setForm(f => (f.reference_files.includes(v) ? f : { ...f, reference_files: [...f.reference_files, v] }))
+    if (DANGEROUS_SCHEME.test(v)) { setNotice(t('Link tidak valid — gunakan URL http(s).')); return }
+    setRefField(cur => (cur.includes(v) ? cur : [...cur, v]))
     setRefLinkInput('')
   }
 
@@ -134,7 +161,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
   // the partial-diff save still keeps concurrent edits to OTHER fields intact.
   const initedKey = useRef<string | null>(null)
   useEffect(() => {
-    if (!open) { initedKey.current = null; return }
+    if (!open) { initedKey.current = null; setShowDiscard(false); return }
     const key = editId ?? '__new__'
     if (initedKey.current === key) return // already seeded this session
     if (editId) {
@@ -161,13 +188,19 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
         ratio:         p.ratio || '',
         files:         p.files || [],
         reference_files: p.reference_files || [],
+        description:   p.description || '',
+        due_date:      p.due_date || '',
+        subtasks:      p.subtasks || [],
       }
       setForm(loaded)
+      initialFormRef.current = loaded
       setOriginalTagged(p.tagged || [])
       setOriginalForm(loaded)
     } else {
       // New post: pre-select the project from the tab context ('all' → empty).
-      setForm({ ...DEFAULT_FORM, project: projectScope && projectScope !== 'all' ? projectScope : '' })
+      const fresh = { ...DEFAULT_FORM, status: defaultStatus ?? DEFAULT_FORM.status, project: projectScope && projectScope !== 'all' ? projectScope : '' }
+      setForm(fresh)
+      initialFormRef.current = fresh
       setOriginalTagged([])
       setOriginalForm(null)
     }
@@ -184,9 +217,11 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
 
     // ── Label helpers ──
     const statusLabel = (s: string) => {
-      const cols = entity === 'bpi'
-        ? BPI_STATUS_COLS
-        : [{ key: 'todo', label: 'Idea' }, { key: 'produksi', label: 'Production' }, { key: 'published', label: 'Published' }]
+      const cols = personalMode
+        ? WS_STATUS_COLS
+        : entity === 'bpi'
+          ? BPI_STATUS_COLS
+          : [{ key: 'todo', label: 'Idea' }, { key: 'produksi', label: 'Production' }, { key: 'published', label: 'Published' }]
       return cols.find(c => c.key === s)?.label ?? s
     }
     const platformLabel = (keys: string[]) =>
@@ -238,10 +273,10 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
   }
 
   async function handleSave() {
-    if (!form.title.trim()) { alert(t('Nama project wajib diisi!')); return }
+    if (!form.title.trim()) { setNotice(t('Nama project wajib diisi!')); return }
     // When the Project dropdown is shown, a choice is required.
-    if (projectScope && !form.project) { alert(t('Pilih project terlebih dahulu!')); return }
-    const finalEntity = projectScope ? form.project : entity
+    if (!personalMode && projectScope && !form.project) { setNotice(t('Pilih project terlebih dahulu!')); return }
+    const finalEntity = personalMode ? 'personal' : projectScope ? form.project : entity
 
     setLoading(true)
     const supabase = getSupabase()
@@ -272,6 +307,9 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
       ratio:         form.ratio,
       files:         form.files,
       reference_files: form.reference_files,
+      description:   form.description.trim() || null,
+      due_date:      form.due_date || null,
+      subtasks:      form.subtasks,
     }
 
     if (editId) {
@@ -298,6 +336,9 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
         if (!same(form.tagged, o.tagged)) upd.tagged = data.tagged
         if (!same(form.files, o.files)) upd.files = data.files
         if (!same(form.reference_files, o.reference_files)) upd.reference_files = data.reference_files
+        if (!same(form.description, o.description)) upd.description = data.description
+        if (!same(form.due_date, o.due_date)) upd.due_date = data.due_date
+        if (!same(form.subtasks, o.subtasks)) upd.subtasks = data.subtasks
         if (!same(form.video_link, o.video_link)) upd.video_link = data.video_link
         if (!same(form.design_link, o.design_link)) upd.design_link = data.design_link
         if (!same(form.video_file_url, o.video_file_url)) upd.video_file_url = data.video_file_url
@@ -307,7 +348,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
       if (Object.keys(upd).length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any).from('posts').update(upd).eq('id', editId)
-        if (error) { setLoading(false); alert(t('Gagal menyimpan: ') + error.message); return }
+        if (error) { setLoading(false); setNotice(t('Gagal menyimpan: ') + error.message); return }
       }
       // Optimistically update the store so the change shows immediately,
       // without waiting for the realtime echo or a page reload.
@@ -325,7 +366,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
       // the modal and look like a no-op bug.
       const { data: created, error } = await (supabase as any)
         .from('posts').insert({ ...data, created_by: creator }).select().single()
-      if (error) { setLoading(false); alert(t('Gagal menyimpan: ') + error.message); return }
+      if (error) { setLoading(false); setNotice(t('Gagal menyimpan: ') + error.message); return }
       // Optimistically add to the board so it shows immediately, without waiting
       // for the realtime echo or a page reload.
       if (created) upsertPost(created as Post)
@@ -345,7 +386,7 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
     onClose()
   }
 
-  const statusCols = entity === 'bpi' ? BPI_STATUS_COLS : [
+  const statusCols = personalMode ? WS_STATUS_COLS : entity === 'bpi' ? BPI_STATUS_COLS : [
     { key: 'todo', label: 'Idea' },
     { key: 'produksi', label: 'Production' },
     { key: 'published', label: 'Published' },
@@ -353,28 +394,50 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
 
   // Split the attachment list: pasted links render as openable chips below,
   // uploaded files go to the media uploader (which previews them as thumbnails).
-  const refLinks = form.reference_files.filter(u => !isUploadedFile(u))
-  const refFiles = form.reference_files.filter(isUploadedFile)
+  // Personal My Task tasks use the standard File Attachments (post.files); other
+  // tasks use the separate Reference bucket (reference_files).
+  const refSource = personalMode ? form.files : form.reference_files
+  const refLinks = refSource.filter(u => !isUploadedFile(u))
+  const refFiles = refSource.filter(isUploadedFile)
+  const setRefField = (updater: (cur: string[]) => string[]) =>
+    setForm(f => (personalMode ? { ...f, files: updater(f.files) } : { ...f, reference_files: updater(f.reference_files) }))
+
+  // Any unsaved edits? Compare against the snapshot taken when the popup opened,
+  // and count a reference link typed but not yet added.
+  function isDirty() {
+    const init = initialFormRef.current
+    if (!init) return refLinkInput.trim().length > 0
+    return JSON.stringify(form) !== JSON.stringify(init) || refLinkInput.trim().length > 0
+  }
+  // Every close path routes through here: confirm before discarding real work,
+  // but close straight away when nothing was entered. Saving bypasses this (it
+  // calls onClose directly after a successful write).
+  function requestClose() {
+    if (showDiscard || loading) return
+    if (isDirty()) { setShowDiscard(true); return }
+    onClose()
+  }
 
   return (
+    <>
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       title={editId ? t('Edit Task') : t('Tambah Task Baru')}
       maxWidth={880}
       footer={
         <>
-          <BtnSecondary onClick={onClose}>{t('Batal')}</BtnSecondary>
+          <BtnSecondary onClick={requestClose}>{t('Batal')}</BtnSecondary>
           <BtnPrimary onClick={handleSave} loading={loading}>{t('Simpan')}</BtnPrimary>
         </>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {/* Project name */}
-        <FormGroup label={t('Nama Project *')}>
+        {/* Project / task name */}
+        <FormGroup label={personalMode ? t('Nama Task *') : t('Nama Project *')}>
           <input
             type="text"
-            placeholder={t('Nama project...')}
+            placeholder={personalMode ? t('Nama task...') : t('Nama project...')}
             value={form.title}
             onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
           />
@@ -385,7 +448,10 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
           <FormGroup label={t('Project *')}>
             <SingleDropdown
               placeholder={t('Pilih project...')}
-              options={socmedProjects.map(p => ({ value: p.slug, label: p.name }))}
+              // "Other" = work outside the registered projects (personal/ad-hoc
+              // requests). It has no sidebar/board of its own; the task still
+              // shows in All Project.
+              options={[...socmedProjects.map(p => ({ value: p.slug, label: p.name })), { value: 'other', label: t('Other') }]}
               value={form.project}
               onChange={v => setForm(f => ({ ...f, project: v }))}
             />
@@ -394,9 +460,10 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
 
         {/* 2. Tanggal Posting + Status */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <FormGroup label={t('Tanggal Posting')}>
+          <FormGroup label={personalMode ? t('Due date') : t('Tanggal Posting')}>
             <SingleDatePicker
               value={form.date}
+              placeholder={personalMode ? t('No due date') : undefined}
               onChange={d => setForm(f => ({ ...f, date: d }))}
             />
           </FormGroup>
@@ -409,6 +476,23 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
           </FormGroup>
         </div>
 
+        {/* Personal My Task extras: Description + Subtasks. */}
+        {personalMode && (<>
+          <FormGroup label={t('Description')}>
+            <RichTextEditor
+              placeholder={t('What is this task about?')}
+              value={plainToRich(form.description)}
+              onChange={html => setForm(f => ({ ...f, description: html }))}
+              simple
+              minHeight={90}
+            />
+          </FormGroup>
+          <SubtaskEditor value={form.subtasks} onChange={st => setForm(f => ({ ...f, subtasks: st }))} />
+        </>)}
+
+        {/* Socmed-only fields — hidden for a personal My Task task. */}
+        {!personalMode && (
+        <>
         {/* 3. Platform + Jenis Konten */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <FormGroup label={t('Platform')}>
@@ -423,8 +507,8 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
             <MultiDropdown
               placeholder={t('Pilih jenis konten...')}
               options={[
-                { value: 'video', label: '🎬 Video', color: '#6c63ff' },
-                { value: 'design', label: '🎨 Design', color: '#43d9a2' },
+                { value: 'video', label: 'Video' },
+                { value: 'design', label: 'Design' },
               ]}
               selected={form.content_types}
               onChange={next => setForm(f => ({ ...f, content_types: next as ContentType[] }))}
@@ -445,10 +529,9 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
           <FormGroup label={t('Tag Akun')}>
             <MultiDropdown
               placeholder={accounts.length ? t('Pilih akun...') : t('Memuat akun...')}
-              options={accounts.map(a => ({
+              options={accounts.filter(a => !hideSelfAccount || a.email !== currentUserEmail).map(a => ({
                 value: a.email,
                 label: a.email === currentUserEmail ? `${a.name} (You)` : a.name,
-                hint: a.email,
                 avatar: <AccountAvatar name={a.name} email={a.email} url={a.avatarUrl} />,
               }))}
               selected={form.tagged}
@@ -459,34 +542,34 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
 
         {/* Headline (above Brief) */}
         <FormGroup label={t('Headline')}>
-          <textarea
-            rows={2}
+          <RichTextEditor
             placeholder={t('Tulis headline...')}
-            value={form.headline}
-            onChange={e => setForm(f => ({ ...f, headline: e.target.value }))}
-            style={{ fontFamily: 'inherit', resize: 'vertical' }}
+            value={plainToRich(form.headline)}
+            onChange={html => setForm(f => ({ ...f, headline: html }))}
+            simple
+            minHeight={64}
           />
         </FormGroup>
 
         {/* Brief (above Caption) */}
         <FormGroup label={t('Brief')}>
-          <textarea
-            rows={4}
+          <RichTextEditor
             placeholder={t('Tulis brief konten (konsep, referensi, arahan untuk tim)...')}
-            value={form.brief}
-            onChange={e => setForm(f => ({ ...f, brief: e.target.value }))}
-            style={{ fontFamily: 'inherit', resize: 'vertical' }}
+            value={plainToRich(form.brief)}
+            onChange={html => setForm(f => ({ ...f, brief: html }))}
+            simple
+            minHeight={110}
           />
         </FormGroup>
 
         {/* Caption */}
         <FormGroup label={t('Caption')}>
-          <textarea
-            rows={4}
+          <RichTextEditor
             placeholder={t('Tulis caption konten...')}
-            value={form.caption}
-            onChange={e => setForm(f => ({ ...f, caption: e.target.value }))}
-            style={{ fontFamily: 'inherit', resize: 'vertical' }}
+            value={plainToRich(form.caption)}
+            onChange={html => setForm(f => ({ ...f, caption: html }))}
+            simple
+            minHeight={110}
           />
         </FormGroup>
 
@@ -500,21 +583,24 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
             onKeyDown={onHashtagsKeyDown}
           />
         </FormGroup>
+        </>
+        )}
 
-        {/* 7. Notes */}
+        {/* 7. Internal Notes — hidden for a personal task (Description covers it). */}
+        {!personalMode && (
         <FormGroup label={t('Catatan Internal')}>
-          <textarea
-            rows={3}
+          <RichTextEditor
             placeholder={t('Catatan untuk tim...')}
-            value={form.notes}
-            onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+            value={plainToRich(form.notes)}
+            onChange={html => setForm(f => ({ ...f, notes: html }))}
+            simple
+            minHeight={90}
           />
         </FormGroup>
+        )}
 
-        {/* 8. Reference — separate bucket (links + uploads) shown as its own
-            section in the task detail. (File Attachments are added from the task
-            detail, not here.) */}
-        <FormGroup label={t('Referensi')}>
+        {/* 8. Reference (project) / File Attachments (personal My Task). */}
+        <FormGroup label={personalMode ? t('Lampiran File') : t('Referensi')}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             <input
               type="text"
@@ -534,21 +620,63 @@ export function PostModal({ open, onClose, editId, entity, projectScope }: PostM
               {refLinks.map(link => (
                 <div key={link} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8 }}>
                   <span aria-hidden style={{ fontSize: 14, flexShrink: 0 }}>🔗</span>
-                  <a href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={link} style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}>{link}</a>
-                  <button type="button" onClick={() => setForm(f => ({ ...f, reference_files: f.reference_files.filter(u => u !== link) }))} title={t('Hapus')} style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 6, cursor: 'pointer', background: 'var(--bg2)', border: '1px solid var(--border)', color: '#ff6b6b', fontSize: 14 }}>×</button>
+                  <a href={linkHref(link)} target="_blank" rel="noopener noreferrer" title={link} style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--link)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}>{link}</a>
+                  <button type="button" onClick={() => setRefField(cur => cur.filter(u => u !== link))} title={t('Hapus')} style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 6, cursor: 'pointer', background: 'var(--bg2)', border: '1px solid var(--border)', color: '#ff6b6b', fontSize: 14 }}>×</button>
                 </div>
               ))}
             </div>
           )}
           <MultiFileUploader
             value={refFiles}
-            onChange={urls => setForm(f => ({ ...f, reference_files: [...f.reference_files.filter(u => !isUploadedFile(u)), ...urls] }))}
-            prefix="posts/reference"
+            onChange={urls => setRefField(cur => [...cur.filter(u => !isUploadedFile(u)), ...urls])}
+            prefix={personalMode ? 'posts/files' : 'posts/reference'}
             accept="all"
           />
         </FormGroup>
       </div>
     </Modal>
+    {/* Accidental-close guard — a centered dialog with only Continue / Discard. */}
+    {showDiscard && (
+      <div
+        onClick={() => setShowDiscard(false)}
+        style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ width: '100%', maxWidth: 400, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 24px 64px rgba(0,0,0,0.5)', padding: '26px 24px 22px', textAlign: 'center' }}
+        >
+          <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>{t('Buang perubahan?')}</div>
+          <div style={{ fontSize: 13.5, color: 'var(--text2)', lineHeight: 1.6, marginTop: 10 }}>
+            {t('Ada isian yang belum disimpan. Kalau ditutup sekarang, isian itu akan hilang.')}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 22 }}>
+            <BtnSecondary onClick={() => setShowDiscard(false)}>{t('Lanjut')}</BtnSecondary>
+            <BtnDanger onClick={() => { setShowDiscard(false); onClose() }}>{t('Buang')}</BtnDanger>
+          </div>
+        </div>
+      </div>
+    )}
+    {/* Validation / error notice — themed, centered replacement for alert(). */}
+    {notice && (
+      <div
+        onClick={() => setNotice('')}
+        style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ width: '100%', maxWidth: 380, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 24px 64px rgba(0,0,0,0.5)', padding: '26px 24px 22px', textAlign: 'center' }}
+        >
+          <div style={{ width: 42, height: 42, margin: '0 auto 14px', borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--accent) 16%, transparent)', color: 'var(--link)' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8h.01" /><path d="M11 12h1v4h1" /></svg>
+          </div>
+          <div style={{ fontSize: 14.5, color: 'var(--text)', lineHeight: 1.55 }}>{notice}</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+            <BtnPrimary onClick={() => setNotice('')}>{t('Tutup')}</BtnPrimary>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 
@@ -574,13 +702,13 @@ function MultiDropdown({ options, selected, onChange, placeholder = 'Pilih...' }
   const chosen = options.filter(o => selected.includes(o.value))
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={ref} style={{ position: 'relative', flex: 1, minHeight: 0 }}>
       <button
         type="button" onClick={() => setOpen(o => !o)}
         style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 8, minHeight: 42,
+          width: '100%', height: '100%', display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 42,
           background: 'var(--bg3)', border: `1px solid ${open ? 'var(--accent)' : 'var(--border)'}`,
-          borderRadius: 8, padding: '6px 10px 6px 12px', cursor: 'pointer',
+          borderRadius: 8, padding: '9px 10px 9px 12px', cursor: 'pointer',
         }}
       >
         <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -612,6 +740,8 @@ function MultiDropdown({ options, selected, onChange, placeholder = 'Pilih...' }
             return (
               <button
                 key={o.value} type="button" onClick={() => toggle(o.value)}
+                onMouseOver={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                onMouseOut={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
                   padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -717,6 +847,8 @@ function SingleDropdown({ options, value, onChange, placeholder = 'Pilih...' }: 
             return (
               <button
                 key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false) }}
+                onMouseOver={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                onMouseOut={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
                   padding: '8px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -739,13 +871,15 @@ function SingleDropdown({ options, value, onChange, placeholder = 'Pilih...' }: 
 }
 
 function FormGroup({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  // Flex column so the control can fill the group's height when the group is
+  // stretched by a taller sibling in the same grid row (no-op in normal stacks).
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <label style={{ display: 'flex', alignItems: 'baseline', gap: 7, fontSize: 12.5, fontWeight: 500, color: 'var(--text2)', marginBottom: 7 }}>
         {label}
         {hint && <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text3)' }}>{hint}</span>}
       </label>
-      {children}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>{children}</div>
     </div>
   )
 }

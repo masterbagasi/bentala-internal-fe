@@ -328,7 +328,7 @@ function ClauseRow({
         style={{
           fontSize: 24,
           fontWeight: 700,
-          color: 'var(--accent)',
+          color: 'var(--link)',
           fontVariantNumeric: 'tabular-nums',
           lineHeight: 1,
           marginTop: 6,

@@ -240,6 +240,11 @@ const SEED: Record<string, string> = {
   'Super Admin': 'Super Admin',
   'Admin': 'Admin',
   'User': 'User',
+  'Pengaturan Project': 'Project Setting',
+  'Kelola Project': 'Manage Project',
+  'Lihat detail kontak': 'View contact details',
+  'Belum ada detail kontak. Klik Edit untuk mengisi.': 'No contact details yet. Click Edit to fill them in.',
+  'Gagal menyimpan project: ': 'Failed to save project: ',
 }
 
 export const DICT: Record<string, string> = { ...GENERATED, ...SEED }

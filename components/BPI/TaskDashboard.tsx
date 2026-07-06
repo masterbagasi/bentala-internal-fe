@@ -1,12 +1,18 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
+import { Chart, registerables } from 'chart.js'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { WS_STATUS_COLS } from '@/lib/constants'
 import type { Post } from '@/lib/types'
 import { isAccountTask, mineColKey } from './index'
+import { useSocmedProjects } from '@/lib/socmed-projects'
+import { projectGlyph } from '@/lib/project-glyph'
+import { AccountAvatar } from '@/components/shared/AccountAvatar'
 
-type Acct = { email: string; name: string }
+Chart.register(...registerables)
+
+type Acct = { email: string; name: string; avatarUrl?: string | null }
 
 // Short column headers for the per-account table (the full labels are too wide
 // for the narrow count columns).
@@ -20,65 +26,127 @@ function tally(posts: Post[]) {
     const col = mineColKey(p)
     if (col in counts) counts[col] += 1
   }
-  const total = posts.length
+  // Reconcile the KPI strip with the status breakdown, the same way the All
+  // Project dashboard does: In progress = every active (non-done) worksheet
+  // status, and Total = In progress + Done — so the tiles, donut and breakdown
+  // always agree (Total = To Do List + Production + Review + Revisi + Done).
   const done = counts.done
-  return { counts, total, done, open: total - done }
+  const open = counts.brief + counts.produksi + counts.review + counts.revisi
+  const total = open + done
+  return { counts, total, done, open }
 }
 
-function dueSoon(posts: Post[]): number {
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const limit = new Date(today); limit.setDate(limit.getDate() + 7)
-  let n = 0
-  for (const p of posts) {
-    if (mineColKey(p) === 'done') continue
-    if (!p.date) continue
-    const d = new Date(p.date)
-    if (d >= today && d <= limit) n += 1
-  }
-  return n
-}
+// Shared styling for every metric tile — a top colour rail (::after) and, when
+// the value is non-zero, a soft wash glowing down from that rail so each card
+// carries a quiet colour identity instead of reading as an empty box. Hover
+// lifts the card and warms its border toward the accent. Driven by a single
+// --c custom property the tile sets per metric.
+const TILE_CSS = `
+.dt { position: relative; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color .16s ease, transform .16s ease; }
+.dt:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--c) 45%, var(--border)); }
+.dt-accent::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--c); }
+.dt-live { background: linear-gradient(180deg, color-mix(in srgb, var(--c) 11%, var(--bg2)) 0%, var(--bg2) 56%); }
+@media (prefers-reduced-motion: reduce) { .dt { transition: none; } .dt:hover { transform: none; } }
 
-// Deterministic avatar tint from the name — gives each person a stable colour
-// without needing their uploaded photo here.
-function avatarHue(name: string): number {
-  let h = 0
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360
-  return h
-}
+/* KPI strip — fixed columns so the four headline tiles fill the row edge-to-edge
+   and reflow cleanly (4 → 2 → 1) instead of orphaning one card. */
+.dt-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1100px) { .dt-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .dt-kpis { grid-template-columns: 1fr; } }
 
-// A thin segmented bar showing how a set of tasks is distributed across the WS
-// statuses — the dashboard's signature, used both globally and per account.
-function StatusBar({ counts, total, height = 10 }: { counts: Record<string, number>; total: number; height?: number }) {
-  return (
-    <div style={{ display: 'flex', gap: 2, height, borderRadius: height, overflow: 'hidden', background: 'var(--bg3)' }}>
-      {total === 0
-        ? null
-        : WS_STATUS_COLS.map(c => {
-            const v = counts[c.key] ?? 0
-            if (v === 0) return null
-            return <div key={c.key} title={`${c.label}: ${v}`} style={{ flex: v, background: c.color, opacity: c.key === 'done' ? 0.85 : 1 }} />
-          })}
-    </div>
-  )
-}
+/* KPI card — label top-left, big coloured number below, % beside it, top rail.
+   Matches the All Project (Analytics) dashboard exactly so the two read alike. */
+.an-kpi { position: relative; overflow: hidden; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 16px; transition: border-color .14s, transform .14s; }
+.an-kpi:hover { border-color: color-mix(in srgb, var(--c) 55%, var(--border)); transform: translateY(-1px); }
+.an-kpi-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--c); opacity: .9; }
+.an-kpi-label { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+.an-kpi-row { display: flex; align-items: baseline; gap: 8px; }
+.an-kpi-value { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: var(--c); font-variant-numeric: tabular-nums; }
+.an-kpi-sub { font-size: 11.5px; font-weight: 600; color: var(--text3); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .an-kpi { transition: none; } .an-kpi:hover { transform: none; } }
 
-export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { posts: Post[]; accounts?: Acct[]; projects?: { slug: string; name: string }[]; onAccountClick?: (a: Acct) => void }) {
+/* Analytics-style cards (donut + breakdown), shared with the Projects summary look */
+/* Stack the donut + breakdown at the same width the KPIs drop to 2-up (1100px),
+   so the breakdown always has full width to render its bars + percentages. */
+.an-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+@media (max-width: 1100px) { .an-grid2 { grid-template-columns: 1fr; } }
+.an-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 18px 18px 20px; }
+.an-track { flex: 1; min-width: 0; height: 7px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
+
+/* Task Source project cards */
+.src-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 16px 16px 15px; }
+.src-head { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
+.src-glyph { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(0,0,0,.2); }
+.src-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src-total { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.src-cap { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); }
+.src-bar { display: flex; gap: 2px; height: 8px; border-radius: 6px; overflow: hidden; background: var(--bg3); margin-bottom: 13px; }
+.src-grid { display: flex; flex-direction: column; gap: 8px; }
+.src-stat { display: flex; align-items: center; gap: 8px; }
+`
+
+export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountClick }: { posts: Post[]; allPosts?: Post[]; accounts?: Acct[]; projects?: { slug: string; name: string }[]; onAccountClick?: (a: Acct) => void }) {
   const t = useT()
   const agg = useMemo(() => tally(posts), [posts])
-  const soon = useMemo(() => dueSoon(posts), [posts])
+
+  // Status distribution — a donut with the total in its core, plus a counted
+  // breakdown, mirroring the Projects summary so the dashboard isn't flat.
+  const pct = (n: number) => (agg.total ? Math.round((n / agg.total) * 100) : 0)
+  const statusRows = WS_STATUS_COLS.map(c => ({ key: c.key, label: c.label, color: c.color, count: agg.counts[c.key] ?? 0 }))
+  const chartRef = useRef<HTMLCanvasElement>(null)
+  const chartInstance = useRef<Chart | null>(null)
+  useEffect(() => {
+    if (!chartRef.current || agg.total === 0) return
+    if (chartInstance.current) chartInstance.current.destroy()
+    const shown = statusRows.filter(r => r.count > 0)
+    const centerText = {
+      id: 'teamCenterText',
+      afterDraw(chart: Chart) {
+        const { ctx, chartArea } = chart
+        if (!chartArea) return
+        const cx = (chartArea.left + chartArea.right) / 2
+        const cy = (chartArea.top + chartArea.bottom) / 2
+        ctx.save()
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillStyle = '#f3f4f8'; ctx.font = '700 30px Inter, system-ui, sans-serif'
+        ctx.fillText(String(agg.total), cx, cy - 6)
+        ctx.fillStyle = '#8b8fa8'; ctx.font = '600 11px Inter, system-ui, sans-serif'
+        ctx.fillText('TASK', cx, cy + 16)
+        ctx.restore()
+      },
+    }
+    chartInstance.current = new Chart(chartRef.current, {
+      type: 'doughnut',
+      data: {
+        labels: shown.map(r => r.label),
+        datasets: [{ data: shown.map(r => r.count), backgroundColor: shown.map(r => r.color), borderColor: 'rgba(0,0,0,0)', borderWidth: 0, spacing: 2, borderRadius: 4 }],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      options: ({ responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c: { label?: string; parsed: number }) => ` ${c.label}: ${c.parsed} (${pct(c.parsed)}%)` } } } } as any),
+      plugins: [centerText],
+    })
+    return () => { chartInstance.current?.destroy() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(statusRows), agg.total])
 
   // Task source: how many of the tasks come from each project (Master Bagasi,
   // Bagasian, …) vs Personal. Columns are built from the live projects list, so
   // a new project shows up automatically once it has tasks.
   const sourceKey = (p: Post) => (p.entity === 'personal' ? 'personal' : (p.entity || 'other'))
+  // Sources the account has EVER had a task in (ever tagged). Derived from the
+  // unfiltered task set so a source doesn't vanish just because the date range
+  // is empty — but a source that was never tagged is dropped entirely.
+  const activeKeys = useMemo(() => new Set((allPosts ?? posts).map(sourceKey)), [allPosts, posts])
   const sourceCols = useMemo(() => {
     if (!projects) return null
-    const m = new Map<string, string>()
-    m.set('personal', t('Personal'))
-    for (const p of projects) m.set(p.slug, p.name)
-    for (const p of posts) { const k = sourceKey(p); if (!m.has(k)) m.set(k, k === 'other' ? t('Other') : k) }
-    return Array.from(m.entries()).map(([key, name]) => ({ key, name }))
-  }, [projects, posts, t])
+    const known: { key: string; name: string }[] = [
+      { key: 'personal', name: t('Personal') },
+      ...projects.map(p => ({ key: p.slug, name: p.name })),
+    ]
+    const seen = new Set(known.map(k => k.key))
+    for (const k of Array.from(activeKeys)) if (!seen.has(k)) known.push({ key: k, name: k === 'other' ? t('Other') : k })
+    return known.filter(c => activeKeys.has(c.key))
+  }, [projects, activeKeys, t])
 
   // One combined row per account: status counts (by WS column) AND source counts
   // (by project), so the overview is a single complete table.
@@ -95,22 +163,42 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
         }
         return { account: a, status, source, total: mine.length, done: status.done }
       })
-      .filter(r => r.total > 0)
+      // Every account is listed (even with no tasks); busiest first, zeros last.
       .sort((x, y) => y.total - x.total)
   }, [accounts, posts])
 
-  const sourceSingle = useMemo(() => {
-    if (!sourceCols || accounts) return null
-    const counts: Record<string, number> = {}
-    for (const p of posts) { const k = sourceKey(p); counts[k] = (counts[k] || 0) + 1 }
-    return counts
-  }, [sourceCols, accounts, posts])
+  // Task Source — one card per source/project: total + a status breakdown and
+  // a stacked bar, carrying the project's own glyph and colour.
+  const projectsMeta = useSocmedProjects(false)
+  const sourceBreakdown = useMemo(() => {
+    if (!sourceCols) return null
+    return sourceCols.map(c => {
+      const mine = posts.filter(p => sourceKey(p) === c.key)
+      const proj = projectsMeta.find(p => p.slug === c.key)
+      const color = c.key === 'personal' ? '#a78bfa' : c.key === 'other' ? '#5a5a60' : (proj?.color || '#5a5a60')
+      const glyph = c.key === 'personal' ? 'me' : c.key === 'other' ? 'OT' : (proj?.glyph || projectGlyph(c.name))
+      const statuses = WS_STATUS_COLS.map(s => ({
+        key: s.key, label: s.label, color: s.color,
+        count: mine.filter(p => mineColKey(p) === s.key).length,
+      }))
+      return { key: c.key, name: c.name, color, glyph, total: mine.length, statuses }
+    })
+  }, [sourceCols, posts, projectsMeta])
 
-  const kpis = [
-    { label: t('Total Task'),    value: agg.total, color: 'var(--text)' },
-    { label: t('Belum selesai'), value: agg.open,  color: '#5b9bd5' },
-    { label: t('Selesai'),       value: agg.done,  color: '#43d9a2' },
-    { label: t('Due 7 hari'),    value: soon,      color: '#ffc542' },
+  // KPI strip mirrors the All Project dashboard: Total · Done · In Progress ·
+  // Need Revisi. In Progress excludes Revisi (its own tile), so the three shares
+  // add up to exactly 100% — Done + In Progress + Need Revisi = Total. The
+  // In Progress % absorbs any rounding so the trio always lands on 100.
+  const revisiCount = agg.counts.revisi ?? 0
+  const inProgress = (agg.counts.brief ?? 0) + (agg.counts.produksi ?? 0) + (agg.counts.review ?? 0)
+  const donePct = pct(agg.done)
+  const revisiPct = pct(revisiCount)
+  const inProgressPct = agg.total ? Math.max(0, 100 - donePct - revisiPct) : 0
+  const kpis: { label: string; value: number; color: string; pct?: number }[] = [
+    { label: t('Total Task'),  value: agg.total,    color: 'var(--link)' },
+    { label: t('Selesai'),     value: agg.done,     color: '#22c55e', pct: donePct },
+    { label: t('In Progress'), value: inProgress,   color: '#5b9bd5', pct: inProgressPct },
+    { label: t('Need Revisi'), value: revisiCount,  color: '#a78bfa', pct: revisiPct },
   ]
 
   // Single combined table: account · 5 status columns · N source columns · total.
@@ -122,30 +210,84 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>
-      {/* KPIs — each tile carries a hairline accent in its metric colour. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+      <style>{TILE_CSS}</style>
+      {/* KPIs — label-on-top, big coloured number, % beside it (same as All Project). */}
+      <div className="dt-kpis">
         {kpis.map(k => (
-          <div key={k.label} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderTop: `2px solid ${k.color}`, borderRadius: 12, padding: '16px 18px' }}>
-            <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, color: k.color, letterSpacing: '-0.02em' }}>{k.value}</div>
-            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 8 }}>{k.label}</div>
+          <div key={k.label} className="an-kpi" style={{ ['--c' as string]: k.color }}>
+            <span className="an-kpi-accent" />
+            <div className="an-kpi-label">{k.label}</div>
+            <div className="an-kpi-row">
+              <span className="an-kpi-value">{k.value}</span>
+              {k.pct != null && <span className="an-kpi-sub">{k.pct}%</span>}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Status spread — the signature bar + a counted legend. */}
-      <div>
-        <SectionLabel>{t('Sebaran Status')}</SectionLabel>
-        <StatusBar counts={agg.counts} total={agg.total} height={12} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 12 }}>
-          {WS_STATUS_COLS.map(c => (
-            <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ width: 9, height: 9, borderRadius: 3, background: c.color, flexShrink: 0 }} />
-              <span style={{ fontSize: 12.5, color: 'var(--text2)' }}>{c.label}</span>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{agg.counts[c.key] ?? 0}</span>
+      {/* Status spread — a donut with the total in its core + a counted
+          breakdown, the same rich pair the Projects summary uses. */}
+      <div className="an-grid2">
+        <div className="an-card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <SectionTitle>{t('Distribusi Status')}</SectionTitle>
+          {agg.total === 0 ? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 13, minHeight: 240 }}>{t('Belum ada data')}</div>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240, marginTop: 6 }}>
+              <div style={{ position: 'relative', width: '100%', maxWidth: 280, height: 240 }}><canvas ref={chartRef} /></div>
             </div>
-          ))}
+          )}
+        </div>
+
+        <div className="an-card">
+          <SectionTitle>{t('Breakdown per Status')}</SectionTitle>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 8 }}>
+            {statusRows.map(r => (
+              <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: r.color, flexShrink: 0, opacity: r.count ? 1 : 0.3 }} />
+                <span style={{ flex: '1 1 96px', minWidth: 0, fontSize: 12.5, color: r.count ? 'var(--text)' : 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</span>
+                <div className="an-track" style={{ flex: '1 1 90px' }}><div style={{ height: '100%', borderRadius: 99, background: r.color, width: `${pct(r.count)}%` }} /></div>
+                <span style={{ width: 24, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: r.count ? r.color : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{r.count}</span>
+                <span style={{ width: 40, flexShrink: 0, textAlign: 'right', fontSize: 11, color: 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{pct(r.count)}%</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Task source — one project card each: glyph, total, stacked bar, and a
+          per-status breakdown. Shown in every view (overview + popup). */}
+      {sourceBreakdown && (
+        <div>
+          <SectionLabel>{t('Sumber Task')}</SectionLabel>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(248px, 1fr))', gap: 14 }}>
+            {sourceBreakdown.map(p => (
+              <div key={p.key} className="src-card">
+                <div className="src-head">
+                  <span className="src-glyph" style={{ background: p.color }}>{p.glyph}</span>
+                  <span className="src-name">{p.name}</span>
+                  <span className="src-total" style={{ color: p.total ? p.color : 'var(--text3)' }}>{p.total}</span>
+                  <span className="src-cap">{t('task')}</span>
+                </div>
+                <div className="src-bar">
+                  {p.total > 0 && p.statuses.filter(s => s.count > 0).map(s => (
+                    <div key={s.key} title={`${s.label}: ${s.count}`} style={{ width: `${(s.count / p.total) * 100}%`, background: s.color }} />
+                  ))}
+                </div>
+                <div className="src-grid">
+                  {p.statuses.map(s => (
+                    <div key={s.key} className="src-stat">
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0, opacity: s.count ? 1 : 0.3 }} />
+                      <span style={{ flex: 1, fontSize: 12, color: s.count ? 'var(--text2)' : 'var(--text3)' }}>{s.label}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: s.count ? s.color : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{s.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* By account — ONE combined table: status columns + source (project)
           columns + total. Only rendered in the Team overview. */}
@@ -190,9 +332,7 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
                       style={{ display: 'grid', gridTemplateColumns: colGrid, gap: 8, alignItems: 'center', padding: '11px 14px', borderTop: i === 0 ? 'none' : '1px solid var(--border)', cursor: onAccountClick ? 'pointer' : 'default' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                        <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: '50%', background: `hsl(${avatarHue(r.account.name)} 42% 30%)`, color: '#fff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {(r.account.name[0] || '?').toUpperCase()}
-                        </span>
+                        <AccountAvatar name={r.account.name} url={r.account.avatarUrl} size={30} />
                         <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                           <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.name}</span>
                           <span style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.account.email}</span>
@@ -216,20 +356,6 @@ export function TaskDashboard({ posts, accounts, projects, onAccountClick }: { p
         </div>
       )}
 
-      {/* Task source — single account (My Task). */}
-      {sourceSingle && sourceCols && (
-        <div>
-          <SectionLabel>{t('Sumber Task')}</SectionLabel>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {sourceCols.map(c => (
-              <div key={c.key} style={{ flex: '1 1 120px', minWidth: 120, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: c.key === 'personal' ? '#a78bfa' : 'var(--text)' }}>{sourceSingle[c.key] ?? 0}</div>
-                <div style={{ fontSize: 11.5, color: 'var(--text2)', marginTop: 2 }}>{c.name}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -246,5 +372,12 @@ const gStyle: React.CSSProperties = {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text2)', marginBottom: 10 }}>{children}</div>
+  )
+}
+
+// Card title — matches the Projects summary cards (not the uppercase eyebrow).
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.01em', marginBottom: 4 }}>{children}</div>
   )
 }

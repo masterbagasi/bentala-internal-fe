@@ -4,15 +4,21 @@
 // label, a dropdown of presets (Last 7/28/90/365 days, Lifetime, years,
 // months, Custom), and a Custom calendar with range selection + Apply/Cancel.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useT } from '@/lib/i18n/LanguageProvider'
 
-export const PICKER_TODAY = '2026-06-05'
+const pad = (n: number) => String(n).padStart(2, '0')
+
+// Real "today" in local time — the calendar's max selectable day. Built from
+// local date parts, NOT toISOString() (that converts to UTC, so in UTC+7 it
+// would roll back to the previous day).
+const _now = new Date()
+export const PICKER_TODAY = `${_now.getFullYear()}-${pad(_now.getMonth() + 1)}-${pad(_now.getDate())}`
 export const DATA_START = '2026-01-01'
 
 export interface DateRange { from: string; to: string; label: string }
 
-const pad = (n: number) => String(n).padStart(2, '0')
 const isoOf = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`
 const isoDate = (d: Date) => isoOf(d.getFullYear(), d.getMonth(), d.getDate())
 function shiftDays(iso: string, n: number) {
@@ -47,6 +53,10 @@ function parseDMY(s: string): string | null {
 
 export function presetRange(label: string): DateRange {
   switch (label) {
+    case 'This month': {
+      const y = Number(PICKER_TODAY.slice(0, 4)), m = Number(PICKER_TODAY.slice(5, 7)) - 1
+      return { label, from: isoOf(y, m, 1), to: isoOf(y, m, new Date(y, m + 1, 0).getDate()) }
+    }
     case 'Last 7 days':   return { label, from: shiftDays(PICKER_TODAY, -6),   to: PICKER_TODAY }
     case 'Last 28 days':  return { label, from: shiftDays(PICKER_TODAY, -27),  to: PICKER_TODAY }
     case 'Last 90 days':  return { label, from: shiftDays(PICKER_TODAY, -89),  to: PICKER_TODAY }
@@ -55,7 +65,7 @@ export function presetRange(label: string): DateRange {
   }
 }
 
-const PRESETS = ['Last 7 days', 'Last 28 days', 'Last 90 days', 'Last 365 days', 'Lifetime']
+const PRESETS = ['This month', 'Last 7 days', 'Last 28 days', 'Last 90 days', 'Last 365 days', 'Lifetime']
 const YEARS = [2026, 2025]
 const MONTHS = [
   { l: 'June',  y: 2026, m: 5 },
@@ -67,7 +77,13 @@ const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 const NOW_Y = Number(PICKER_TODAY.slice(0, 4))
 const NOW_M = Number(PICKER_TODAY.slice(5, 7)) - 1
 
-export function DateRangePicker({ value, onChange }: { value: DateRange; onChange: (r: DateRange) => void }) {
+export function DateRangePicker({ value, onChange, allowFuture = false }: {
+  value: DateRange
+  onChange: (r: DateRange) => void
+  // Analytics caps selection at today (no future data); task-date filters set
+  // this so due dates far in the future can be selected.
+  allowFuture?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<'presets' | 'custom'>('presets')
   const wrap = useRef<HTMLDivElement>(null)
@@ -102,7 +118,7 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
               <Divider />
               {YEARS.map(y => (
                 <Row key={y} active={value.label === String(y)}
-                  onClick={() => pick({ label: String(y), from: isoOf(y, 0, 1), to: y === 2026 ? PICKER_TODAY : isoOf(y, 11, 31) })}>
+                  onClick={() => pick({ label: String(y), from: isoOf(y, 0, 1), to: y === NOW_Y ? PICKER_TODAY : isoOf(y, 11, 31) })}>
                   {y}
                 </Row>
               ))}
@@ -117,7 +133,7 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
               <Row active={value.label === 'Custom'} onClick={() => setMode('custom')}>Custom</Row>
             </div>
           ) : (
-            <CustomCalendar value={value} onApply={pick} onCancel={() => setMode('presets')} />
+            <CustomCalendar value={value} allowFuture={allowFuture} onApply={pick} onCancel={() => setMode('presets')} />
           )}
         </div>
       )}
@@ -125,9 +141,11 @@ export function DateRangePicker({ value, onChange }: { value: DateRange; onChang
   )
 }
 
-function CustomCalendar({ value, onApply, onCancel }: {
-  value: DateRange; onApply: (r: DateRange) => void; onCancel: () => void
+function CustomCalendar({ value, onApply, onCancel, allowFuture = false }: {
+  value: DateRange; onApply: (r: DateRange) => void; onCancel: () => void; allowFuture?: boolean
 }) {
+  // Max selectable day — null when future dates are allowed (task-date filter).
+  const maxDay = allowFuture ? null : PICKER_TODAY
   const t = useT()
   const init = new Date(value.to + 'T00:00:00')
   const [viewY, setViewY] = useState(init.getFullYear())
@@ -167,7 +185,7 @@ function CustomCalendar({ value, onApply, onCancel }: {
           onChange={e => {
             const t = e.target.value; setFromText(t)
             const iso = parseDMY(t)
-            if (iso && iso <= PICKER_TODAY) {
+            if (iso && (!maxDay || iso <= maxDay)) {
               setFrom(iso); if (to && iso > to) setTo(iso)
               const d = new Date(iso + 'T00:00:00'); setViewY(d.getFullYear()); setViewM(d.getMonth()); setPicking('none')
             }
@@ -181,7 +199,7 @@ function CustomCalendar({ value, onApply, onCancel }: {
           onChange={e => {
             const t = e.target.value; setToText(t)
             const iso = parseDMY(t)
-            if (iso && iso <= PICKER_TODAY && (!from || iso >= from)) {
+            if (iso && (!maxDay || iso <= maxDay) && (!from || iso >= from)) {
               setTo(iso)
               const d = new Date(iso + 'T00:00:00'); setViewY(d.getFullYear()); setViewM(d.getMonth()); setPicking('none')
             }
@@ -221,11 +239,18 @@ function CustomCalendar({ value, onApply, onCancel }: {
       {picking === 'year' ? (
         /* Year grid */
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: '6px 0 4px' }}>
-          {Array.from({ length: 12 }, (_, i) => NOW_Y - i).map(y => {
+          {/* Past years for analytics; a window straddling today when future dates
+              are allowed, so far-off due-date years are reachable. */}
+          {(allowFuture
+            ? Array.from({ length: 12 }, (_, i) => NOW_Y - 2 + i)
+            : Array.from({ length: 12 }, (_, i) => NOW_Y - i)
+          ).map(y => {
             const active = y === viewY
             return (
               <button
                 key={y} onClick={() => { setViewY(y); setPicking('month') }}
+                onMouseOver={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
+                onMouseOut={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
                 style={{
                   padding: '11px 0', borderRadius: 9, fontSize: 13, fontWeight: active ? 700 : 500, cursor: 'pointer',
                   background: active ? 'var(--accent)' : 'var(--bg3)',
@@ -243,11 +268,13 @@ function CustomCalendar({ value, onApply, onCancel }: {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: '6px 0 4px' }}>
           {MONTHS_SHORT.map((mn, i) => {
             const active = i === viewM
-            const disabled = viewY > NOW_Y || (viewY === NOW_Y && i > NOW_M)
+            const disabled = !allowFuture && (viewY > NOW_Y || (viewY === NOW_Y && i > NOW_M))
             return (
               <button
                 key={mn} disabled={disabled}
                 onClick={() => { setViewM(i); setPicking('none') }}
+                onMouseOver={e => { if (!active && !disabled) (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
+                onMouseOut={e => { if (!active && !disabled) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
                 style={{
                   padding: '11px 0', borderRadius: 9, fontSize: 13, fontWeight: active ? 700 : 500,
                   cursor: disabled ? 'default' : 'pointer',
@@ -273,13 +300,15 @@ function CustomCalendar({ value, onApply, onCancel }: {
             {cells.map((d, i) => {
               if (d === null) return <span key={i} />
               const iso = isoOf(viewY, viewM, d)
-              const disabled = iso > PICKER_TODAY
+              const disabled = !!maxDay && iso > maxDay
               const isFrom = iso === from, isTo = iso === to
               const inRange = !!from && !!to && iso >= from && iso <= to
               const endpoint = isFrom || isTo
               return (
                 <button
                   key={i} disabled={disabled} onClick={() => clickDay(iso)}
+                  onMouseOver={e => { if (!disabled && !endpoint) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                  onMouseOut={e => { if (!disabled && !endpoint) (e.currentTarget as HTMLElement).style.background = inRange ? 'var(--bg-hover)' : 'transparent' }}
                   style={{
                     height: 34, border: 'none', cursor: disabled ? 'default' : 'pointer', fontSize: 12.5,
                     borderRadius: endpoint ? '50%' : inRange ? 0 : '50%',
@@ -359,9 +388,10 @@ function Chevron({ open }: { open: boolean }) {
 }
 
 const trigger: React.CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 14, cursor: 'pointer',
+  display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+  height: 40, boxSizing: 'border-box',
   background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10,
-  padding: '7px 12px', minWidth: 200,
+  padding: '0 12px', minWidth: 200,
 }
 const panel: React.CSSProperties = {
   position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50,
@@ -396,25 +426,61 @@ function gridCell(active: boolean): React.CSSProperties {
  * range picker. Trigger matches the form's dropdown shape; future dates allowed
  * (for scheduling). `value`/`onChange` use ISO YYYY-MM-DD ('' = empty).
  */
-export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal...' }: {
+export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal...', triggerStyle }: {
   value: string
   onChange: (iso: string) => void
   placeholder?: string
+  // Optional overrides so the trigger can match a host form's field metrics.
+  triggerStyle?: React.CSSProperties
 }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [picking, setPicking] = useState<'none' | 'month' | 'year'>('none')
   const ref = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ left: number; width: number; top?: number; bottom?: number; maxH: number } | null>(null)
   const base = new Date((value || PICKER_TODAY) + 'T00:00:00')
   const [viewY, setViewY] = useState(base.getFullYear())
   const [viewM, setViewM] = useState(base.getMonth())
 
+  // Fixed-position the panel via a portal so a scrolling modal can't clip it;
+  // flip above the field when there isn't room below.
+  function measure() {
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const w = 300
+    const gap = 6
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8))
+    const spaceBelow = window.innerHeight - r.bottom - 12
+    const spaceAbove = r.top - 12
+    const up = spaceBelow < 360 && spaceAbove > spaceBelow
+    setPos({
+      left, width: w,
+      top: up ? undefined : r.bottom + gap,
+      bottom: up ? window.innerHeight - r.top + gap : undefined,
+      maxH: Math.min(420, Math.max(240, up ? spaceAbove : spaceBelow)),
+    })
+  }
+
+  useLayoutEffect(() => { if (open) measure() }, [open, picking])
+
   useEffect(() => {
+    if (!open) return
+    const reposition = () => measure()
     function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setPicking('none') }
+      if (ref.current?.contains(e.target as Node)) return
+      if (panelRef.current?.contains(e.target as Node)) return
+      setOpen(false); setPicking('none')
     }
-    if (open) document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
+    window.addEventListener('scroll', reposition, true)
+    window.addEventListener('resize', reposition)
+    document.addEventListener('mousedown', onDoc)
+    return () => {
+      window.removeEventListener('scroll', reposition, true)
+      window.removeEventListener('resize', reposition)
+      document.removeEventListener('mousedown', onDoc)
+    }
   }, [open])
 
   function toggleOpen() {
@@ -440,8 +506,9 @@ export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal
         type="button" onClick={toggleOpen}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 8, minHeight: 42,
-          background: 'var(--bg3)', border: `1px solid ${open ? 'var(--accent)' : 'var(--border)'}`,
-          borderRadius: 8, padding: '6px 10px 6px 12px', cursor: 'pointer',
+          background: 'var(--bg3)', borderRadius: 8, padding: '6px 10px 6px 12px', cursor: 'pointer',
+          ...triggerStyle,
+          border: `1px solid ${open ? 'var(--accent)' : 'var(--border)'}`,
         }}
       >
         <span style={{ flex: 1, textAlign: 'left', fontSize: 14, color: value ? 'var(--text)' : 'var(--text3)' }}>
@@ -452,8 +519,15 @@ export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
-      {open && (
-        <div style={{ ...panel, left: 0, right: 'auto', width: 300, maxWidth: 'min(300px, 92vw)' }}>
+      {open && pos && createPortal(
+        <div
+          ref={panelRef}
+          style={{
+            position: 'fixed', left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom, zIndex: 1000,
+            background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.5)', maxHeight: pos.maxH, overflowY: 'auto',
+          }}
+        >
           <div style={{ padding: 14 }}>
             {/* month/year nav */}
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
@@ -479,13 +553,13 @@ export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal
             {picking === 'year' ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: '6px 0 4px' }}>
                 {Array.from({ length: 12 }, (_, i) => NOW_Y - 3 + i).map(y => (
-                  <button key={y} onClick={() => { setViewY(y); setPicking('month') }} style={gridCell(y === viewY)}>{y}</button>
+                  <button key={y} onClick={() => { setViewY(y); setPicking('month') }} onMouseOver={e => { if (y !== viewY) (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }} onMouseOut={e => { if (y !== viewY) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }} style={gridCell(y === viewY)}>{y}</button>
                 ))}
               </div>
             ) : picking === 'month' ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: '6px 0 4px' }}>
                 {MONTHS_SHORT.map((mn, i) => (
-                  <button key={mn} onClick={() => { setViewM(i); setPicking('none') }} style={gridCell(i === viewM)}>{mn}</button>
+                  <button key={mn} onClick={() => { setViewM(i); setPicking('none') }} onMouseOver={e => { if (i !== viewM) (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }} onMouseOut={e => { if (i !== viewM) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }} style={gridCell(i === viewM)}>{mn}</button>
                 ))}
               </div>
             ) : (
@@ -501,6 +575,8 @@ export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal
                     return (
                       <button
                         key={i} onClick={() => { onChange(iso); setOpen(false); setPicking('none') }}
+                        onMouseOver={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)' }}
+                        onMouseOut={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                         style={{
                           height: 34, border: 'none', cursor: 'pointer', fontSize: 12.5, borderRadius: '50%',
                           background: sel ? '#fff' : 'transparent', color: sel ? '#000' : 'var(--text)', fontWeight: sel ? 700 : 400,
@@ -514,7 +590,8 @@ export function SingleDatePicker({ value, onChange, placeholder = 'Pilih tanggal
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

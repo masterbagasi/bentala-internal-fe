@@ -36,6 +36,7 @@ export function ManageProjectsPanel() {
   const [isSuper, setIsSuper] = useState(false)
   const [projects, setProjects] = useState<SocmedProject[]>([])
   const [editing, setEditing] = useState<Draft | null>(null) // open modal when set
+  const [detail, setDetail] = useState<SocmedProject | null>(null) // read-only contact detail
   const [confirmDel, setConfirmDel] = useState<SocmedProject | null>(null)
   const [delBusy, setDelBusy] = useState(false)
   const [actionError, setActionError] = useState('')
@@ -118,7 +119,7 @@ export function ManageProjectsPanel() {
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t('Kelola Project Socmed')}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t('Kelola Project')}</span>
         <button onClick={openCreate} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
           + {t('Tambah Project')}
         </button>
@@ -135,10 +136,14 @@ export function ManageProjectsPanel() {
         {projects.map(p => (
           <div key={p.slug} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 9, opacity: p.active ? 1 : 0.55 }}>
             <span style={{ width: 28, height: 28, borderRadius: 7, flexShrink: 0, background: p.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff' }}>{p.glyph || projectGlyph(p.name)}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <button
+              onClick={() => setDetail(p)}
+              title={t('Lihat detail kontak')}
+              style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+            >
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
               <div style={{ fontSize: 11, color: 'var(--text3)' }}>/{p.slug}{p.pic ? ` · PIC: ${p.pic}` : ''}</div>
-            </div>
+            </button>
             <button onClick={() => openEdit(p)} style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: 'var(--text2)', cursor: 'pointer' }}
               onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
               onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
@@ -259,6 +264,56 @@ export function ManageProjectsPanel() {
 
             {error && <span style={{ fontSize: 12.5, color: '#f87171' }}>{error}</span>}
           </div>
+        </Modal>
+      )}
+
+      {/* Read-only contact detail — opened by clicking a project row. */}
+      {detail && (
+        <Modal
+          open
+          onClose={() => setDetail(null)}
+          title={detail.name}
+          headerRight={
+            <button
+              onClick={() => { const p = detail; setDetail(null); openEdit(p) }}
+              style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: 7, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: 'var(--text2)', cursor: 'pointer' }}
+            >{t('Edit')}</button>
+          }
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <span style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: detail.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff' }}>{detail.glyph || projectGlyph(detail.name)}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{detail.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>/{detail.slug}</div>
+            </div>
+          </div>
+          {(() => {
+            const rows: { label: string; value?: string; href?: string }[] = [
+              { label: t('PIC'), value: detail.pic },
+              { label: t('Telepon'), value: detail.phone, href: detail.phone ? `https://wa.me/${detail.phone.replace(/[^0-9]/g, '')}` : undefined },
+              { label: 'Email', value: detail.email, href: detail.email ? `mailto:${detail.email}` : undefined },
+              { label: t('Alamat'), value: detail.address },
+              { label: 'Instagram', value: detail.instagram, href: detail.instagram ? `https://instagram.com/${detail.instagram.replace(/^@/, '')}` : undefined },
+              { label: 'TikTok', value: detail.tiktok, href: detail.tiktok ? `https://tiktok.com/@${detail.tiktok.replace(/^@/, '')}` : undefined },
+              { label: 'Website', value: detail.website, href: detail.website ? (/^https?:\/\//.test(detail.website) ? detail.website : `https://${detail.website}`) : undefined },
+              { label: t('Deskripsi'), value: detail.description },
+            ].filter(r => (r.value ?? '').trim().length > 0)
+            if (rows.length === 0) {
+              return <div style={{ fontSize: 13, color: 'var(--text3)', textAlign: 'center', padding: '18px 0' }}>{t('Belum ada detail kontak. Klik Edit untuk mengisi.')}</div>
+            }
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {rows.map(r => (
+                  <div key={r.label} style={{ display: 'flex', gap: 12, padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ flex: '0 0 96px', fontSize: 12, fontWeight: 600, color: 'var(--text3)' }}>{r.label}</span>
+                    {r.href
+                      ? <a href={r.href} target="_blank" rel="noreferrer" style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--link)', wordBreak: 'break-word', textDecoration: 'none' }}>{r.value}</a>
+                      : <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--text)', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{r.value}</span>}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </Modal>
       )}
 

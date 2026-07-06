@@ -14,6 +14,9 @@ import { ClientFollowUps } from './ClientFollowUps'
 import { InteractionComposer } from './InteractionComposer'
 import { ContactDetails } from './ContactDetails'
 import { StageSelect } from './StageSelect'
+import { openInvoicePrint } from '@/components/Invoices/invoicePrint'
+import { useInvoiceAssets } from '@/components/Invoices/useInvoiceAssets'
+import { ProjectModal } from '@/components/Projects'
 
 export function ClientProfile({ id, onClose }: { id: string; onClose?: () => void }) {
   const t = useT()
@@ -23,6 +26,11 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
   const inModal = !!onClose
   const { clients, projects, invoices } = useStore(useShallow((s) => ({ clients: s.clients, projects: s.projects, invoices: s.invoices })))
   const client = clients.find(c => c.id === id)
+  // Assets for printing an invoice PDF straight from the client profile.
+  const { settings, logoUrl, bankLogoUrl } = useInvoiceAssets()
+  // "+ Tambah Project" straight from Client Details — opens the project form with
+  // this client pre-selected so the new project links back here immediately.
+  const [addProject, setAddProject] = useState(false)
 
   // The contact form's rich fields live on the linked bsi_leads row (set when
   // the contact was promoted via "+ Prospect"). Fetch it so Detail Client shows
@@ -48,7 +56,7 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
   }, [clientInvoices])
 
   if (!client) {
-    return <div style={{ padding: 24, color: 'var(--text2)' }}>{t('Client tidak ditemukan.')} <button onClick={() => router.push('/clients')} style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}>← {t('Kembali ke CRM')}</button></div>
+    return <div style={{ padding: 24, color: 'var(--text2)' }}>{t('Client tidak ditemukan.')} <button onClick={() => router.push('/clients')} style={{ color: 'var(--link)', background: 'none', border: 'none', cursor: 'pointer' }}>← {t('Kembali ke CRM')}</button></div>
   }
 
   const serviceLabel = SERVICE_OPTIONS.find(o => o.value === client.service)?.label ?? client.service
@@ -77,7 +85,7 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
       {/* Header card */}
       <div style={{ flexShrink: 0, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div style={{ width: 64, height: 64, borderRadius: 16, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 700, color: 'var(--accent)', background: 'rgba(108,99,255,0.14)', border: '1px solid rgba(108,99,255,0.28)' }}>{initials}</div>
+          <div style={{ width: 64, height: 64, borderRadius: 16, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 700, color: 'var(--link)', background: 'rgba(108,99,255,0.14)', border: '1px solid rgba(108,99,255,0.28)' }}>{initials}</div>
           <div style={{ flex: '1 1 280px', minWidth: 0 }}>
             <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2, color: 'var(--text)', wordBreak: 'break-word' }}>{client.name}</div>
             <div style={{ marginTop: 12 }}>
@@ -122,9 +130,22 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
           <InteractionComposer clientId={client.id} />
           {/* Project + Invoice, side by side. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-            <Panel title={`${t('Project')} (${clientProjects.length})`}>
+            <Panel
+              title={`${t('Project')} (${clientProjects.length})`}
+              action={
+                <button
+                  type="button"
+                  onClick={() => setAddProject(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 9px', cursor: 'pointer', fontSize: 11.5, fontWeight: 600, color: 'var(--link)' }}
+                  onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)' }}
+                  onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
+                >
+                  <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>{t('Tambah')}
+                </button>
+              }
+            >
               {clientProjects.length === 0 ? <Empty t={t('Belum ada project.')} /> : clientProjects.map(p => (
-                <Link key={p.id} href="/projects-all" style={rowStyle}>
+                <Link key={p.id} href="/projects" style={rowStyle}>
                   <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
                   <span style={{ fontSize: 11, color: 'var(--text2)' }}>{p.status} · {p.progress}%</span>
                 </Link>
@@ -132,10 +153,20 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
             </Panel>
             <Panel title={`${t('Invoice')} (${clientInvoices.length})`}>
               {clientInvoices.length === 0 ? <Empty t={t('Belum ada invoice.')} /> : clientInvoices.map(i => (
-                <Link key={i.id} href="/invoices" style={rowStyle}>
+                <button
+                  key={i.id}
+                  type="button"
+                  title={t('Buka PDF invoice')}
+                  onClick={() => {
+                    const address = leadRow ? [leadRow.alamat_jalan, leadRow.alamat_blok, leadRow.alamat_rtrw, leadRow.kota, leadRow.provinsi].filter(Boolean).join(', ') : ''
+                    const name = (leadRow && leadRow.brand_name) || client.name || ''
+                    openInvoicePrint(i, settings, logoUrl, bankLogoUrl, { name, phone: client.contact || '', address })
+                  }}
+                  style={{ ...rowStyle, width: '100%', textAlign: 'left', background: 'var(--bg3)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                >
                   <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.num} · {i.project}</span>
                   <span style={{ fontSize: 11, color: 'var(--text2)' }}>{formatRupiah(i.value)} · {i.status}</span>
-                </Link>
+                </button>
               ))}
             </Panel>
           </div>
@@ -159,6 +190,16 @@ export function ClientProfile({ id, onClose }: { id: string; onClose?: () => voi
           </div>
         </div>
       </div>
+      {addProject && client && (
+        <ProjectModal
+          open
+          project={null}
+          clients={clients}
+          defaultClientId={client.id}
+          defaultClientName={client.name}
+          onClose={() => setAddProject(false)}
+        />
+      )}
     </div>
   )
 }
@@ -184,10 +225,13 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
   )
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>{title}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{title}</span>
+        {action}
+      </div>
       {children}
     </div>
   )

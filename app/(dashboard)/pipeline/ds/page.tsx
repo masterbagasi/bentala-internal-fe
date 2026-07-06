@@ -7,7 +7,7 @@ import { DS_STAGES } from '@/lib/constants'
 export default function DesignPipelinePage() {
   return (
     <>
-      <PageHeader title="Design Pipeline" />
+      <PageHeader title="Pipeline Desain" />
       <div className="flex-1 overflow-hidden min-h-0">
         <PipelinePage member="Design Studio" stages={[...DS_STAGES]} />
       </div>

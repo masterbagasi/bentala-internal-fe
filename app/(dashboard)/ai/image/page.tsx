@@ -165,7 +165,7 @@ Output HANYA JSON ini tanpa teks lain:
           ) : (
             <span style={{ fontSize: 12, color: 'var(--text2)' }}>{t('memuat konfigurasi...')}</span>
           )}
-          <Link href="/settings/ai" style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--accent)', textDecoration: 'none' }}>
+          <Link href="/settings/ai" style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--link)', textDecoration: 'none' }}>
             {t('Atur di AI Integrations →')}
           </Link>
         </div>
@@ -184,7 +184,7 @@ Output HANYA JSON ini tanpa teks lain:
               style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', fontSize: 14, lineHeight: 1.6 }}
             />
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 6, lineHeight: 1.5 }}>
-              💡 {t('Mau pakai template yang sudah disiapkan? Buka')} <Link href="/ai/templates" style={{ color: 'var(--accent)', fontWeight: 600 }}>{t('Template Gambar →')}</Link>
+              💡 {t('Mau pakai template yang sudah disiapkan? Buka')} <Link href="/ai/templates" style={{ color: 'var(--link)', fontWeight: 600 }}>{t('Template Gambar →')}</Link>
             </div>
           </div>
 
@@ -257,7 +257,7 @@ Output HANYA JSON ini tanpa teks lain:
                     {t('Ganti provider di AI Integrations →')}
                   </Link>
                   {isCreditError && topupUrl && (
-                    <a href={topupUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
+                    <a href={topupUrl} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--link)', fontWeight: 600 }}>
                       {t('atau top-up credit')} {providerName} →
                     </a>
                   )}

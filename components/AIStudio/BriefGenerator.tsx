@@ -146,8 +146,8 @@ export default function BriefGenerator({ card, onClose, onDone }: Props) {
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: '8px 20px', background: 'none', border: 'none',
-    borderBottom: `2px solid ${active ? '#6c63ff' : 'transparent'}`,
-    color: active ? '#6c63ff' : 'var(--text2)',
+    borderBottom: `2px solid ${active ? '#60a5fa' : 'transparent'}`,
+    color: active ? '#60a5fa' : 'var(--text2)',
     fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer',
   })
 

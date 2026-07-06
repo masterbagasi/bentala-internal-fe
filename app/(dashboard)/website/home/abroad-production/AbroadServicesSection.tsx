@@ -11,6 +11,7 @@ import {
   ListError,
 } from '@/components/website/SimpleList'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
+import { confirmDialog } from '@/lib/confirm-dialog'
 import { Section } from '@/components/website/Section'
 import { StatusPill } from './StatusPill'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -94,7 +95,7 @@ export default function AbroadServicesSection() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus service ini?'))) return
+    if (!(await confirmDialog(t('Hapus service ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const { error } = await supabase
       .from('bsi_abroad_services')
       .delete()
@@ -543,7 +544,7 @@ function ServiceCard({
               fontWeight: 700,
               textTransform: 'uppercase',
               letterSpacing: '0.2em',
-              color: 'var(--accent)',
+              color: 'var(--link)',
             }}
           >
             Service

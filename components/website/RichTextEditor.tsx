@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useEditor, EditorContent, Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyle, FontSize } from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
-import { Underline } from '@tiptap/extension-underline'
 import { TextSelection } from '@tiptap/pm/state'
 
 // Extend TextStyle with inline `fontWeight`, `letterSpacing`, `textTransform`.
@@ -64,27 +63,35 @@ interface Props {
   onChange: (html: string) => void
   placeholder?: string
   minHeight?: number
+  /** Compact toolbar — only Bold / Italic / Underline / Color (drops the
+   *  Size / Weight / Spacing / Case / Line-spacing dropdowns). */
+  simple?: boolean
 }
 
 // Capture the dominant textStyle mark (the one with non-null attributes)
 // from the editor doc. Returns the attribute bag so the caller can stash
-// it as a "sticky" style memory.
+// it as a "sticky" style memory. Color is deliberately EXCLUDED — it must
+// only ever apply to the user's own selection, never spread document-wide.
 function pickDominantTextStyle(editor: Editor): Record<string, string | null> | null {
   let found: Record<string, string | null> | null = null
   editor.state.doc.descendants((node) => {
     if (found) return false
     if (node.isText) {
       const m = node.marks.find((mk) => mk.type.name === 'textStyle')
-      if (m && Object.values(m.attrs).some((v) => v != null)) {
-        found = { ...(m.attrs as Record<string, string | null>) }
-        return false
+      if (m) {
+        const attrs = { ...(m.attrs as Record<string, string | null>) }
+        delete attrs.color
+        if (Object.values(attrs).some((v) => v != null)) {
+          found = attrs
+          return false
+        }
       }
     }
   })
   return found
 }
 
-export function RichTextEditor({ value, onChange, placeholder, minHeight = 100 }: Props) {
+export function RichTextEditor({ value, onChange, placeholder, minHeight = 100, simple = false }: Props) {
   // Sticky textStyle memory. Initialised once when the editor mounts (from
   // whatever marks the loaded HTML already carries) and updated whenever
   // the user explicitly picks a style from the toolbar. We deliberately
@@ -107,7 +114,6 @@ export function RichTextEditor({ value, onChange, placeholder, minHeight = 100 }
       TextStyleExtended,
       FontSize,
       Color.configure({ types: ['textStyle'] }),
-      Underline,
     ],
     content: value,
     editorProps: {
@@ -184,12 +190,23 @@ export function RichTextEditor({ value, onChange, placeholder, minHeight = 100 }
         const docEnd = Math.max(docStart, state.doc.content.size - 1)
         if (docEnd > docStart) {
           const markType = state.schema.marks.textStyle
-          // Build the transaction first, then derive the selection from
-          // the *post-mark* doc — TextSelection.create requires its doc
-          // argument to match the transaction's current doc, otherwise
-          // ProseMirror throws "Selection ... must point at the current
-          // document". Selection coords are clamped to the new doc size.
-          const tr = state.tr.addMark(docStart, docEnd, markType.create(sticky))
+          // Re-apply the sticky style (size / weight / spacing / case / line-
+          // height) by MERGING it into each text node's own attributes, so a
+          // per-selection color stays exactly where the user put it instead of
+          // being wiped or spread across the field. Positions are stable
+          // because addMark never changes the doc size.
+          const tr = state.tr
+          state.doc.descendants((node, pos) => {
+            if (node.isText && node.text && node.text.length > 0) {
+              const existing = node.marks.find((mk) => mk.type.name === 'textStyle')
+              const merged = { ...(existing?.attrs ?? {}), ...sticky }
+              tr.addMark(pos, pos + node.nodeSize, markType.create(merged))
+            }
+          })
+          // Derive the selection from the *post-mark* doc — TextSelection.create
+          // requires its doc argument to match the transaction's current doc,
+          // otherwise ProseMirror throws "Selection ... must point at the
+          // current document". Coords are clamped to the new doc size.
           const maxPos = tr.doc.content.size
           const clampedFrom = Math.min(Math.max(from, 0), maxPos)
           const clampedTo = Math.min(Math.max(to, 0), maxPos)
@@ -216,9 +233,10 @@ export function RichTextEditor({ value, onChange, placeholder, minHeight = 100 }
         // No overflow:hidden — would clip dropdown menus from the toolbar.
       }}
     >
-      <Toolbar editor={editor} stickyMarkRef={stickyMarkRef} />
+      <Toolbar editor={editor} stickyMarkRef={stickyMarkRef} simple={simple} />
       <EditorContent editor={editor} />
       <style>{`
+        .rt-tb-btn:hover { filter: brightness(1.18); }
         .rt-editor-content { color: var(--text); font-size: 14px; }
         .rt-editor-content p { margin: 0; }
         .rt-editor-content p + p { margin-top: 0.4em; }
@@ -231,6 +249,9 @@ export function RichTextEditor({ value, onChange, placeholder, minHeight = 100 }
         .rt-editor-content u {
           font-size: 14px !important;
         }
+        /* Make bold clearly distinct from normal weight. */
+        .rt-editor-content strong,
+        .rt-editor-content b { font-weight: 800; }
         .rt-editor-content p.is-editor-empty:first-child::before {
           content: attr(data-placeholder);
           color: var(--text2);
@@ -325,11 +346,28 @@ const PRESET_COLORS = [
 function Toolbar({
   editor,
   stickyMarkRef,
+  simple = false,
 }: {
   editor: Editor | null
   stickyMarkRef: React.MutableRefObject<Record<string, string | null> | null>
+  simple?: boolean
 }) {
   const t = useT()
+  // Re-render the toolbar on every selection/transaction so the active state of
+  // B / I / U (and the color swatch) always tracks the cursor's current marks —
+  // including the stored-mark "mode" toggled on with no text selected. Without
+  // this the highlight goes stale (stays on/off as you move the caret).
+  const [, forceRender] = useReducer((n: number) => n + 1, 0)
+  useEffect(() => {
+    if (!editor) return
+    const update = () => forceRender()
+    editor.on('selectionUpdate', update)
+    editor.on('transaction', update)
+    return () => {
+      editor.off('selectionUpdate', update)
+      editor.off('transaction', update)
+    }
+  }, [editor])
   if (!editor) {
     return <div style={{ height: 40, padding: 8, borderBottom: '1px solid var(--border)' }} />
   }
@@ -415,6 +453,7 @@ function Toolbar({
         <u>U</u>
       </ToolbarButton>
 
+      {!simple && (<>
       <Separator />
 
       <Dropdown
@@ -510,17 +549,17 @@ function Toolbar({
           )
         }
       />
+      </>)}
 
       <Separator />
 
       <ColorPicker
         currentColor={currentColor}
-        onSelect={(color) =>
-          applyStyle((c) => c.setColor(color), { color })
-        }
-        onClear={() =>
-          applyStyle((c) => c.unsetColor(), { color: null })
-        }
+        // Color applies ONLY to the highlighted text. With no selection it sets
+        // a stored mark so just the next-typed text is colored — it never
+        // recolors the whole field (unlike the other, sticky, styles).
+        onSelect={(color) => editor.chain().focus().setColor(color).run()}
+        onClear={() => editor.chain().focus().unsetColor().run()}
       />
     </div>
   )
@@ -540,6 +579,8 @@ function ToolbarButton({
   return (
     <button
       type="button"
+      className="rt-tb-btn"
+      aria-pressed={!!active}
       onMouseDown={(e) => {
         e.preventDefault()
         onClick()
@@ -551,13 +592,15 @@ function ToolbarButton({
         padding: '0 8px',
         background: active ? 'var(--accent)' : 'var(--bg3)',
         color: active ? '#fff' : 'var(--text)',
-        border: '1px solid var(--border)',
+        border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
         borderRadius: 4,
         fontSize: 13,
+        fontWeight: active ? 700 : 500,
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        transition: 'background .12s, border-color .12s, filter .12s',
       }}
     >
       {children}

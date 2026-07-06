@@ -12,7 +12,7 @@ export default function ChatHubPage() {
   const isMobile = useIsMobile()
   return (
     <>
-      <PageHeader title="Chat" />
+      <PageHeader title="Obrolan" />
       <div className="flex-1 overflow-hidden min-h-0" style={{ padding: isMobile ? 0 : 24, display: 'flex', flexDirection: 'column' }}>
         <Suspense fallback={null}>
           <ChatHub />

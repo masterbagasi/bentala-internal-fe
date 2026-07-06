@@ -8,6 +8,7 @@ import { SaveActions } from '@/components/website/PageActions'
 import { Section } from '@/components/website/Section'
 import { PageShell } from '@/components/shared/PageShell'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 interface NavbarFormState {
   logo_url: string | null
@@ -33,6 +34,7 @@ const EMPTY: NavbarFormState = {
  * never overwrite each other's other fields.
  */
 export default function NavbarSettingsPage() {
+  const t = useT()
   const isMobile = useIsMobile()
   const supabase = getSupabase()
   const [heroId, setHeroId] = useState<string | null>(null)
@@ -95,8 +97,8 @@ export default function NavbarSettingsPage() {
         /column .* does not exist/i.test(saveError.message)
       setError(
         isMissingColumn
-          ? 'A required column is missing on bsi_hero. Run the visibility / abroad-section migrations in Supabase SQL Editor first.'
-          : `Save failed: ${saveError.message}`,
+          ? t('Ada kolom yang diperlukan tidak ada di bsi_hero. Jalankan migrasi visibility / abroad-section di Supabase SQL Editor terlebih dahulu.')
+          : `${t('Gagal menyimpan')}: ${saveError.message}`,
       )
       setSaving(false)
       return
@@ -110,7 +112,7 @@ export default function NavbarSettingsPage() {
 
   return (
     <PageShell
-      title="Settings"
+      title={t('Pengaturan')}
       action={
         <SaveActions
           isDirty={dirty && !loading}
@@ -138,11 +140,11 @@ export default function NavbarSettingsPage() {
         )}
 
         {loading ? (
-          <div style={{ color: 'var(--text2)', fontSize: 14 }}>Loading…</div>
+          <div style={{ color: 'var(--text2)', fontSize: 14 }}>{t('Memuat…')}</div>
         ) : (
           <>
-            <Section title="Brand Logo">
-              <FormField label="Logo image">
+            <Section title="Logo Brand">
+              <FormField label={t('Gambar Logo')}>
                 <FileUploader
                   value={form.logo_url}
                   onChange={(url) => update('logo_url', url)}
@@ -153,31 +155,31 @@ export default function NavbarSettingsPage() {
               </FormField>
             </Section>
 
-            <Section title="Navbar Menu">
+            <Section title="Menu Navbar">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <NavToggleRow
-                  label="Home"
+                  label={t('Beranda')}
                   hidden={form.nav_home_hidden}
                   onChange={(v) => update('nav_home_hidden', v)}
                 />
                 <NavToggleRow
-                  label="About Us"
+                  label={t('Tentang Kami')}
                   hidden={form.nav_about_hidden}
                   onChange={(v) => update('nav_about_hidden', v)}
                 />
                 <NavToggleRow
-                  label="News"
+                  label={t('Berita')}
                   hidden={form.nav_news_hidden}
                   onChange={(v) => update('nav_news_hidden', v)}
                 />
               </div>
             </Section>
 
-            <Section title="Home Page Sections">
+            <Section title="Bagian Halaman Home">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <NavToggleRow
                   label="Abroad Production"
-                  description="Banner section between hero and services. Hide to make the Services section move up."
+                  description={t('Bagian banner di antara hero dan services. Sembunyikan agar bagian Services naik ke atas.')}
                   hidden={form.abroad_section_hidden}
                   onChange={(v) => update('abroad_section_hidden', v)}
                 />
@@ -205,6 +207,7 @@ function NavToggleRow({
   hidden: boolean
   onChange: (next: boolean) => void
 }) {
+  const t = useT()
   return (
     <div
       style={{
@@ -230,13 +233,13 @@ function NavToggleRow({
           {description
             ? description
             : hidden
-              ? 'Hidden from navbar'
-              : 'Shown in navbar'}
+              ? t('Disembunyikan dari navbar')
+              : t('Ditampilkan di navbar')}
         </span>
       </div>
       <div
         role="group"
-        aria-label={`Visibility ${label}`}
+        aria-label={`${t('Visibilitas')} ${label}`}
         style={{
           display: 'inline-flex',
           padding: 3,
@@ -250,14 +253,14 @@ function NavToggleRow({
           onClick={() => onChange(false)}
           style={navToggleButtonStyle(!hidden)}
         >
-          Show
+          {t('Tampilkan')}
         </button>
         <button
           type="button"
           onClick={() => onChange(true)}
           style={navToggleButtonStyle(hidden)}
         >
-          Hide
+          {t('Sembunyikan')}
         </button>
       </div>
     </div>

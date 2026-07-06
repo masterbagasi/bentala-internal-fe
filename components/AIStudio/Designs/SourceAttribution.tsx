@@ -1,4 +1,7 @@
+'use client'
+
 import { FONT_STACK } from './designConstants'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export interface SourceData {
   primary: string       // channel_title or site_name
@@ -11,6 +14,7 @@ export function SourceAttribution({
   data: SourceData
   color: 'black' | 'white'
 }) {
+  const t = useT()
   return (
     <div
       style={{
@@ -24,7 +28,7 @@ export function SourceAttribution({
       }}
     >
       <div>
-        <span style={{ fontWeight: 700 }}>Image Source: </span>
+        <span style={{ fontWeight: 700 }}>{t('Sumber Gambar: ')}</span>
         <span style={{ fontWeight: 700 }}>{data.primary}</span>
         {data.platform && (
           <span style={{ fontWeight: 400 }}> | {data.platform}</span>

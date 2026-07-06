@@ -11,11 +11,13 @@ import { useStore } from './useStore'
  * when its chat room has new messages from someone else; the mark clears the
  * moment that room is read.
  *
- * The counts are driven STRAIGHT from the realtime payloads — a new message
- * bumps its room, a read clears it — rather than re-fetching /api/chat/unread on
- * every event. That makes the markers update instantly and, crucially, means a
- * slow/stale refetch can't resurrect a marker the user just cleared. The API is
- * only hit once, to seed the initial counts.
+ * The counts update instantly from realtime payloads — a new message bumps its
+ * room, a read clears it — for a snappy UI. To stay ACCURATE (not just fast), a
+ * short debounce after any event (and on tab focus) re-seeds from
+ * /api/chat/unread, the authoritative count derived from chat_messages vs the
+ * account's persisted chat_reads. The debounce runs after the read POST has
+ * committed, so the reconcile can't resurrect a marker the user just cleared —
+ * it confirms it. Net: realtime feel + always in sync with the database.
  */
 export function useChatUnread() {
   const setChatUnread = useStore((s) => s.setChatUnread)
@@ -27,11 +29,23 @@ export function useChatUnread() {
     let cancelled = false
     const supabase = getSupabase() as unknown as import('@supabase/supabase-js').SupabaseClient
 
-    // Seed once (no-store so we never start from a stale cached body).
-    fetch('/api/chat/unread', { cache: 'no-store' })
+    const seed = () => fetch('/api/chat/unread', { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : { counts: {} }))
       .then((d: { counts?: Record<string, number> }) => { if (!cancelled) setChatUnread(d.counts ?? {}) })
       .catch(() => {})
+
+    // Reconcile with the DB shortly after events settle (and on tab focus), so
+    // the optimistic map can never drift out of sync with the real unread state.
+    let reseedT: ReturnType<typeof setTimeout> | null = null
+    const scheduleReseed = () => {
+      if (reseedT) clearTimeout(reseedT)
+      reseedT = setTimeout(() => { if (!cancelled) void seed() }, 700)
+    }
+    const onFocus = () => scheduleReseed()
+    window.addEventListener('focus', onFocus)
+
+    // Seed once immediately (no-store so we never start from a stale cached body).
+    void seed()
 
     // The socket must carry the user's JWT BEFORE the channel joins, or these
     // RLS-protected tables deliver nothing — and a setAuth that lands after the
@@ -48,12 +62,13 @@ export function useChatUnread() {
         if (meEmail && (row.author_email ?? '').toLowerCase() === meEmail.toLowerCase()) return
         bumpChatUnread(row.room)
         playNotificationSound()
+        scheduleReseed() // reconcile with the DB once the burst settles
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reads' }, (payload) => {
         const row = (payload.new ?? payload.old) as { email?: string; room?: string }
         if (!row?.room) return
         // Only my own read clears my marker (covers reading on another device).
-        if (meEmail && (row.email ?? '').toLowerCase() === meEmail.toLowerCase()) clearChatUnread(row.room)
+        if (meEmail && (row.email ?? '').toLowerCase() === meEmail.toLowerCase()) { clearChatUnread(row.room); scheduleReseed() }
       })
       .subscribe()
 
@@ -71,6 +86,12 @@ export function useChatUnread() {
       if (session?.access_token) ensureChannel(session.access_token)
     })
 
-    return () => { cancelled = true; authSub.subscription.unsubscribe(); if (channel) supabase.removeChannel(channel) }
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', onFocus)
+      if (reseedT) clearTimeout(reseedT)
+      authSub.subscription.unsubscribe()
+      if (channel) supabase.removeChannel(channel)
+    }
   }, [setChatUnread, bumpChatUnread, clearChatUnread, meEmail])
 }
