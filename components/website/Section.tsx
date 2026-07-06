@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export type SectionTone =
   | 'default'
@@ -67,6 +68,7 @@ export function Section({
   scrollable,
   children,
 }: SectionProps) {
+  const t = useT()
   const contentScrolls = scrollable || height != null
   const stickyMode: 'full' | 'header' | null =
     sticky === 'full' || sticky === true
@@ -165,7 +167,7 @@ export function Section({
                 {icon}
               </span>
             )}
-            {title}
+            {t(title)}
           </div>
           {action}
         </div>

@@ -103,7 +103,7 @@ export default function VisitorsPage() {
                     <Td>
                       <Link
                         href={`/website/visitors/${encodeURIComponent(v.visitor_id)}`}
-                        style={{ color: 'var(--accent)', textDecoration: 'none', fontFamily: 'monospace', fontSize: 11 }}
+                        style={{ color: 'var(--link)', textDecoration: 'none', fontFamily: 'monospace', fontSize: 11 }}
                       >
                         {v.visitor_id.slice(0, 12)}…
                       </Link>

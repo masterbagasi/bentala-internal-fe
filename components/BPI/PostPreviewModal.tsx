@@ -8,6 +8,9 @@ import { useShallow } from 'zustand/react/shallow'
 import { getSupabase } from '@/lib/supabase'
 import { deleteFile } from '@/lib/storage'
 import { isUploadedFile } from '@/lib/attachments'
+import { htmlToPlain, isRichHtml, RichTextView } from '@/lib/rich-text'
+import { SubtaskEditor } from './SubtaskEditor'
+import type { Subtask } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 import { TeamAvatar } from '@/components/shared/StatusBadge'
 import { BPI_STATUS_COLS } from '@/lib/constants'
@@ -37,14 +40,28 @@ interface PostPreviewModalProps {
   onEdit: (id: string) => void
   /** When false (workspace pages), the "Edit Post" button is hidden. */
   canEdit?: boolean
+  /** Whether the "Edit Task" button shows — only the task creator (or a super
+   *  admin) may open the full edit form. Non-creators keep every other detail
+   *  action (files, chat, status, revisions). Defaults to `canEdit`. */
+  canEditTask?: boolean
+  /** My Task / Team context: project-origin tasks follow the Video Production /
+   *  Design Studio flow, so their status is changed only by dragging on the
+   *  board (a static pill here, no free dropdown). Personal tasks stay free. */
+  restrictStatus?: boolean
+  /** My Task: force the static status pill (no dropdown) even for a personal
+   *  task — used when the viewer isn't the task's creator, so only the creator
+   *  can send it to Revisi or finalize it (Ready to Post / Done). */
+  forceStaticStatus?: boolean
   /** Epoch ms the viewer last opened this task; sections changed by others
    *  after this (and the Activity rows) are flagged as new. Omit it (e.g. when
    *  opening from chat/notifications) and the modal resolves it from the store
    *  and marks the task read itself, matching the Projects board. */
   seenSince?: number
+  /** 'right' docks as an overlay panel; 'inline' renders in flow for split-view. */
+  dock?: 'center' | 'right' | 'inline'
 }
 
-export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true, seenSince }: PostPreviewModalProps) {
+export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true, canEditTask, restrictStatus = false, forceStaticStatus = false, seenSince, dock = 'center' }: PostPreviewModalProps) {
   const t = useT()
   const isMobile = useIsMobile()
   const { posts, upsertPost, meEmail, chatUnread, clearChatUnread } = useStore(useShallow((s) => ({ posts: s.posts, upsertPost: s.upsertPost, meEmail: s.meEmail, chatUnread: s.chatUnread, clearChatUnread: s.clearChatUnread })))
@@ -448,6 +465,15 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
     }
   }
 
+  async function saveSubtasks(next: Subtask[]) {
+    if (!post) return
+    const fresh = useStore.getState().posts.find(p => p.id === post.id) ?? post
+    upsertPost({ ...fresh, subtasks: next } as Post) // optimistic
+    const sb = getSupabase() as unknown as { from: (t: string) => any }
+    const { error } = await sb.from('posts').update({ subtasks: next }).eq('id', post.id)
+    if (error) { upsertPost(fresh); alert(t('Gagal menyimpan: ') + (error.message || '')) }
+  }
+
   async function deleteReference(url: string) {
     if (!post) return
     const fresh = useStore.getState().posts.find(p => p.id === post.id) ?? post
@@ -465,9 +491,12 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       open={open}
       onClose={handleClose}
       wide
+      dock={dock}
       title={t('Detail Task')}
       headerRight={
-        canEdit ? (
+        // Project tasks in My Task / Team follow the VP/DS flow → static pill
+        // (status moves only by board drag). Personal tasks keep the free dropdown.
+        canEdit && !forceStaticStatus && !(restrictStatus && post.entity !== 'personal') ? (
         <>
           <span style={{ position: 'relative', display: 'inline-flex' }}>
           <button
@@ -543,7 +572,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
               </button>
             )}
             <BtnSecondary onClick={handleClose}>{t('Tutup')}</BtnSecondary>
-            {canEdit && (
+            {(canEditTask ?? canEdit) && (
               <button
                 onClick={() => { handleClose(); onEdit(post.id) }}
                 style={{ background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
@@ -564,7 +593,10 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
 
       {/* Meta grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
-        <MetaItem label={t('Tanggal Task')} value={formatDate(post.date)} mark={dateMark} />
+        <MetaItem label={post.entity === 'personal' ? t('Due date') : t('Tanggal Task')} value={post.date ? formatDate(post.date) : (post.entity === 'personal' ? t('No due date') : '—')} mark={dateMark} />
+        {post.entity === 'personal' && <MetaItem label={t('Dibuat')} value={post.created_at ? new Date(post.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'} />}
+        {/* Socmed-only meta — hidden for a personal My Task task. */}
+        {post.entity !== 'personal' && (<>
         <MetaItem label={t('Platform')} mark={platformMark} value={
           (post.platforms || []).length ? (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -600,19 +632,31 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
             </div>
           )
         })()} />
+        </>)}
       </div>
 
-      {/* Headline + Brief — always shown to mirror the edit form */}
+      {/* Headline + Brief — hidden for a personal task. */}
+      {post.entity !== 'personal' && (<>
       <CopyField label={t('Headline')} value={post.headline} emptyText={t('Belum ada headline.')} mark={headlineMark} />
       <CopyField label="Brief" value={post.brief} emptyText={t('Belum ada brief.')} mark={briefMark} />
+      </>)}
 
       {/* Caption / Hashtags / Notes — only when present */}
       {post.caption && <CopyField label="Caption" value={post.caption} mark={captionMark} />}
       {post.hashtags && <CopyField label="Hashtags" value={post.hashtags} color="#6b9bff" mark={hashtagsMark} />}
-      {post.notes && <CopyField label={t('Catatan')} value={post.notes} mark={notesMark} />}
+      {/* Description (personal My Task) — above Notes. */}
+      {post.entity === 'personal' && <CopyField label={t('Description')} value={post.description || ''} emptyText={t('What is this task about?')} />}
+      {post.entity !== 'personal' && post.notes && <CopyField label={t('Catatan')} value={post.notes} mark={notesMark} />}
+      {/* Subtasks (personal My Task) — tick off live. */}
+      {post.entity === 'personal' && (
+        <div style={{ marginBottom: 18 }}>
+          <SubtaskEditor value={post.subtasks} onChange={saveSubtasks} />
+        </div>
+      )}
 
       {/* Reference — separate bucket; added via Add/Edit Task. Shown ABOVE File
-          Attachments. */}
+          Attachments. Hidden for personal tasks (they use File Attachments). */}
+      {post.entity !== 'personal' && (
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text2)', marginBottom: 8 }}>{t('Referensi')}</div>
         {referenceItems.length > 0 ? (
@@ -632,6 +676,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
           <div style={{ fontSize: 12, color: 'var(--text3)', padding: '4px 2px' }}>{t('Belum ada reference. Tambah lewat Edit Task.')}</div>
         )}
       </div>
+      )}
 
       {/* Attachments — links + uploaded files + an uploader so files can be
           added straight from the details view (no need to open Edit). */}
@@ -695,8 +740,9 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
       </div>
 
       {/* Detail Revisi — above comments + activity. Editable here (Socmed
-          Management); read-only preview on the worksheet pages. */}
-      {(canEdit || (post.revisions?.length ?? 0) > 0) && (
+          Management); read-only preview on the worksheet pages. Hidden for a
+          personal My Task task. */}
+      {post.entity !== 'personal' && (canEdit || (post.revisions?.length ?? 0) > 0) && (
         <RevisiSection
           revisions={post.revisions ?? []}
           canEdit={canEdit}
@@ -711,15 +757,18 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
           comments; the change history stays under the Activity tab). */}
       <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }}>
-            <Tab label={t('Chat')} active={detailTab === 'chat'} onClick={() => setDetailTab('chat')} />
-            {chatHasUnread && (
-              <span title={t('Ada chat baru')} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent2)', marginLeft: 4, marginTop: 1, flexShrink: 0 }} />
-            )}
-          </span>
-          <Tab label={t('Aktivitas')} active={detailTab === 'activity'} onClick={() => setDetailTab('activity')} />
+          {/* Chat is hidden for a personal My Task task — only Activity remains. */}
+          {post.entity !== 'personal' && (
+            <span style={{ display: 'inline-flex', alignItems: 'flex-start', position: 'relative' }}>
+              <Tab label={t('Chat')} active={detailTab === 'chat'} onClick={() => setDetailTab('chat')} />
+              {chatHasUnread && (
+                <span title={t('Ada chat baru')} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent2)', marginLeft: 4, marginTop: 1, flexShrink: 0 }} />
+              )}
+            </span>
+          )}
+          <Tab label={t('Aktivitas')} active={detailTab === 'activity' || post.entity === 'personal'} onClick={() => setDetailTab('activity')} />
         </div>
-        {detailTab === 'activity' ? (
+        {(detailTab === 'activity' || post.entity === 'personal') ? (
           <PostHistoryFeed rows={history} accounts={comments.accounts} />
         ) : me && post ? (
           <div style={{ height: 460, display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--bg2)' }}>
@@ -897,7 +946,7 @@ function AttachPreviewBody({ url, label }: { url: string; label: string }) {
   return (
     <div style={{ textAlign: 'center', padding: 24, fontSize: 13, color: 'var(--text2)' }}>
       {t('Preview tidak tersedia.')}{' '}
-      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>{t('Buka di tab baru')}</a>
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--link)' }}>{t('Buka di tab baru')}</a>
     </div>
   )
 }
@@ -953,7 +1002,7 @@ function UploadingCard({ name, progress, onCancel, cancelLabel }: { name: string
   return (
     <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <div style={{ height: 90, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--bg2)' }}>
-        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)' }}>{pct}%</span>
+        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--link)' }}>{pct}%</span>
         <div style={{ width: '78%', height: 5, borderRadius: 3, background: 'var(--border)', overflow: 'hidden' }}>
           <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', borderRadius: 3, transition: 'width 0.15s ease' }} />
         </div>
@@ -1207,12 +1256,13 @@ function CopyField({
   const t = useT()
   const [copied, setCopied] = useState(false)
   const text = (value ?? '').toString()
-  const hasText = text.trim().length > 0
+  const hasText = htmlToPlain(text).trim().length > 0
 
   async function copy() {
     if (!hasText) return
     try {
-      await navigator.clipboard.writeText(text)
+      // Copy as plain text so it pastes cleanly into Instagram/TikTok etc.
+      await navigator.clipboard.writeText(htmlToPlain(text))
       setCopied(true)
       setTimeout(() => setCopied(false), 1200)
     } catch {}
@@ -1254,13 +1304,24 @@ function CopyField({
           )}
         </button>
       </div>
-      <pre style={{
-        fontSize: 13, lineHeight: 1.7, color: hasText ? (color ?? 'var(--text)') : 'var(--text2)',
-        background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
-        whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit', margin: 0,
-      }}>
-        {hasText ? text : (emptyText ?? '—')}
-      </pre>
+      {hasText && isRichHtml(text) ? (
+        <RichTextView
+          value={text}
+          style={{
+            fontSize: 13, lineHeight: 1.7, color: color ?? 'var(--text)',
+            background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
+            wordBreak: 'break-word', fontFamily: 'inherit', margin: 0,
+          }}
+        />
+      ) : (
+        <pre style={{
+          fontSize: 13, lineHeight: 1.7, color: hasText ? (color ?? 'var(--text)') : 'var(--text2)',
+          background: 'var(--bg3)', borderRadius: 8, padding: '12px 14px',
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit', margin: 0,
+        }}>
+          {hasText ? text : (emptyText ?? '—')}
+        </pre>
+      )}
     </div>
   )
 }

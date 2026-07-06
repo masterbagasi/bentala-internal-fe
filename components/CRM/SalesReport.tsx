@@ -41,6 +41,30 @@ export function SalesReport() {
   }), [now])
   const paid = useMemo(() => invoices.filter(inv => inv.status === 'paid'), [invoices])
   const revenue = useMemo(() => months.map(m => ({ m, total: paid.filter(inv => mk(inv.created_at) === m).reduce((n, inv) => n + (inv.value || 0), 0) })), [months, paid])
+
+  // Conversion per stage — how many progressed from each funnel step to the next.
+  const conversion = useMemo(() => {
+    const idx = (s: string) => FUNNEL.indexOf(s)
+    const reached = FUNNEL.map((_, i) => clients.filter(c => c.stage !== 'lost' && idx(c.stage) >= i).length)
+    return FUNNEL.map((k, i) => ({ k, label: STAGE_LABELS[k] ?? k, n: reached[i], conv: i === 0 ? 100 : (reached[i - 1] ? Math.round((reached[i] / reached[i - 1]) * 100) : 0) }))
+  }, [clients])
+  // Revenue per service line — paid invoices grouped by the client's service.
+  const serviceRevenue = useMemo(() => {
+    const svcOf = new Map(clients.map(c => [c.id, ((c.service || '').split(',')[0] || '').trim()]))
+    const m: Record<string, number> = {}
+    for (const inv of paid) { const svc = (inv.client_id && svcOf.get(inv.client_id)) || t('Lainnya'); m[svc] = (m[svc] || 0) + (inv.value || 0) }
+    return Object.entries(m).map(([svc, total]) => ({ svc, total })).sort((a, b) => b.total - a.total).slice(0, 8)
+  }, [paid, clients, t])
+  const maxSvc = Math.max(1, ...serviceRevenue.map(s => s.total))
+  // Win/loss reason — tally of close_reason for lost vs won deals.
+  const reasons = useMemo(() => {
+    const tally = (match: (c: (typeof clients)[number]) => boolean) => {
+      const m: Record<string, number> = {}
+      for (const c of clients.filter(match)) { const r = (c.close_reason || '').trim() || '—'; m[r] = (m[r] || 0) + 1 }
+      return Object.entries(m).map(([r, n]) => ({ r, n })).sort((a, b) => b.n - a.n).slice(0, 6)
+    }
+    return { lost: tally(c => c.stage === 'lost'), won: tally(c => WON_STAGES.includes(c.stage)) }
+  }, [clients])
   const internalOf = useMemo(() => {
     const map = new Map(clients.map(c => [c.id, c.internal]))
     return (clientId: string | null | undefined) => (clientId ? map.get(clientId) : undefined)
@@ -104,6 +128,44 @@ export function SalesReport() {
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}><span>{r.m}</span><span>{formatRupiah(r.total)}</span></div>
             <div style={{ height: 8, background: 'var(--bg3)', borderRadius: 4 }}><div style={{ width: `${(r.total / maxRev) * 100}%`, height: '100%', background: 'var(--accent3)', borderRadius: 4 }} /></div>
           </div>
+        ))}
+      </div>
+
+      {/* Conversion per stage */}
+      <div style={card}>
+        <div style={h}>{t('Konversi per Stage')}</div>
+        {conversion.map((s, i) => (
+          <div key={s.k} style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
+              <span>{s.label}</span>
+              <span style={{ color: 'var(--text2)' }}>{s.n}{i > 0 && ` · ${s.conv}%`}</span>
+            </div>
+            <div style={{ height: 8, background: 'var(--bg3)', borderRadius: 4 }}><div style={{ width: `${i === 0 ? 100 : s.conv}%`, height: '100%', background: 'var(--accent)', borderRadius: 4 }} /></div>
+          </div>
+        ))}
+      </div>
+
+      {/* Revenue per service line */}
+      <div style={card}>
+        <div style={h}>{t('Revenue per Service')} <span style={{ fontWeight: 400, color: 'var(--text2)', fontSize: 11 }}>({t('invoice lunas')})</span></div>
+        {serviceRevenue.length === 0 ? <div style={{ fontSize: 12, color: 'var(--text2)' }}>—</div> : serviceRevenue.map(s => (
+          <div key={s.svc} style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, marginBottom: 2 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.svc}</span><span style={{ flexShrink: 0 }}>{formatRupiah(s.total)}</span></div>
+            <div style={{ height: 8, background: 'var(--bg3)', borderRadius: 4 }}><div style={{ width: `${(s.total / maxSvc) * 100}%`, height: '100%', background: 'var(--accent4)', borderRadius: 4 }} /></div>
+          </div>
+        ))}
+      </div>
+
+      {/* Win/Loss reasons */}
+      <div style={card}>
+        <div style={h}>{t('Alasan Win / Loss')}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#ff6b6b', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>{t('Kalah')}</div>
+        {reasons.lost.length === 0 ? <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>—</div> : reasons.lost.map(r => (
+          <div key={r.r} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, padding: '3px 0' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.r}</span><span style={{ color: 'var(--text2)', flexShrink: 0 }}>{r.n}</span></div>
+        ))}
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent3)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '12px 0 4px' }}>{t('Menang')}</div>
+        {reasons.won.length === 0 ? <div style={{ fontSize: 12, color: 'var(--text2)' }}>—</div> : reasons.won.map(r => (
+          <div key={r.r} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, padding: '3px 0' }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.r}</span><span style={{ color: 'var(--text2)', flexShrink: 0 }}>{r.n}</span></div>
         ))}
       </div>
 

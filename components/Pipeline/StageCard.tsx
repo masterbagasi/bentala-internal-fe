@@ -202,7 +202,7 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
                   background: 'var(--bg3)', border: '1px solid var(--border)',
                 }}>
                   <a href={f.url} target="_blank" rel="noreferrer"
-                    style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+                    style={{ color: 'var(--link)', textDecoration: 'none' }}>
                     📎 {f.label}
                   </a>
                   <button
@@ -241,7 +241,7 @@ export function StageCard({ stageDef, stageData, isUnlocked, onUpdate }: StageCa
             ) : (
               <button
                 onClick={() => setShowFileForm(true)}
-                style={{ fontSize: 12, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                style={{ fontSize: 12, color: 'var(--link)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
               >
                 {t('+ Tambah file / link')}
               </button>

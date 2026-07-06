@@ -44,6 +44,7 @@ export interface RevisionFile {
 export interface PostRevision {
   id: string
   tracks: RevisionTrack[]    // Video Production / Design Studio (can be both)
+  accounts?: string[]        // tagged account emails this revision is addressed to
   detail: string             // revision instructions
   reference_links?: string[] // pasted reference URLs (can be many)
   reference_link?: string    // legacy single reference URL (older rows)
@@ -68,6 +69,13 @@ export function revisionLinks(rev: PostRevision): string[] {
   const out = [...(rev.reference_links ?? [])]
   if (rev.reference_link && !out.includes(rev.reference_link)) out.push(rev.reference_link)
   return out
+}
+
+/** A simple checklist item on a My Task task. */
+export interface Subtask {
+  id: string
+  title: string
+  done: boolean
 }
 
 export interface Post {
@@ -95,12 +103,128 @@ export interface Post {
   ratio: string           // content aspect ratio, e.g. '1:1', '9:16'
   files: string[]         // uploaded attachment URLs (any file type)
   reference_files?: string[] // separate "Reference" bucket (links + uploads)
+  description?: string | null // My Task: free description ("what is this about")
+  due_date?: string | null    // My Task: due date (YYYY-MM-DD)
+  subtasks?: Subtask[]        // My Task: simple checklist
   revisions?: PostRevision[] // revision requests (Socmed Management)
   created_at: string
   updated_at: string
   deleted_at?: string | null  // soft-delete timestamp; null/absent = active
   last_actor?: string | null      // email of whoever made the most recent change
   last_change_at?: string | null  // when that change happened (unread markers)
+}
+
+// ── CRM v2 (Contact → Deal → Project → Invoice, one-way flow) ──
+export type ContactType = 'INDIVIDU' | 'PERUSAHAAN'
+export type ContactCategory = 'LEAD' | 'CLIENT' | 'VENDOR' | 'PARTNER'
+export type ContactSource = 'INSTAGRAM' | 'WHATSAPP' | 'WEBSITE' | 'REFERRAL' | 'EVENT' | 'ADS' | 'MARKETPLACE' | 'LAINNYA'
+
+export interface Contact {
+  id: string
+  name: string
+  type: ContactType
+  company_name?: string | null
+  category: ContactCategory
+  job_title?: string | null
+  email: string
+  phone: string
+  instagram?: string | null
+  source: ContactSource
+  owner_email?: string | null
+  client_tier?: string | null
+  industry?: string | null
+  address?: string | null
+  city?: string | null
+  province?: string | null
+  country?: string | null
+  tags: string[]
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type DealStage = 'prospect' | 'contacted' | 'qualified' | 'discovery' | 'proposal' | 'negotiation' | 'won' | 'lost' | 'client'
+export type DealLostReason = 'HARGA' | 'TIMING' | 'KOMPETITOR' | 'NO_RESPONSE' | 'LAINNYA'
+
+export interface Deal {
+  id: string
+  name: string
+  contact_id: string
+  services: string[]
+  value: number
+  stage: DealStage
+  expected_close_date?: string | null
+  owner_email?: string | null
+  source?: string | null
+  description?: string | null
+  lost_reason?: DealLostReason | null
+  lost_notes?: string | null
+  /** Set by the auto-create trigger when the deal is Won. */
+  project_id?: string | null
+  crm_project_id?: string | null
+  socmed_slug?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type CrmProjectStatus = 'BELUM_MULAI' | 'BERJALAN' | 'REVIEW' | 'SELESAI' | 'ON_HOLD' | 'BATAL'
+export interface CrmProject {
+  id: string
+  name: string
+  contact_id?: string | null
+  deal_id?: string | null
+  services: string[]
+  contract_value: number
+  start_date?: string | null
+  deadline?: string | null
+  manager_email?: string | null
+  member_emails: string[]
+  scope: string
+  status: CrmProjectStatus
+  socmed_slug?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type CrmTaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
+export interface CrmTask {
+  id: string
+  project_id: string
+  name: string
+  assignee_email?: string | null
+  due_date?: string | null
+  status: CrmTaskStatus
+  created_at: string
+  updated_at: string
+}
+
+export type CrmInvoiceStatus = 'DRAFT' | 'TERKIRIM' | 'SEBAGIAN' | 'LUNAS' | 'JATUH_TEMPO'
+export type CrmInvoiceTermin = 'FULL' | 'DP_50' | 'NET_14' | 'NET_30' | 'CUSTOM'
+export interface CrmInvoice {
+  id: string
+  number?: string | null
+  project_id?: string | null
+  contact_id?: string | null
+  invoice_date: string
+  due_date?: string | null
+  discount: number
+  tax_enabled: boolean
+  termin: CrmInvoiceTermin
+  bank_account?: string | null
+  status: CrmInvoiceStatus
+  paid_amount: number
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+export interface CrmInvoiceItem {
+  id: string
+  invoice_id: string
+  description: string
+  qty: number
+  unit_price: number
+  sort_order: number
+  created_at?: string
 }
 
 export type ClientStage = 'prospect' | 'contacted' | 'qualified' | 'discovery' | 'proposal' | 'negotiation' | 'won' | 'lost' | 'client'
@@ -120,11 +244,22 @@ export interface Client {
   expected_close?: string | null
   close_reason?: string | null
   temperature?: 'cold' | 'warm' | 'hot' | null
+  // Removed from the CRM pipeline board only (still listed in the Database tab).
+  pipeline_hidden?: boolean | null
+  // Removed everywhere (soft delete) — only done from the Database tab.
+  deleted_at?: string | null
   created_at: string
   updated_at: string
 }
 
 export type InvoiceStatus = 'pending' | 'dp' | 'paid' | 'overdue'
+
+/** One line on an invoice — a service (or custom text), quantity and unit price. */
+export interface InvoiceItem {
+  desc: string
+  qty: number
+  price: number
+}
 
 export interface Invoice {
   id: string
@@ -136,7 +271,32 @@ export interface Invoice {
   due?: string
   status: InvoiceStatus
   notes: string
+  items?: InvoiceItem[]
+  bill_address?: string
+  bill_phone?: string
   created_at: string
+  updated_at: string
+}
+
+/** One social/contact link on the invoice footer (platform determines the icon). */
+export interface SocialLink {
+  platform: string
+  value: string
+}
+
+/** Company + payment details printed on the invoice PDF (single shared row). */
+export interface InvoiceSettings {
+  id: string
+  company_name: string
+  address: string
+  phone: string
+  email: string
+  bank_name: string
+  bank_account: string
+  bank_holder: string
+  terms: string
+  socials: string
+  social_links: SocialLink[]
   updated_at: string
 }
 
@@ -181,6 +341,9 @@ export interface ActivityLog {
   message: string
   user_name: string
   created_at: string
+  scope?: string | null
+  // Reference to a restorable entity for soft-deleted contacts (Pulihkan action).
+  meta?: { kind?: 'client' | 'lead'; id?: string } | null
 }
 
 export interface FileAttachment {
@@ -411,14 +574,18 @@ export interface ClientInteraction {
   summary: string
   occurred_at: string
   next_follow_up: string | null
+  next_follow_up_time: string | null
   next_follow_up_via: string | null
   next_follow_up_target: string | null
   next_follow_up_note: string | null
   follow_up_done: boolean
+  follow_up_done_at?: string | null
   files: string[]
   author_email: string | null
   author_name: string | null
   created_at: string
+  deleted_at?: string | null
+  deleted_by?: string | null
 }
 
 /** Lightweight projection used for badges / panel / bell. */

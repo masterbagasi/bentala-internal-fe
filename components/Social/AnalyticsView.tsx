@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Chart, registerables } from 'chart.js'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { htmlToPlain } from '@/lib/rich-text'
 import {
   SUBJECTS, CONNECTED_SUBJECTS, WEEKS, PLATFORM_TRENDS, followersAsOf,
   CONTENT_POSTS, PLATFORM_META, FORMAT_LABEL, type ContentPost, type Platform,
@@ -679,7 +680,7 @@ function ContentCard({ post }: { post: ContentPost }) {
       </div>
       <div style={{ padding: 14 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, minHeight: 36, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {post.caption}
+          {htmlToPlain(post.caption)}
         </div>
         <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 5 }}>
           {fmtDate(post.date)}{post.time ? ` · ${post.time.replace(':', '.')} WIB` : ''}

@@ -13,6 +13,7 @@ import {
   fetchAiImageProviderBadge,
 } from '@/lib/image-page-shared'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { confirmDialog } from '@/lib/confirm-dialog'
 
 // Templates page: browse / upload / use templates. Click a template → opens
 // inline edit panel where user fills [PLACEHOLDERS] and generates.
@@ -97,7 +98,7 @@ export default function TemplatesClient() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus template ini?'))) return
+    if (!(await confirmDialog(t('Hapus template ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     try {
       const res = await fetch(`/api/image-templates/${id}`, { method: 'DELETE' })
       if (!res.ok) {
@@ -204,7 +205,7 @@ export default function TemplatesClient() {
           ) : (
             <span style={{ fontSize: 12, color: 'var(--text2)' }}>{t('memuat konfigurasi...')}</span>
           )}
-          <Link href="/settings/ai" style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--accent)', textDecoration: 'none' }}>
+          <Link href="/settings/ai" style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--link)', textDecoration: 'none' }}>
             {t('Atur di AI Integrations →')}
           </Link>
         </div>

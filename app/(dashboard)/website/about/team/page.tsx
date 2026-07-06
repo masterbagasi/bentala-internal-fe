@@ -8,6 +8,7 @@ import { PrimaryActionButton } from '@/components/website/PageActions'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { FormField, inputStyle, textareaStyle } from '@/components/website/FormField'
 import { ActionButton, IconBtn, ListEmpty, ListError, ModalShell, RowCard } from '@/components/website/SimpleList'
+import { confirmDialog } from '@/lib/confirm-dialog'
 import { Section } from '@/components/website/Section'
 import { useT } from '@/lib/i18n/LanguageProvider'
 
@@ -48,7 +49,7 @@ export default function TeamAdminPage() {
   useEffect(() => { load() }, [])
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus anggota tim ini?'))) return
+    if (!(await confirmDialog(t('Hapus anggota tim ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const { error } = await supabase.from('bsi_team').delete().eq('id', id)
     if (error) { alert(error.message); return }
     setItems((xs) => xs.filter((x) => x.id !== id))

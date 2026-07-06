@@ -103,7 +103,7 @@ function renderBodyWithMentions(
   const re = new RegExp('(@(?:' + names.map(escapeRegExp).join('|') + '))', 'g')
   return body.split(re).map((part, i) =>
     part.startsWith('@') && names.some(n => part === '@' + n)
-      ? <span key={i} style={{ color: 'var(--accent)', fontWeight: 600 }}>{part}</span>
+      ? <span key={i} style={{ color: 'var(--link)', fontWeight: 600 }}>{part}</span>
       : <span key={i}>{part}</span>,
   )
 }
@@ -541,7 +541,7 @@ function FeedItem({ entry, accounts }: { entry: FeedEntry; accounts: { email: st
                 <span style={{ display: 'block', fontSize: 13, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {entry.attach}
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--accent)' }}>{t('Buka / Download')}</span>
+                <span style={{ fontSize: 11, color: 'var(--link)' }}>{t('Buka / Download')}</span>
               </span>
             </a>
           )}

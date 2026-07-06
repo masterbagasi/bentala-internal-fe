@@ -1367,7 +1367,7 @@ export default function BPIIntelligence() {
             </div>
             <button
               onClick={handleRefresh}
-              style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}
+              style={{ fontSize: 11, color: 'var(--link)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}
             >
               ↻ Refresh
             </button>
@@ -1453,7 +1453,7 @@ export default function BPIIntelligence() {
               </div>
               <button
                 onClick={handleRefresh}
-                style={{ marginTop: 4, fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                style={{ marginTop: 4, fontSize: 11, color: 'var(--link)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}
               >
                 ↻ {t('Refresh sekarang')}
               </button>

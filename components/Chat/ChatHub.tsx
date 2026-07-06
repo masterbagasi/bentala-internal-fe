@@ -135,11 +135,17 @@ export function ChatHub() {
     }
   }, [])
 
-  // Rooms = socmed projects the user may chat in.
-  const rooms = useMemo(
-    () => (!accessLoaded ? [] : projects.filter(p => me?.fullBypass || canAccessChat(allowed, p.slug))),
-    [projects, allowed, accessLoaded, me?.fullBypass],
-  )
+  // Rooms = socmed projects the user may chat in. "Other" is the fallback bucket
+  // for tasks with no project; it isn't a socmed project, so expose it as a room
+  // here whenever the account has been granted its chat access.
+  const rooms = useMemo(() => {
+    if (!accessLoaded) return []
+    const base = projects.filter(p => me?.fullBypass || canAccessChat(allowed, p.slug))
+    if (me?.fullBypass || canAccessChat(allowed, 'other')) {
+      base.push({ slug: 'other', name: 'Other', glyph: 'OT', color: '#5a5a60', sort_order: 9999, active: true })
+    }
+    return base
+  }, [projects, allowed, accessLoaded, me?.fullBypass])
 
   // Per-room summary (last message + unread), seeded once and kept live via a
   // chat_messages subscription. setAuth is REQUIRED: chat RLS only streams events
@@ -253,7 +259,9 @@ export function ChatHub() {
   }
 
   const selProject = rooms.find(p => p.slug === selected)
-  const totalUnread = Object.values(overview).reduce((n, r) => n + (r.unread || 0), 0)
+  // Header total counts the project group chats only; per-task chat unread is
+  // shown on each task thread (RoomTaskList), not lumped into this number.
+  const totalUnread = Object.entries(overview).reduce((n, [room, r]) => n + (room.startsWith('task.') ? 0 : (r.unread || 0)), 0)
 
   const previewText = (s?: RoomSummary): string => {
     if (!s || (!s.lastBody && !s.lastIsAttachment)) return t('Belum ada pesan')
@@ -398,7 +406,6 @@ export function ChatHub() {
                 <RoomAvatar glyph={selProject.glyph || projectGlyph(selProject.name)} color={selProject.color} size={38} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selProject.name}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>{t('Room tim Socmed Management')}</div>
                 </div>
               </header>
               <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: isMobile ? '6px 8px 0' : '14px 16px 0' }}>

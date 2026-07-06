@@ -7,6 +7,7 @@
 // stays, and `reset()` re-renders the segment WITHOUT a full page reload.
 
 import { useEffect } from 'react'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 export default function DashboardError({
   error,
@@ -15,6 +16,7 @@ export default function DashboardError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const t = useT()
   useEffect(() => {
     // Surface it for debugging without taking the app down.
     console.error('[dashboard] render error caught by boundary:', error)
@@ -35,11 +37,10 @@ export default function DashboardError({
     >
       <div style={{ fontSize: 34 }}>⚠️</div>
       <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
-        Terjadi gangguan sesaat
+        {t('Terjadi gangguan sesaat')}
       </div>
       <div style={{ fontSize: 13, color: 'var(--text2)', maxWidth: 420, lineHeight: 1.6 }}>
-        Halaman ini gagal dimuat sebentar. Coba muat ulang bagian ini — data dan
-        sesi Anda tetap aman, tidak perlu login lagi.
+        {t('Halaman ini gagal dimuat sebentar. Coba muat ulang bagian ini — data dan sesi Anda tetap aman, tidak perlu login lagi.')}
       </div>
       <button
         onClick={reset}
@@ -55,7 +56,7 @@ export default function DashboardError({
           cursor: 'pointer',
         }}
       >
-        Coba lagi
+        {t('Coba lagi')}
       </button>
     </div>
   )

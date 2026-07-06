@@ -12,6 +12,7 @@ import { useRegisterPageAction } from '@/components/website/PageActionsContext'
 import { PrimaryActionButton } from '@/components/website/PageActions'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { confirmDialog } from '@/lib/confirm-dialog'
 
 // Default values for newly-inserted rows so the admin doesn't see
 // a wall of nulls in the form. Public site already coalesces nulls
@@ -83,7 +84,7 @@ export default function ServicesAdminPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus layanan ini?'))) return
+    if (!(await confirmDialog(t('Hapus layanan ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const { error } = await supabase.from('bsi_services').delete().eq('id', id)
     if (error) {
       alert(error.message)

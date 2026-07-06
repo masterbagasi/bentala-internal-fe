@@ -38,7 +38,9 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
     if (picScope
       ? !(p.pics || []).includes(picScope)
       : entity === 'all' ? false : p.entity !== entity) return false
-    if (!p.date) return true
+    // A task with no date can't belong to any period — exclude it so the range
+    // totals only count scheduled tasks.
+    if (!p.date) return false
     const d = new Date(p.date)
     return d >= from && d <= to
   })
@@ -54,7 +56,10 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
 
   const total = bpiPosts.length
   const publishedCount = countFor('published')
-  const inProgress = (statusCounts['produksi'] || 0) + (statusCounts['brief'] || 0)
+  // Everything actively in the pipeline: briefed → produced → review → ready,
+  // but not yet published, not in revision, and not still an Idea. Keeps the KPI
+  // strip reconciled with the total: Idea + In Progress + Revisi + Published = total.
+  const inProgress = (statusCounts['brief'] || 0) + (statusCounts['produksi'] || 0) + (statusCounts['review'] || 0) + (statusCounts['ready'] || 0)
   const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0)
 
   // Per-platform spread across every supported socmed (IG, TikTok, YouTube, X, LinkedIn).
@@ -154,7 +159,7 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
   }, [JSON.stringify(statusRows), total])
 
   const kpis = [
-    { label: t('Total Task'),   value: total,          color: 'var(--accent)',  sub: '' },
+    { label: t('Total Task'),   value: total,          color: 'var(--link)',  sub: '' },
     { label: t('Published'),    value: publishedCount, color: '#22c55e',        sub: `${pct(publishedCount)}%` },
     { label: t('In Progress'),  value: inProgress,     color: '#5b9bd5',        sub: `${pct(inProgress)}%` },
     { label: t('Need Revisi'),  value: statusCounts['revisi'] || 0, color: '#a78bfa', sub: `${pct(statusCounts['revisi'] || 0)}%` },

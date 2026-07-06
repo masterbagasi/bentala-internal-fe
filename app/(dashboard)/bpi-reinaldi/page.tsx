@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
-import { BPIPage, BoardFilter, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
+import { BPIPage, BoardFilter, BoardSearch, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
 import { PostHistoryButton } from '@/components/shared/PostHistory'
 
 const PIC = 'Design Studio'
@@ -22,6 +22,7 @@ export default function ReinaldPage() {
         showDateFilter={tab === 'analytics'}
         tabsRight={tab !== 'analytics' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BoardSearch value={bf.filters.search} onChange={v => bf.setFilters(f => ({ ...f, search: v }))} />
             <PostHistoryButton scope={{ pic: PIC }} />
             <BoardFilter filters={bf.filters} setFilters={bf.setFilters} accounts={bf.accounts} months={bf.months} />
           </div>

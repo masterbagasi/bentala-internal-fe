@@ -60,7 +60,8 @@ export const STATIC_SECTIONS: AccessSection[] = [
   { id: 'client.invoices', label: 'Invoice & Bayar', group: 'Client', routes: ['/invoices'],      landing: '/invoices' },
   { id: 'client.report',   label: 'Laporan Sales',  group: 'Client', routes: ['/sales-report'],  landing: '/sales-report' },
 
-  // Projects
+  // Projects — `projects.all` / `projects.tasks` now surface in the Projects
+  // sidebar group; `projects.vp` / `projects.ds` remain until the Team cutover.
   { id: 'projects.all',   label: 'All Projects',     group: 'Projects', routes: ['/projects'],                     landing: '/projects' },
   { id: 'projects.tasks', label: 'Task Board',       group: 'Projects', routes: ['/tasks'],                        landing: '/tasks' },
   { id: 'projects.vp',    label: 'Video Production',  group: 'Projects', routes: ['/bpi-faizal', '/pipeline/vp'],   landing: '/bpi-faizal' },

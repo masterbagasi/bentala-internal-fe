@@ -36,7 +36,7 @@ function DSection({ label, children }: { label: string; children: React.ReactNod
 function Chips({ items }: { items: string[] }) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {items.map((x, i) => <span key={i} style={{ fontSize: 11.5, fontWeight: 500, padding: '3px 10px', borderRadius: 16, background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.25)', color: 'var(--accent)' }}>{x}</span>)}
+      {items.map((x, i) => <span key={i} style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 16, background: 'rgba(108,99,255,0.2)', border: '1px solid rgba(108,99,255,0.45)', color: '#cfcbff' }}>{x}</span>)}
     </div>
   )
 }
@@ -61,7 +61,11 @@ export function ContactDetails({ lead, hideHeader, showEmpty }: { lead: any; hid
   const isWaC = ct === 'whatsapp' || ct === 'phone'
   const href = !L.contact_value ? null : isEmailC ? `mailto:${L.contact_value}` : isWaC ? `https://wa.me/${digits(L.contact_value)}` : (/^https?:\/\//.test(L.contact_value) ? L.contact_value : null)
   const statusLabel = LEAD_STATUS_LABEL[L.status] ?? L.status
-  const jenis: string[] = Array.isArray(L.jenis_project) ? L.jenis_project : []
+  // Rich form uses jenis_project[]; a raw website lead only has project_type
+  // ("jenis kebutuhan") — fall back to it so the need always shows.
+  const jenis: string[] = (Array.isArray(L.jenis_project) && L.jenis_project.length)
+    ? L.jenis_project
+    : (L.project_type ? [String(L.project_type)] : [])
   const tags: string[] = Array.isArray(L.tags) ? L.tags : []
   const lainnya: { channel: string; value: string }[] = Array.isArray(L.kontak_lainnya) ? L.kontak_lainnya : []
   const lampiran: string[] = Array.isArray(L.lampiran) ? L.lampiran : []
@@ -75,7 +79,7 @@ export function ContactDetails({ lead, hideHeader, showEmpty }: { lead: any; hid
       {lampiran.map((u, i) => {
         const safe = safeUrl(u)
         return safe
-          ? <a key={i} href={safe} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--accent)', textDecoration: 'none', wordBreak: 'break-all' }}>📎 {fileName(u)}</a>
+          ? <a key={i} href={safe} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--link)', textDecoration: 'none', wordBreak: 'break-all' }}>📎 {fileName(u)}</a>
           : <span key={i} style={{ fontSize: 12.5, color: 'var(--text2)', wordBreak: 'break-all' }}>📎 {fileName(u)}</span>
       })}
     </div>
@@ -96,7 +100,7 @@ export function ContactDetails({ lead, hideHeader, showEmpty }: { lead: any; hid
             </div>
             {(L.tier_klien || L.industri || L.prioritas) && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(108,99,255,0.16)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.3)' }}>{L.tier_klien}</span>}
+                {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(108,99,255,0.16)', color: 'var(--link)', border: '1px solid rgba(108,99,255,0.3)' }}>{L.tier_klien}</span>}
                 {L.industri && <span style={{ fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: 'var(--bg2)', color: 'var(--text2)', border: '1px solid var(--border)' }}>{L.industri}</span>}
                 {L.prioritas && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${prioColor}24`, color: prioColor, border: `1px solid ${prioColor}66` }}>{L.prioritas}</span>}
               </div>
@@ -155,7 +159,7 @@ export function ContactDetails({ lead, hideHeader, showEmpty }: { lead: any; hid
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {!hideHeader && (
         <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 700, color: 'var(--accent)', background: 'rgba(108,99,255,0.14)', border: '1px solid rgba(108,99,255,0.28)' }}>{initials}</div>
+          <div style={{ width: 48, height: 48, borderRadius: 12, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 700, color: 'var(--link)', background: 'rgba(108,99,255,0.14)', border: '1px solid rgba(108,99,255,0.28)' }}>{initials}</div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.25 }}>{L.brand_name || L.full_name || '—'}</div>
             {(L.full_name || L.jabatan) && (
@@ -167,7 +171,7 @@ export function ContactDetails({ lead, hideHeader, showEmpty }: { lead: any; hid
 
       {(L.tier_klien || L.industri || L.prioritas) && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: hideHeader ? 0 : -4 }}>
-          {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(108,99,255,0.12)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.25)' }}>{L.tier_klien}</span>}
+          {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(108,99,255,0.12)', color: 'var(--link)', border: '1px solid rgba(108,99,255,0.25)' }}>{L.tier_klien}</span>}
           {L.industri && <span style={{ fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}>{L.industri}</span>}
           {L.prioritas && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${prioColor}1f`, color: prioColor, border: `1px solid ${prioColor}55` }}>{L.prioritas}</span>}
         </div>
@@ -236,7 +240,7 @@ export function ContactDetails({ lead, hideHeader, showEmpty }: { lead: any; hid
             {lampiran.map((u, i) => {
               const safe = safeUrl(u)
               return safe
-                ? <a key={i} href={safe} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--accent)', textDecoration: 'none', wordBreak: 'break-all' }}>📎 {fileName(u)}</a>
+                ? <a key={i} href={safe} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--link)', textDecoration: 'none', wordBreak: 'break-all' }}>📎 {fileName(u)}</a>
                 : <span key={i} style={{ fontSize: 12.5, color: 'var(--text2)', wordBreak: 'break-all' }}>📎 {fileName(u)}</span>
             })}
           </div>

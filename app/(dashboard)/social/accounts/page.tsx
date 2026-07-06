@@ -4,7 +4,7 @@ import { AccountsView } from '@/components/Social/AccountsView'
 export default function SocialAccountsPage() {
   return (
     <>
-      <PageHeader title="Social Media — Accounts" />
+      <PageHeader title="Media Sosial — Akun" />
       <div className="flex-1 overflow-y-auto min-h-0" style={{ padding: 24 }}>
         <AccountsView brand="bpi" brandName="Bentala Project" />
       </div>

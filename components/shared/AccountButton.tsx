@@ -209,8 +209,11 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
         data: { publicUrl },
       } = supabase.storage.from('bsi-website').getPublicUrl(path)
 
-      await supabase.auth.updateUser({ data: { avatar_url: publicUrl } })
-      setUser(u => ({ ...u, avatarUrl: publicUrl }))
+      // The storage path is stable, so version the URL — otherwise browsers and
+      // the CDN keep serving the old cached photo to everyone after a re-upload.
+      const bustedUrl = `${publicUrl}?v=${Date.now()}`
+      await supabase.auth.updateUser({ data: { avatar_url: bustedUrl } })
+      setUser(u => ({ ...u, avatarUrl: bustedUrl }))
     } catch {
       setUploadError(t('Upload gagal, coba lagi'))
     } finally {
@@ -462,7 +465,7 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
                   style={{
                     fontSize: 11,
                     fontWeight: 700,
-                    color: 'var(--accent)',
+                    color: 'var(--link)',
                     background: 'rgba(108,99,255,0.12)',
                     padding: '2px 6px',
                     borderRadius: 4,

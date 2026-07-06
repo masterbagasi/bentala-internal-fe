@@ -118,6 +118,30 @@ export function NotificationBell() {
   }, [posts, me.email, me.name])
 
 
+  // Chime the moment someone tags me on a task. `myPosts` is derived from the
+  // realtime `posts` store, so this fires without a reload. A ref-based baseline
+  // (set once posts have loaded) prevents chiming for tags that already existed,
+  // and the last-actor guard skips my own edits.
+  const seenTagIds = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    if (!me.email) return
+    const ids = new Set(myPosts.map(p => p.id))
+    if (seenTagIds.current === null) {
+      if (posts.length === 0) return // wait for the initial fetch before baselining
+      seenTagIds.current = ids
+      return
+    }
+    let fresh = false
+    const meNameLc = (me.name || '').toLowerCase()
+    for (const p of myPosts) {
+      const actor = (p.last_actor ?? '').toLowerCase()
+      // Never chime for the user's own change (last_actor may be email OR name).
+      if (!seenTagIds.current.has(p.id) && actor !== me.email && (!meNameLc || actor !== meNameLc)) { fresh = true; break }
+    }
+    seenTagIds.current = ids
+    if (fresh) playNotificationSound()
+  }, [myPosts, posts.length, me.email])
+
   // Comments that @mention me — email-independent in-app notifications.
   useEffect(() => {
     if (!me.email) return
@@ -307,11 +331,12 @@ export function NotificationBell() {
       const c = clients.find(x => x.id === f.client_id)
       if (!c) return
       if (ownsAny && (c.internal || '').toLowerCase() !== myFirst) return // only mine when I own some
+      const dd = Math.round((Date.parse(f.next_follow_up + 'T00:00:00') - Date.parse(today + 'T00:00:00')) / 86400000)
       out.push({
         id: `followup-${f.id}`,
         at: f.next_follow_up,
         author: c.name,
-        text: tone === 'overdue' ? t('Follow-up lewat tenggat') : t('Follow-up jatuh tempo'),
+        text: dd < 0 ? t('Follow-up lewat tenggat') : dd === 0 ? t('Follow-up hari ini') : dd === 1 ? t('Follow-up besok') : `${t('Follow-up')} ${dd} ${t('hari lagi')}`,
         href: `/clients/${f.client_id}`,
       })
     })
@@ -391,7 +416,7 @@ export function NotificationBell() {
             {unread > 0 && (
               <button
                 onClick={markAllRead}
-                style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                style={{ fontSize: 11, color: 'var(--link)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
               >
                 {t('Tandai semua dibaca')}
               </button>

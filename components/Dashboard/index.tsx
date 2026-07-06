@@ -42,7 +42,7 @@ export function DashboardContent() {
 
   // KPI cards
   const kpis = [
-    { label: 'Active Projects',     value: activeProjects.length, color: 'var(--accent)',  border: 'var(--accent)',  sub: t('Total project berjalan') },
+    { label: 'Active Projects',     value: activeProjects.length, color: 'var(--link)',  border: 'var(--accent)',  sub: t('Total project berjalan') },
     { label: 'Active Clients',      value: activeClients.length,  color: 'var(--accent3)', border: 'var(--accent3)', sub: t('Client aktif') },
     { label: 'Revenue Pipeline',    value: formatRupiah(revenuePipeline), color: 'var(--accent4)', border: 'var(--accent4)', sub: t('Total deal pipeline'), isRp: true },
     { label: 'Tasks This Week',     value: weekTasks.length,      color: 'var(--text)',    border: 'var(--border)',  sub: t('Task aktif tim') },
@@ -164,7 +164,7 @@ function UpcomingDeadlines({ projects, tasks }: {
 
   projects
     .filter(p => p.deadline && new Date(p.deadline) >= now && new Date(p.deadline) <= in14 && p.status === 'active')
-    .forEach(p => items.push({ label: p.name, date: p.deadline!, type: 'Project', color: 'var(--accent)' }))
+    .forEach(p => items.push({ label: p.name, date: p.deadline!, type: 'Project', color: 'var(--link)' }))
 
   tasks
     .filter(t => t.due && new Date(t.due) >= now && new Date(t.due) <= in14 && t.status !== 'done')

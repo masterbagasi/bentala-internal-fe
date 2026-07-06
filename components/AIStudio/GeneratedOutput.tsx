@@ -89,7 +89,7 @@ export default function GeneratedOutput({ data, platform, inputText }: Props) {
       </div>
       <div>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Hashtag</div>
-        <div style={{ ...fieldStyle, color: 'var(--accent)', fontSize: 12 }}>{data.hashtags}</div>
+        <div style={{ ...fieldStyle, color: 'var(--link)', fontSize: 12 }}>{data.hashtags}</div>
       </div>
       <div>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{t('Script Video')}</div>
@@ -125,7 +125,7 @@ export default function GeneratedOutput({ data, platform, inputText }: Props) {
             background: exporting === 'bpi' ? 'var(--bg3)' : 'rgba(108,99,255,0.12)',
             border: '1px solid var(--accent)',
             borderRadius: 8,
-            color: 'var(--accent)',
+            color: 'var(--link)',
             fontSize: 13,
             fontWeight: 700,
             cursor: exporting || exported ? 'not-allowed' : 'pointer',

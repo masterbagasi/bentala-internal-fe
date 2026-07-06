@@ -215,7 +215,7 @@ export function AccountsView({ brand, brandName }: { brand: string; brandName?: 
                 >
                   <PlatformTile bg="linear-gradient(135deg,#f9ce34,#ee2a7b 52%,#6228d7)" mono="IG" monoSize={11} />
                   <span style={{ flex: 1 }}>Instagram</span>
-                  <span data-arrow style={{ fontSize: 16, lineHeight: 1, color: 'var(--accent)', opacity: 0, transform: 'translateX(-4px)', transition: 'opacity 0.14s, transform 0.14s' }}>→</span>
+                  <span data-arrow style={{ fontSize: 16, lineHeight: 1, color: 'var(--link)', opacity: 0, transform: 'translateX(-4px)', transition: 'opacity 0.14s, transform 0.14s' }}>→</span>
                 </button>
 
                 <div style={{ height: 1, background: 'var(--border)', margin: '7px 8px' }} />

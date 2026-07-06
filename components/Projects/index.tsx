@@ -10,6 +10,7 @@ import { PROJ_TYPE, PROJ_STATUS_CLASS, TEAM } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { useLogActivity } from '@/hooks/useData'
+import { confirmDialog } from '@/lib/confirm-dialog'
 import type { Project, ProjectType, ProjectStatus, Client } from '@/lib/types'
 
 export function ProjectsPage() {
@@ -22,7 +23,7 @@ export function ProjectsPage() {
   const filtered = projFilter === 'all' ? projects : projects.filter(p => p.type === projFilter)
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus project ini?'))) return
+    if (!(await confirmDialog(t('Hapus project ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const supabase = getSupabase()
     await supabase.from('projects').delete().eq('id', id)
     logActivity('Project dihapus')
@@ -138,18 +139,22 @@ export function ProjectsPage() {
   )
 }
 
-function ProjectModal({ open, project, clients, onClose }: {
+export function ProjectModal({ open, project, clients, onClose, defaultClientId = null, defaultClientName = '' }: {
   open: boolean
   project: Project | null
   clients: Client[]
   onClose: () => void
+  /** Pre-select a client for a NEW project (e.g. opened from Client Details). */
+  defaultClientId?: string | null
+  defaultClientName?: string
 }) {
   const t = useT()
   const logActivity = useLogActivity()
+  const upsertProject = useStore(s => s.upsertProject)
   const [form, setForm] = useState({
     name:        project?.name || '',
-    client:      project?.client || '',
-    client_id:   project?.client_id ?? null as string | null,
+    client:      project?.client || defaultClientName || '',
+    client_id:   project?.client_id ?? defaultClientId ?? (null as string | null),
     type:        project?.type || 'smm',
     deadline:    project?.deadline || '',
     status:      project?.status || 'active',
@@ -180,14 +185,16 @@ function ProjectModal({ open, project, clients, onClose }: {
       description: form.description,
       progress:    project?.progress || 0,
     }
-    if (project) {
-      await supabase.from('projects').update(data).eq('id', project.id)
-      logActivity(`Project diupdate: "${form.name}"`)
-    } else {
-      await supabase.from('projects').insert(data)
-      logActivity(`Project baru: "${form.name}" (${PROJ_TYPE[form.type]})`)
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: saved, error } = project
+      ? await (supabase as any).from('projects').update(data).eq('id', project.id).select().single()
+      : await (supabase as any).from('projects').insert(data).select().single()
     setLoading(false)
+    if (error) { alert(t('Gagal menyimpan project: ') + error.message); return }
+    // Show it immediately (don't wait for the realtime echo) so it appears on
+    // the All Projects list and in Client Details right away.
+    if (saved) upsertProject(saved as Project)
+    logActivity(project ? `Project diupdate: "${form.name}"` : `Project baru: "${form.name}" (${PROJ_TYPE[form.type]})`)
     onClose()
   }
 

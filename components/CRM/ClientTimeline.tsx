@@ -14,7 +14,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleDateString('id-ID', { day: 'n
 
 export function ClientTimeline({ clientId }: { clientId: string }) {
   const t = useT()
-  const rows = useClientInteractions(clientId)
+  const rows = useClientInteractions(clientId).filter((r) => !r.deleted_at)
 
   return (
     <div>
@@ -35,7 +35,7 @@ export function ClientTimeline({ clientId }: { clientId: string }) {
                 {r.summary && <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', marginBottom: r.files.length ? 6 : 0 }}>{r.summary}</div>}
                 {r.files.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {r.files.map(f => <a key={f} href={linkHref(f)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none' }}>🔗 {f.split('/').pop()?.slice(0, 28) || f}</a>)}
+                    {r.files.map(f => <a key={f} href={linkHref(f)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: 'var(--link)', textDecoration: 'none' }}>🔗 {f.split('/').pop()?.slice(0, 28) || f}</a>)}
                   </div>
                 )}
               </div>

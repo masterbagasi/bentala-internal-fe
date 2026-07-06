@@ -10,6 +10,7 @@ import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { PostModal } from '@/components/BPI/PostModal'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { useLogActivity } from '@/hooks/useData'
+import { confirmDialog } from '@/lib/confirm-dialog'
 
 interface PostTrackerProps {
   entity: 'bpi' | 'bsi'
@@ -31,7 +32,7 @@ export function PostTracker({ entity }: PostTrackerProps) {
   })
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus post ini?'))) return
+    if (!(await confirmDialog(t('Hapus post ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const supabase = getSupabase()
     await supabase.from('posts').delete().eq('id', id)
     logActivity('Post dihapus')

@@ -8,14 +8,24 @@ import { useLogActivity } from '@/hooks/useData'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { ConfirmDialog, type ConfirmRequest } from '@/components/website/ConfirmDialog'
 import { POST_STATUS_LABELS } from '@/lib/constants'
+import { isEffectiveSuperAdmin } from '@/lib/access'
 
 // Scope: which posts this history belongs to.
 //  - { entity: 'bpi' } → Bentala Project / Studio boards
 //  - { pic: 'Video Production' } → workspace pages (posts assigned to a member)
-export type HistoryScope = { entity: string } | { pic: string } | { all: true }
+//  - { all: true } → every socmed post
+//  - { mine } → My Task: tasks this account CREATED or is TAGGED on
+export type HistoryScope =
+  | { entity: string }
+  | { pic: string }
+  | { all: true }
+  | { mine: { email: string; name: string } }
 
 function scopeKey(scope: HistoryScope): string {
-  return 'all' in scope ? 'all' : 'entity' in scope ? `entity-${scope.entity}` : `pic-${scope.pic}`
+  return 'all' in scope ? 'all'
+    : 'mine' in scope ? `mine-${scope.mine.email.toLowerCase()}`
+    : 'entity' in scope ? `entity-${scope.entity}`
+    : `pic-${scope.pic}`
 }
 
 interface HistoryRow {
@@ -82,6 +92,13 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
     if (typeof window !== 'undefined') window.localStorage.setItem(seenKey, String(now))
   }, [seenKey])
   const [restorable, setRestorable] = useState<Set<string>>(new Set())
+  // Super admins may restore/purge any task, like the creator (My Task scope).
+  const [isSuper, setIsSuper] = useState(false)
+  useEffect(() => {
+    getSupabase().auth.getUser().then(({ data }) => {
+      setIsSuper(isEffectiveSuperAdmin(data.user?.email, data.user?.app_metadata?.role))
+    })
+  }, [])
   const [confirmReq, setConfirmReq] = useState<ConfirmRequest | null>(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
   // Hover preview: rows are truncated, so hovering shows the full title +
@@ -91,6 +108,32 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
 
   const load = useCallback(async () => {
     const sb = getSupabase()
+
+    // My Task history: scope by the tasks this account CREATED or is TAGGED on.
+    // post_history has no created_by/tagged, so resolve the id set from posts —
+    // live ones from the store, soft-deleted ones (for Restore + the "deleted"
+    // entry) from a direct query — then filter the change-log by that id list.
+    if ('mine' in scope) {
+      const { email, name } = scope.mine
+      const emailLc = (email || '').toLowerCase()
+      const isMine = (p: { created_by?: string | null; tagged?: string[] | null }) =>
+        (p.created_by || '') === name || (p.tagged || []).some(x => (x || '').toLowerCase() === emailLc)
+      const liveIds = useStore.getState().posts.filter(isMine).map(p => p.id)
+      const { data: del } = await sb.from('posts').select('id, created_by, tagged').not('deleted_at', 'is', null)
+      const delMine = ((del ?? []) as { id: string; created_by?: string; tagged?: string[] }[]).filter(isMine)
+      // A deleted task stays visible in the log, but only its CREATOR (or a super
+      // admin) may restore or purge it — a tagged assignee can't (empty creator =
+      // legacy → anyone).
+      const restorableMine = delMine.filter(d => isSuper || !d.created_by || (d.created_by || '') === name)
+      setRestorable(new Set(restorableMine.map(d => d.id)))
+      const myIds = Array.from(new Set([...liveIds, ...delMine.map(d => d.id)]))
+      if (!myIds.length) { setRows([]); return }
+      const { data } = await sb.from('post_history').select('*')
+        .in('post_id', myIds).order('created_at', { ascending: false }).limit(150)
+      setRows((data ?? []) as HistoryRow[])
+      return
+    }
+
     let q = sb.from('post_history').select('*').order('created_at', { ascending: false }).limit(150)
     // 'all' = every socmed post's history (incl. new projects); no entity filter.
     q = 'all' in scope ? q : 'entity' in scope ? q.eq('entity', scope.entity) : q.contains('pics', [scope.pic])
@@ -102,7 +145,7 @@ export function PostHistoryButton({ scope }: { scope: HistoryScope }) {
     dq = 'all' in scope ? dq : 'entity' in scope ? dq.eq('entity', scope.entity) : dq.contains('pics', [scope.pic])
     const { data: del } = await dq
     setRestorable(new Set(((del ?? []) as { id: string }[]).map(d => d.id)))
-  }, [scope])
+  }, [scope, isSuper])
 
   // Initial load + realtime: new history rows (and post changes) re-fetch.
   useEffect(() => {

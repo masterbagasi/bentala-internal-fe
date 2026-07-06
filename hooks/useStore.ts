@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Post, Client, Invoice, Project, Task, ActivityLog, PipelineItem, OpenFollowUp, ClientInteraction, OpenTask, ClientTask } from '@/lib/types'
+import type { Post, Client, Invoice, Project, Task, ActivityLog, PipelineItem, OpenFollowUp, ClientInteraction, OpenTask, ClientTask, Contact, Deal, CrmProject, CrmTask, CrmInvoice, CrmInvoiceItem } from '@/lib/types'
 
 interface DateRange {
   from: string
@@ -26,6 +26,12 @@ interface UIState {
 
 interface DataState {
   posts: Post[]
+  contacts: Contact[]
+  deals: Deal[]
+  crmProjects: CrmProject[]
+  crmTasks: CrmTask[]
+  crmInvoices: CrmInvoice[]
+  crmInvoiceItems: CrmInvoiceItem[]
   clients: Client[]
   invoices: Invoice[]
   projects: Project[]
@@ -41,6 +47,9 @@ interface DataState {
   // the user last opened that task; a post is "unread" when its last_change_at is
   // newer than that and its last_actor isn't the current user.
   meEmail: string | null
+  // Display name too — some older/edge changes store last_actor as a name (not
+  // an email), so both must be checked to never mark the user's own activity.
+  meName: string | null
   postSeen: Record<string, number>
 
   // Unread chat messages per room (room → count), excluding the user's own
@@ -53,6 +62,12 @@ interface DataState {
 interface Actions {
   // Data
   setPosts:    (posts: Post[]) => void
+  setContacts: (contacts: Contact[]) => void
+  setDeals:    (deals: Deal[]) => void
+  setCrmProjects: (p: CrmProject[]) => void
+  setCrmTasks:    (t: CrmTask[]) => void
+  setCrmInvoices:     (i: CrmInvoice[]) => void
+  setCrmInvoiceItems: (i: CrmInvoiceItem[]) => void
   setClients:  (clients: Client[]) => void
   setInvoices: (invoices: Invoice[]) => void
   setProjects: (projects: Project[]) => void
@@ -62,6 +77,7 @@ interface Actions {
 
   // Unread markers
   setMeEmail:    (email: string | null) => void
+  setMeName:     (name: string | null) => void
   setPostSeen:   (seen: Record<string, number>) => void
   markPostSeen:  (postId: string, at?: number) => void
   setChatUnread: (counts: Record<string, number>) => void
@@ -71,6 +87,18 @@ interface Actions {
   // Single item updates
   upsertPost:    (post: Post) => void
   removePost:    (id: string) => void
+  upsertContact: (contact: Contact) => void
+  removeContact: (id: string) => void
+  upsertDeal:    (deal: Deal) => void
+  removeDeal:    (id: string) => void
+  upsertCrmProject: (p: CrmProject) => void
+  removeCrmProject: (id: string) => void
+  upsertCrmTask:    (t: CrmTask) => void
+  removeCrmTask:    (id: string) => void
+  upsertCrmInvoice:     (i: CrmInvoice) => void
+  removeCrmInvoice:     (id: string) => void
+  upsertCrmInvoiceItem: (i: CrmInvoiceItem) => void
+  removeCrmInvoiceItem: (id: string) => void
   upsertClient:  (client: Client) => void
   removeClient:  (id: string) => void
   upsertInvoice: (invoice: Invoice) => void
@@ -107,10 +135,21 @@ type StoreState = UIState & DataState & Actions
 const today = new Date()
 const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+// Local-date ISO (YYYY-MM-DD). NOT toISOString(): that converts to UTC, so in
+// UTC+7 the local 1st-of-month midnight rolls back to the prior day — making
+// "This Month" span May 31–Jun 29 instead of Jun 1–Jun 30.
+const localISO = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 export const useStore = create<StoreState>((set) => ({
   // Data
   posts: [],
+  contacts: [],
+  deals: [],
+  crmProjects: [],
+  crmTasks: [],
+  crmInvoices: [],
+  crmInvoiceItems: [],
   clients: [],
   invoices: [],
   projects: [],
@@ -121,6 +160,7 @@ export const useStore = create<StoreState>((set) => ({
   clientTasks: [],
   loading: false,
   meEmail: null,
+  meName: null,
   postSeen: {},
   chatUnread: {},
 
@@ -128,8 +168,8 @@ export const useStore = create<StoreState>((set) => ({
   sidebarOpen: true,
   currentPage: 'dashboard',
   dateRange: {
-    from: monthStart.toISOString().slice(0, 10),
-    to:   monthEnd.toISOString().slice(0, 10),
+    from: localISO(monthStart),
+    to:   localISO(monthEnd),
     label: 'Bulan Ini',
   },
   bpiFilter:  'all',
@@ -152,6 +192,12 @@ export const useStore = create<StoreState>((set) => ({
 
   // ── Data setters ──
   setPosts:    (posts)    => set({ posts }),
+  setContacts: (contacts) => set({ contacts }),
+  setDeals:    (deals)    => set({ deals }),
+  setCrmProjects: (crmProjects) => set({ crmProjects }),
+  setCrmTasks:    (crmTasks)    => set({ crmTasks }),
+  setCrmInvoices:     (crmInvoices)     => set({ crmInvoices }),
+  setCrmInvoiceItems: (crmInvoiceItems) => set({ crmInvoiceItems }),
   setClients:  (clients)  => set({ clients }),
   setInvoices: (invoices) => set({ invoices }),
   setProjects: (projects) => set({ projects }),
@@ -160,6 +206,7 @@ export const useStore = create<StoreState>((set) => ({
   setLoading:  (loading)  => set({ loading }),
 
   setMeEmail:  (meEmail)  => set({ meEmail }),
+  setMeName:   (meName)   => set({ meName }),
   setPostSeen: (postSeen) => set({ postSeen }),
   markPostSeen: (postId, at) => set((s) => ({
     postSeen: { ...s.postSeen, [postId]: at ?? Date.now() },
@@ -184,6 +231,46 @@ export const useStore = create<StoreState>((set) => ({
       : [post, ...s.posts],
   })),
   removePost: (id) => set((s) => ({ posts: s.posts.filter(p => p.id !== id) })),
+
+  upsertContact: (contact) => set((s) => ({
+    contacts: s.contacts.find(c => c.id === contact.id)
+      ? s.contacts.map(c => c.id === contact.id ? contact : c)
+      : [contact, ...s.contacts],
+  })),
+  removeContact: (id) => set((s) => ({ contacts: s.contacts.filter(c => c.id !== id) })),
+
+  upsertDeal: (deal) => set((s) => ({
+    deals: s.deals.find(d => d.id === deal.id)
+      ? s.deals.map(d => d.id === deal.id ? deal : d)
+      : [deal, ...s.deals],
+  })),
+  removeDeal: (id) => set((s) => ({ deals: s.deals.filter(d => d.id !== id) })),
+
+  upsertCrmProject: (p) => set((s) => ({
+    crmProjects: s.crmProjects.find(x => x.id === p.id)
+      ? s.crmProjects.map(x => x.id === p.id ? p : x)
+      : [p, ...s.crmProjects],
+  })),
+  removeCrmProject: (id) => set((s) => ({ crmProjects: s.crmProjects.filter(p => p.id !== id) })),
+  upsertCrmTask: (task) => set((s) => ({
+    crmTasks: s.crmTasks.find(x => x.id === task.id)
+      ? s.crmTasks.map(x => x.id === task.id ? task : x)
+      : [task, ...s.crmTasks],
+  })),
+  removeCrmTask: (id) => set((s) => ({ crmTasks: s.crmTasks.filter(tk => tk.id !== id) })),
+
+  upsertCrmInvoice: (i) => set((s) => ({
+    crmInvoices: s.crmInvoices.find(x => x.id === i.id)
+      ? s.crmInvoices.map(x => x.id === i.id ? i : x)
+      : [i, ...s.crmInvoices],
+  })),
+  removeCrmInvoice: (id) => set((s) => ({ crmInvoices: s.crmInvoices.filter(i => i.id !== id) })),
+  upsertCrmInvoiceItem: (i) => set((s) => ({
+    crmInvoiceItems: s.crmInvoiceItems.find(x => x.id === i.id)
+      ? s.crmInvoiceItems.map(x => x.id === i.id ? i : x)
+      : [...s.crmInvoiceItems, i],
+  })),
+  removeCrmInvoiceItem: (id) => set((s) => ({ crmInvoiceItems: s.crmInvoiceItems.filter(i => i.id !== id) })),
 
   upsertClient: (client) => set((s) => ({
     clients: s.clients.find(c => c.id === client.id)
@@ -213,9 +300,12 @@ export const useStore = create<StoreState>((set) => ({
   })),
   removeTask: (id) => set((s) => ({ tasks: s.tasks.filter(t => t.id !== id) })),
 
-  addActivity: (log) => set((s) => ({
-    activity: [log, ...s.activity].slice(0, 50),
-  })),
+  addActivity: (log) => set((s) => (
+    // Idempotent: realtime can echo the same insert from more than one channel.
+    s.activity.some(a => a.id === log.id)
+      ? s
+      : { activity: [log, ...s.activity].slice(0, 50) }
+  )),
 
   setPipelineItems: (pipelineItems) => set({ pipelineItems }),
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 import { ContactDetails } from './ContactDetails'
+import { LeadFormModal, leadToInput, inputToRow, type NewLeadInput } from './LeadFormModal'
 
 // Full-PAGE contact detail (replaces the old "Detail Kontak" popup). Opened at
 // /clients/database/<id>; the Database list row navigates here instead of
@@ -45,6 +46,7 @@ export function ContactProfile({ id }: { id: string }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [lead, setLead] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
 
   useEffect(() => {
     let off = false
@@ -57,12 +59,21 @@ export function ContactProfile({ id }: { id: string }) {
 
   const backToList = () => router.push('/clients/database')
 
+  // Edit the whole contact (identitas, kontak, alamat, dll) in a popup right
+  // here — no navigating away to the pipeline/database.
+  async function handleEditSave(input: NewLeadInput) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (getSupabase() as any).from('bsi_leads').update(inputToRow(input)).eq('id', id).select().maybeSingle()
+    if (data) setLead(data)
+    setEditing(false)
+  }
+
   if (loading) return <div style={{ padding: 24, color: 'var(--text2)' }}>{t('Memuat…')}</div>
   if (!lead) {
     return (
       <div style={{ padding: 24, color: 'var(--text2)' }}>
         {t('Kontak tidak ditemukan.')}{' '}
-        <button onClick={backToList} style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}>← {t('Kembali ke Database')}</button>
+        <button onClick={backToList} style={{ color: 'var(--link)', background: 'none', border: 'none', cursor: 'pointer' }}>← {t('Kembali ke Database')}</button>
       </div>
     )
   }
@@ -82,20 +93,15 @@ export function ContactProfile({ id }: { id: string }) {
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
-      {/* Breadcrumb + back */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 12.5, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-          <button onClick={backToList} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', padding: 0, fontSize: 12.5 }}>{t('Database')}</button>
-          <span>›</span>
-          <span style={{ color: 'var(--text2)' }}>{t('Detail Kontak')}</span>
-        </div>
+      {/* Back */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
         <button onClick={backToList} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 9, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>← {t('Kembali')}</button>
       </div>
 
       {/* Header card */}
       <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, padding: 20 }}>
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div style={{ width: 64, height: 64, borderRadius: 16, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 700, color: 'var(--accent)', background: 'rgba(108,99,255,0.14)', border: '1px solid rgba(108,99,255,0.28)' }}>{initials}</div>
+          <div style={{ width: 64, height: 64, borderRadius: 16, flexShrink: 0, display: 'grid', placeItems: 'center', fontSize: 22, fontWeight: 700, color: 'var(--link)', background: 'rgba(108,99,255,0.14)', border: '1px solid rgba(108,99,255,0.28)' }}>{initials}</div>
           <div style={{ flex: '1 1 280px', minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2, color: 'var(--text)', wordBreak: 'break-word' }}>{title}</span>
@@ -119,7 +125,7 @@ export function ContactProfile({ id }: { id: string }) {
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
               {statusLabel && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(84,160,255,0.16)', color: '#54a0ff', border: '1px solid rgba(84,160,255,0.3)' }}>{statusLabel}</span>}
               {prio && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${prioColor}24`, color: prioColor, border: `1px solid ${prioColor}66` }}>{prio}</span>}
-              {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(108,99,255,0.16)', color: 'var(--accent)', border: '1px solid rgba(108,99,255,0.3)' }}>{L.tier_klien}</span>}
+              {L.tier_klien && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: 'rgba(108,99,255,0.16)', color: 'var(--link)', border: '1px solid rgba(108,99,255,0.3)' }}>{L.tier_klien}</span>}
               {L.industri && <span style={{ fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: 20, background: 'var(--bg3)', color: 'var(--text2)', border: '1px solid var(--border)' }}>{L.industri}</span>}
             </div>
           </div>
@@ -130,7 +136,7 @@ export function ContactProfile({ id }: { id: string }) {
                 {isWaC ? t('Buka WhatsApp') : isEmailC ? t('Kirim Email') : t('Buka link')}
               </a>
             )}
-            <button onClick={() => (L.converted_client_id ? router.push(`/clients/${L.converted_client_id}`) : router.push(`/clients/database?edit=${encodeURIComponent(id)}`))} style={{ height: 36, padding: '0 16px', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('Edit')}</button>
+            <button onClick={() => setEditing(true)} style={{ height: 36, padding: '0 16px', background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('Edit')}</button>
             {/* Already a client → no re-convert; offer "+ Prospect" only for raw leads. */}
             {!L.converted_client_id && (
               <button onClick={() => router.push(`/clients/database?convert=${encodeURIComponent(id)}`)} style={{ height: 36, padding: '0 16px', background: 'var(--accent)', border: 'none', color: '#fff', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>+ Prospect</button>
@@ -150,6 +156,16 @@ export function ContactProfile({ id }: { id: string }) {
 
       {/* Full field readout (shared with the Add/Edit form) */}
       <ContactDetails lead={L} hideHeader showEmpty />
+
+      {editing && (
+        <LeadFormModal
+          title={t('Edit kontak')}
+          saveLabel={t('Simpan perubahan')}
+          initial={leadToInput(L)}
+          onClose={() => setEditing(false)}
+          onSave={handleEditSave}
+        />
+      )}
     </div>
   )
 }

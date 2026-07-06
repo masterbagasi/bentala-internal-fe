@@ -11,6 +11,7 @@ import { formatDate } from '@/lib/utils'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { useLogActivity } from '@/hooks/useData'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { confirmDialog } from '@/lib/confirm-dialog'
 import type { Task, TaskPriority, TaskStatus, Project } from '@/lib/types'
 
 const TASK_COLS = [
@@ -39,7 +40,7 @@ export function TasksPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm(t('Hapus task ini?'))) return
+    if (!(await confirmDialog(t('Hapus task ini?'), { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     const supabase = getSupabase()
     await supabase.from('tasks').delete().eq('id', id)
     logActivity('Task dihapus')
@@ -124,7 +125,7 @@ export function TasksPage() {
                 onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(108,99,255,0.08)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)' }}
                 onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
               >
-                <span style={{ fontSize: 15, color: 'var(--accent)' }}>+</span> {t('Tambah task')}
+                <span style={{ fontSize: 15, color: 'var(--link)' }}>+</span> {t('Tambah task')}
               </button>
             </div>
           )
@@ -183,7 +184,7 @@ function TaskCard({ task, project, onDragStart, onEdit, onDelete }: {
         </span>
       </div>
       {project && (
-        <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 4 }}>📁 {project.name}</div>
+        <div style={{ fontSize: 11, color: 'var(--link)', marginTop: 4 }}>📁 {project.name}</div>
       )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

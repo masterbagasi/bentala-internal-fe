@@ -9,8 +9,9 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 import { getSupabase } from '@/lib/supabase'
 import { useMarkPostRead } from '@/hooks/usePostReads'
 import { isPostMarked, isChatUnread } from '@/lib/post-unread'
-import { taskChatRoom } from '@/lib/access'
+import { taskChatRoom, isEffectiveSuperAdmin } from '@/lib/access'
 import { BPI_STATUS_COLS, WS_STATUS_COLS, SMM_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
+import { htmlToPlain } from '@/lib/rich-text'
 
 // ── Per-track workflow helpers ───────────────────────────────
 // Posts carry two independent production tracks (video_status, design_status).
@@ -113,6 +114,112 @@ function smmUpdates(p: Post, colKey: string): Partial<Post> {
     default: return { status: colKey as Post['status'] } // todo / brief
   }
 }
+
+// My Task board reuses the Video Production columns (WS_STATUS_COLS: To Do List ·
+// Revisi · Production · Review · Done). A post's overall status maps to a column
+// directly (no per-track logic, since My Task aggregates any project's posts).
+export function mineColKey(p: Post): string {
+  // Derive from the SAME logic the SMM board uses (status + tracks), then fold
+  // it into the WS columns — so My Task and All Project always agree.
+  switch (smmColKey(p)) {
+    case 'revisi': return 'revisi'
+    case 'produksi': return 'produksi'
+    case 'review': return 'review'
+    case 'ready':
+    case 'published':
+    case 'done': return 'done'
+    default: return 'brief' // todo + brief → To Do List
+  }
+}
+// Roll the master status UP from each tagged assignee's My Task worksheet — the
+// creator's card (and the All Project board) shows this. Each tagged account is
+// a "track"; a missing row = not started (To Do List). Mirrors the min-rule the
+// user wants: the master only reaches Review once EVERY assignee is at Review;
+// while any is still behind it stays in Production (and Revisi wins outright).
+export function deriveMineColKey(statuses: string[]): string {
+  if (!statuses.length) return 'brief'
+  if (statuses.some(s => s === 'revisi')) return 'revisi'
+  if (statuses.every(s => s === 'brief')) return 'brief'
+  if (statuses.every(s => s === 'done')) return 'ready'
+  if (statuses.every(s => s === 'done' || s === 'review')) return 'review'
+  return 'produksi'
+}
+// A task belongs to an account's personal board when that account is tagged on
+// it, OR it's that account's own personal/ad-hoc task. Shared by My Task, the
+// Team per-account tabs, and the summary dashboards so they always agree.
+export function isAccountTask(p: Post, acct: { email: string; name: string }): boolean {
+  const tags = (p.tagged || []).map(x => (x || '').toLowerCase())
+  const taggedMe = tags.includes(acct.email.toLowerCase())
+  const myPersonal = p.entity === 'personal' && (p.created_by || '') === acct.name
+  return taggedMe || myPersonal
+}
+
+// The single source of truth for which posts a board/dashboard shows. The board
+// list AND the Team dashboard summary both run this so their counts always
+// agree — apply a filter and the KPIs, status spread and task source move with
+// the list. Scope, briefed-only, every active filter and the date range here.
+export function filterBoardPosts(posts: Post[], opts: {
+  entity: string
+  picScope?: string
+  allProjects?: boolean
+  mineScope?: { email: string; name: string }
+  /** Team overview: every account's briefed work (tagged to someone OR personal). */
+  teamScope?: boolean
+  filters: PostFilters
+  dateRange?: { from: string; to: string }
+  /** slug → human project name, so search can also match a project ("Master Bagasi"). */
+  projectNameOf?: (slug: string) => string
+}): Post[] {
+  const { entity, picScope, allProjects, mineScope, teamScope, filters, dateRange, projectNameOf } = opts
+  // My Task / Team group by their folded WS columns, so Status matches that key.
+  const folded = !!mineScope || !!teamScope
+  return posts.filter(p => {
+    if (p.deleted_at) return false
+    if (teamScope) {
+      if (!((p.tagged && p.tagged.length > 0) || p.entity === 'personal')) return false
+    } else if (mineScope) {
+      if (!isAccountTask(p, mineScope)) return false
+    } else if (allProjects
+      ? p.entity === 'personal'
+      : picScope ? !(p.pics || []).includes(picScope) : p.entity !== entity) return false
+    // Briefed-only: an account's worksheet ignores tasks still at 'todo' (Idea).
+    if ((picScope || mineScope || teamScope) && p.status === 'todo') return false
+    if (filters.search.trim()) {
+      const q = filters.search.trim().toLowerCase()
+      // Search anything: task title, its project (slug + human name), tagged
+      // accounts, platforms and content types.
+      const hay = [
+        p.title,
+        p.entity,
+        projectNameOf ? projectNameOf(p.entity || '') : '',
+        ...(p.tagged || []),
+        ...((p.platforms || []) as string[]),
+        ...(p.content_types || []),
+      ].join(' ').toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    if (filters.platforms.length && !filters.platforms.some(x => ((p.platforms || []) as string[]).includes(x))) return false
+    if (filters.contentTypes.length && !filters.contentTypes.some(x => (p.content_types || []).includes(x))) return false
+    if (filters.tagged.length && !filters.tagged.some(x => (p.tagged || []).includes(x))) return false
+    if (filters.ratios.length) {
+      const rs = (p.ratio || '').split(',').map(s => s.trim()).filter(Boolean)
+      if (!filters.ratios.some(x => rs.includes(x))) return false
+    }
+    if (filters.month && (p.date || '').slice(0, 7) !== filters.month) return false
+    if (dateRange) {
+      // Filtering is BY task date, so an undated task matches no range — drop it.
+      const d = (p.date || '').slice(0, 10)
+      if (!d || d < dateRange.from || d > dateRange.to) return false
+    }
+    if (filters.statuses.length && !filters.statuses.includes(folded ? mineColKey(p) : p.status)) return false
+    if (filters.projects.length && !filters.projects.includes(p.entity)) return false
+    return true
+  })
+}
+// Dropping a card on a My Task column sets the post's status accordingly.
+const MINE_COL_STATUS: Record<string, Post['status']> = {
+  brief: 'brief', revisi: 'revisi', produksi: 'produksi', review: 'review', done: 'ready',
+}
 import { formatDate, byPostDateAsc } from '@/lib/utils'
 import { StatusBadge, PlatformBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
@@ -125,6 +232,7 @@ import dynamic from 'next/dynamic'
 const BPIAnalytics = dynamic(() => import('./Analytics').then(m => ({ default: m.BPIAnalytics })), { ssr: false })
 import type { Post } from '@/lib/types'
 import { useLogActivity } from '@/hooks/useData'
+import { useMyTaskStatus, useAllTaskStatuses } from '@/hooks/useMyTaskStatus'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 import { projectGlyph } from '@/lib/project-glyph'
 
@@ -145,13 +253,83 @@ interface BPIPageProps {
   currentUser?: string
   activeTab: BPITabType
   filters: PostFilters
+  /** "My Task" mode: show tasks tagging me OR created by me, across all projects. */
+  mineScope?: { email: string; name: string }
+  /** Preview-only: hide Edit/Add/Delete and open task details read-only. */
+  readOnly?: boolean
+  /** Optional date-range filter (by post date). Undated tasks are excluded. */
+  dateRange?: { from: string; to: string }
+  /** When set, clicking a task reports its id to the parent instead of opening
+   *  the built-in modal — the parent renders the detail itself (split-view). */
+  onPreviewPost?: (id: string) => void
 }
 
 export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
-  function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters }, ref) {
+  function BPIPage({ entity, picScope, allProjects, calEntity, currentUser = 'Naufal', activeTab, filters, mineScope, readOnly = false, dateRange, onPreviewPost }, ref) {
     const t = useT()
-    const { posts, removePost, upsertPost, meEmail, postSeen, chatUnread, clearChatUnread } = useStore(useShallow((s) => ({ posts: s.posts, removePost: s.removePost, upsertPost: s.upsertPost, meEmail: s.meEmail, postSeen: s.postSeen, chatUnread: s.chatUnread, clearChatUnread: s.clearChatUnread })))
+    const { posts, removePost, upsertPost, meEmail, meName, postSeen, chatUnread, clearChatUnread } = useStore(useShallow((s) => ({ posts: s.posts, removePost: s.removePost, upsertPost: s.upsertPost, meEmail: s.meEmail, meName: s.meName, postSeen: s.postSeen, chatUnread: s.chatUnread, clearChatUnread: s.clearChatUnread })))
     const markPostRead = useMarkPostRead()
+    // slug → human project name, used so search can match a project by name.
+    const socmedProjects = useSocmedProjects(false)
+    const projectNameOf = useMemo(() => {
+      const m = new Map(socmedProjects.map(pr => [pr.slug, pr.name]))
+      return (slug: string) => slug === 'personal' ? 'Personal' : (m.get(slug) || (slug === 'other' ? 'Other' : slug))
+    }, [socmedProjects])
+    // Per-user status for My Task (tagged posts get their own independent status).
+    const { statusMap: myStatus, setStatus: setMyStatus } = useMyTaskStatus(mineScope)
+    // Every account's per-task status → per-assignee chips on the My Task board.
+    const allTaskStatus = useAllTaskStatuses(!!mineScope || !!allProjects)
+    // Whether the logged-in account created this task. The creator OWNS the
+    // task's master status (their My Task mirrors it and their moves write it);
+    // a tagged assignee instead gets an independent worksheet. Tasks with no
+    // recorded creator are treated as owned by the viewer (legacy rows). Uses the
+    // logged-in user's name so the creator check works on EVERY board (not just
+    // My Task) — created_by is stored as a display name.
+    const myName = (mineScope?.name || meName || currentUser || '').trim().toLowerCase()
+    const isTaskCreator = (p: Post) => !p.created_by || myName === (p.created_by || '').trim().toLowerCase()
+    // Super admins may delete/restore any task (like the creator). Everything
+    // else (Revisi / finalize / worksheet) stays creator-vs-assignee as before.
+    const [isSuper, setIsSuper] = useState(false)
+    useEffect(() => {
+      if (!mineScope) return
+      getSupabase().auth.getUser().then(({ data }) => {
+        setIsSuper(isEffectiveSuperAdmin(data.user?.email, data.user?.app_metadata?.role))
+      })
+    }, [])
+    // Who may delete (and, in the history, restore/purge) a task: its creator or
+    // a super admin. A tagged assignee cannot.
+    const canDeleteTask = (p: Post) => isTaskCreator(p) || isSuper
+    // Which My Task column a card sits in.
+    //  • Creator / owner → the task's OWN master status (mineColKey). Their moves
+    //    write the post; a normal move never leaks to an assignee's worksheet.
+    //  • Assignee (tagged, not creator) → their OWN worksheet: a per-user status
+    //    that defaults to "To Do List". The creator's normal Brief↔Production↔
+    //    Review moves do NOT drag this card — only the creator finalizing it
+    //    (Ready to Post / Published / Done → Done, frozen) or sending a Revisi
+    //    (pushed straight into this worksheet row) moves it across.
+    const mineColOf = (p: Post) => {
+      if (isTaskCreator(p)) return mineColKey(p)
+      if (p.status === 'ready' || p.status === 'published' || p.status === 'done') return 'done'
+      return myStatus[p.id] ?? 'brief'
+    }
+    // Push a per-user My Task status onto every account tagged on a task — used
+    // when the creator sends it to Revisi so it lands in each assignee's own
+    // worksheet (RLS allows writing others' rows; each client picks it up live).
+    async function pushWorksheetStatus(post: Post, status: string) {
+      const emails = Array.from(new Set((post.tagged || []).map(e => (e || '').toLowerCase()).filter(Boolean)))
+      if (!emails.length) return
+      const rows = emails.map(email => ({ post_id: post.id, email, status, updated_at: new Date().toISOString() }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (getSupabase() as any).from('post_task_status').upsert(rows, { onConflict: 'post_id,email' })
+    }
+    // Brief, transient notice (e.g. blocking an assignee from a creator-only move).
+    const [notice, setNotice] = useState<string | null>(null)
+    const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    function showNotice(msg: string) {
+      if (noticeTimer.current) clearTimeout(noticeTimer.current)
+      setNotice(msg)
+      noticeTimer.current = setTimeout(() => setNotice(null), 3000)
+    }
     const [showPostModal, setShowPostModal] = useState(false)
     const [editPostId, setEditPostId] = useState<string | null>(null)
     const [previewPostId, setPreviewPostId] = useState<string | null>(null)
@@ -179,7 +357,8 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     // Project dropdown in the post modal: empty on "All Project", pre-selected
     // on the bpi/bsi boards, hidden on workspace (ws) pages.
     const projectScope: 'bpi' | 'bsi' | 'all' | undefined =
-      allProjects ? 'all'
+      mineScope ? undefined
+      : allProjects ? 'all'
       : picScope ? undefined
       : (entity === 'bpi' || entity === 'bsi') ? entity
       : undefined
@@ -187,7 +366,11 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     // Only the Socmed Management boards (bpi / bsi / all) can create, edit or
     // delete posts. Workspace pages (Video Production / Design Studio) are
     // work-only: view, change status, and attach files — but not edit the post.
-    const canEdit = !picScope
+    const canEdit = !picScope && !readOnly
+    // Opening the FULL edit form is restricted to the task's creator (or a super
+    // admin). Everyone else can still open the task detail to add files, chat,
+    // change their own status, etc. — just not rewrite the whole task.
+    const canEditPost = (p: Post) => canEdit && (isTaskCreator(p) || isSuper)
 
     // Which board this is: the video track, the design track, or the combined
     // SMM board (null). Drag-to-move writes the right field per board.
@@ -195,6 +378,71 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       picScope === VP_PIC ? 'video' : picScope === DS_PIC ? 'design' : null
 
     async function moveOnBoard(post: Post, colKey: string) {
+      // My Task uses the WS columns but writes the SAME updates as the SMM board
+      // (status + every applicable track) so All Project / Video Production stay
+      // in sync. No revision popup — dropping on Revisi just sets it.
+      if (mineScope) {
+        // ── Assignee (tagged, not the creator) ──────────────────────────────
+        // My Task is this account's OWN worksheet. It moves work forward on its
+        // own status only; it never writes the post status, so it never touches
+        // the creator's board or any other assignee.
+        if (!isTaskCreator(post)) {
+          // A finalized task (Ready to Post / Published / Done) is approved work —
+          // frozen here; only the creator can release it.
+          if (post.status === 'ready' || post.status === 'published' || post.status === 'done') {
+            showNotice(t('Task sudah difinalisasi — hanya pembuatnya yang bisa memindahkannya.'))
+            return
+          }
+          // Revisi and Done (= Ready to Post) are the creator's calls only.
+          if (colKey === 'revisi' || colKey === 'done') {
+            showNotice(
+              colKey === 'revisi'
+                ? t('Hanya pembuat task yang bisa memindahkan ke Revisi.')
+                : t('Hanya pembuat task yang bisa menandai Ready to Post / Done.'),
+            )
+            return
+          }
+          // Normal move (To Do List / Production / Review) → set your own status,
+          // then roll the master UP from every assignee's worksheet so the
+          // creator's board follows (both at Review → Review; otherwise it stays
+          // in Production). This updates the shared post status but NOT the other
+          // assignees' worksheets — each account keeps its own card.
+          if (mineColOf(post) === colKey) return
+          await setMyStatus(post.id, colKey)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sb2 = getSupabase() as any
+          const { data: rows } = await sb2.from('post_task_status').select('email, status').eq('post_id', post.id)
+          const map: Record<string, string> = {}
+          ;(rows ?? []).forEach((r: { email: string; status: string }) => { map[(r.email || '').toLowerCase()] = r.status })
+          const meLc = (mineScope.email || '').toLowerCase()
+          map[meLc] = colKey
+          const assignees = Array.from(new Set((post.tagged || []).map(e => (e || '').toLowerCase()).filter(Boolean)))
+          const statuses = (assignees.length ? assignees : [meLc]).map(e => map[e] ?? 'brief')
+          const updates = smmUpdates(post, deriveMineColKey(statuses))
+          upsertPost({ ...post, ...updates } as Post) // optimistic (master only)
+          const { error } = await sb2.from('posts').update(updates).eq('id', post.id)
+          if (error) { upsertPost(post); return }
+          logActivity(`Task "${post.title}" dipindahkan`)
+          return
+        }
+        // ── Creator / owner ─────────────────────────────────────────────────
+        // You own the task's master status: your move writes the post directly.
+        // Normal moves (Brief ↔ Production ↔ Review) stay on your board and never
+        // leak to an assignee's worksheet (their mineColOf ignores them). Sending
+        // to Revisi additionally lands it in every assignee's worksheet; Done
+        // (Ready to Post) shows for them via the finalized display rule.
+        if (mineColOf(post) === colKey) return
+        const smmKey = MINE_COL_STATUS[colKey]
+        if (!smmKey) return
+        const updates = smmUpdates(post, smmKey)
+        upsertPost({ ...post, ...updates } as Post) // optimistic
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (getSupabase() as any).from('posts').update(updates).eq('id', post.id)
+        if (error) { upsertPost(post); return }
+        if (colKey === 'revisi') await pushWorksheetStatus(post, 'revisi')
+        logActivity(`Task "${post.title}" dipindahkan`)
+        return
+      }
       // Video Production / Design Studio: Done belongs to the Socmed Management
       // board. Once a post is Ready to Post / Published its track cards sit in
       // Done and are LOCKED here — they can't be dragged back to Review or
@@ -222,35 +470,17 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     // Memoized: the board re-renders on every drag-over/hover tick. Without this
     // the filter runs (and the `unreadIds` memo below busts) on every one of
     // those renders, and a fresh `filtered` array re-renders the whole board.
-    const filtered = useMemo(() => posts.filter(p => {
-      // Scope: all socmed projects, by assigned PIC (workspace), or by entity (board).
-      // All Project = combined view of every socmed post regardless of slug, so
-      // posts on newly-created projects appear too. Only board/PIC modes scope.
-      if (allProjects
-        ? false
-        : picScope ? !(p.pics || []).includes(picScope) : p.entity !== entity) return false
-      // Video Production / Design Studio only pick a post up once it's briefed.
-      // While it's still at 'todo' (Socmed Management "Idea") it must NOT appear
-      // on these boards at all — it surfaces only when the status reaches 'brief'.
-      if (picScope && p.status === 'todo') return false
-      if (filters.platforms.length && !filters.platforms.some(x => ((p.platforms || []) as string[]).includes(x))) return false
-      if (filters.contentTypes.length && !filters.contentTypes.some(x => (p.content_types || []).includes(x))) return false
-      if (filters.tagged.length && !filters.tagged.some(x => (p.tagged || []).includes(x))) return false
-      if (filters.ratios.length) {
-        const rs = (p.ratio || '').split(',').map(s => s.trim()).filter(Boolean)
-        if (!filters.ratios.some(x => rs.includes(x))) return false
-      }
-      if (filters.month && (p.date || '').slice(0, 7) !== filters.month) return false
-      if (filters.statuses.length && !filters.statuses.includes(p.status)) return false
-      return true
-    }), [posts, allProjects, picScope, entity, filters])
+    const filtered = useMemo(
+      () => filterBoardPosts(posts, { entity, picScope, allProjects, mineScope, filters, dateRange, projectNameOf }),
+      [posts, allProjects, picScope, entity, filters, mineScope, dateRange, projectNameOf],
+    )
 
     // Ids of tasks with an unseen change made by someone else → drives the card
     // dots and the per-column counts. Recomputes live as posts stream in or the
     // viewer opens tasks (postSeen changes).
     const unreadIds = useMemo(
-      () => new Set(filtered.filter(p => isPostMarked(p, meEmail, postSeen, chatUnread)).map(p => p.id)),
-      [filtered, meEmail, postSeen, chatUnread],
+      () => new Set(filtered.filter(p => isPostMarked(p, meEmail, postSeen, chatUnread, meName)).map(p => p.id)),
+      [filtered, meEmail, meName, postSeen, chatUnread],
     )
 
     // Capture the PRIOR seen time when opening a task so the detail can flag the
@@ -260,6 +490,8 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     // before another can show them.
     const [previewSince, setPreviewSince] = useState(0)
     function openPreview(id: string) {
+      // Split-view: hand the click to the parent, which renders the detail panel.
+      if (onPreviewPost) { onPreviewPost(id); return }
       setPreviewSince(postSeen[id] ?? 0)
       setPreviewPostId(id)
     }
@@ -280,6 +512,16 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     }
 
     function openEdit(id?: string) {
+      // Editing an existing task requires being its creator (or a super admin).
+      // A new task (no id) is always allowed. Non-creators can still open the
+      // detail to add files, chat, change their own status, etc.
+      if (id) {
+        const p = posts.find(x => x.id === id)
+        if (p && !canEditPost(p)) {
+          showNotice(t('Hanya pembuat task atau super admin yang bisa mengedit task ini.'))
+          return
+        }
+      }
       setEditPostId(id || null)
       setShowPostModal(true)
     }
@@ -287,6 +529,16 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
     useImperativeHandle(ref, () => ({ openEdit }))
 
     function handleDelete(id: string) {
+      // Only the task's creator (or a super admin) may delete it — a tagged
+      // assignee can't delete a task assigned to them (My Task). Authoritative
+      // guard for every entry point.
+      if (mineScope) {
+        const target = posts.find(p => p.id === id)
+        if (target && !canDeleteTask(target)) {
+          showNotice(t('Hanya pembuat task atau super admin yang bisa menghapus task ini.'))
+          return
+        }
+      }
       setConfirmReq({
         title: t('Hapus Task'),
         message: t('Task ini akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.'),
@@ -322,7 +574,10 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             when scrolled); other tabs get the uniform 24px page padding. */}
         <div style={{ padding: activeTab === 'board' ? '0 0 24px' : 24 }}>
           {activeTab === 'list' && (
-            <ListView posts={filtered} canEdit={canEdit} onEdit={openEdit} onDelete={handleDelete} onPreview={openPreview} unreadIds={unreadIds} />
+            <ListView posts={filtered} canEdit={canEdit} canEditPost={canEditPost} onEdit={openEdit} onDelete={handleDelete} onPreview={openPreview} unreadIds={unreadIds} showSource={!!mineScope || !!allProjects}
+              canFinalize={mineScope ? isTaskCreator : undefined}
+              onBlockedFinalize={() => showNotice(t('Hanya pembuat task yang bisa menandai Ready to Post / Done.'))}
+              canDelete={mineScope ? canDeleteTask : undefined} />
           )}
           {activeTab === 'board' && (
             <KanbanBoard
@@ -330,25 +585,34 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               currentUser={currentUser}
               statusFilter={filters.statuses}
               canEdit={canEdit}
+              canEditPost={canEditPost}
               onEdit={openEdit}
               onDelete={handleDelete}
               onCardClick={openPreview}
               unreadIds={unreadIds}
               onReadColumn={readColumn}
               accounts={accounts}
-              showTrackStatus={!boardTrack}
-              colSet={boardTrack ? WS_STATUS_COLS : SMM_STATUS_COLS}
+              showTrackStatus={!boardTrack && !mineScope}
+              taskStatusMap={mineScope || allProjects ? allTaskStatus : undefined}
+              canDeletePost={mineScope ? canDeleteTask : undefined}
+              colSet={boardTrack || mineScope ? WS_STATUS_COLS : SMM_STATUS_COLS}
               noDropCols={boardTrack ? ['revisi', 'done'] : undefined}
-              lockDrag={boardTrack ? (p => p.status === 'ready' || p.status === 'published') : undefined}
+              lockDrag={
+                boardTrack ? (p => p.status === 'ready' || p.status === 'published')
+                // My Task: every card (personal or tagged) moves freely — a tagged
+                // task carries the user's own status, decoupled from the owner.
+                : undefined
+              }
               colOf={
-                boardTrack === 'video' ? (p => trackColKey(p.video_status, p.status))
+                mineScope ? mineColOf
+                : boardTrack === 'video' ? (p => trackColKey(p.video_status, p.status))
                 : boardTrack === 'design' ? (p => trackColKey(p.design_status, p.status))
                 : smmColKey
               }
               onMove={moveOnBoard}
             />
           )}
-          {activeTab === 'calendar' && <ContentCalendar entity={allProjects ? 'all' : (calEntity ?? entity)} onPostClick={openPreview} filters={filters} />}
+          {activeTab === 'calendar' && <ContentCalendar entity={mineScope ? 'all' : (allProjects ? 'all' : (calEntity ?? entity))} mineScope={mineScope} onPostClick={openPreview} filters={filters} />}
           {activeTab === 'files' && <FilesTab posts={filtered} />}
           {activeTab === 'analytics' && (
             allProjects
@@ -367,6 +631,9 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             editId={editPostId}
             entity={entity}
             projectScope={projectScope}
+            hideSelfAccount={!!mineScope}
+            defaultStatus={mineScope ? 'brief' : undefined}
+            personal={!!mineScope}
           />
         )}
         {previewPostId && (
@@ -374,6 +641,16 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
             open={!!previewPostId}
             postId={previewPostId}
             canEdit={canEdit}
+            canEditTask={(() => { const pp = posts.find(p => p.id === previewPostId); return !!pp && canEditPost(pp) })()}
+            restrictStatus={!!mineScope}
+            forceStaticStatus={(() => {
+              // My Task: a personal task assigned to me by someone else keeps a
+              // static status pill — only its creator can send it to Revisi or
+              // finalize it (Ready to Post / Done).
+              if (!mineScope) return false
+              const pp = posts.find(p => p.id === previewPostId)
+              return !!pp && !isTaskCreator(pp)
+            })()}
             seenSince={previewSince}
             onClose={() => setPreviewPostId(null)}
             onEdit={id => { setPreviewPostId(null); openEdit(id) }}
@@ -390,9 +667,28 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
           <RevisiModal
             open={!!revisiPost}
             post={revisiPost}
+            accounts={accounts}
             onClose={() => setRevisiPost(null)}
             onSaved={() => setRevisiPost(null)}
           />
+        )}
+        {/* Transient notice (e.g. an assignee blocked from a creator-only move). */}
+        {notice && (
+          <div
+            role="status"
+            style={{
+              position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+              zIndex: 1000, padding: '11px 18px', borderRadius: 10,
+              fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 9,
+              background: 'rgba(255,107,107,0.16)', border: '1px solid rgba(255,107,107,0.5)',
+              color: '#ff6b6b', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', maxWidth: '90vw',
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            {notice}
+          </div>
         )}
       </div>
     )
@@ -424,17 +720,57 @@ function DeepLinkPost({ onOpen }: { onOpen: (id: string) => void }) {
 }
 
 // ── List View ──
+// List order: unfinished work on top (soonest date first), finished tasks sink
+// to the bottom — so the list reads as "what still needs doing" before "done".
+const isPostDone = (p: Post) => p.status === 'published' || p.status === 'done'
+function byListOrder(a: Post, b: Post): number {
+  const da = isPostDone(a), db = isPostDone(b)
+  if (da !== db) return da ? 1 : -1
+  return byPostDateAsc(a, b)
+}
+
+// Which project a task comes from — a colour dot + name, mirroring the Task
+// Source vocabulary in the dashboard summary.
+function SourceCell({ entity }: { entity: string }) {
+  const t = useT()
+  const projects = useSocmedProjects(false)
+  const key = entity === 'personal' ? 'personal' : (entity || 'other')
+  const proj = projects.find(p => p.slug === key)
+  const name = key === 'personal' ? t('Personal') : proj?.name || (key === 'other' ? t('Other') : key)
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+      <EntityGlyph entity={key} size={22} />
+      <span style={{ fontSize: 12.5, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+    </span>
+  )
+}
+
 function ListView({
-  posts, onEdit, onDelete, onPreview, canEdit = true, unreadIds,
+  posts, onEdit, onDelete, onPreview, canEdit = true, canEditPost, unreadIds, showSource = false,
+  canFinalize, onBlockedFinalize, canDelete,
 }: {
   posts: Post[]
   onEdit: (id: string) => void
   onDelete: (id: string) => void
   onPreview: (id: string) => void
   canEdit?: boolean
+  /** Per-task gate for opening the full edit form (creator/super only). */
+  canEditPost?: (p: Post) => boolean
   unreadIds?: Set<string>
+  /** Cross-project views (My Task / Team / All Project) show which project a
+   *  task comes from; single-project boards omit it (every row is the same). */
+  showSource?: boolean
+  /** My Task: whether this account may mark a task done (creator-only). */
+  canFinalize?: (p: Post) => boolean
+  /** Called when the finalize checkbox is blocked, to surface a notice. */
+  onBlockedFinalize?: () => void
+  /** My Task: whether this account may delete a task (creator-only). Hides the
+   *  delete button for tasks assigned to — but not created by — this account. */
+  canDelete?: (p: Post) => boolean
 }) {
   const t = useT()
+  // check + title + platform + date + status + pic + caption, plus optionals.
+  const cols = 7 + (showSource ? 1 : 0) + (canEdit ? 1 : 0)
   return (
     <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
       <table>
@@ -445,6 +781,7 @@ function ListView({
             <th>{t('Platform')}</th>
             <th>{t('Tanggal')}</th>
             <th>{t('Status')}</th>
+            {showSource && <th>{t('Sumber')}</th>}
             <th>{t('PIC')}</th>
             <th>{t('Caption')}</th>
             {canEdit && <th style={{ width: 96, whiteSpace: 'nowrap' }}>{t('Aksi')}</th>}
@@ -453,19 +790,21 @@ function ListView({
         <tbody>
           {posts.length === 0 ? (
             <tr>
-              <td colSpan={canEdit ? 8 : 7}>
+              <td colSpan={cols}>
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text2)' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
                   {t('Belum ada task. Klik "+ Tambah Task" untuk mulai.')}
                 </div>
               </td>
             </tr>
-          ) : posts.slice().sort(byPostDateAsc).map(p => (
+          ) : posts.slice().sort(byListOrder).map(p => (
             <tr key={p.id} onClick={() => onPreview(p.id)} style={{ cursor: 'pointer' }}>
               <td style={{ paddingLeft: 14 }}>
                 <CheckCircle
                   done={p.status === 'published' || p.status === 'done'}
                   onChange={async (done) => {
+                    // Finalizing (Ready to Post / Published) is creator-only in My Task.
+                    if (canFinalize && !canFinalize(p)) { onBlockedFinalize?.(); return }
                     const supabase = getSupabase()
                     // Ready/Published → mark every track Done too (keeps the VP/DS boards in sync).
                     await supabase.from('posts').update({
@@ -494,6 +833,7 @@ function ListView({
               </td>
               <td style={{ color: 'var(--text2)', fontSize: 12 }}>{formatDate(p.date)}</td>
               <td><StatusBadge status={p.status} type="post" /></td>
+              {showSource && <td><SourceCell entity={p.entity} /></td>}
               <td>
                 <div style={{ display: 'flex', gap: 3 }}>
                   {(p.pics || []).map(m => <TeamAvatar key={m} name={m} size={22} />)}
@@ -501,20 +841,24 @@ function ListView({
               </td>
               <td style={{ color: 'var(--text2)', fontSize: 12, maxWidth: 180 }}>
                 <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {p.caption?.slice(0, 50) || '—'}
+                  {htmlToPlain(p.caption).slice(0, 50) || '—'}
                 </span>
               </td>
               {canEdit && (
                 <td onClick={e => e.stopPropagation()}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {(!canEditPost || canEditPost(p)) && (
                     <button
                       onClick={() => onEdit(p.id)}
                       style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: 'var(--text)', whiteSpace: 'nowrap' }}
                     >Edit</button>
-                    <button
-                      onClick={() => onDelete(p.id)}
-                      style={{ background: 'var(--accent2)', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: '#fff', lineHeight: 1 }}
-                    >✕</button>
+                    )}
+                    {(!canDelete || canDelete(p)) && (
+                      <button
+                        onClick={() => onDelete(p.id)}
+                        style={{ background: 'var(--accent2)', border: 'none', borderRadius: 4, padding: '3px 8px', cursor: 'pointer', fontSize: 11, color: '#fff', lineHeight: 1 }}
+                      >✕</button>
+                    )}
                   </div>
                 </td>
               )}
@@ -532,8 +876,8 @@ type AccountDir = Record<string, { name: string; avatarUrl: string | null }>
 
 function KanbanBoard({
   posts, currentUser, statusFilter, onEdit, onDelete, onCardClick,
-  colSet, colOf, onMove, canEdit = true, accounts, showTrackStatus = false, noDropCols, lockDrag,
-  unreadIds, onReadColumn,
+  colSet, colOf, onMove, canEdit = true, canEditPost, accounts, showTrackStatus = false, noDropCols, lockDrag,
+  unreadIds, onReadColumn, taskStatusMap, canDeletePost,
 }: {
   posts: Post[]
   currentUser: string
@@ -560,6 +904,13 @@ function KanbanBoard({
   noDropCols?: readonly string[]
   /** Cards for which dragging is disabled entirely (e.g. Done on VP/DS boards). */
   lockDrag?: (post: Post) => boolean
+  /** My Task: post_id → { email → worksheet status } for per-assignee chips. */
+  taskStatusMap?: Record<string, Record<string, string>>
+  /** My Task: whether this account may delete a task (creator-only) → hides the
+   *  card delete button for tasks assigned to but not created by this account. */
+  canDeletePost?: (p: Post) => boolean
+  /** Per-task gate for opening the full edit form (creator/super only). */
+  canEditPost?: (p: Post) => boolean
 }) {
   // When statuses are filtered, only show those columns.
   const t = useT()
@@ -779,8 +1130,11 @@ function KanbanBoard({
                   onEdit={() => onEdit(p.id)}
                   onDelete={() => onDelete(p.id)}
                   canEdit={canEdit}
+                  canEditForm={canEditPost ? canEditPost(p) : canEdit}
+                  canDelete={canDeletePost ? canDeletePost(p) : true}
                   accounts={accounts}
                   showTrackStatus={showTrackStatus}
+                  assigneeStatus={taskStatusMap ? (taskStatusMap[p.id] ?? {}) : undefined}
                   unread={unreadIds?.has(p.id) ?? false}
                 />
                 )
@@ -799,7 +1153,7 @@ function KanbanBoard({
                 onMouseOver={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(108,99,255,0.08)'; (e.currentTarget as HTMLElement).style.color = 'var(--text)' }}
                 onMouseOut={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--text2)' }}
               >
-                <span style={{ fontSize: 15, color: 'var(--accent)', lineHeight: 1 }}>+</span>
+                <span style={{ fontSize: 15, color: 'var(--link)', lineHeight: 1 }}>+</span>
                 {t('Tambah task')}
               </button>
             )}
@@ -851,8 +1205,8 @@ function TrackChip({ icon, track, value, status }: { icon: string; track: string
 
 // ── Kanban Card ──
 function KanbanCard({
-  post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true, accounts, showTrackStatus = false,
-  onTouchStart, picked = false, nativeDraggable = true, locked = false, unread = false,
+  post, onDragStart, onDragEnd, onClick, onEdit, onDelete, canEdit = true, canEditForm = true, canDelete = true, accounts, showTrackStatus = false,
+  onTouchStart, picked = false, nativeDraggable = true, locked = false, unread = false, assigneeStatus,
 }: {
   post: Post
   onDragStart: (e: React.DragEvent) => void
@@ -861,9 +1215,17 @@ function KanbanCard({
   onEdit: () => void
   onDelete: () => void
   canEdit?: boolean
+  /** Whether the edit-pencil shows (creator/super only); delete stays separate. */
+  canEditForm?: boolean
+  /** My Task: false hides the delete button (task assigned to but not created
+   *  by this account → only its creator may delete it). */
+  canDelete?: boolean
   accounts?: AccountDir
   /** Socmed Management board: show per-track chips when the post has 2 tracks. */
   showTrackStatus?: boolean
+  /** My Task: email → worksheet status for each tagged account → per-assignee
+   *  chips (undefined off My Task; {} when set but no rows yet → all "To Do"). */
+  assigneeStatus?: Record<string, string>
   /** Touch drag-and-drop (mobile) — HTML5 DnD doesn't fire on touch. */
   onTouchStart?: (e: React.TouchEvent) => void
   /** True while this card is the one being touch-dragged. */
@@ -930,13 +1292,14 @@ function KanbanCard({
         />
       )}
 
-      {/* Hover actions — edit + delete (Socmed Management boards only) */}
-      {canEdit && (
+      {/* Hover actions — edit (creator/super only) + delete (Socmed Management boards only) */}
+      {canEdit && (canEditForm || canDelete) && (
       <div style={{
         position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4,
         opacity: hovered ? 1 : 0, pointerEvents: hovered ? 'auto' : 'none',
         transition: 'opacity 0.12s',
       }}>
+        {canEditForm && (
         <button
           onClick={e => { e.stopPropagation(); onEdit() }}
           title={t('Edit')}
@@ -952,6 +1315,8 @@ function KanbanCard({
             <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
           </svg>
         </button>
+        )}
+        {canDelete && (
         <button
           onClick={e => { e.stopPropagation(); onDelete() }}
           title={t('Hapus')}
@@ -963,6 +1328,7 @@ function KanbanCard({
           onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.background = 'var(--accent2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent2)' }}
           onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text2)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg2)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}
         >✕</button>
+        )}
       </div>
       )}
 
@@ -997,30 +1363,69 @@ function KanbanCard({
       {((post.platforms || []).length > 0 || tagged.length > 0) && (
         <>
           <div style={{ height: 1, background: 'var(--border)', opacity: 0.55, marginTop: 11 }} />
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 9, minHeight: 22 }}>
-            <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-              {(post.platforms || []).map(pl => (
-                <PlatformIcon key={pl} platform={pl} size={18} />
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+          {/* My Task: each tagged account's progress on ITS OWN worksheet, read as
+              a quiet list — the avatar wears its status colour as a ring, the
+              status echoes it in a right-aligned micro-label so a whole card's
+              statuses scan down one column. Finalized → everyone Done; a missing
+              row = To Do List. Platforms (socmed) sit BELOW it. */}
+          {assigneeStatus !== undefined && tagged.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', marginTop: 9 }}>
               {tagged.map(m => {
                 const acc = accounts?.[m.toLowerCase()]
-                return acc?.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img loading="lazy" decoding="async"
-                    key={m}
-                    src={acc.avatarUrl}
-                    alt={acc.name}
-                    title={acc.name}
-                    style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }}
-                  />
-                ) : (
-                  <TeamAvatar key={m} name={acc?.name || m} size={20} />
+                const name = acc?.name || m.split('@')[0] || m
+                const finalized = post.status === 'ready' || post.status === 'published' || post.status === 'done'
+                const raw = finalized ? 'done' : (assigneeStatus[m.toLowerCase()] ?? 'brief')
+                const stage = TRACK_STAGE[raw] ?? TRACK_STAGE.brief
+                return (
+                  <div key={m} title={`${name}: ${stage.label}`} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '3px 0' }}>
+                    <span style={{ display: 'inline-flex', flexShrink: 0, borderRadius: '50%', boxShadow: `0 0 0 1.5px var(--bg3), 0 0 0 3px ${stage.color}` }}>
+                      {acc?.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img loading="lazy" decoding="async" src={acc.avatarUrl} alt={name}
+                          style={{ width: 19, height: 19, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+                      ) : (
+                        <TeamAvatar name={name} size={19} />
+                      )}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                    <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, letterSpacing: '0.055em', textTransform: 'uppercase', color: stage.color }}>
+                      {stage.label}
+                    </span>
+                  </div>
                 )
               })}
             </div>
-          </div>
+          )}
+          {/* Platforms row (socmed) — sits at the BOTTOM. Off My Task the bare
+              tagged avatars ride on the right of this same row. */}
+          {((post.platforms || []).length > 0 || (assigneeStatus === undefined && tagged.length > 0)) && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 9, minHeight: 22 }}>
+              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                {(post.platforms || []).map(pl => (
+                  <PlatformIcon key={pl} platform={pl} size={18} />
+                ))}
+              </div>
+              {assigneeStatus === undefined && (
+                <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+                  {tagged.map(m => {
+                    const acc = accounts?.[m.toLowerCase()]
+                    return acc?.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img loading="lazy" decoding="async"
+                        key={m}
+                        src={acc.avatarUrl}
+                        alt={acc.name}
+                        title={acc.name}
+                        style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }}
+                      />
+                    ) : (
+                      <TeamAvatar key={m} name={acc?.name || m} size={20} />
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -1029,22 +1434,24 @@ function KanbanCard({
 
 // Small project glyph on a board card — mirrors the sidebar tab logos
 // (bpi = orange, bsi = purple) so a card shows which project it belongs to.
-function EntityGlyph({ entity }: { entity: string }) {
+function EntityGlyph({ entity, size = 28 }: { entity: string; size?: number }) {
   const projects = useSocmedProjects(false)
   const proj = projects.find(p => p.slug === entity)
-  const label = proj?.glyph || (entity === 'ws' ? 'ws' : proj ? projectGlyph(proj.name) : entity.slice(0, 3))
+  // Private My Task bucket shows "me"; the ad-hoc "other" shows "OT".
+  const label = entity === 'personal' ? 'me'
+    : proj?.glyph || (entity === 'ws' ? 'ws' : entity === 'other' ? 'OT' : proj ? projectGlyph(proj.name) : entity.slice(0, 3))
   const color = proj?.color || '#5a5a60'
-  const title = proj?.name || (entity === 'ws' ? 'Workspace' : entity)
+  const title = entity === 'personal' ? 'My Task' : proj?.name || (entity === 'ws' ? 'Workspace' : entity === 'other' ? 'Other' : entity)
   return (
     <span
       title={title}
       style={{
-        width: 28, height: 28, borderRadius: 8, flexShrink: 0, marginTop: 1,
+        width: size, height: size, borderRadius: size >= 26 ? 8 : 6, flexShrink: 0, marginTop: 1,
         backgroundColor: color,
         backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.06) 45%, rgba(0,0,0,0.16) 100%)',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -1px 0 rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.25)',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.03em',
+        fontSize: size >= 26 ? 9 : 8, fontWeight: 800, color: '#fff', letterSpacing: '0.03em',
       }}
     >
       {label}
@@ -1066,12 +1473,12 @@ function FilesTab({ posts }: { posts: Post[] }) {
           <div style={{ fontWeight: 500, marginBottom: 6 }}>{p.title}</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {p.video_link && (
-              <a href={p.video_link} target="_blank" rel="noopener" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
+              <a href={p.video_link} target="_blank" rel="noopener" style={{ fontSize: 12, color: 'var(--link)', textDecoration: 'none' }}>
                 🎬 Video Link
               </a>
             )}
             {p.design_link && (
-              <a href={p.design_link} target="_blank" rel="noopener" style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
+              <a href={p.design_link} target="_blank" rel="noopener" style={{ fontSize: 12, color: 'var(--link)', textDecoration: 'none' }}>
                 🎨 Design Link
               </a>
             )}
@@ -1119,14 +1526,29 @@ export interface PostFilters {
   ratios: string[]
   month: string
   statuses: string[]
+  projects: string[]
+  /** Free-text task search (matches the title). */
+  search: string
 }
-export const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: [], ratios: [], month: '', statuses: [] }
+export const EMPTY_FILTERS: PostFilters = { platforms: [], contentTypes: [], tagged: [], ratios: [], month: '', statuses: [], projects: [], search: '' }
 
 // Owns filter state + the data the popup needs (accounts, months for an entity).
 export function useBoardFilter(scope: string | { pic: string }) {
   const posts = useStore((s) => s.posts)
+  const socmed = useSocmedProjects(true)
   const [filters, setFilters] = useState<PostFilters>(EMPTY_FILTERS)
   const [accounts, setAccounts] = useState<{ email: string; name: string }[]>([])
+  // Project filter only makes sense on the combined "All Project" board; on a
+  // single-project / per-PIC board everything is one project already.
+  const projects = useMemo(() => {
+    if (!(typeof scope === 'string' && scope === 'all')) return [] as { slug: string; name: string }[]
+    const present = new Set(posts.map(p => p.entity).filter(Boolean))
+    present.add('other') // always offer the ad-hoc "Other" bucket
+    present.delete('personal') // private My Task tasks never appear on All Project
+    const nameOf = (slug: string) => socmed.find(p => p.slug === slug)?.name
+      || (slug === 'other' ? 'Other' : slug === 'bpi' ? 'BPI' : slug === 'bsi' ? 'BSI' : slug)
+    return Array.from(present).sort().map(slug => ({ slug, name: nameOf(slug) }))
+  }, [posts, scope, socmed])
   useEffect(() => {
     let cancelled = false
     fetch('/api/accounts')
@@ -1144,31 +1566,80 @@ export function useBoardFilter(scope: string | { pic: string }) {
     for (const p of posts) if (inScope(p) && p.date) set.add(p.date.slice(0, 7))
     return Array.from(set).sort().reverse()
   }, [posts, scope])
-  return { filters, setFilters, accounts, months }
+  return { filters, setFilters, accounts, months, projects }
+}
+
+// Free-text task search for the header tab row. Collapsed to a single icon
+// button by default; clicking it expands the input with a width animation and
+// focuses it. Collapses back when left empty. Filters the board/list via
+// filters.search → filterBoardPosts (matches title, project, tags, platforms).
+export function BoardSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useT()
+  const [open, setOpen] = useState(!!value)
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => { if (open) inputRef.current?.focus() }, [open])
+  return (
+    <div
+      style={{
+        position: 'relative', height: 34, flexShrink: 0, display: 'flex', alignItems: 'center', overflow: 'hidden',
+        width: open ? 210 : 34, transition: 'width .22s cubic-bezier(.22,1,.36,1)',
+        background: 'var(--bg2)', border: `1px solid ${open ? 'var(--border-strong)' : 'var(--border)'}`, borderRadius: 8,
+      }}
+    >
+      <button
+        type="button"
+        aria-label={t('Cari task…')}
+        onClick={() => (open ? inputRef.current?.focus() : setOpen(true))}
+        style={{ width: 32, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center', background: 'transparent', border: 'none', color: 'var(--text2)', cursor: 'pointer' }}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.5" y2="16.5" /></svg>
+      </button>
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onBlur={() => { if (!value.trim()) setOpen(false) }}
+        placeholder={t('Cari task…')}
+        style={{ flex: 1, minWidth: 0, height: '100%', background: 'transparent', border: 'none', outline: 'none', boxShadow: 'none', color: 'var(--text)', fontSize: 13, padding: 0, opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
+      />
+      {open && value && (
+        <button onClick={() => { onChange(''); inputRef.current?.focus() }} aria-label={t('Hapus')} style={{ width: 28, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center', border: 'none', background: 'transparent', color: 'var(--text3)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
+      )}
+    </div>
+  )
 }
 
 // Filter button + popup. Render in the page header's tab row.
-export function BoardFilter({ filters, setFilters, accounts, months }: {
+export function BoardFilter({ filters, setFilters, accounts, months, projects = [], personal = false, size = 'sm' }: {
   filters: PostFilters
   setFilters: React.Dispatch<React.SetStateAction<PostFilters>>
   accounts: { email: string; name: string }[]
   months: string[]
+  projects?: { slug: string; name: string }[]
+  // My Task: show only the filters that apply to personal tasks (Status + Month).
+  personal?: boolean
+  // 'lg' matches the 40px control row in the Team account popup.
+  size?: 'sm' | 'lg'
 }) {
   const t = useT()
   const [open, setOpen] = useState(false)
-  const count =
-    filters.platforms.length + filters.contentTypes.length + filters.tagged.length +
-    filters.ratios.length + filters.statuses.length + (filters.month ? 1 : 0)
+  const lg = size === 'lg'
+  const count = personal
+    ? filters.platforms.length + filters.projects.length + filters.statuses.length + (filters.month ? 1 : 0)
+    : filters.platforms.length + filters.contentTypes.length + filters.tagged.length +
+      filters.ratios.length + filters.statuses.length + filters.projects.length + (filters.month ? 1 : 0)
   return (
     <div style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          display: 'flex', alignItems: 'center', gap: 6, height: 30, padding: '0 12px', borderRadius: 8,
+          display: 'flex', alignItems: 'center', gap: lg ? 8 : 6,
+          height: lg ? 40 : 30, padding: lg ? '0 16px' : '0 12px', borderRadius: lg ? 10 : 8,
+          boxSizing: 'border-box',
           border: '1px solid', borderColor: count ? 'var(--accent)' : 'var(--border)',
           background: count ? 'rgba(108,99,255,0.12)' : 'var(--bg3)',
           color: count ? 'var(--accent)' : 'var(--text2)',
-          cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+          cursor: 'pointer', fontSize: lg ? 13 : 12, fontWeight: 600, whiteSpace: 'nowrap',
         }}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1177,7 +1648,7 @@ export function BoardFilter({ filters, setFilters, accounts, months }: {
         {t('Filter')}{count ? ` (${count})` : ''}
       </button>
       {open && (
-        <FilterPopup filters={filters} setFilters={setFilters} accounts={accounts} months={months} onClose={() => setOpen(false)} />
+        <FilterPopup filters={filters} setFilters={setFilters} accounts={accounts} months={months} projects={projects} personal={personal} onClose={() => setOpen(false)} />
       )}
     </div>
   )
@@ -1214,11 +1685,13 @@ function FilterSection({ label, children }: { label: string; children: React.Rea
   )
 }
 
-function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
+function FilterPopup({ filters, setFilters, accounts, months, projects, personal = false, onClose }: {
   filters: PostFilters
   setFilters: React.Dispatch<React.SetStateAction<PostFilters>>
   accounts: { email: string; name: string }[]
   months: string[]
+  projects: { slug: string; name: string }[]
+  personal?: boolean
   onClose: () => void
 }) {
   const t = useT()
@@ -1239,11 +1712,22 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
           <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{t('Filter')}</span>
           <button
             onClick={() => setFilters(EMPTY_FILTERS)}
-            style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            style={{ background: 'none', border: 'none', color: 'var(--link)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
             {t('Reset')}
           </button>
         </div>
+
+        {/* Source (project) + Platform — useful on every cross-project view, so
+            the account views (Team / My Task) get them too. */}
+        {projects.length > 0 && (
+          <FilterSection label={personal ? t('Sumber') : t('Project')}>
+            {projects.map(p => (
+              <FilterChip key={p.slug} label={p.name} active={filters.projects.includes(p.slug)}
+                onClick={() => setFilters(f => ({ ...f, projects: toggle(f.projects, p.slug) }))} />
+            ))}
+          </FilterSection>
+        )}
 
         <FilterSection label={t('Sosial Media')}>
           {POST_PLATFORMS.map(p => (
@@ -1252,6 +1736,8 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
           ))}
         </FilterSection>
 
+        {/* Content type / Tag / Ratio — full boards only. */}
+        {!personal && (<>
         <FilterSection label={t('Jenis Konten')}>
           {[{ key: 'video', label: 'Video' }, { key: 'design', label: 'Design' }].map(c => (
             <FilterChip key={c.key} label={c.label} active={filters.contentTypes.includes(c.key)}
@@ -1274,8 +1760,9 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
               onClick={() => setFilters(f => ({ ...f, ratios: toggle(f.ratios, r.key) }))} />
           ))}
         </FilterSection>
+        </>)}
 
-        <FilterSection label={t('Bulan Posting')}>
+        <FilterSection label={personal ? t('Jatuh Tempo') : t('Bulan Posting')}>
           {months.length === 0 ? (
             <span style={{ fontSize: 12, color: 'var(--text2)' }}>—</span>
           ) : months.map(ym => (
@@ -1285,7 +1772,7 @@ function FilterPopup({ filters, setFilters, accounts, months, onClose }: {
         </FilterSection>
 
         <FilterSection label={t('Status')}>
-          {BPI_STATUS_COLS.map(s => (
+          {(personal ? WS_STATUS_COLS : BPI_STATUS_COLS).map(s => (
             <FilterChip key={s.key} label={s.label} active={filters.statuses.includes(s.key)}
               onClick={() => setFilters(f => ({ ...f, statuses: toggle(f.statuses, s.key) }))} />
           ))}

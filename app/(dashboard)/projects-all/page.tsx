@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
-import { BPIPage, BoardFilter, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
+import { BPIPage, BoardFilter, BoardSearch, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
 import { PostHistoryButton } from '@/components/shared/PostHistory'
 import { useT } from '@/lib/i18n/LanguageProvider'
 
@@ -22,10 +22,12 @@ export default function AllProjectsPage() {
         activeTab={tab}
         onTabChange={setTab}
         showDateFilter={tab === 'analytics'}
+        dateAllowFuture
         tabsRight={tab !== 'analytics' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BoardSearch value={bf.filters.search} onChange={v => bf.setFilters(f => ({ ...f, search: v }))} />
             <PostHistoryButton scope={{ all: true }} />
-            <BoardFilter filters={bf.filters} setFilters={bf.setFilters} accounts={bf.accounts} months={bf.months} />
+            <BoardFilter filters={bf.filters} setFilters={bf.setFilters} accounts={bf.accounts} months={bf.months} projects={bf.projects} />
           </div>
         ) : undefined}
         action={

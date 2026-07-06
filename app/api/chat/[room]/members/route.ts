@@ -17,6 +17,18 @@ export async function GET(_req: Request, { params }: { params: { room: string } 
     if (r.email) sectionsByEmail.set(String(r.email).toLowerCase(), normaliseSections(r.sections))
   }
 
+  // For a task room, its TAGGED accounts can chat regardless of project grants —
+  // include them in the @mention list too. Matched by verified email only (never
+  // by created_by, which is a spoofable display name).
+  const taggedSet = new Set<string>()
+  if (params.room.startsWith('task.')) {
+    const postId = params.room.split('.')[2]
+    if (postId) {
+      const { data: post } = await admin.from('posts').select('tagged').eq('id', postId).maybeSingle()
+      if (post) for (const e of ((post.tagged as string[] | null) || [])) taggedSet.add((e || '').toLowerCase())
+    }
+  }
+
   const members: { email: string; name: string; avatarUrl: string | null }[] = []
   let page = 1
   // eslint-disable-next-line no-constant-condition
@@ -27,7 +39,8 @@ export async function GET(_req: Request, { params }: { params: { room: string } 
       if (!u.email) continue
       const role = u.app_metadata?.role
       const allowed = sectionsByEmail.get(String(u.email).toLowerCase()) ?? []
-      if (isEffectiveSuperAdmin(u.email, role) || canAccessChat(allowed, params.room)) {
+      const isParticipant = taggedSet.has(String(u.email).toLowerCase())
+      if (isEffectiveSuperAdmin(u.email, role) || canAccessChat(allowed, params.room) || isParticipant) {
         const meta = (u.user_metadata ?? {}) as Record<string, unknown>
         members.push({
           email: u.email,

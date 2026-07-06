@@ -37,7 +37,7 @@ export function UploadProgressList({ entries, onCancel, onDismiss, onRetry }: Pr
           style={{
             fontSize: 11,
             fontWeight: 600,
-            color: 'var(--accent)',
+            color: 'var(--link)',
             letterSpacing: '0.04em',
           }}
         >

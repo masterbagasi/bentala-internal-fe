@@ -6,9 +6,16 @@ import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { NotificationBell } from '@/components/shared/NotificationBell'
 import { DateRangePicker } from '@/components/Social/DateRangePicker'
+import { useT } from '@/lib/i18n/LanguageProvider'
 
 // ── Tab icons ──
 const TAB_ICONS: Record<string, React.ReactNode> = {
+  dashboard: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/>
+      <rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>
+    </svg>
+  ),
   list: (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
@@ -66,43 +73,59 @@ const TAB_ICONS: Record<string, React.ReactNode> = {
       <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
     </svg>
   ),
+  followup: (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  ),
 }
 
+// Indonesian SOURCE labels (t() maps them to English in EN mode). Loanwords that
+// read the same in both languages (Dashboard, Brief) are left as-is.
 const TAB_LABELS: Record<string, string> = {
-  list: 'List',
-  board: 'Board',
-  calendar: 'Calendar',
-  files: 'Files',
-  analytics: 'Summary',
+  dashboard: 'Dashboard',
+  list: 'Daftar',
+  board: 'Papan',
+  calendar: 'Kalender',
+  files: 'Berkas',
+  analytics: 'Ringkasan',
   brief: 'Brief',
-  accounts: 'Accounts',
-  reports: 'Reports',
-  plan: 'Plan',
+  accounts: 'Akun',
+  reports: 'Laporan',
+  plan: 'Rencana',
+  followup: 'Tindak Lanjut',
 }
 
 // ── Types ──
-export type TabKey = 'list' | 'board' | 'calendar' | 'files' | 'analytics' | 'brief' | 'accounts' | 'reports' | 'plan'
+export type TabKey = 'dashboard' | 'list' | 'board' | 'calendar' | 'files' | 'analytics' | 'brief' | 'accounts' | 'reports' | 'plan' | 'followup'
 
 interface PageHeaderProps {
   title: string
   showDateFilter?: boolean
+  /** Let the date picker select future dates (task boards schedule ahead). */
+  dateAllowFuture?: boolean
   tabs?: TabKey[]
   activeTab?: TabKey
   onTabChange?: (tab: TabKey) => void
   action?: React.ReactNode
   /** Rendered at the right edge of the tab row (e.g. a Filter button). */
   tabsRight?: React.ReactNode
+  /** Optional count appended to a tab's label, e.g. "Follow-up (1)". */
+  tabBadges?: Partial<Record<TabKey, number>>
 }
 
 export function PageHeader({
   title,
   showDateFilter = false,
+  dateAllowFuture = false,
   tabs,
   activeTab,
   onTabChange,
   action,
   tabsRight,
+  tabBadges,
 }: PageHeaderProps) {
+  const t = useT()
   const { dateRange, setDateRange } = useStore(useShallow((s) => ({ dateRange: s.dateRange, setDateRange: s.setDateRange })))
 
   const hasTabs = tabs && tabs.length > 0
@@ -162,16 +185,17 @@ export function PageHeader({
             whiteSpace: 'nowrap',
           }}
         >
-          {title}
+          {t(title)}
         </span>
 
         {/* Actions — date filter + user action button + bell, all
             anchored top-right like PageTabs does, so every page
             in the dashboard has the same affordance position. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Date filter — rich range picker (same as Social analytics) */}
-          {showDateFilter && (
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
+          {/* Date filter — in the title bar only for tab-less pages; tabbed
+              pages render it in the tab row (aligned with the tabs) below. */}
+          {showDateFilter && !hasTabs && (
+            <DateRangePicker value={dateRange} onChange={setDateRange} allowFuture={dateAllowFuture} />
           )}
 
           {/* User-supplied action — always in top-right title row,
@@ -215,12 +239,14 @@ export function PageHeader({
               touchAction: 'pan-x',
             }}
           >
-            {tabs!.map(t => {
-              const isActive = activeTab === t
+            {tabs!.map(tab => {
+              const isActive = activeTab === tab
+              const badge = tabBadges?.[tab]
+              const label = t(TAB_LABELS[tab]) + (badge ? ` (${badge})` : '')
               return (
                 <button
-                  key={t}
-                  onClick={() => selectTab(t)}
+                  key={tab}
+                  onClick={() => selectTab(tab)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -228,7 +254,7 @@ export function PageHeader({
                     padding: '12px 14px',
                     background: 'none',
                     border: 'none',
-                    borderBottom: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
+                    borderBottom: `2px solid ${isActive ? '#60a5fa' : 'transparent'}`,
                     marginBottom: -1,
                     fontSize: 13,
                     fontWeight: isActive ? 600 : 400,
@@ -239,7 +265,7 @@ export function PageHeader({
                     // rather than the tabs compressing into each other.
                     flexShrink: 0,
                     textDecoration: 'none',
-                    color: isActive ? 'var(--accent)' : 'var(--text2)',
+                    color: isActive ? '#60a5fa' : 'var(--text2)',
                   }}
                   onMouseOver={e => {
                     if (!isActive) (e.currentTarget as HTMLElement).style.color = 'var(--text)'
@@ -248,18 +274,19 @@ export function PageHeader({
                     if (!isActive) (e.currentTarget as HTMLElement).style.color = 'var(--text2)'
                   }}
                 >
-                  {TAB_ICONS[t]}
+                  {TAB_ICONS[tab]}
                   {isActive ? (
-                    <span className="tab-active-text">{TAB_LABELS[t]}</span>
+                    <span className="tab-active-text">{label}</span>
                   ) : (
-                    <span>{TAB_LABELS[t]}</span>
+                    <span>{label}</span>
                   )}
                 </button>
               )
             })}
           </div>
-          {tabsRight && (
-            <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          {(tabsRight || showDateFilter) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              {showDateFilter && <DateRangePicker value={dateRange} onChange={setDateRange} allowFuture={dateAllowFuture} />}
               {tabsRight}
             </div>
           )}

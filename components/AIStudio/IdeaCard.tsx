@@ -26,7 +26,7 @@ export default function IdeaCard({ idea, onSave, onBuild }: Props) {
         {idea.title}
       </div>
       <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>
-        <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{t('Konsep: ')}</span>
+        <span style={{ color: 'var(--link)', fontWeight: 600 }}>{t('Konsep: ')}</span>
         {idea.concept}
       </div>
       <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5 }}>

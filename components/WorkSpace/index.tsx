@@ -4,6 +4,7 @@ import { useState, forwardRef, useImperativeHandle } from 'react'
 import { useStore } from '@/hooks/useStore'
 import { getSupabase } from '@/lib/supabase'
 import { WS_STATUS_COLS, TEAM } from '@/lib/constants'
+import { htmlToPlain } from '@/lib/rich-text'
 import { formatDate, byPostDateAsc } from '@/lib/utils'
 import { StatusBadge, TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
@@ -82,9 +83,9 @@ export const WorkspacePage = forwardRef<WorkspacePageHandle, WorkspacePageProps>
               style={{
                 display: 'flex', alignItems: 'center', gap: 7,
                 padding: '10px 18px', cursor: 'pointer', fontSize: 13, fontWeight: 500,
-                color: tab === t ? 'var(--accent)' : 'var(--text2)',
+                color: tab === t ? '#60a5fa' : 'var(--text2)',
                 background: 'none', border: 'none',
-                borderBottom: `2px solid ${tab === t ? 'var(--accent)' : 'transparent'}`,
+                borderBottom: `2px solid ${tab === t ? '#60a5fa' : 'transparent'}`,
                 marginBottom: -1, transition: 'all 0.15s',
                 textTransform: 'capitalize',
               }}
@@ -253,7 +254,7 @@ function WSListView({ posts, member, onRowClick }: {
                 </td>
                 <td><StatusBadge status={wsColKey(p.status)} type="post" label={WS_STATUS_COLS.find(c => c.key === wsColKey(p.status))?.label} /></td>
                 <td style={{ color: 'var(--text2)', fontSize: 12, maxWidth: 160 }}>
-                  {p.notes ? p.notes.slice(0, 50) + (p.notes.length > 50 ? '...' : '') : '—'}
+                  {(() => { const tx = htmlToPlain(p.notes); return tx ? tx.slice(0, 50) + (tx.length > 50 ? '...' : '') : '—' })()}
                 </td>
               </tr>
             )

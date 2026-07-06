@@ -8,11 +8,13 @@ import { useShallow } from 'zustand/react/shallow'
 import { useLogActivity } from '@/hooks/useData'
 import { WS_STATUS_COLS, POST_STATUS_LABELS } from '@/lib/constants'
 import { formatDate, formatFileSize, getFileIcon } from '@/lib/utils'
+import { isRichHtml, RichTextView } from '@/lib/rich-text'
 import { uploadFileResumable, deleteFile } from '@/lib/storage'
 import { TeamAvatar } from '@/components/shared/StatusBadge'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { usePostComments, PostCommentsBody, PostCommentsComposer } from '@/components/BPI/PostComments'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { confirmDialog } from '@/lib/confirm-dialog'
 import type { Post, StageData } from '@/lib/types'
 
 interface WSEditModalProps {
@@ -273,7 +275,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
   // Permanently delete an already-saved file: remove its DB row + storage object.
   async function deleteSavedFile(lf: LocalFile) {
     if (!post) return
-    if (!window.confirm(`${t('Hapus')} "${lf.name}"?`)) return
+    if (!(await confirmDialog(`${t('Hapus')} "${lf.name}"?`, { danger: true, confirmLabel: t('Hapus'), cancelLabel: t('Batal') }))) return
     try {
       if (lf.postLinkField) {
         // Legacy link stored on the post itself — clear that column.
@@ -406,7 +408,7 @@ export function WSEditModal({ open, postId, member, onClose }: WSEditModalProps)
                 style={{
                   padding: '7px 14px', background: 'transparent',
                   border: '1px solid var(--accent)', borderRadius: 8,
-                  cursor: 'pointer', fontSize: 12, color: 'var(--accent)', fontWeight: 500,
+                  cursor: 'pointer', fontSize: 12, color: 'var(--link)', fontWeight: 500,
                 }}
               >
                 📌 {t('Buat Pipeline Item')}
@@ -639,7 +641,7 @@ function FilePreviewBody({ file }: { file: LocalFile }) {
       <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
         {t('Preview tidak tersedia untuk tipe file ini.')}
       </div>
-      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: 13, textDecoration: 'none' }}>
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--link)', fontSize: 13, textDecoration: 'none' }}>
         ⬇ {t('Download / Buka')}
       </a>
     </div>
@@ -742,7 +744,7 @@ function FileSection({
               <polyline points="17 8 12 3 7 8"/>
               <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{t('Drop file di sini atau')} <span style={{ color: 'var(--accent)' }}>browse</span></div>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>{t('Drop file di sini atau')} <span style={{ color: 'var(--link)' }}>browse</span></div>
             <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>{uploadHint}</div>
           </div>
         </div>
@@ -791,7 +793,7 @@ function FileItem({ file, onRemove, onDelete, onPreview }: { file: LocalFile; on
           // eslint-disable-next-line @next/next/no-img-element
           <img loading="lazy" decoding="async" src={file.url} alt={file.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : isLink ? (
-          <span style={{ color: 'var(--accent)' }}><LinkIcon size={28} /></span>
+          <span style={{ color: 'var(--link)' }}><LinkIcon size={28} /></span>
         ) : (
           <span style={{ fontSize: 30 }}>{getFileIcon(file.type, file.name)}</span>
         )}
@@ -874,18 +876,22 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 function DetailBlock({ label, accent, children }: { label: string; accent?: boolean; children: React.ReactNode }) {
+  const boxStyle: React.CSSProperties = {
+    fontSize: 13, lineHeight: 1.6, color: accent ? '#6b9bff' : 'var(--text)',
+    background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
+    padding: '10px 12px', wordBreak: 'break-word', fontFamily: 'inherit', margin: 0,
+  }
+  // Rich-text fields (Brief/Caption/Notes) arrive as HTML strings — render them
+  // styled. Plain strings keep the pre-formatted (whitespace-preserving) look.
+  const isRich = typeof children === 'string' && isRichHtml(children)
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.7px', color: 'var(--text2)', fontWeight: 700, marginBottom: 6 }}>
         {label}
       </div>
-      <pre style={{
-        fontSize: 13, lineHeight: 1.6, color: accent ? '#6b9bff' : 'var(--text)',
-        background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8,
-        padding: '10px 12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit', margin: 0,
-      }}>
-        {children}
-      </pre>
+      {isRich
+        ? <RichTextView value={children as string} style={boxStyle} />
+        : <pre style={{ ...boxStyle, whiteSpace: 'pre-wrap' }}>{children}</pre>}
     </div>
   )
 }

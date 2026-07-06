@@ -27,6 +27,17 @@ const SEED: Record<string, string> = {
   'Distribusi Status': 'Status Distribution',
   'Task per Project': 'Tasks per Project',
   'Total Task': 'Total Tasks',
+  // ── Team / My Task dashboard ──
+  'Belum selesai': 'In progress',
+  'Due 7 hari': 'Due in 7 days',
+  'Sebaran Status': 'Status spread',
+  'Per Akun': 'By account',
+  'Beban kerja': 'Workload',
+  'Belum ada task.': 'No tasks yet.',
+  'Lihat board': 'View board',
+  'Kembali ke Overview': 'Back to Overview',
+  'Sumber Task': 'Task source',
+  'Sumber': 'Source',
   'Proporsi task per status': 'Share of tasks by status',
   'Mengikuti urutan List/Board': 'In List/Board order',
   'Rincian status untuk tiap project socmed': 'Status breakdown for each socmed project',
@@ -229,6 +240,11 @@ const SEED: Record<string, string> = {
   'Super Admin': 'Super Admin',
   'Admin': 'Admin',
   'User': 'User',
+  'Pengaturan Project': 'Project Setting',
+  'Kelola Project': 'Manage Project',
+  'Lihat detail kontak': 'View contact details',
+  'Belum ada detail kontak. Klik Edit untuk mengisi.': 'No contact details yet. Click Edit to fill them in.',
+  'Gagal menyimpan project: ': 'Failed to save project: ',
 }
 
 export const DICT: Record<string, string> = { ...GENERATED, ...SEED }

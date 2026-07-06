@@ -79,7 +79,7 @@ export default function MigratePage() {
 
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text2)' }}>
           {t('Setelah migrasi selesai, kamu bisa kembali ke')}{' '}
-          <a href="/" style={{ color: 'var(--accent)', textDecoration: 'none' }}>{t('halaman utama')}</a>.
+          <a href="/" style={{ color: 'var(--link)', textDecoration: 'none' }}>{t('halaman utama')}</a>.
         </div>
       </div>
     </div>

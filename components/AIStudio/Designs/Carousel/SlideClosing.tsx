@@ -1,5 +1,8 @@
+'use client'
+
 import { forwardRef } from 'react'
 import { COLOR, FONT_STACK } from '../designConstants'
+import { useT } from '@/lib/i18n/LanguageProvider'
 import {
   slideRoot, SLIDE_W, SLIDE_H, ACCENT_BLUE, LIGHT_BG,
   BENTALA_LEFT, BENTALA_TOP,
@@ -31,7 +34,8 @@ function SocialHandle({ icon, handle, onLight = false }: { icon: 'instagram' | '
 // ─── Variant A — Full blue bg, centered CTA ─────────────────────────────────
 const SlideClosingBlue = forwardRef<HTMLDivElement, ClosingProps>(
   function SlideClosingBlue({ data }, ref) {
-    const cta = data.cta_text || 'Tulis pendapatmu di kolom komentar!'
+    const t = useT()
+    const cta = data.cta_text || t('Tulis pendapatmu di kolom komentar!')
     return (
       <div ref={ref} style={{ ...slideRoot(ACCENT_BLUE), color: COLOR.white }}>
         <div style={{
@@ -53,7 +57,7 @@ const SlideClosingBlue = forwardRef<HTMLDivElement, ClosingProps>(
           width: SLIDE_W - BENTALA_LEFT * 2, textAlign: 'center',
           fontFamily: FONT_STACK, fontSize: 24, fontWeight: 500,
           color: 'rgba(255,255,255,0.78)', zIndex: 5,
-        }}>Ikuti cerita Indonesia ke dunia berikutnya.</div>
+        }}>{t('Ikuti cerita Indonesia ke dunia berikutnya.')}</div>
         <div style={{
           position: 'absolute', bottom: 180, left: 0, right: 0,
           display: 'flex', gap: 56, justifyContent: 'center', alignItems: 'center', zIndex: 5,
@@ -71,8 +75,9 @@ const SlideClosingImage = forwardRef<HTMLDivElement, ClosingProps>(
   function SlideClosingImage(
     { data, sourceImageUrl, slideImageUrl }, ref,
   ) {
+    const t = useT()
     const img = slideImageUrl ?? sourceImageUrl
-    const cta = data.cta_text || 'Tulis pendapatmu di kolom komentar!'
+    const cta = data.cta_text || t('Tulis pendapatmu di kolom komentar!')
     return (
       <div ref={ref} style={{ ...slideRoot('#0a0a0a'), color: COLOR.white }}>
         {img && (
@@ -115,7 +120,8 @@ const SlideClosingImage = forwardRef<HTMLDivElement, ClosingProps>(
 // ─── Variant C — Light bg with blue accent block + CTA ──────────────────────
 const SlideClosingLight = forwardRef<HTMLDivElement, ClosingProps>(
   function SlideClosingLight({ data }, ref) {
-    const cta = data.cta_text || 'Tulis pendapatmu di kolom komentar!'
+    const t = useT()
+    const cta = data.cta_text || t('Tulis pendapatmu di kolom komentar!')
     return (
       <div ref={ref} style={{ ...slideRoot(LIGHT_BG), color: COLOR.black }}>
         <div style={{
@@ -142,7 +148,7 @@ const SlideClosingLight = forwardRef<HTMLDivElement, ClosingProps>(
           width: SLIDE_W - BENTALA_LEFT * 2, textAlign: 'center',
           fontFamily: FONT_STACK, fontSize: 24, fontWeight: 500,
           color: 'rgba(255,255,255,0.85)', zIndex: 5,
-        }}>Ikuti cerita Indonesia ke dunia berikutnya.</div>
+        }}>{t('Ikuti cerita Indonesia ke dunia berikutnya.')}</div>
         <div style={{
           position: 'absolute', bottom: 180, left: 0, right: 0,
           display: 'flex', gap: 56, justifyContent: 'center', alignItems: 'center', zIndex: 5,

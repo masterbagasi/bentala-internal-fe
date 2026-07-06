@@ -23,6 +23,7 @@ export function useFollowUps() {
       .from('client_interactions')
       .select('id,client_id,next_follow_up')
       .eq('follow_up_done', false)
+      .is('deleted_at', null)
       .not('next_follow_up', 'is', null)
       .then(({ data }) => { if (!cancelled && data) setFollowUps(data as OpenFollowUp[]) })
 
@@ -30,8 +31,11 @@ export function useFollowUps() {
       .channel('client-followups')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'client_interactions' }, (payload) => {
         if (cancelled) return
-        if (payload.eventType === 'DELETE') removeFollowUp((payload.old as { id: string }).id)
-        else upsertFollowUp(payload.new as ClientInteraction)
+        if (payload.eventType === 'DELETE') { removeFollowUp((payload.old as { id: string }).id); return }
+        // An updated row drops out of the open list once it's done, deleted, or its follow-up is cleared.
+        const r = payload.new as ClientInteraction
+        if (r.follow_up_done || r.deleted_at || !r.next_follow_up) removeFollowUp(r.id)
+        else upsertFollowUp(r)
       })
       .subscribe()
 

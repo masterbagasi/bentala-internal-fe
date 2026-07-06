@@ -1799,7 +1799,7 @@ function PhilosophyCard({
             padding: '3px 9px',
             background: 'rgba(0,0,0,0.7)',
             backdropFilter: 'blur(8px)',
-            color: 'var(--accent)',
+            color: 'var(--link)',
             fontSize: 11,
             fontWeight: 700,
             letterSpacing: '0.08em',

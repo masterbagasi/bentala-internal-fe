@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, notFound } from 'next/navigation'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
-import { BPIPage, BoardFilter, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
+import { BPIPage, BoardFilter, BoardSearch, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
 import { PostHistoryButton } from '@/components/shared/PostHistory'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -42,6 +42,7 @@ export default function SmmProjectBoardPage() {
         showDateFilter={tab === 'analytics'}
         tabsRight={tab !== 'analytics' ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BoardSearch value={bf.filters.search} onChange={v => bf.setFilters(f => ({ ...f, search: v }))} />
             <PostHistoryButton scope={{ entity: slug }} />
             <BoardFilter filters={bf.filters} setFilters={bf.setFilters} accounts={bf.accounts} months={bf.months} />
           </div>

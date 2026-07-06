@@ -7,9 +7,9 @@ export const metadata = { title: 'AI Integrations — Settings' }
 export default function AISettingsPage() {
   return (
     <>
-      <PageHeader title="AI Integrations" />
+      <PageHeader title="Integrasi AI" />
       <div className="flex-1 overflow-y-auto" style={{ padding: 24 }}>
-        <Section title="AI Integrations">
+        <Section title="Integrasi AI">
           <AISettingsClient />
         </Section>
       </div>

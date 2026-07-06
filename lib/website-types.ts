@@ -483,5 +483,7 @@ export interface BsiLead {
   origin?: string
   /** Acquisition channel: instagram / whatsapp / facebook / tiktok / website / referral / email / other. */
   source?: string
+  /** Soft-delete timestamp; null/absent = active. Deleted contacts are recoverable. */
+  deleted_at?: string | null
   created_at: string
 }
