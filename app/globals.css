@@ -110,6 +110,17 @@
   --accent2: #ff453a;       /* destructive only — kept red per brief */
   --accent3: #43d9a2;       /* status-positive — green (Active, Published, Paid…) */
   --accent4: #0B3DE7;       /* status-warn folded into blue */
+  /* Status colours for HTML chips/dots/badges. Dark = the current values
+     (unchanged); the light theme overrides them below with legible-on-white
+     tones. Canvas charts keep the hex values in the TS constants. */
+  --st-todo:      #8b8fa8;
+  --st-brief:     #64b5f6;
+  --st-produksi:  #5b9bd5;
+  --st-review:    #ffc542;
+  --st-revisi:    #a78bfa;
+  --st-ready:     #43d9a2;
+  --st-published: #22c55e;
+  --st-done:      #43d9a2;
   --text: #FFFFFF;
   --text2: rgba(255, 255, 255, 0.65);   /* labels, secondary copy */
   --text3: rgba(255, 255, 255, 0.45);   /* tertiary / hints */
@@ -386,6 +397,17 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
   --accent4: #2F6BFF;       /* status-warn folded into primary */
   --accent2: #EF4444;       /* destructive */
   --link: #1D4ED8;          /* accent-as-TEXT — AA on white */
+  /* Status tones for light — legible on white (WCAG-AA text), per brief. Used as
+     the single chip/dot/text colour; tints are derived via color-mix so a pale
+     wash sits behind the darker text. */
+  --st-todo:      #4A5262;
+  --st-brief:     #1D4ED8;
+  --st-produksi:  #4338CA;
+  --st-review:    #A16207;
+  --st-revisi:    #C2410C;
+  --st-ready:     #0F766E;
+  --st-published: #15803D;
+  --st-done:      #15803D;
 
   /* Pastel tones for light mode — saturated enough to give each
      card a distinct identity but light enough to keep the page

@@ -3,7 +3,12 @@
 import { useMemo, useEffect, useRef } from 'react'
 import { Chart, registerables } from 'chart.js'
 import { useT } from '@/lib/i18n/LanguageProvider'
-import { WS_STATUS_COLS } from '@/lib/constants'
+import { WS_STATUS_COLS, stColor, stTint } from '@/lib/constants'
+
+// The worksheet "To Do List" (key 'brief') is grey like BPI's 'Idea' — map it to
+// the grey status var so the theme-aware colour stays correct (not the blue that
+// the shared 'brief' var carries on the project boards).
+const wsVar = (key: string) => stColor(key === 'brief' ? 'todo' : key)
 import type { Post } from '@/lib/types'
 import { isAccountTask, mineColKey } from './index'
 import { useSocmedProjects } from '@/lib/socmed-projects'
@@ -205,9 +210,9 @@ export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountCl
   const inProgressPct = agg.total ? Math.max(0, 100 - donePct - revisiPct) : 0
   const kpis: { label: string; value: number; color: string; pct?: number }[] = [
     { label: t('Total Task'),  value: agg.total,    color: 'var(--link)' },
-    { label: t('Selesai'),     value: agg.done,     color: '#22c55e', pct: donePct },
-    { label: t('In Progress'), value: inProgress,   color: '#5b9bd5', pct: inProgressPct },
-    { label: t('Need Revisi'), value: revisiCount,  color: '#a78bfa', pct: revisiPct },
+    { label: t('Selesai'),     value: agg.done,     color: stColor('published'), pct: donePct },
+    { label: t('In Progress'), value: inProgress,   color: stColor('produksi'), pct: inProgressPct },
+    { label: t('Need Revisi'), value: revisiCount,  color: stColor('revisi'), pct: revisiPct },
   ]
 
   // Single combined table: account · 5 status columns · N source columns · total.
@@ -253,10 +258,10 @@ export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountCl
           <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 8 }}>
             {statusRows.map(r => (
               <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                <span style={{ width: 9, height: 9, borderRadius: '50%', background: r.color, flexShrink: 0, opacity: r.count ? 1 : 0.3 }} />
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: wsVar(r.key), flexShrink: 0, opacity: r.count ? 1 : 0.3 }} />
                 <span style={{ flex: '1 1 96px', minWidth: 0, fontSize: 12.5, color: r.count ? 'var(--text)' : 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</span>
-                <div className="an-track" style={{ flex: '1 1 90px' }}><div style={{ height: '100%', borderRadius: 99, background: r.color, width: `${pct(r.count)}%` }} /></div>
-                <span style={{ width: 24, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: r.count ? r.color : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{r.count}</span>
+                <div className="an-track" style={{ flex: '1 1 90px' }}><div style={{ height: '100%', borderRadius: 99, background: wsVar(r.key), width: `${pct(r.count)}%` }} /></div>
+                <span style={{ width: 24, flexShrink: 0, textAlign: 'right', fontSize: 13, fontWeight: 700, color: r.count ? wsVar(r.key) : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{r.count}</span>
                 <span style={{ width: 40, flexShrink: 0, textAlign: 'right', fontSize: 11, color: 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{pct(r.count)}%</span>
               </div>
             ))}
@@ -280,15 +285,15 @@ export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountCl
                 </div>
                 <div className="src-bar">
                   {p.total > 0 && p.statuses.filter(s => s.count > 0).map(s => (
-                    <div key={s.key} title={`${s.label}: ${s.count}`} style={{ width: `${(s.count / p.total) * 100}%`, background: s.color }} />
+                    <div key={s.key} title={`${s.label}: ${s.count}`} style={{ width: `${(s.count / p.total) * 100}%`, background: wsVar(s.key) }} />
                   ))}
                 </div>
                 <div className="src-grid">
                   {p.statuses.map(s => (
                     <div key={s.key} className="src-stat">
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0, opacity: s.count ? 1 : 0.3 }} />
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: wsVar(s.key), flexShrink: 0, opacity: s.count ? 1 : 0.3 }} />
                       <span style={{ flex: 1, fontSize: 12, color: s.count ? 'var(--text2)' : 'var(--text3)' }}>{s.label}</span>
-                      <span style={{ fontSize: 12.5, fontWeight: 700, color: s.count ? s.color : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{s.count}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: s.count ? wsVar(s.key) : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{s.count}</span>
                     </div>
                   ))}
                 </div>
@@ -320,7 +325,7 @@ export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountCl
                   <div style={{ display: 'grid', gridTemplateColumns: colGrid, gap: 8, alignItems: 'center', padding: '0 14px 9px', background: 'var(--bg2)', borderBottom: '1px solid var(--border)' }}>
                     <span style={hStyle}>{t('Akun')}</span>
                     {WS_STATUS_COLS.map((c, idx) => (
-                      <span key={c.key} style={{ ...hStyle, textAlign: 'center', whiteSpace: 'nowrap', color: c.color, ...(idx === 0 ? groupDiv : null) }}>{SHORT[c.key]}</span>
+                      <span key={c.key} style={{ ...hStyle, textAlign: 'center', whiteSpace: 'nowrap', color: wsVar(c.key), ...(idx === 0 ? groupDiv : null) }}>{SHORT[c.key]}</span>
                     ))}
                     {sourceCols.map((c, idx) => (
                       <span key={c.key} style={{ ...hStyle, textAlign: 'center', lineHeight: 1.25, ...(idx === 0 ? groupDiv : null) }}>{c.name}</span>
@@ -349,11 +354,11 @@ export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountCl
                       </div>
                       {WS_STATUS_COLS.map((c, idx) => {
                         const v = r.status[c.key] ?? 0
-                        return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? c.color : 'var(--text3)', ...(idx === 0 ? groupDiv : null) }}>{v}</span>
+                        return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? wsVar(c.key) : 'var(--text3)', ...(idx === 0 ? groupDiv : null) }}>{v}</span>
                       })}
                       {sourceCols.map((c, idx) => {
                         const v = r.source[c.key] ?? 0
-                        return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? (c.key === 'personal' ? '#a78bfa' : 'var(--text)') : 'var(--text3)', ...(idx === 0 ? groupDiv : null) }}>{v}</span>
+                        return <span key={c.key} style={{ textAlign: 'center', fontSize: 13, fontWeight: v ? 700 : 400, color: v ? (c.key === 'personal' ? stColor('revisi') : 'var(--text)') : 'var(--text3)', ...(idx === 0 ? groupDiv : null) }}>{v}</span>
                       })}
                       <span style={{ textAlign: 'right', fontSize: 13, fontWeight: 800, color: 'var(--text)', ...groupDiv }}>{r.total}</span>
                     </div>

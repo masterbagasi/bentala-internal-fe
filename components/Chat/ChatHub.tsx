@@ -6,7 +6,7 @@ import { useTaskThreads } from './useTaskThreads'
 import { TaskThreadPanel } from './TaskThreads'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { ConfirmDialog } from '@/components/shared/Modal'
-import { POST_STATUS_COLORS, POST_STATUS_LABELS } from '@/lib/constants'
+import { POST_STATUS_COLORS, POST_STATUS_LABELS, stColorFromHex, stTintFromHex } from '@/lib/constants'
 import { getSupabase } from '@/lib/supabase'
 import type { Post } from '@/lib/types'
 import { useSocmedProjects } from '@/lib/socmed-projects'
@@ -504,7 +504,7 @@ function RoomTaskList({ room, meEmail, activeId, onOpen, collapsed, onAutoExpand
             onMouseOut={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
           >
             <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.post.title || t('(Tanpa judul)')}</span>
-            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999, whiteSpace: 'nowrap', color, background: color + '1f', border: `1px solid ${color}55` }}>{label}</span>
+            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999, whiteSpace: 'nowrap', color: stColorFromHex(color), background: stTintFromHex(color, 12), border: `1px solid ${stTintFromHex(color, 33)}` }}>{label}</span>
             {it.mentionUnread > 0 && (
               <span title={t('Anda di-mention')} style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
                 <span style={{ color: '#22c55e', fontSize: 13, fontWeight: 800, lineHeight: 1 }}>@</span>

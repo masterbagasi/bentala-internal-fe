@@ -2,7 +2,7 @@
 
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
-import { BPI_STATUS_COLS, POST_PLATFORMS } from '@/lib/constants'
+import { BPI_STATUS_COLS, POST_PLATFORMS, stColor } from '@/lib/constants'
 import { useEffect, useRef } from 'react'
 import { Chart, registerables } from 'chart.js'
 import { useT } from '@/lib/i18n/LanguageProvider'
@@ -171,9 +171,9 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
 
   const kpis = [
     { label: t('Total Task'),   value: total,          color: 'var(--link)',  sub: '' },
-    { label: t('Published'),    value: publishedCount, color: '#22c55e',        sub: `${pct(publishedCount)}%` },
-    { label: t('In Progress'),  value: inProgress,     color: '#5b9bd5',        sub: `${pct(inProgress)}%` },
-    { label: t('Need Revisi'),  value: statusCounts['revisi'] || 0, color: '#a78bfa', sub: `${pct(statusCounts['revisi'] || 0)}%` },
+    { label: t('Published'),    value: publishedCount, color: stColor('published'), sub: `${pct(publishedCount)}%` },
+    { label: t('In Progress'),  value: inProgress,     color: stColor('produksi'), sub: `${pct(inProgress)}%` },
+    { label: t('Need Revisi'),  value: statusCounts['revisi'] || 0, color: stColor('revisi'), sub: `${pct(statusCounts['revisi'] || 0)}%` },
   ]
 
   return (
@@ -212,10 +212,10 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 6 }}>
             {statusRows.map(r => (
               <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                <span style={{ width: 9, height: 9, borderRadius: '50%', background: r.color, flexShrink: 0, opacity: r.count ? 1 : 0.3 }} />
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: stColor(r.key), flexShrink: 0, opacity: r.count ? 1 : 0.3 }} />
                 <span style={{ width: 104, flexShrink: 0, fontSize: 12.5, color: r.count ? 'var(--text)' : 'var(--text3)' }}>{r.label}</span>
-                <div className="an-track"><div style={{ height: '100%', borderRadius: 99, background: r.color, width: `${pct(r.count)}%` }} /></div>
-                <span style={{ width: 24, textAlign: 'right', fontSize: 13, fontWeight: 700, color: r.count ? r.color : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{r.count}</span>
+                <div className="an-track"><div style={{ height: '100%', borderRadius: 99, background: stColor(r.key), width: `${pct(r.count)}%` }} /></div>
+                <span style={{ width: 24, textAlign: 'right', fontSize: 13, fontWeight: 700, color: r.count ? stColor(r.key) : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{r.count}</span>
                 <span style={{ width: 38, textAlign: 'right', fontSize: 11, color: 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{pct(r.count)}%</span>
               </div>
             ))}
@@ -272,16 +272,16 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
                     {p.total === 0
                       ? <div style={{ flex: 1 }} />
                       : p.statuses.filter(s => s.count > 0).map(s => (
-                          <div key={s.key} title={`${s.label}: ${s.count}`} style={{ width: `${(s.count / p.total) * 100}%`, background: s.color }} />
+                          <div key={s.key} title={`${s.label}: ${s.count}`} style={{ width: `${(s.count / p.total) * 100}%`, background: stColor(s.key) }} />
                         ))}
                   </div>
 
                   <div className="an-proj-grid">
                     {p.statuses.map(s => (
                       <div key={s.key} className="an-proj-stat">
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0, opacity: s.count ? 1 : 0.3 }} />
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: stColor(s.key), flexShrink: 0, opacity: s.count ? 1 : 0.3 }} />
                         <span style={{ flex: 1, fontSize: 12, color: s.count ? 'var(--text2)' : 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
-                        <span style={{ fontSize: 12.5, fontWeight: 700, color: s.count ? s.color : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{s.count}</span>
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: s.count ? stColor(s.key) : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{s.count}</span>
                       </div>
                     ))}
                   </div>
@@ -312,15 +312,19 @@ function TrackCard({ t, name, data }: {
         <div style={{ fontSize: 12.5, color: 'var(--text3)', textAlign: 'center', padding: '20px 0' }}>{t('Belum ada data')}</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-          {data.rows.map(r => (
+          {data.rows.map(r => {
+            // WS track "To Do" (key 'brief') is grey → map to the grey var, not
+            // the blue that 'brief' carries on the project boards.
+            const cv = stColor(r.key === 'brief' ? 'todo' : r.key)
+            return (
             <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <span style={{ width: 9, height: 9, borderRadius: '50%', background: r.color, flexShrink: 0, opacity: r.count ? 1 : 0.3 }} />
+              <span style={{ width: 9, height: 9, borderRadius: '50%', background: cv, flexShrink: 0, opacity: r.count ? 1 : 0.3 }} />
               <span style={{ width: 96, flexShrink: 0, fontSize: 12.5, color: r.count ? 'var(--text)' : 'var(--text3)' }}>{r.label}</span>
-              <div className="an-track"><div style={{ height: '100%', borderRadius: 99, background: r.color, width: `${pct(r.count)}%` }} /></div>
-              <span style={{ width: 24, textAlign: 'right', fontSize: 13, fontWeight: 700, color: r.count ? r.color : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{r.count}</span>
+              <div className="an-track"><div style={{ height: '100%', borderRadius: 99, background: cv, width: `${pct(r.count)}%` }} /></div>
+              <span style={{ width: 24, textAlign: 'right', fontSize: 13, fontWeight: 700, color: r.count ? cv : 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{r.count}</span>
               <span style={{ width: 38, textAlign: 'right', fontSize: 11, color: 'var(--text3)', fontVariantNumeric: 'tabular-nums' }}>{pct(r.count)}%</span>
             </div>
-          ))}
+          )})}
         </div>
       )}
     </div>

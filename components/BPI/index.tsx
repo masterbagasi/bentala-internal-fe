@@ -10,7 +10,7 @@ import { getSupabase } from '@/lib/supabase'
 import { useMarkPostRead } from '@/hooks/usePostReads'
 import { isPostMarked, isChatUnread } from '@/lib/post-unread'
 import { taskChatRoom, isEffectiveSuperAdmin } from '@/lib/access'
-import { BPI_STATUS_COLS, WS_STATUS_COLS, SMM_STATUS_COLS, POST_PLATFORMS, POST_RATIOS } from '@/lib/constants'
+import { BPI_STATUS_COLS, WS_STATUS_COLS, SMM_STATUS_COLS, POST_PLATFORMS, POST_RATIOS, stColorFromHex, stTintFromHex } from '@/lib/constants'
 import { htmlToPlain } from '@/lib/rich-text'
 
 // ── Per-track workflow helpers ───────────────────────────────
@@ -1046,10 +1046,10 @@ function KanbanBoard({
             data-col-key={col.key}
             style={{
               minWidth: 265, maxWidth: 265,
-              background: active ? `${col.color}14` : blocked ? '#ff6b6b12' : 'var(--bg2)',
+              background: active ? stTintFromHex(col.color, 8) : blocked ? '#ff6b6b12' : 'var(--bg2)',
               // Keep border width fixed (no layout shift) + ring via box-shadow.
               // No transform — scaling the drop target mid-drag breaks the drop.
-              border: `1px solid ${active ? col.color : blocked ? '#ff6b6b' : 'var(--border)'}`,
+              border: `1px solid ${active ? stColorFromHex(col.color) : blocked ? '#ff6b6b' : 'var(--border)'}`,
               borderRadius: 12, padding: '14px 12px 10px',
               flexShrink: 0, display: 'flex', flexDirection: 'column',
               // Desktop caps the column so its card list scrolls inside the
@@ -1057,7 +1057,7 @@ function KanbanBoard({
               // fixed top bar eats height, so an uncapped column would run off
               // the bottom — let it size to content and ride the page scroll.
               maxHeight: isMobile ? 'none' : 'calc(100vh - 200px)',
-              boxShadow: active ? `0 0 0 2px ${col.color}66, 0 8px 24px ${col.color}33` : 'none',
+              boxShadow: active ? `0 0 0 2px ${stTintFromHex(col.color, 40)}, 0 8px 24px ${stTintFromHex(col.color, 20)}` : 'none',
               transition: 'border-color 0.12s, background 0.12s, box-shadow 0.12s',
             }}
             onDragOver={(e) => {
@@ -1072,9 +1072,9 @@ function KanbanBoard({
             onMouseLeave={() => setHoverCol(c => (c === col.key ? null : c))}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexShrink: 0, position: 'relative' }}>
-              <span style={{ fontWeight: 600, color: col.color, fontSize: 14 }}>{col.label}</span>
+              <span style={{ fontWeight: 600, color: stColorFromHex(col.color), fontSize: 14 }}>{col.label}</span>
               <span style={{
-                fontSize: 12, color: col.color, background: col.color + '22',
+                fontSize: 12, color: stColorFromHex(col.color), background: stTintFromHex(col.color, 13),
                 borderRadius: 20, padding: '1px 7px', fontWeight: 500,
               }}>
                 {colPosts.length}
@@ -1193,8 +1193,8 @@ function TrackChip({ icon, track, value, status }: { icon: string; track: string
         display: 'inline-flex', alignItems: 'center', gap: 4,
         fontSize: 10.5, fontWeight: 600, lineHeight: 1,
         padding: '3px 7px', borderRadius: 20, whiteSpace: 'nowrap',
-        color, background: color + '1f',
-        border: `1px solid ${color}55`,
+        color: stColorFromHex(color), background: stTintFromHex(color, 12),
+        border: `1px solid ${stTintFromHex(color, 33)}`,
       }}
     >
       <span style={{ fontSize: 10 }}>{icon}</span>
@@ -1378,7 +1378,7 @@ function KanbanCard({
                 const stage = TRACK_STAGE[raw] ?? TRACK_STAGE.brief
                 return (
                   <div key={m} title={`${name}: ${stage.label}`} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '3px 0' }}>
-                    <span style={{ display: 'inline-flex', flexShrink: 0, borderRadius: '50%', boxShadow: `0 0 0 1.5px var(--bg3), 0 0 0 3px ${stage.color}` }}>
+                    <span style={{ display: 'inline-flex', flexShrink: 0, borderRadius: '50%', boxShadow: `0 0 0 1.5px var(--bg3), 0 0 0 3px ${stColorFromHex(stage.color)}` }}>
                       {acc?.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img loading="lazy" decoding="async" src={acc.avatarUrl} alt={name}
@@ -1388,7 +1388,7 @@ function KanbanCard({
                       )}
                     </span>
                     <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-                    <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, letterSpacing: '0.055em', textTransform: 'uppercase', color: stage.color }}>
+                    <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 700, letterSpacing: '0.055em', textTransform: 'uppercase', color: stColorFromHex(stage.color) }}>
                       {stage.label}
                     </span>
                   </div>

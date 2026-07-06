@@ -13,7 +13,7 @@ import { SubtaskEditor } from './SubtaskEditor'
 import type { Subtask } from '@/lib/types'
 import { formatDate } from '@/lib/utils'
 import { TeamAvatar } from '@/components/shared/StatusBadge'
-import { BPI_STATUS_COLS } from '@/lib/constants'
+import { BPI_STATUS_COLS, stColorFromHex, stTintFromHex } from '@/lib/constants'
 import type { Post } from '@/lib/types'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
 import { uploadFileResumable } from '@/lib/storage'
@@ -506,9 +506,9 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
-              background: (draftCol?.color || '#8b8fa8') + '22',
-              border: `1px solid ${(draftCol?.color || '#8b8fa8')}55`,
-              color: draftCol?.color || '#8b8fa8', fontSize: 12, fontWeight: 600,
+              background: stTintFromHex(draftCol?.color || '#8b8fa8', 13),
+              border: `1px solid ${stTintFromHex(draftCol?.color || '#8b8fa8', 33)}`,
+              color: stColorFromHex(draftCol?.color || '#8b8fa8'), fontSize: 12, fontWeight: 600,
             }}
           >
             {draftCol?.label || statusDraft}
@@ -539,13 +539,13 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                       padding: '7px 10px', borderRadius: 5, cursor: 'pointer', fontSize: 12,
-                      background: statusDraft === c.key ? c.color + '22' : 'transparent',
-                      color: statusDraft === c.key ? c.color : 'var(--text)', border: 'none', textAlign: 'left',
+                      background: statusDraft === c.key ? stTintFromHex(c.color, 13) : 'transparent',
+                      color: statusDraft === c.key ? stColorFromHex(c.color) : 'var(--text)', border: 'none', textAlign: 'left',
                     }}
                     onMouseOver={e => { if (statusDraft !== c.key) (e.currentTarget as HTMLElement).style.background = 'var(--bg3)' }}
                     onMouseOut={e => { if (statusDraft !== c.key) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
                   >
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: stColorFromHex(c.color), flexShrink: 0 }} />
                     {c.label}
                   </button>
                 ))}
@@ -554,7 +554,7 @@ export function PostPreviewModal({ open, postId, onClose, onEdit, canEdit = true
           )}
         </>
         ) : (
-          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 20, background: (draftCol?.color || '#8b8fa8') + '22', border: `1px solid ${(draftCol?.color || '#8b8fa8')}55`, color: draftCol?.color || '#8b8fa8', fontSize: 12, fontWeight: 600 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: 20, background: stTintFromHex(draftCol?.color || '#8b8fa8', 13), border: `1px solid ${stTintFromHex(draftCol?.color || '#8b8fa8', 33)}`, color: stColorFromHex(draftCol?.color || '#8b8fa8'), fontSize: 12, fontWeight: 600 }}>
             {draftCol?.label || statusDraft}
           </span>
         )

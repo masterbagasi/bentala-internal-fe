@@ -57,6 +57,28 @@ export const POST_STATUS_COLORS: Record<string, string> = {
   done:      '#43d9a2',
 }
 
+// Theme-aware status colour for HTML chips/dots/badges (resolves via CSS vars, so
+// it stays legible in light while the dark values are unchanged). Canvas charts
+// must keep using the hex maps above — a var() can't be drawn on a <canvas>.
+export const stColor = (key: string): string => `var(--st-${key})`
+// A translucent tint of the same status colour (for chip backgrounds/borders).
+export const stTint = (key: string, pct = 14): string =>
+  `color-mix(in srgb, var(--st-${key}) ${pct}%, transparent)`
+
+// When code only has the HEX (from a status-colour constant, not the key) map it
+// back to its theme var. Dark values equal these hexes, so the dark render is
+// byte-identical; unknown colours (project/platform brand) pass through unchanged.
+const HEX_TO_ST: Record<string, string> = {
+  '#8b8fa8': 'todo', '#64b5f6': 'brief', '#5b9bd5': 'produksi', '#ffc542': 'review',
+  '#a78bfa': 'revisi', '#43d9a2': 'ready', '#22c55e': 'published',
+}
+export const stColorFromHex = (hex: string): string => {
+  const k = HEX_TO_ST[(hex || '').toLowerCase()]
+  return k ? `var(--st-${k})` : hex
+}
+export const stTintFromHex = (hex: string, pct = 14): string =>
+  `color-mix(in srgb, ${stColorFromHex(hex)} ${pct}%, transparent)`
+
 // BPI Board columns (Naufal view)
 export const BPI_STATUS_COLS = [
   { key: 'todo',      label: 'Idea',          color: '#8b8fa8' },
