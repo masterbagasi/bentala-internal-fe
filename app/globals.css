@@ -446,6 +446,21 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
 /* Light: black silhouette → reads on the light rail. */
 [data-theme="light"] .sidebar-logo { filter: brightness(0); }
 
+/* Status / platform pills. Dark keeps its hand-tuned solid fill (--tb-bg)
+   and accent text (--tb-fg) verbatim. Light can't reuse those near-black
+   fills — they read as harsh dark blobs on the pale rail — so it derives a
+   pale wash of the accent, a darkened-accent label (AA on the wash) and a
+   hairline inset ring for edge definition. Driven by custom props set inline
+   so the per-theme background/colour live here (an inline background would
+   otherwise win and defeat the light override). box-shadow (not border) keeps
+   the dark box metrics unchanged. */
+.themed-badge { background: var(--tb-bg); color: var(--tb-fg); }
+[data-theme="light"] .themed-badge {
+  background: color-mix(in srgb, var(--tb-fg) 13%, transparent);
+  color: color-mix(in srgb, var(--tb-fg) 62%, #0b1220);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tb-fg) 22%, transparent);
+}
+
 /* Horizontal scroll without a visible scrollbar — used by the tab
    strips (PageHeader / PageShell) so they swipe cleanly on touch. */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }

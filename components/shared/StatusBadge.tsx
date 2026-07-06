@@ -81,17 +81,18 @@ export function StatusBadge({ status, type = 'post', label: labelProp, className
 
   return (
     <span
-      className={className}
+      className={['themed-badge', className].filter(Boolean).join(' ')}
       style={{
         display: 'inline-block',
         padding: '2px 8px',
         borderRadius: 20,
         fontSize: 11,
         fontWeight: 500,
-        background: bg,
-        color,
         whiteSpace: 'nowrap',
-      }}
+        // Dark reads these verbatim; the .themed-badge light rule remaps them.
+        '--tb-bg': bg,
+        '--tb-fg': color,
+      } as React.CSSProperties}
     >
       {labelProp ?? label}
     </span>
@@ -102,7 +103,14 @@ export function PlatformBadge({ platform }: { platform: string }) {
   const p = POST_PLATFORMS.find(x => x.key === platform)
   if (!p) return <span className="s-bsi">{platform}</span>
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 9px 2px 3px', borderRadius: 20, fontSize: 11, background: p.bg, color: p.color }}>
+    <span
+      className="themed-badge"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        padding: '2px 9px 2px 3px', borderRadius: 20, fontSize: 11,
+        '--tb-bg': p.bg, '--tb-fg': p.color,
+      } as React.CSSProperties}
+    >
       <PlatformIcon platform={platform} size={15} />
       {p.label}
     </span>
