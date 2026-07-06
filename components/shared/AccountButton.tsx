@@ -140,6 +140,22 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Theme toggle. Dark is the default and stays untouched; light is an additive
+  // [data-theme="light"] override. Reads the live attribute so the switch mirrors
+  // the active theme, writes localStorage 'bentala_theme' (applied on boot by the
+  // inline script in layout.tsx) and flips data-theme immediately.
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  useEffect(() => {
+    setTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark')
+  }, [])
+  function toggleTheme() {
+    const next = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    if (next === 'light') document.documentElement.setAttribute('data-theme', 'light')
+    else document.documentElement.removeAttribute('data-theme')
+    try { localStorage.setItem('bentala_theme', next) } catch { /* ignore */ }
+  }
+
   const loadUser = useCallback(async () => {
     const { data } = await getSupabase().auth.getUser()
     if (!data.user) return
@@ -475,6 +491,36 @@ export function AccountButton({ isExpanded }: AccountButtonProps) {
                 </span>
               }
               onClick={toggleLang}
+            />
+
+            <PopupItem
+              icon={
+                theme === 'light' ? (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                  </svg>
+                ) : (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+                  </svg>
+                )
+              }
+              label={t('Tema')}
+              right={
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: 'var(--link)',
+                    background: 'rgba(108,99,255,0.12)',
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                  }}
+                >
+                  {theme === 'light' ? t('Terang') : t('Gelap')}
+                </span>
+              }
+              onClick={toggleTheme}
             />
 
             {isSuper && (

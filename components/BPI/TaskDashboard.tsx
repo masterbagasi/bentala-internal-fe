@@ -9,6 +9,7 @@ import { isAccountTask, mineColKey } from './index'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 import { projectGlyph } from '@/lib/project-glyph'
 import { AccountAvatar } from '@/components/shared/AccountAvatar'
+import { useThemeTick } from '@/hooks/useThemeTick'
 
 Chart.register(...registerables)
 
@@ -95,9 +96,17 @@ export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountCl
   const statusRows = WS_STATUS_COLS.map(c => ({ key: c.key, label: c.label, color: c.color, count: agg.counts[c.key] ?? 0 }))
   const chartRef = useRef<HTMLCanvasElement>(null)
   const chartInstance = useRef<Chart | null>(null)
+  const themeTick = useThemeTick() // re-render the donut when the theme flips
   useEffect(() => {
     if (!chartRef.current || agg.total === 0) return
     if (chartInstance.current) chartInstance.current.destroy()
+    // Theme-aware canvas colours (LIGHT only; dark values kept exactly as before).
+    const cs = getComputedStyle(document.documentElement)
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light'
+    const centerColor = isLight ? (cs.getPropertyValue('--text').trim() || '#1A1D23') : '#f3f4f8'
+    const centerSub = isLight ? (cs.getPropertyValue('--text3').trim() || '#9AA3B2') : '#8b8fa8'
+    const segBorder = isLight ? (cs.getPropertyValue('--border').trim() || '#E7EAEE') : 'rgba(0,0,0,0)'
+    const segBorderWidth = isLight ? 2 : 0
     const shown = statusRows.filter(r => r.count > 0)
     const centerText = {
       id: 'teamCenterText',
@@ -108,9 +117,9 @@ export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountCl
         const cy = (chartArea.top + chartArea.bottom) / 2
         ctx.save()
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        ctx.fillStyle = '#f3f4f8'; ctx.font = '700 30px Inter, system-ui, sans-serif'
+        ctx.fillStyle = centerColor; ctx.font = '700 30px Inter, system-ui, sans-serif'
         ctx.fillText(String(agg.total), cx, cy - 6)
-        ctx.fillStyle = '#8b8fa8'; ctx.font = '600 11px Inter, system-ui, sans-serif'
+        ctx.fillStyle = centerSub; ctx.font = '600 11px Inter, system-ui, sans-serif'
         ctx.fillText('TASK', cx, cy + 16)
         ctx.restore()
       },
@@ -119,7 +128,7 @@ export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountCl
       type: 'doughnut',
       data: {
         labels: shown.map(r => r.label),
-        datasets: [{ data: shown.map(r => r.count), backgroundColor: shown.map(r => r.color), borderColor: 'rgba(0,0,0,0)', borderWidth: 0, spacing: 2, borderRadius: 4 }],
+        datasets: [{ data: shown.map(r => r.count), backgroundColor: shown.map(r => r.color), borderColor: segBorder, borderWidth: segBorderWidth, spacing: 2, borderRadius: 4 }],
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       options: ({ responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c: { label?: string; parsed: number }) => ` ${c.label}: ${c.parsed} (${pct(c.parsed)}%)` } } } } as any),
@@ -127,7 +136,7 @@ export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountCl
     })
     return () => { chartInstance.current?.destroy() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(statusRows), agg.total])
+  }, [JSON.stringify(statusRows), agg.total, themeTick])
 
   // Task source: how many of the tasks come from each project (Master Bagasi,
   // Bagasian, …) vs Personal. Columns are built from the live projects list, so
@@ -206,7 +215,7 @@ export function TaskDashboard({ posts, allPosts, accounts, projects, onAccountCl
   const colGrid = `minmax(200px, 1.4fr) repeat(5, 58px) repeat(${nSrc}, minmax(82px, 0.9fr)) 78px`
   // Group boundary: a slightly brighter rule than the row separators, so STATUS /
   // SOURCE / TOTAL read as three blocks rather than one long strip.
-  const groupDiv: React.CSSProperties = { borderLeft: '1px solid rgba(255,255,255,0.12)', paddingLeft: 10 }
+  const groupDiv: React.CSSProperties = { borderLeft: '1px solid var(--border)', paddingLeft: 10 }
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 22 }}>

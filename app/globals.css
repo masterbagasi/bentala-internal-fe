@@ -363,20 +363,29 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
 .kanban-col.drag-over .drop-hint { display: flex; }
 
 [data-theme="light"] {
-  --bg: #f4f5fa;
-  --bg2: #ffffff;
-  --bg3: #eef0f7;
-  --bg-hover: #e6e9f3;
-  --border: #d5d8ea;
-  --border-strong: #b8bcd4;
+  color-scheme: light;      /* native controls (scrollbars, inputs) render light */
+  /* Bentala light palette (brief). Values only — variable NAMES stay identical to
+     the dark :root, so every component that reads them adapts with zero refactor.
+     The dark theme (:root) is untouched. */
+  --bg: #F6F7F9;            /* page */
+  --bg2: #FFFFFF;           /* surface: card, panel, sidebar */
+  --bg3: #EEF1F5;           /* muted: inputs, elevated rows */
+  --bg-hover: #E7EAEE;      /* row hover / secondary hover surface */
+  --border: #E7EAEE;
+  --border-strong: #D4D9E0;
   --shadow-card:
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
     0 2px 8px rgba(20, 25, 60, 0.06),
     0 12px 24px rgba(20, 25, 60, 0.05);
-  --text: #1a1d2e;
-  --text2: #4b5168;
-  --text3: #6b7280;
-  --link: #1749d6;          /* accent-as-TEXT — darker blue for contrast on light bg */
+  --text: #1A1D23;          /* primary: heading, angka */
+  --text2: #5A6472;         /* secondary: label, body */
+  --text3: #9AA3B2;         /* muted: hint, placeholder */
+  /* Brand accent for light. --accent drives buttons/nav-active/focus; --link is
+     the accent-as-TEXT (darker so links stay AA-legible on white). */
+  --accent: #2F6BFF;        /* primary */
+  --accent4: #2F6BFF;       /* status-warn folded into primary */
+  --accent2: #EF4444;       /* destructive */
+  --link: #1D4ED8;          /* accent-as-TEXT — AA on white */
 
   /* Pastel tones for light mode — saturated enough to give each
      card a distinct identity but light enough to keep the page

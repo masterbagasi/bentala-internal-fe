@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n/LanguageProvider'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 import { projectGlyph } from '@/lib/project-glyph'
 import { PlatformIcon } from '@/components/shared/PlatformIcon'
+import { useThemeTick } from '@/hooks/useThemeTick'
 import type { Post } from '@/lib/types'
 
 Chart.register(...registerables)
@@ -30,6 +31,7 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
   const projects = useSocmedProjects(true)
   const chartRef = useRef<HTMLCanvasElement>(null)
   const chartInstance = useRef<Chart | null>(null)
+  const themeTick = useThemeTick() // re-render the donut when the theme flips
 
   const from = new Date(dateRange.from)
   const to   = new Date(dateRange.to + 'T23:59:59')
@@ -105,6 +107,15 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
     if (!chartRef.current || total === 0) return
     if (chartInstance.current) chartInstance.current.destroy()
 
+    // Theme-aware canvas colours (canvas can't read CSS vars). LIGHT only: the
+    // dark values are kept EXACTLY as before, so the dark chart is unchanged.
+    const cs = getComputedStyle(document.documentElement)
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light'
+    const centerColor = isLight ? (cs.getPropertyValue('--text').trim() || '#1A1D23') : '#f3f4f8'
+    const centerSub = isLight ? (cs.getPropertyValue('--text3').trim() || '#9AA3B2') : '#8b8fa8'
+    const segBorder = isLight ? (cs.getPropertyValue('--border').trim() || '#E7EAEE') : 'rgba(0,0,0,0)'
+    const segBorderWidth = isLight ? 2 : 0
+
     const shown = statusRows.filter(r => r.count > 0)
     // Signature: a thin ring with the grand total parked in its center.
     const centerText = {
@@ -117,10 +128,10 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
         ctx.save()
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillStyle = '#f3f4f8'
+        ctx.fillStyle = centerColor
         ctx.font = '700 30px Inter, system-ui, sans-serif'
         ctx.fillText(String(total), cx, cy - 6)
-        ctx.fillStyle = '#8b8fa8'
+        ctx.fillStyle = centerSub
         ctx.font = '600 11px Inter, system-ui, sans-serif'
         ctx.fillText('TASK', cx, cy + 16)
         ctx.restore()
@@ -134,8 +145,8 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
         datasets: [{
           data: shown.map(r => r.count),
           backgroundColor: shown.map(r => r.color),
-          borderColor: 'rgba(0,0,0,0)',
-          borderWidth: 0,
+          borderColor: segBorder,
+          borderWidth: segBorderWidth,
           spacing: 2,
           borderRadius: 4,
         }],
@@ -156,7 +167,7 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
     })
 
     return () => { chartInstance.current?.destroy() }
-  }, [JSON.stringify(statusRows), total])
+  }, [JSON.stringify(statusRows), total, themeTick])
 
   const kpis = [
     { label: t('Total Task'),   value: total,          color: 'var(--link)',  sub: '' },
