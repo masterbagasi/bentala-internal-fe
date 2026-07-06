@@ -7,6 +7,8 @@ import {
   normaliseSections,
   chatRoomFromPath,
   canAccessChat,
+  isPersonalOnly,
+  PERSONAL_DASHBOARD_PATH,
 } from '@/lib/access'
 
 export async function middleware(request: NextRequest) {
@@ -111,6 +113,14 @@ export async function middleware(request: NextRequest) {
     }
     const allowed = normaliseSections(row?.sections)
 
+    // Personal-only accounts (no general Dashboard, no project board) have no
+    // firstAllowedLanding — their home is the promoted personal dashboard. Use
+    // it as the redirect target for every blocked route below.
+    const personalOnly = isPersonalOnly(allowed)
+    const landing = personalOnly
+      ? PERSONAL_DASHBOARD_PATH
+      : (firstAllowedLanding(allowed) ?? '/no-access')
+
     const redirectTo = (target: string) => {
       const url = request.nextUrl.clone()
       url.search = ''
@@ -130,21 +140,19 @@ export async function middleware(request: NextRequest) {
 
     // These settings pages are super-admin only — non-supers can never reach them.
     if (isSuperOnlyPage) {
-      return redirectTo(firstAllowedLanding(allowed) ?? '/no-access')
+      return redirectTo(landing)
     }
 
     const chatRoom = chatRoomFromPath(pathname)
     if (chatRoom !== null) {
       if (!canAccessChat(allowed, chatRoom)) {
-        const target = firstAllowedLanding(allowed) ?? '/no-access'
-        if (target !== pathname) return redirectTo(target)
+        if (landing !== pathname) return redirectTo(landing)
       }
     } else {
       const section = sectionForPath(pathname)
       if (section !== null && !allowed.includes(section)) {
-        const target = firstAllowedLanding(allowed) ?? '/no-access'
         // Guard against redirecting a path to itself (no-op → loop).
-        if (target !== pathname) return redirectTo(target)
+        if (landing !== pathname) return redirectTo(landing)
       }
     }
   }

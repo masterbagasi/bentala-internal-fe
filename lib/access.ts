@@ -145,6 +145,30 @@ export function isEffectiveSuperAdmin(email: string | null | undefined, role: un
   return isSuperAdmin(email) || role === 'super_admin'
 }
 
+// A project *board* grant: the Projects group, the combined SMM board, or a
+// single SMM project's Social/Projects board. A chat-only grant
+// (smm.<slug>.chat) is deliberately excluded — chat is independent and gives no
+// board of its own.
+const PROJECT_ACCESS_RE = /^(projects\.|smm\.all$|smm\.[a-z0-9-]+\.(social|projects)$)/
+
+/** True if the account holds any project board grant (see PROJECT_ACCESS_RE). */
+export function hasProjectAccess(allowed: Set<string> | string[]): boolean {
+  const ids = Array.isArray(allowed) ? allowed : Array.from(allowed)
+  return ids.some(id => PROJECT_ACCESS_RE.test(id))
+}
+
+/** A "personal-only" account has neither the general Dashboard (`overview`) nor
+ *  any project board access, so its home is the personal My Task dashboard.
+ *  Note: a fullBypass super (no menu_access row) is never personal-only — check
+ *  that at the call site before calling this. */
+export function isPersonalOnly(allowed: Set<string> | string[]): boolean {
+  const has = (id: string) => (Array.isArray(allowed) ? allowed.includes(id) : allowed.has(id))
+  return !has('overview') && !hasProjectAccess(allowed)
+}
+
+/** Where a personal-only account is sent for `/` and any blocked route. */
+export const PERSONAL_DASHBOARD_PATH = '/my-task/dashboard'
+
 function pathMatchesRoute(pathname: string, route: string): boolean {
   if (route === '/') return pathname === '/'
   return pathname === route || pathname.startsWith(route + '/')

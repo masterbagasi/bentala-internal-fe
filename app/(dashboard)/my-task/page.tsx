@@ -1,35 +1,26 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { PageHeader, type TabKey } from '@/components/shared/PageHeader'
-import { BPIPage, BoardFilter, BoardSearch, useBoardFilter, isAccountTask, type BPIPageHandle, type BPITabType } from '@/components/BPI'
-import { TaskDashboard } from '@/components/BPI/TaskDashboard'
-import { useStore } from '@/hooks/useStore'
+import { BPIPage, BoardFilter, BoardSearch, useBoardFilter, type BPIPageHandle, type BPITabType } from '@/components/BPI'
+import { MyTaskDashboardView } from '@/components/BPI/MyTaskDashboardView'
+import { useAccess } from '@/hooks/useAccess'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { getSupabase } from '@/lib/supabase'
 import { PostHistoryButton } from '@/components/shared/PostHistory'
-import type { DateRange } from '@/components/Social/DateRangePicker'
-import type { Post } from '@/lib/types'
-
-// Keep a post only if it has a date that falls within the selected range.
-// Undated tasks are excluded — they belong to no period, so counting them would
-// make the range totals invalid. Compares on the date part only.
-function inRange(p: Post, r: DateRange): boolean {
-  const d = (p.date || '').slice(0, 10)
-  return !!d && d >= r.from && d <= r.to
-}
 
 // "My Task" — a personal board for the logged-in account: every task that tags
 // me (Tag Account) OR that I created, across all projects.
 export default function MyTaskPage() {
   const t = useT()
+  // Personal-only accounts (no general Dashboard grant, no project board) get the
+  // dashboard promoted to a top-level sidebar item, so it's dropped from here.
+  const { personalOnly, loading: accessLoading } = useAccess()
   const [tab, setTab] = useState<TabKey>('dashboard')
   const ref = useRef<BPIPageHandle>(null)
   const bf = useBoardFilter('all')
   const [me, setMe] = useState<{ email: string; name: string } | null>(null)
   const [pendingAdd, setPendingAdd] = useState(false)
-  const posts = useStore(s => s.posts)
-  const dateRange = useStore(s => s.dateRange)
 
   useEffect(() => {
     getSupabase().auth.getUser().then(({ data }) => {
@@ -43,25 +34,27 @@ export default function MyTaskPage() {
     })
   }, [])
 
-  // Only briefed tasks enter the worksheet (To Do List = brief), like Video
-  // Production / Design Studio — an 'todo' (Idea) hasn't entered yet, so the
-  // Dashboard summary excludes it too (stays in sync with the board).
-  const myPosts = useMemo(
-    () => (me ? posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, me)) : []),
-    [posts, me],
-  )
-  // Dashboard is filtered by the selected date range (the picker in the header).
-  const dashPosts = useMemo(() => myPosts.filter(p => inRange(p, dateRange)), [myPosts, dateRange])
+  // Hold the tab strip + body until BOTH auth (me) and access resolve, so the
+  // dashboard tab never flashes in for personal-only accounts (who must not see
+  // it at all) while non-personal accounts still land straight on it.
+  const ready = !!me && !accessLoading
+  const tabList: TabKey[] = personalOnly
+    ? ['board', 'list', 'calendar', 'files']
+    : ['dashboard', 'board', 'list', 'calendar', 'files']
+  // Derived active tab: fall back to the first available tab when the stored one
+  // isn't in the set (e.g. 'dashboard' for a personal-only account) — no state
+  // mutation, so there's never an intermediate frame showing the wrong tab.
+  const activeTab: TabKey = tabList.includes(tab) ? tab : tabList[0]
 
   // The board (which owns the add/edit modal via `ref`) isn't mounted on the
   // Dashboard tab, so "+ Add Task" there switches to the board first, then opens
   // the modal once the ref attaches.
   function handleAdd() {
-    if (tab === 'dashboard') { setPendingAdd(true); setTab('board') }
+    if (activeTab === 'dashboard') { setPendingAdd(true); setTab('board') }
     else ref.current?.openEdit()
   }
   useEffect(() => {
-    if (!pendingAdd || tab === 'dashboard') return
+    if (!pendingAdd || activeTab === 'dashboard') return
     let raf = 0
     const tryOpen = () => {
       if (ref.current) { ref.current.openEdit(); setPendingAdd(false) }
@@ -69,19 +62,19 @@ export default function MyTaskPage() {
     }
     tryOpen()
     return () => { if (raf) cancelAnimationFrame(raf) }
-  }, [pendingAdd, tab])
+  }, [pendingAdd, activeTab])
 
   return (
     <>
       <PageHeader
         title="My Task"
-        tabs={['dashboard', 'board', 'list', 'calendar', 'files']}
-        activeTab={tab}
+        tabs={ready ? tabList : []}
+        activeTab={activeTab}
         onTabChange={setTab}
-        showDateFilter={tab === 'dashboard'}
+        showDateFilter={ready && activeTab === 'dashboard'}
         dateAllowFuture
         tabsRight={
-          tab !== 'dashboard'
+          ready && activeTab !== 'dashboard'
             ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <BoardSearch value={bf.filters.search} onChange={v => bf.setFilters(f => ({ ...f, search: v }))} />
@@ -103,9 +96,9 @@ export default function MyTaskPage() {
         }
       />
       <div className="flex-1 overflow-y-auto min-h-0">
-        {me && tab === 'dashboard' && <TaskDashboard posts={dashPosts} allPosts={myPosts} projects={bf.projects} />}
-        {me && tab !== 'dashboard' && (
-          <BPIPage ref={ref} entity="bpi" mineScope={me} activeTab={tab as BPITabType} filters={bf.filters} currentUser="" />
+        {ready && me && activeTab === 'dashboard' && <MyTaskDashboardView me={me} />}
+        {ready && me && activeTab !== 'dashboard' && (
+          <BPIPage ref={ref} entity="bpi" mineScope={me} activeTab={activeTab as BPITabType} filters={bf.filters} currentUser="" />
         )}
       </div>
     </>
