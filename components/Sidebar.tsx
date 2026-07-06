@@ -856,14 +856,13 @@ export function Sidebar() {
             cut by an overflow ancestor. */}
         {expanded && (
           <div
+            className="sidebar-search"
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 8,
               padding: '8px 10px',
               borderRadius: 8,
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.06)',
             }}
           >
             <span style={{ color: 'var(--text2)', display: 'inline-flex', flexShrink: 0 }}>
