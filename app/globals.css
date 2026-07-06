@@ -437,11 +437,14 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
   box-shadow: 3px 0 12px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Sidebar logo — white bg logo adapted for dark/light mode */
-/* Dark: invert (black→white text) + screen blend (removes black bg) */
-.sidebar-logo { filter: invert(1); mix-blend-mode: screen; }
-/* Light: multiply blend makes white bg transparent, black text stays */
-[data-theme="light"] .sidebar-logo { filter: none; mix-blend-mode: multiply; }
+/* Sidebar fallback logo — a WHITE wordmark on transparent. brightness(0)
+   flattens it to a solid silhouette, then dark re-inverts it back to white.
+   (blend modes are avoided — `multiply` made the white mark vanish into the
+   light rail, which read as "still white".) */
+/* Dark: black silhouette re-inverted → white on the dark rail. */
+.sidebar-logo { filter: brightness(0) invert(1); }
+/* Light: black silhouette → reads on the light rail. */
+[data-theme="light"] .sidebar-logo { filter: brightness(0); }
 
 /* Horizontal scroll without a visible scrollbar — used by the tab
    strips (PageHeader / PageShell) so they swipe cleanly on touch. */
