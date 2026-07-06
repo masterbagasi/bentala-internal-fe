@@ -258,25 +258,26 @@ function SidebarLogo({ isExpanded }: { isExpanded: boolean }) {
     )
   }
 
-  // The bundled fallback is a dark wordmark on transparent and
-  // needs inverting to read white on the sidebar. Admin-uploaded
-  // URLs are passed through as-is — editors are expected to
-  // upload a light/white asset themselves.
+  // The bundled fallback is a dark wordmark. The `.sidebar-logo` class adapts
+  // it per theme (invert→white on the dark rail, untouched dark on the light
+  // rail) so it never disappears — inline `filter` would override that, so we
+  // leave it off for the fallback. Admin-uploaded URLs pass through as-is;
+  // editors are expected to upload an asset that suits both themes.
   const isUsingFallback = logoUrl === FALLBACK_LOGO_SRC
-  const filter = isUsingFallback ? 'brightness(0) invert(1)' : 'none'
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img loading="lazy" decoding="async"
       src={logoUrl}
       alt="Bentala"
+      className={isUsingFallback ? 'sidebar-logo' : undefined}
       style={{
         height: heightPx,
         width: 'auto',
         display: 'block',
         transition: 'height 0.22s ease',
         objectFit: 'contain',
-        filter,
+        filter: isUsingFallback ? undefined : 'none',
         flexShrink: 0,
       }}
     />
@@ -1028,7 +1029,7 @@ export function Sidebar() {
  *  with the item icons — even when the sidebar is collapsed to the icon rail. */
 function BrandGlyph({ text }: { text: string }) {
   return (
-    <span style={{ fontSize: 8.5, fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: '0.02em' }}>
+    <span style={{ fontSize: 8.5, fontWeight: 800, color: 'var(--brand-glyph, #fff)', lineHeight: 1, letterSpacing: '0.02em' }}>
       {text}
     </span>
   )

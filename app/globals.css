@@ -409,6 +409,11 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
   --st-published: #15803D;
   --st-done:      #15803D;
 
+  /* Sidebar brand glyph (bpi/bsi/MB tiles) — white reads on the dark rail
+     but vanishes on the light one, so drop to the muted text tone here.
+     Dark keeps #fff via the var fallback in BrandGlyph. */
+  --brand-glyph: #5A6472;
+
   /* Pastel tones for light mode — saturated enough to give each
      card a distinct identity but light enough to keep the page
      calm and readable. */
