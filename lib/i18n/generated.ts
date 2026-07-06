@@ -2,6 +2,9 @@
 // Curated overrides live in dictionary.ts (they take precedence).
 
 export const GENERATED: Record<string, string> = {
+  "Tema": "Theme",
+  "Terang": "Light",
+  "Gelap": "Dark",
   "Aktivitas Contact": "Contact Activity",
   "Hanya pembuat task atau super admin yang bisa mengedit task ini.": "Only the task's creator or a super admin can edit this task.",
   "Cari task…": "Search task…",

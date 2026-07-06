@@ -110,6 +110,17 @@
   --accent2: #ff453a;       /* destructive only — kept red per brief */
   --accent3: #43d9a2;       /* status-positive — green (Active, Published, Paid…) */
   --accent4: #0B3DE7;       /* status-warn folded into blue */
+  /* Status colours for HTML chips/dots/badges. Dark = the current values
+     (unchanged); the light theme overrides them below with legible-on-white
+     tones. Canvas charts keep the hex values in the TS constants. */
+  --st-todo:      #8b8fa8;
+  --st-brief:     #64b5f6;
+  --st-produksi:  #5b9bd5;
+  --st-review:    #ffc542;
+  --st-revisi:    #a78bfa;
+  --st-ready:     #43d9a2;
+  --st-published: #22c55e;
+  --st-done:      #43d9a2;
   --text: #FFFFFF;
   --text2: rgba(255, 255, 255, 0.65);   /* labels, secondary copy */
   --text3: rgba(255, 255, 255, 0.45);   /* tertiary / hints */
@@ -363,20 +374,45 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
 .kanban-col.drag-over .drop-hint { display: flex; }
 
 [data-theme="light"] {
-  --bg: #f4f5fa;
-  --bg2: #ffffff;
-  --bg3: #eef0f7;
-  --bg-hover: #e6e9f3;
-  --border: #d5d8ea;
-  --border-strong: #b8bcd4;
+  color-scheme: light;      /* native controls (scrollbars, inputs) render light */
+  /* Bentala light palette (brief). Values only — variable NAMES stay identical to
+     the dark :root, so every component that reads them adapts with zero refactor.
+     The dark theme (:root) is untouched. */
+  --bg: #F6F7F9;            /* page */
+  --bg2: #FFFFFF;           /* surface: card, panel, sidebar */
+  --bg3: #EEF1F5;           /* muted: inputs, elevated rows */
+  --bg-hover: #E7EAEE;      /* row hover / secondary hover surface */
+  --border: #E7EAEE;
+  --border-strong: #D4D9E0;
   --shadow-card:
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
     0 2px 8px rgba(20, 25, 60, 0.06),
     0 12px 24px rgba(20, 25, 60, 0.05);
-  --text: #1a1d2e;
-  --text2: #4b5168;
-  --text3: #6b7280;
-  --link: #1749d6;          /* accent-as-TEXT — darker blue for contrast on light bg */
+  --text: #1A1D23;          /* primary: heading, angka */
+  --text2: #5A6472;         /* secondary: label, body */
+  --text3: #9AA3B2;         /* muted: hint, placeholder */
+  /* Brand accent for light. --accent drives buttons/nav-active/focus; --link is
+     the accent-as-TEXT (darker so links stay AA-legible on white). */
+  --accent: #2F6BFF;        /* primary */
+  --accent4: #2F6BFF;       /* status-warn folded into primary */
+  --accent2: #EF4444;       /* destructive */
+  --link: #1D4ED8;          /* accent-as-TEXT — AA on white */
+  /* Status tones for light — legible on white (WCAG-AA text), per brief. Used as
+     the single chip/dot/text colour; tints are derived via color-mix so a pale
+     wash sits behind the darker text. */
+  --st-todo:      #4A5262;
+  --st-brief:     #1D4ED8;
+  --st-produksi:  #4338CA;
+  --st-review:    #A16207;
+  --st-revisi:    #C2410C;
+  --st-ready:     #0F766E;
+  --st-published: #15803D;
+  --st-done:      #15803D;
+
+  /* Sidebar brand glyph (bpi/bsi/MB tiles) — white reads on the dark rail
+     but vanishes on the light one, so drop to the muted text tone here.
+     Dark keeps #fff via the var fallback in BrandGlyph. */
+  --brand-glyph: #5A6472;
 
   /* Pastel tones for light mode — saturated enough to give each
      card a distinct identity but light enough to keep the page
@@ -401,11 +437,49 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
   box-shadow: 3px 0 12px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* Sidebar logo — white bg logo adapted for dark/light mode */
-/* Dark: invert (black→white text) + screen blend (removes black bg) */
-.sidebar-logo { filter: invert(1); mix-blend-mode: screen; }
-/* Light: multiply blend makes white bg transparent, black text stays */
-[data-theme="light"] .sidebar-logo { filter: none; mix-blend-mode: multiply; }
+/* Sidebar fallback logo — a WHITE wordmark on transparent. brightness(0)
+   flattens it to a solid silhouette, then dark re-inverts it back to white.
+   (blend modes are avoided — `multiply` made the white mark vanish into the
+   light rail, which read as "still white".) */
+/* Dark: black silhouette re-inverted → white on the dark rail. */
+.sidebar-logo { filter: brightness(0) invert(1); }
+/* Light: black silhouette → reads on the light rail. */
+[data-theme="light"] .sidebar-logo { filter: brightness(0); }
+
+/* Sidebar search pill. Dark uses translucent-white fill/border (invisible on
+   the light rail, so the field looked shapeless there). Light gets a real
+   input surface — white fill, a defined border, a hair of lift — plus an
+   accent focus ring so it reads as tappable. Fill/border live here (not
+   inline) so the light override can win. */
+.sidebar-search {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+[data-theme="light"] .sidebar-search {
+  background: #fff;
+  border-color: var(--border-strong);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+[data-theme="light"] .sidebar-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+/* Status / platform pills. Dark keeps its hand-tuned solid fill (--tb-bg)
+   and accent text (--tb-fg) verbatim. Light can't reuse those near-black
+   fills — they read as harsh dark blobs on the pale rail — so it derives a
+   pale wash of the accent, a darkened-accent label (AA on the wash) and a
+   hairline inset ring for edge definition. Driven by custom props set inline
+   so the per-theme background/colour live here (an inline background would
+   otherwise win and defeat the light override). box-shadow (not border) keeps
+   the dark box metrics unchanged. */
+.themed-badge { background: var(--tb-bg); color: var(--tb-fg); }
+[data-theme="light"] .themed-badge {
+  background: color-mix(in srgb, var(--tb-fg) 13%, transparent);
+  color: color-mix(in srgb, var(--tb-fg) 62%, #0b1220);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tb-fg) 22%, transparent);
+}
 
 /* Horizontal scroll without a visible scrollbar — used by the tab
    strips (PageHeader / PageShell) so they swipe cleanly on touch. */

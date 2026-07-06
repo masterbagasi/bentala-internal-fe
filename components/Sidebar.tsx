@@ -258,25 +258,24 @@ function SidebarLogo({ isExpanded }: { isExpanded: boolean }) {
     )
   }
 
-  // The bundled fallback is a dark wordmark on transparent and
-  // needs inverting to read white on the sidebar. Admin-uploaded
-  // URLs are passed through as-is — editors are expected to
-  // upload a light/white asset themselves.
-  const isUsingFallback = logoUrl === FALLBACK_LOGO_SRC
-  const filter = isUsingFallback ? 'brightness(0) invert(1)' : 'none'
-
+  // The brand mark (bundled fallback OR admin-uploaded — most uploads are a
+  // white wordmark meant for the dark rail) is flattened to a monochrome
+  // silhouette by the `.sidebar-logo` class: white on the dark rail, black on
+  // the light one, so it always reads regardless of the source asset's colour.
+  // Applied unconditionally — an inline `filter` would override the class, so
+  // there's none here.
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img loading="lazy" decoding="async"
       src={logoUrl}
       alt="Bentala"
+      className="sidebar-logo"
       style={{
         height: heightPx,
         width: 'auto',
         display: 'block',
         transition: 'height 0.22s ease',
         objectFit: 'contain',
-        filter,
         flexShrink: 0,
       }}
     />
@@ -857,14 +856,13 @@ export function Sidebar() {
             cut by an overflow ancestor. */}
         {expanded && (
           <div
+            className="sidebar-search"
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 8,
               padding: '8px 10px',
               borderRadius: 8,
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.06)',
             }}
           >
             <span style={{ color: 'var(--text2)', display: 'inline-flex', flexShrink: 0 }}>
@@ -1028,7 +1026,7 @@ export function Sidebar() {
  *  with the item icons — even when the sidebar is collapsed to the icon rail. */
 function BrandGlyph({ text }: { text: string }) {
   return (
-    <span style={{ fontSize: 8.5, fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: '0.02em' }}>
+    <span style={{ fontSize: 8.5, fontWeight: 800, color: 'var(--brand-glyph, #fff)', lineHeight: 1, letterSpacing: '0.02em' }}>
       {text}
     </span>
   )
