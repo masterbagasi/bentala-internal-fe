@@ -33,6 +33,10 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
   const chartInstance = useRef<Chart | null>(null)
   const themeTick = useThemeTick() // re-render the donut when the theme flips
 
+  // Lifetime means "every task in scope" — no date constraint at all, so it
+  // includes undated tasks and anything before DATA_START / after today that a
+  // bounded range would otherwise drop (which made the totals under-count).
+  const isLifetime = dateRange.label === 'Lifetime'
   const from = new Date(dateRange.from)
   const to   = new Date(dateRange.to + 'T23:59:59')
 
@@ -40,8 +44,8 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
     if (picScope
       ? !(p.pics || []).includes(picScope)
       : entity === 'all' ? false : p.entity !== entity) return false
-    // A task with no date can't belong to any period — exclude it so the range
-    // totals only count scheduled tasks.
+    if (isLifetime) return true
+    // A bounded range: a task with no date belongs to no period, so exclude it.
     if (!p.date) return false
     const d = new Date(p.date)
     return d >= from && d <= to
@@ -64,7 +68,8 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
   const inProgress = (statusCounts['brief'] || 0) + (statusCounts['produksi'] || 0) + (statusCounts['review'] || 0) + (statusCounts['ready'] || 0)
   const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0)
 
-  // Per-platform spread across every supported socmed (IG, TikTok, YouTube, X, LinkedIn).
+  // Per-platform spread across every supported platform (IG, TikTok, YouTube, X,
+  // LinkedIn, Website, Aplikasi) — driven by POST_PLATFORMS so it stays in sync.
   const platforms = POST_PLATFORMS.map(p => ({
     key: p.key, label: p.label, short: p.short, color: p.color,
     count: bpiPosts.filter(x => (x.platforms || []).includes(p.key)).length,
@@ -177,7 +182,7 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
   ]
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', maxWidth: 1400, margin: '0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
       <style>{CSS}</style>
 
       {/* KPI strip */}
@@ -195,7 +200,7 @@ export function BPIAnalytics({ entity = 'bpi', picScope }: { entity?: string; pi
       </div>
 
       {/* Distribution + breakdown */}
-      <div className="an-grid2">
+      <div className="an-top">
         <div className="an-card" style={{ display: 'flex', flexDirection: 'column' }}>
           <SectionTitle title={t('Distribusi Status')} />
           {total === 0
@@ -358,9 +363,9 @@ const CSS = `
 @media (max-width: 720px) { .an-kpis { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
 
 /* Platform tiles — 5 socmeds; 5 → 3 → 2 across breakpoints. */
-.an-plat { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 8px; }
-@media (max-width: 980px) { .an-plat { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 560px) { .an-plat { grid-template-columns: repeat(2, 1fr); } }
+/* Auto-fit so any number of platforms lays out cleanly (was a fixed 5-col grid,
+   which pushed Website/Aplikasi onto a cramped second row once added). */
+.an-plat { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 12px; margin-top: 8px; }
 .an-plat-tile { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 12px 13px; }
 .an-plat-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .an-plat-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 20px; padding: 0 6px; border-radius: 6px; font-size: 10px; font-weight: 800; color: #fff; background: var(--c); }
@@ -371,6 +376,10 @@ const CSS = `
 
 .an-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
 @media (max-width: 880px) { .an-grid2 { grid-template-columns: 1fr; } }
+/* Status row: cap the donut card (the chart is a fixed ~320px, so a full half-
+   width card would leave a big gap) and let the Breakdown fill the rest. */
+.an-top { display: grid; grid-template-columns: minmax(300px, 440px) 1fr; gap: 16px; align-items: stretch; }
+@media (max-width: 880px) { .an-top { grid-template-columns: 1fr; } }
 
 /* Mobile polish */
 @media (max-width: 560px) {

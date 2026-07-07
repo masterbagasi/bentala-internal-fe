@@ -17,6 +17,8 @@ export function DashboardContent() {
   const { posts, clients, invoices, projects, tasks, activity, dateRange } = useStore(useShallow((s) => ({ posts: s.posts, clients: s.clients, invoices: s.invoices, projects: s.projects, tasks: s.tasks, activity: s.activity, dateRange: s.dateRange })))
 
   // Filter by date range
+  // Lifetime = no date constraint (every task, incl. dated outside DATA_START..today).
+  const isLifetime = dateRange.label === 'Lifetime'
   const from = new Date(dateRange.from)
   const to   = new Date(dateRange.to + 'T23:59:59')
 
@@ -29,13 +31,13 @@ export function DashboardContent() {
 
   const bpiPosts = posts.filter(p => {
     if (p.entity !== 'bpi') return false
-    if (!p.date) return true
+    if (isLifetime || !p.date) return true
     const d = new Date(p.date)
     return d >= from && d <= to
   })
   const bsiPosts = posts.filter(p => {
     if (p.entity !== 'bsi') return false
-    if (!p.date) return true
+    if (isLifetime || !p.date) return true
     const d = new Date(p.date)
     return d >= from && d <= to
   })

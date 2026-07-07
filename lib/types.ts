@@ -9,7 +9,7 @@ export type PostStatus =
 // Project slug a post belongs to (e.g. 'bpi', 'bsi', or a custom one). 'ws' is
 // the workspace pseudo-entity. Free-form string since projects are now dynamic.
 export type PostEntity = string
-export type PostPlatform = 'ig' | 'tiktok' | 'youtube' | 'x' | 'linkedin'
+export type PostPlatform = 'ig' | 'tiktok' | 'youtube' | 'x' | 'linkedin' | 'website' | 'app'
 
 export interface SocmedProject {
   slug: string

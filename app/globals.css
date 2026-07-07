@@ -382,8 +382,11 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
   --bg2: #FFFFFF;           /* surface: card, panel, sidebar */
   --bg3: #EEF1F5;           /* muted: inputs, elevated rows */
   --bg-hover: #E7EAEE;      /* row hover / secondary hover surface */
-  --border: #E7EAEE;
-  --border-strong: #D4D9E0;
+  /* Field/divider border. Bumped to a real gray-300 so inputs, dropdowns and
+     rich-text editors (all keyed off --border on the white --bg2 surfaces)
+     read as defined controls instead of washing out. */
+  --border: #D4D9E0;
+  --border-strong: #C3CAD5;
   --shadow-card:
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
     0 2px 8px rgba(20, 25, 60, 0.06),
