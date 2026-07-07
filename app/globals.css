@@ -469,6 +469,21 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
+/* Sidebar nav rows. Dark keeps the macOS-style translucent-white pill (hover
+   fainter, active stronger). On the light rail those white washes vanish, so
+   the selected row becomes a solid white pill with a soft lift — a clear
+   selected state, not just a coloured icon. */
+.nav-row { background: transparent; }
+.nav-row:hover { background: rgba(255, 255, 255, 0.04); }
+.nav-row.nav-row-active,
+.nav-row.nav-row-active:hover { background: rgba(255, 255, 255, 0.08); }
+[data-theme="light"] .nav-row:hover { background: rgba(255, 255, 255, 0.55); }
+[data-theme="light"] .nav-row.nav-row-active,
+[data-theme="light"] .nav-row.nav-row-active:hover {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.09);
+}
+
 /* Status / platform pills. Dark keeps its hand-tuned solid fill (--tb-bg)
    and accent text (--tb-fg) verbatim. Light can't reuse those near-black
    fills — they read as harsh dark blobs on the pale rail — so it derives a

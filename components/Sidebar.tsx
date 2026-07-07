@@ -1056,7 +1056,11 @@ function NavLink({
     <Link
       href={item.href}
       prefetch={false}
-      className={cn('relative flex items-center cursor-pointer transition-colors duration-150')}
+      // Active/hover row fill lives in the `.nav-row` CSS class so it can adapt
+      // per theme: a translucent-white pill on the dark rail, a solid white
+      // pill on the light rail (where white-on-white would vanish, leaving only
+      // the icon coloured).
+      className={cn('nav-row relative flex items-center cursor-pointer transition-colors duration-150', active && 'nav-row-active')}
       style={{
         padding: isExpanded ? '9px 12px' : '9px 0',
         margin: 0,
@@ -1064,22 +1068,10 @@ function NavLink({
         fontSize: 14,
         justifyContent: isExpanded ? 'flex-start' : 'center',
         gap: isExpanded ? 12 : 0,
-        // Active uses the macOS-style translucent fill instead of the
-        // old left-border + accent-text combo, so the row reads as a
-        // selected pill.
-        background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
         textDecoration: 'none',
         color: 'var(--text)',
         overflow: 'hidden',
         boxSizing: 'border-box',
-      }}
-      onMouseEnter={e => {
-        if (active) return
-        ;(e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'
-      }}
-      onMouseLeave={e => {
-        if (active) return
-        ;(e.currentTarget as HTMLElement).style.background = 'transparent'
       }}
     >
       <IconBox color={color} active={active}>{item.icon}</IconBox>
