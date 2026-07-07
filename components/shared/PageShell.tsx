@@ -143,7 +143,9 @@ export function PageShell({ title, backHref, action, tabs, children }: Props) {
             style={{
               display: 'flex',
               alignItems: 'stretch',
-              padding: '0 24px',
+              // Vertical breathing room so the tab row isn't cramped top-and-
+              // bottom (matches PageHeader / PageTabs).
+              padding: '10px 24px',
               gap: 4,
               overflowX: 'auto',
               WebkitOverflowScrolling: 'touch',

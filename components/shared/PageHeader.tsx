@@ -220,7 +220,10 @@ export function PageHeader({
           style={{
             display: 'flex',
             alignItems: 'stretch',
-            padding: '0 24px',
+            // Vertical breathing room so the row isn't the exact height of its
+            // tallest control (the date picker) — that made the tabs and button
+            // feel cramped top-and-bottom. Applies to every tabbed page.
+            padding: '10px 24px',
             gap: 8,
           }}
         >

@@ -64,7 +64,9 @@ export function PageTabs({ title, tabs, action }: Props) {
         style={{
           display: 'flex',
           gap: 4,
-          padding: '0 24px',
+          // Vertical breathing room so the tab row isn't cramped top-and-bottom
+          // (matches PageHeader / PageShell).
+          padding: '10px 24px',
           overflowX: 'auto',
         }}
       >
