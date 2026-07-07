@@ -13,10 +13,15 @@ import { getSupabase } from '@/lib/supabase'
 export function useMyTaskStatus(me: { email: string } | null | undefined) {
   const email = (me?.email || '').toLowerCase()
   const [statusMap, setStatusMap] = useState<Record<string, string>>({})
+  // False until the initial fetch resolves, so callers can hold placement that
+  // depends on this map (otherwise assignee cards default to "To Do List" and
+  // visibly jump to their real column once the statuses arrive).
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    if (!email) { setStatusMap({}); return }
+    if (!email) { setStatusMap({}); setLoaded(true); return }
     let cancelled = false
+    setLoaded(false)
     const supabase = getSupabase()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,6 +31,7 @@ export function useMyTaskStatus(me: { email: string } | null | undefined) {
         const m: Record<string, string> = {}
         ;(data ?? []).forEach((r) => { m[r.post_id] = r.status })
         setStatusMap(m)
+        setLoaded(true)
       })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,7 +70,7 @@ export function useMyTaskStatus(me: { email: string } | null | undefined) {
       .upsert({ post_id: postId, email, status, updated_at: new Date().toISOString() }, { onConflict: 'post_id,email' })
   }
 
-  return { statusMap, setStatus }
+  return { statusMap, setStatus, loaded }
 }
 
 /**
@@ -75,10 +81,14 @@ export function useMyTaskStatus(me: { email: string } | null | undefined) {
  */
 export function useAllTaskStatuses(enabled: boolean) {
   const [map, setMap] = useState<Record<string, Record<string, string>>>({})
+  // False until the initial fetch resolves — lets the My Task board hold until
+  // the per-assignee chips are known, so they don't flash "To Do List" first.
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    if (!enabled) { setMap({}); return }
+    if (!enabled) { setMap({}); setLoaded(true); return }
     let cancelled = false
+    setLoaded(false)
     const supabase = getSupabase()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,6 +101,7 @@ export function useAllTaskStatuses(enabled: boolean) {
           ;(m[r.post_id] ??= {})[em] = r.status
         })
         setMap(m)
+        setLoaded(true)
       })
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,5 +137,5 @@ export function useAllTaskStatuses(enabled: boolean) {
     return () => { cancelled = true; sub.subscription.unsubscribe(); if (channel) supabase.removeChannel(channel) }
   }, [enabled])
 
-  return map
+  return { map, loaded }
 }
