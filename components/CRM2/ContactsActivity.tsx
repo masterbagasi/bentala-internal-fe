@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useT } from '@/lib/i18n/LanguageProvider'
+import { useLogActivity } from '@/hooks/useData'
+import { restoreContactSnapshot, markActivityRestored } from '@/lib/crm/contactRestore'
 
 // Scope tags for CRM2 (new) feeds — kept separate from the legacy clients/leads
 // activity (scope 'contact') and from each other.
@@ -47,7 +49,24 @@ function ActIcon({ msg }: { msg: string }) {
 export function CrmActivityButton({ scope, title }: { scope: string; title: string }) {
   const t = useT()
   const activity = useStore(useShallow(s => s.activity.filter(a => a.scope === scope)))
+  const logActivity = useLogActivity()
+  const [restoring, setRestoring] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
+
+  // Undo a contact delete: re-insert the whole snapshot (contact + pipeline +
+  // contracts + invoices), flag the entry restored, and log a "dipulihkan" note.
+  async function pulihkan(a: { id: string; meta?: { snapshot?: import('@/lib/types').ContactDeleteSnapshot } | null }) {
+    const snap = a.meta?.snapshot
+    if (!snap || restoring) return
+    setRestoring(a.id)
+    try {
+      await restoreContactSnapshot(snap)
+      await markActivityRestored(a.id)
+      await logActivity(`Contact dipulihkan: "${snap.contact.company_name || snap.contact.name}"`, scope)
+    } catch (e) {
+      alert(t('Gagal memulihkan') + ': ' + ((e as { message?: string })?.message || 'coba lagi'))
+    } finally { setRestoring(null) }
+  }
   const [pos, setPos] = useState<{ left: number; width: number; top?: number; bottom?: number; maxH: number } | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -160,6 +179,18 @@ export function CrmActivityButton({ scope, title }: { scope: string; title: stri
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, color: 'var(--text)', lineHeight: 1.45 }}>{a.message}</div>
                   <div style={{ fontSize: 10.5, color: 'var(--text3)', marginTop: 3 }}>{(a.user_name || t('Sistem'))} · {relTime(a.created_at)}</div>
+                  {a.meta?.snapshot && (
+                    a.meta.restored ? (
+                      <span style={{ display: 'inline-block', marginTop: 6, fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>✓ {t('Dipulihkan')}</span>
+                    ) : (
+                      <button
+                        onClick={() => pulihkan(a)}
+                        disabled={restoring === a.id}
+                        style={{ marginTop: 6, fontSize: 11, fontWeight: 700, color: 'var(--link)', background: 'transparent', border: '1px solid color-mix(in srgb, var(--link) 40%, var(--border))', borderRadius: 7, padding: '3px 10px', cursor: restoring === a.id ? 'default' : 'pointer', opacity: restoring === a.id ? 0.6 : 1 }}>
+                        {restoring === a.id ? t('Memulihkan…') : '↩ ' + t('Pulihkan')}
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
             ))}

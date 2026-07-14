@@ -4,13 +4,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '@/hooks/useStore'
 import { useWebsiteLeadSync } from '@/hooks/useWebsiteLeadSync'
 import { promoteContactToClient } from '@/lib/crm/promoteClient'
+import { buildContactSnapshot, hardDeleteContact } from '@/lib/crm/contactRestore'
+import { useLogActivity } from '@/hooks/useData'
 import { ConfirmDialog } from '@/components/shared/Modal'
 import { getSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { CATEGORY_LABEL, CATEGORY_COLOR, CONTACT_CATEGORIES } from '@/lib/crm/schema'
 import { ContactFormModal } from './ContactFormModal'
 import { ContactDetailPanel } from './ContactDetailPanel'
-import { ContactsActivity } from './ContactsActivity'
+import { ContactsActivity, CONTACT_SCOPE } from './ContactsActivity'
 import { StageBadge } from './ui'
 
 export function ContactsList() {
@@ -18,12 +20,11 @@ export function ContactsList() {
   // Auto-pull public-website leads into the new CRM (contacts + prospects).
   useWebsiteLeadSync()
   const contacts = useStore(s => s.contacts)
-  const setContacts = useStore(s => s.setContacts)
   const deals = useStore(s => s.deals)
-  const setDeals = useStore(s => s.setDeals)
   const crmProjects = useStore(s => s.crmProjects)
   const crmInvoices = useStore(s => s.crmInvoices)
   const upsertDeal = useStore(s => s.upsertDeal)
+  const logActivity = useLogActivity()
 
   const [selected, setSelected] = useState<string | null>(null)
   const tableBoxRef = useRef<HTMLDivElement>(null)
@@ -78,17 +79,6 @@ export function ContactsList() {
   async function confirmDeleteSelected() {
     const ids = Array.from(selectedIds)
     if (!ids.length) { setConfirmDel(false); return }
-    // Block if any selected contact still owns a Contract (project) or Invoice —
-    // deleting would orphan them (contact_id → null, dropping out of every view).
-    const idSet0 = new Set(ids)
-    const blocked = contacts.filter(c => idSet0.has(c.id) && (
-      crmProjects.some(p => p.contact_id === c.id) || crmInvoices.some(i => i.contact_id === c.id)
-    ))
-    if (blocked.length) {
-      alert(t('Tidak bisa dihapus: ') + blocked.length + t(' contact terpilih masih punya contract/invoice. Hapus atau pindahkan dulu.'))
-      setConfirmDel(false)
-      return
-    }
     setBusy(true)
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -101,10 +91,21 @@ export function ContactsList() {
         .flatMap(x => [(x.email || '').trim(), (x.phone || '').trim()])
         .filter(Boolean)
 
-      const d = await sb.from('deals').delete().in('contact_id', ids)
-      if (d.error) throw d.error
-      const c = await sb.from('contacts').delete().in('id', ids)
-      if (c.error) throw c.error
+      // Delete each contact WHOLE — its pipeline, contracts and invoices go too.
+      // A full snapshot is logged to the activity feed so the delete can be undone
+      // (Pulihkan), bringing everything back exactly as it was.
+      for (const id of ids) {
+        const snap = buildContactSnapshot(id)
+        if (!snap) continue
+        // Log the restorable snapshot FIRST, then delete — so a failed log never
+        // leaves data deleted with no way back.
+        await logActivity(
+          `Contact dihapus: "${snap.contact.company_name || snap.contact.name}"`,
+          CONTACT_SCOPE,
+          { kind: 'contact-crm', id, snapshot: snap, restored: false },
+        )
+        await hardDeleteContact(snap)
+      }
 
       // Tombstone the originating website leads (converted_client_id != null ⇒
       // the sync skips them) so a deleted contact stays deleted.
@@ -115,8 +116,6 @@ export function ContactsList() {
           .in('contact_value', values)
       }
 
-      setContacts(contacts.filter(x => !idSet.has(x.id)))
-      setDeals(deals.filter(x => !idSet.has(x.contact_id)))
       setConfirmDel(false)
       exitSelect()
     } catch (e) {
@@ -330,7 +329,7 @@ export function ContactsList() {
         open={confirmDel}
         danger
         title={`Hapus ${selectedCount} contact terpilih?`}
-        message="Contact terpilih beserta prospect-nya akan dihapus permanen. Tindakan ini tidak bisa dibatalkan."
+        message="Contact terpilih beserta pipeline, contract & invoice-nya akan dihapus. Bisa dipulihkan kembali lewat menu Activity."
         confirmLabel={busy ? 'Menghapus…' : 'Hapus'}
         cancelLabel="Batal"
         onConfirm={confirmDeleteSelected}
