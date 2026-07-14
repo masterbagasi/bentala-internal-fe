@@ -81,7 +81,8 @@
   --bg: #0B0C11;           /* page canvas — same hue family as bg2, one step darker */
   --bg2: #15161C;          /* section cards, sidebar */
   --bg3: #22232B;          /* inputs, elevated rows */
-  --bg-hover: #2A2C36;     /* row hover + button-secondary hover surface */
+  --bg-hover: #2A2C36;     /* selected row + button-secondary hover surface */
+  --row-hover: #1E1F27;    /* row hover — subtler than the selected shade */
   --border: rgba(255, 255, 255, 0.12);          /* card edges, dividers */
   --border-strong: rgba(255, 255, 255, 0.20);   /* focused / active states */
   --shadow-card:
@@ -357,7 +358,10 @@ th {
 }
 td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
 tr:last-child td { border-bottom: none; }
-tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
+tr:hover td { background: var(--row-hover); transition: background 0.12s; }
+/* Selected rows keep the fuller shade — distinct from the subtler hover, and
+   stay put even while hovered. */
+tr.is-selected td, tr.is-selected:hover td { background: var(--bg-hover); }
 
 /* Drop hint */
 .drop-hint {
@@ -381,9 +385,13 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
   --bg: #F6F7F9;            /* page */
   --bg2: #FFFFFF;           /* surface: card, panel, sidebar */
   --bg3: #EEF1F5;           /* muted: inputs, elevated rows */
-  --bg-hover: #E7EAEE;      /* row hover / secondary hover surface */
-  --border: #E7EAEE;
-  --border-strong: #D4D9E0;
+  --bg-hover: #E7EAEE;      /* selected row / secondary hover surface */
+  --row-hover: #F1F3F6;     /* row hover — subtler than the selected shade */
+  /* Field/divider border. Bumped to a real gray-300 so inputs, dropdowns and
+     rich-text editors (all keyed off --border on the white --bg2 surfaces)
+     read as defined controls instead of washing out. */
+  --border: #D4D9E0;
+  --border-strong: #C3CAD5;
   --shadow-card:
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
     0 2px 8px rgba(20, 25, 60, 0.06),
@@ -464,6 +472,21 @@ tr:hover td { background: var(--bg-hover); transition: background 0.12s; }
 [data-theme="light"] .sidebar-search:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+/* Sidebar nav rows. Dark keeps the macOS-style translucent-white pill (hover
+   fainter, active stronger). On the light rail those white washes vanish, so
+   the selected row becomes a solid white pill with a soft lift — a clear
+   selected state, not just a coloured icon. */
+.nav-row { background: transparent; }
+.nav-row:hover { background: rgba(255, 255, 255, 0.04); }
+.nav-row.nav-row-active,
+.nav-row.nav-row-active:hover { background: rgba(255, 255, 255, 0.08); }
+[data-theme="light"] .nav-row:hover { background: rgba(255, 255, 255, 0.55); }
+[data-theme="light"] .nav-row.nav-row-active,
+[data-theme="light"] .nav-row.nav-row-active:hover {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.09);
 }
 
 /* Status / platform pills. Dark keeps its hand-tuned solid fill (--tb-bg)

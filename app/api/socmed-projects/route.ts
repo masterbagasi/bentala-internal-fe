@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { createSupabaseAdmin } from '@/lib/supabase-admin'
-import { isEffectiveSuperAdmin } from '@/lib/access'
+import { isEffectiveSuperAdmin, SUPER_ADMIN_EMAILS } from '@/lib/access'
 import { projectGlyph } from '@/lib/project-glyph'
 
 // GET /api/socmed-projects — list every socmed project (active + archived).
@@ -55,6 +55,9 @@ function pickProfile(body: Record<string, unknown>): Record<string, string> {
 export async function POST(req: NextRequest) {
   const forbidden = await requireSuperAdmin()
   if (forbidden) return forbidden
+  // Who is creating — used to scope access when grantAccess is requested.
+  const { data: { user: reqUser } } = await createServerSupabase().auth.getUser()
+  const requesterEmail = (reqUser?.email ?? '').toLowerCase()
 
   let body: Record<string, unknown>
   try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
@@ -79,6 +82,23 @@ export async function POST(req: NextRequest) {
   const { data, error } = await sb.from('socmed_projects')
     .insert({ slug, name, glyph, color, sort_order, active: true, ...pickProfile(body) }).select('*').single()
   if (error) { console.error('[/api/socmed-projects] POST', error); return NextResponse.json({ error: 'Failed to create' }, { status: 500 }) }
+
+  // Scoped access: when requested, grant this project's sections ONLY to the
+  // super admins + the creator (not everyone), so it shows in their sidebar.
+  if (body.grantAccess === true) {
+    const secs = [`smm.${slug}.social`, `smm.${slug}.projects`, `smm.${slug}.chat`]
+    const targets = Array.from(new Set([...SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()), requesterEmail].filter(Boolean)))
+    for (const email of targets) {
+      const { data: row } = await sb.from('menu_access').select('sections').eq('email', email).maybeSingle()
+      if (row) {
+        const cur = Array.isArray(row.sections) ? (row.sections as string[]) : []
+        const next = Array.from(new Set([...cur, ...secs]))
+        await sb.from('menu_access').update({ sections: next, updated_at: new Date().toISOString() }).eq('email', email)
+      } else {
+        await sb.from('menu_access').insert({ email, sections: secs })
+      }
+    }
+  }
   return NextResponse.json({ project: data })
 }
 

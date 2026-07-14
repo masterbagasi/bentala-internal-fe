@@ -54,11 +54,20 @@ export const STATIC_SECTIONS: AccessSection[] = [
   { id: 'social.reports',   label: 'Reports',   group: 'Social Media', routes: ['/social/reports'],   landing: '/social/reports' },
   { id: 'social.plan',      label: 'Plan',      group: 'Social Media', routes: ['/social/plan'],      landing: '/social/plan' },
 
-  // Client
+  // Client — CRM v2 (Contact → Deal → Contract → Invoice). Each leaf is its own
+  // grantable item so a super admin can scope who sees the pipeline vs. finances.
+  { id: 'crm.dashboard', label: 'Dashboard', group: 'Client', routes: ['/crm/dashboard'], landing: '/crm/dashboard' },
+  { id: 'crm.contacts',  label: 'Contacts',  group: 'Client', routes: ['/contacts'],       landing: '/contacts' },
+  { id: 'crm.pipeline',  label: 'Pipeline',  group: 'Client', routes: ['/pipeline'],        landing: '/pipeline' },
+  { id: 'crm.contracts', label: 'Contracts', group: 'Client', routes: ['/crm/projects'],    landing: '/crm/projects' },
+  { id: 'crm.invoices',  label: 'Invoices',  group: 'Client', routes: ['/crm/invoices'],    landing: '/crm/invoices' },
+
+  // Client — legacy (pages removed from the nav; ids kept for existing grants &
+  // any direct links). client.report still backs the Reports item (/sales-report).
   { id: 'client.leads',    label: 'Leads',           group: 'Client', routes: ['/website/leads'], landing: '/website/leads' },
   { id: 'client.crm',      label: 'CRM Pipeline',    group: 'Client', routes: ['/clients'],       landing: '/clients' },
   { id: 'client.invoices', label: 'Invoice & Bayar', group: 'Client', routes: ['/invoices'],      landing: '/invoices' },
-  { id: 'client.report',   label: 'Laporan Sales',  group: 'Client', routes: ['/sales-report'],  landing: '/sales-report' },
+  { id: 'client.report',   label: 'Reports',        group: 'Client', routes: ['/sales-report'],  landing: '/sales-report' },
 
   // Projects — `projects.all` / `projects.tasks` now surface in the Projects
   // sidebar group; `projects.vp` / `projects.ds` remain until the Team cutover.
@@ -125,10 +134,18 @@ const LEGACY_ALIASES: Record<string, string[]> = {
   bpi:      ['smm.bpi.social', 'smm.bpi.projects', 'smm.bpi.chat'],
   bsi:      ['smm.bsi.social', 'smm.bsi.projects', 'smm.bsi.chat'],
   social:   ['social.accounts', 'social.analytics', 'social.reports', 'social.plan'],
-  client:   ['client.leads', 'client.crm', 'client.invoices', 'client.report'],
+  client:   ['crm.dashboard', 'crm.contacts', 'crm.pipeline', 'crm.contracts', 'crm.invoices', 'client.leads', 'client.crm', 'client.invoices', 'client.report'],
   projects: ['projects.all', 'projects.tasks', 'projects.vp', 'projects.ds'],
   ai:       ['ai.chat', 'ai.ideas', 'ai.image', 'ai.templates', 'ai.video', 'ai.render', 'ai.audio', 'ai.bpi', 'ai.builder', 'ai.pipeline'],
   settings: ['settings.ai'],
+}
+
+// Backward-compat co-grants: holding a legacy granular Client id keeps access to
+// its CRM v2 equivalents, so existing accounts don't lose the pages when the
+// CLIENT menu switched to the new flow. Applied additively in normaliseSections.
+const CO_GRANTS: Record<string, string[]> = {
+  'client.crm':      ['crm.dashboard', 'crm.contacts', 'crm.pipeline'],
+  'client.invoices': ['crm.contracts', 'crm.invoices'],
 }
 
 export type Role = 'super_admin' | 'admin' | 'user'
@@ -271,5 +288,7 @@ export function normaliseSections(input: unknown): string[] {
     else if (SMM_ID_RE.test(v)) push(v)
     else if (LEGACY_ALIASES[v]) LEGACY_ALIASES[v].forEach(push)
   }
+  // Additive co-grants: a legacy Client id also unlocks its CRM v2 equivalents.
+  for (const id of [...out]) CO_GRANTS[id]?.forEach(push)
   return out
 }

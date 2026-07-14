@@ -276,9 +276,9 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
       return (slug: string) => slug === 'personal' ? 'Personal' : (m.get(slug) || (slug === 'other' ? 'Other' : slug))
     }, [socmedProjects])
     // Per-user status for My Task (tagged posts get their own independent status).
-    const { statusMap: myStatus, setStatus: setMyStatus } = useMyTaskStatus(mineScope)
+    const { statusMap: myStatus, setStatus: setMyStatus, loaded: myStatusLoaded } = useMyTaskStatus(mineScope)
     // Every account's per-task status → per-assignee chips on the My Task board.
-    const allTaskStatus = useAllTaskStatuses(!!mineScope || !!allProjects)
+    const { map: allTaskStatus, loaded: allStatusLoaded } = useAllTaskStatuses(!!mineScope || !!allProjects)
     // Whether the logged-in account created this task. The creator OWNS the
     // task's master status (their My Task mirrors it and their moves write it);
     // a tagged assignee instead gets an independent worksheet. Tasks with no
@@ -580,6 +580,12 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               canDelete={mineScope ? canDeleteTask : undefined} />
           )}
           {activeTab === 'board' && (
+            // My Task places cards by the per-user status map (mineColOf) — hold
+            // the board until it's loaded so assignee cards don't flash in "To Do
+            // List" and then jump to their real column.
+            mineScope && (!myStatusLoaded || !allStatusLoaded) ? (
+              <div style={{ padding: '52px 0', textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{t('Memuat…')}</div>
+            ) : (
             <KanbanBoard
               posts={filtered}
               currentUser={currentUser}
@@ -611,6 +617,7 @@ export const BPIPage = forwardRef<BPIPageHandle, BPIPageProps>(
               }
               onMove={moveOnBoard}
             />
+            )
           )}
           {activeTab === 'calendar' && <ContentCalendar entity={mineScope ? 'all' : (allProjects ? 'all' : (calEntity ?? entity))} mineScope={mineScope} onPostClick={openPreview} filters={filters} />}
           {activeTab === 'files' && <FilesTab posts={filtered} />}

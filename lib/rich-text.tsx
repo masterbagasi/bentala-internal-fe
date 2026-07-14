@@ -12,10 +12,35 @@ const RICH_SANITIZE_OPTS = {
   ALLOWED_ATTR: ['style', 'class'],
 }
 
+const RICH_TAGS = 'p|br|span|strong|b|em|i|u|div|h[1-6]|ul|ol|li'
+const REAL_TAG_RE = new RegExp(`<\\/?(${RICH_TAGS})\\b[^>]*>`, 'i')
+const ESCAPED_TAG_RE = new RegExp(`&lt;\\/?(${RICH_TAGS})\\b`, 'i')
+
+/** Decode HTML entities (&lt; &gt; &amp; …) to their characters. */
+function decodeEntities(s: string): string {
+  if (typeof document !== 'undefined') {
+    const el = document.createElement('textarea')
+    el.innerHTML = s
+    return el.value
+  }
+  return s
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'").replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+}
+
+/** Some values were entity-escaped when saved — stored as `&lt;p&gt;…` or as real
+ *  tags wrapping escaped ones (`<p>&lt;br&gt;</p>`), which otherwise show literal
+ *  <p>/<br> code in the text. Decode the escaped markup back to real HTML so it
+ *  renders as formatting. Values with no escaped tags pass through untouched. */
+export function normalizeRich(value: string | null | undefined): string {
+  const s = (value ?? '').toString()
+  return ESCAPED_TAG_RE.test(s) ? decodeEntities(s) : s
+}
+
 /** True when a stored value carries HTML markup (i.e. came from RichTextEditor).
  *  Old plain-text values have no tags and are rendered/copy-ed verbatim. */
 export function isRichHtml(value: string | null | undefined): boolean {
-  return !!value && /<\/?(p|br|span|strong|b|em|i|u)\b[^>]*>/i.test(value)
+  return !!value && REAL_TAG_RE.test(normalizeRich(value))
 }
 
 /** Sanitize HTML for safe storage / rendering — keeps inline styling. */
@@ -29,7 +54,7 @@ export function sanitizeRich(html: string): string {
 export function htmlToPlain(value: string | null | undefined): string {
   if (!value) return ''
   if (!isRichHtml(value)) return value
-  let s = value
+  let s = normalizeRich(value)
     .replace(/<\/(p|div|h[1-6])>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, '')
@@ -58,7 +83,7 @@ export function plainToRich(value: string | null | undefined): string {
 export function RichTextView({
   value, style, className,
 }: { value: string | null | undefined; style?: React.CSSProperties; className?: string }) {
-  const text = (value ?? '').toString()
+  const text = normalizeRich(value)
   const cls = className ? `rich-text-view ${className}` : 'rich-text-view'
   if (isRichHtml(text)) {
     return (

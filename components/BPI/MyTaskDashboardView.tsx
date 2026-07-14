@@ -31,7 +31,12 @@ export function MyTaskDashboardView({ me }: { me: { email: string; name: string 
     () => posts.filter(p => !p.deleted_at && p.status !== 'todo' && isAccountTask(p, me)),
     [posts, me],
   )
-  const dashPosts = useMemo(() => myPosts.filter(p => inRange(p, dateRange)), [myPosts, dateRange])
+  // Lifetime = every task, no date constraint (incl. undated); a bounded range
+  // filters to its window (and drops undated, which belong to no period).
+  const dashPosts = useMemo(
+    () => (dateRange.label === 'Lifetime' ? myPosts : myPosts.filter(p => inRange(p, dateRange))),
+    [myPosts, dateRange],
+  )
 
   return <TaskDashboard posts={dashPosts} allPosts={myPosts} projects={bf.projects} />
 }

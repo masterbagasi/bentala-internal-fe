@@ -11,13 +11,17 @@ export const TEAM: TeamMember[] = [
   { name: 'Video Production', role: 'Video',          color: '#ff6b6b', initials: 'VP', email: 'video@masterbagasi.com' },
 ]
 
-// Social platforms a post can target. `bg` is the chip background tint.
+// Platforms a post can target. `bg` is the chip background tint. The social
+// networks come first; `website`/`app` cover non-social destinations (a landing
+// page, a mobile app) so a task can be tagged there too.
 export const POST_PLATFORMS = [
-  { key: 'ig',       label: 'Instagram', short: 'IG', color: '#e1306c', bg: '#2a1028' },
-  { key: 'tiktok',   label: 'TikTok',    short: 'TT', color: '#69c9d0', bg: '#0a1a1a' },
-  { key: 'youtube',  label: 'YouTube',   short: 'YT', color: '#ff4d4f', bg: '#2a0e0e' },
-  { key: 'x',        label: 'X',         short: 'X',  color: '#d6d9dc', bg: '#1a1a1a' },
-  { key: 'linkedin', label: 'LinkedIn',  short: 'IN', color: '#3b9ad9', bg: '#0d1a24' },
+  { key: 'ig',       label: 'Instagram', short: 'IG',  color: '#e1306c', bg: '#2a1028' },
+  { key: 'tiktok',   label: 'TikTok',    short: 'TT',  color: '#69c9d0', bg: '#0a1a1a' },
+  { key: 'youtube',  label: 'YouTube',   short: 'YT',  color: '#ff4d4f', bg: '#2a0e0e' },
+  { key: 'x',        label: 'X',         short: 'X',   color: '#d6d9dc', bg: '#1a1a1a' },
+  { key: 'linkedin', label: 'LinkedIn',  short: 'IN',  color: '#3b9ad9', bg: '#0d1a24' },
+  { key: 'website',  label: 'Website',   short: 'WEB', color: '#38bdf8', bg: '#0b1a24' },
+  { key: 'app',      label: 'Aplikasi',  short: 'APP', color: '#a78bfa', bg: '#161228' },
 ] as const
 
 // Content aspect ratios (complete set for social formats).

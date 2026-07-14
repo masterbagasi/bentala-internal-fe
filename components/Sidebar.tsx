@@ -7,7 +7,8 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { initNotificationSound } from '@/lib/notificationSound'
 import { getSupabase } from '@/lib/supabase'
 import { AccountButton } from '@/components/shared/AccountButton'
-import { isEffectiveSuperAdmin, normaliseSections, sectionForPath, canAccessChat, chatRoomFromPath, firstAllowedLanding } from '@/lib/access'
+import { sectionForPath, canAccessChat, chatRoomFromPath, firstAllowedLanding, PERSONAL_DASHBOARD_PATH } from '@/lib/access'
+import { useAccess } from '@/hooks/useAccess'
 import { useT } from '@/lib/i18n/LanguageProvider'
 import { useSocmedProjects } from '@/lib/socmed-projects'
 import { projectGlyph } from '@/lib/project-glyph'
@@ -66,6 +67,15 @@ const COLOR = {
   indigo:  '#4541b8',
   gray:    '#5a5a60',
 } as const
+
+// Per-account tile colours — a stable hue per login account from its email, so
+// each Team member's sidebar glyph keeps the same colour across sessions.
+const ACCT_PALETTE = [COLOR.blue, COLOR.green, COLOR.orange, COLOR.purple, COLOR.teal, COLOR.pink, COLOR.indigo, COLOR.red] as const
+function acctColor(email: string): string {
+  let h = 0
+  for (let i = 0; i < email.length; i++) h = (h * 31 + email.charCodeAt(i)) % ACCT_PALETTE.length
+  return ACCT_PALETTE[h]
+}
 
 // ── Icon helpers ────────────────────────────────────────────
 // Icons are rendered in white inside a colored rounded-square
@@ -292,23 +302,26 @@ export function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(true)
   const [query, setQuery] = useState('')
   const smmProjects = useSocmedProjects(true)
+  // Every login account — drives the per-account items under the Team section
+  // (super-admin only). The full list, so no teammate is left out.
+  const [teamAccounts, setTeamAccounts] = useState<{ email: string; name: string; avatarUrl?: string | null }[]>([])
 
   // ── Unread-change badges for the posts boards ──
   // Count of tasks changed by someone else that the viewer hasn't opened yet,
   // keyed by nav href. Derived live from the global posts store + the viewer's
   // seen map, so badges appear the instant a card moves/changes elsewhere and
   // clear when the viewer opens the task.
-  const { posts, meEmail, postSeen, chatUnread } = useStore(useShallow((s) => ({ posts: s.posts, meEmail: s.meEmail, postSeen: s.postSeen, chatUnread: s.chatUnread })))
+  const { posts, meEmail, meName, postSeen, chatUnread } = useStore(useShallow((s) => ({ posts: s.posts, meEmail: s.meEmail, meName: s.meName, postSeen: s.postSeen, chatUnread: s.chatUnread })))
   const boardUnread = useMemo(() => {
     const m: Record<string, number> = {}
-    m['/projects-all'] = countUnreadInScope(posts, { kind: 'all' }, meEmail, postSeen, chatUnread)
-    m['/bpi-faizal']   = countUnreadInScope(posts, { kind: 'pic', pic: VP_PIC }, meEmail, postSeen, chatUnread)
-    m['/bpi-reinaldi'] = countUnreadInScope(posts, { kind: 'pic', pic: DS_PIC }, meEmail, postSeen, chatUnread)
+    m['/projects-all'] = countUnreadInScope(posts, { kind: 'all' }, meEmail, postSeen, chatUnread, meName)
+    m['/bpi-faizal']   = countUnreadInScope(posts, { kind: 'pic', pic: VP_PIC }, meEmail, postSeen, chatUnread, meName)
+    m['/bpi-reinaldi'] = countUnreadInScope(posts, { kind: 'pic', pic: DS_PIC }, meEmail, postSeen, chatUnread, meName)
     for (const p of smmProjects) {
-      m[`/smm/${p.slug}`] = countUnreadInScope(posts, { kind: 'entity', entity: p.slug }, meEmail, postSeen, chatUnread)
+      m[`/smm/${p.slug}`] = countUnreadInScope(posts, { kind: 'entity', entity: p.slug }, meEmail, postSeen, chatUnread, meName)
     }
     return m
-  }, [posts, meEmail, postSeen, chatUnread, smmProjects])
+  }, [posts, meEmail, meName, postSeen, chatUnread, smmProjects])
 
   // ── Responsive: off-canvas drawer on mobile ──
   // Below 768px the fixed rail would shove the page off-screen, so the
@@ -336,76 +349,25 @@ export function Sidebar() {
   // collapse-to-rail affordance only makes sense on desktop.
   const expanded = isMobile ? true : isExpanded
 
-  // ── Per-account menu access ──
-  // Determines which sections this account may see. Super admin sees all.
-  // `loading` keeps the nav blank until we know, so we never flash menus the
-  // account can't open. Mirrors the DENY-by-default gate in middleware.ts.
-  // `isSuper` = may manage access + the Manage-Access escape hatch.
-  // `fullBypass` = super admin with NO menu_access row yet → sees everything
-  // (not configured). Once an admin saves their access, they're gated by grants
-  // like anyone else (so the toggles actually take effect on a super's own UI).
-  const [access, setAccess] = useState<{
-    loading: boolean
-    isSuper: boolean
-    fullBypass: boolean
-    allowed: Set<string>
-  }>({ loading: true, isSuper: false, fullBypass: false, allowed: new Set() })
-
-  // My email — used to skip the notification sound for my own messages.
-  const meEmailRef = useRef<string | null>(null)
+  // Per-account menu access, resolved live via the shared hook (same logic that
+  // used to live inline here). `access.personalOnly` drives the promoted
+  // Dashboard item; the rest gates sections exactly as before.
+  const access = useAccess()
   useEffect(() => { initNotificationSound() }, [])
 
+  // Load every account for the Team section's per-account items (super only).
+  // Re-pull periodically so a new profile photo appears without a reload.
   useEffect(() => {
+    if (!access.isSuper) { setTeamAccounts([]); return }
     let cancelled = false
-    const supabase = getSupabase()
-
-    // Resolve the caller's access. Re-runnable so a realtime grant change can
-    // refresh the whole nav without a reload.
-    const loadAccess = async () => {
-      const { data } = await supabase.auth.getUser()
-      const email = data.user?.email
-      meEmailRef.current = (email ?? '').toLowerCase() || null
-      const isSuper = isEffectiveSuperAdmin(email, data.user?.app_metadata?.role)
-      let row: { sections?: unknown } | null = null
-      try {
-        const res = await supabase.from('menu_access').select('sections').limit(1).maybeSingle()
-        row = (res.data as { sections?: unknown } | null) ?? null
-      } catch {
-        row = null
-      }
-      // Super admin not yet configured (no row) → full access; otherwise gated by
-      // their own grants like everyone else.
-      const fullBypass = isSuper && row === null
-      const allowed = normaliseSections(row?.sections)
-      if (!cancelled) setAccess({ loading: false, isSuper, fullBypass, allowed: new Set(allowed) })
-    }
-
-    loadAccess()
-
-    // Realtime: when an admin saves new grants for THIS account, re-evaluate
-    // access immediately so the sidebar / accessible tabs update with no refresh.
-    // menu_access RLS scopes to the caller's own row, so only their change
-    // arrives. setAuth is required for the socket to receive RLS-gated events.
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return
-      const token = data.session?.access_token
-      if (token) (supabase.realtime as { setAuth: (t: string) => void }).setAuth(token)
-      channel = supabase
-        .channel('menu-access:self')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_access' }, () => loadAccess())
-        .subscribe()
-    })
-    const authSub = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s?.access_token) (supabase.realtime as { setAuth: (t: string) => void }).setAuth(s.access_token)
-    })
-
-    return () => {
-      cancelled = true
-      authSub.data.subscription.unsubscribe()
-      if (channel) supabase.removeChannel(channel)
-    }
-  }, [])
+    const load = () => fetch('/api/accounts')
+      .then(r => (r.ok ? r.json() : { accounts: [] }))
+      .then((d: { accounts?: { email: string; name: string; avatarUrl?: string | null }[] }) => { if (!cancelled) setTeamAccounts(d.accounts ?? []) })
+      .catch(() => {})
+    load()
+    const id = setInterval(load, 60_000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [access.isSuper])
 
   // If a realtime grant change revokes access to the page the user is CURRENTLY
   // on, bounce them to their first allowed landing (mirrors middleware, which
@@ -419,7 +381,10 @@ export function Sidebar() {
       ? canAccessChat(access.allowed, room)
       : (() => { const sec = sectionForPath(pathname); return sec === null || access.allowed.has(sec) })()
     if (!ok) {
-      const target = firstAllowedLanding(Array.from(access.allowed)) ?? '/no-access'
+      // Personal-only accounts land on their promoted dashboard, matching middleware.
+      const target = access.personalOnly
+        ? PERSONAL_DASHBOARD_PATH
+        : (firstAllowedLanding(Array.from(access.allowed)) ?? '/no-access')
       if (target !== pathname) router.replace(target)
     }
   }, [access, pathname, router])
@@ -438,6 +403,12 @@ export function Sidebar() {
     {
       id: 'overview',
       items: [
+        // Personal-only accounts (no general Dashboard grant, no project board)
+        // get the My Task dashboard promoted to a first-class item at the very
+        // top — the general Dashboard ('/') below is hidden for them by gating.
+        ...(access.personalOnly
+          ? [{ href: '/my-task/dashboard', label: 'Dashboard', icon: <DashboardIcon />, color: COLOR.blue }]
+          : []),
         { href: '/', label: 'Dashboard', icon: <DashboardIcon />, color: COLOR.blue },
         // Unified chat — a top-level item right under Dashboard (not nested in a
         // section). Lists every Socmed Management room the user can access.
@@ -498,11 +469,14 @@ export function Sidebar() {
       badge: <BrandBadge text="client" />,
       fullLabel: 'Client',
       items: [
-        { href: '/website/leads',    label: 'Leads',           icon: <MoneyIcon />,  color: COLOR.green },
-        { href: '/clients',          label: 'CRM Pipeline',    icon: <PeopleIcon />, color: COLOR.blue },
-        { href: '/clients/database', label: 'Database',        icon: <ListIcon />,   color: COLOR.teal },
-        { href: '/invoices',         label: 'Invoice & Bayar', icon: <MoneyIcon />,  color: COLOR.green },
-        { href: '/sales-report',     label: 'Laporan Sales',   icon: <ChartIcon />,  color: COLOR.purple },
+        // CRM v2 (Contact -> Deal -> Project -> Invoice). The legacy clients
+        // pages have been removed from the nav now the new flow is in use.
+        { href: '/crm/dashboard',     label: 'Dashboard',          icon: <DashboardIcon />, color: COLOR.blue },
+        { href: '/contacts',          label: 'Contacts',           icon: <PeopleIcon />,    color: COLOR.teal },
+        { href: '/pipeline',          label: 'Pipeline',           icon: <ListIcon />,      color: COLOR.purple },
+        { href: '/crm/projects',      label: 'Contracts',          icon: <FolderIcon />,    color: COLOR.orange },
+        { href: '/crm/invoices',      label: 'Invoices',           icon: <MoneyIcon />,     color: COLOR.green },
+        { href: '/sales-report',      label: 'Reports',            icon: <ReportIcon />,    color: COLOR.indigo },
       ],
     },
     {
@@ -519,6 +493,18 @@ export function Sidebar() {
         // (Task 9) so the live team isn't disrupted mid-work.
         { href: '/bpi-faizal',   label: 'Video Production', icon: <VideoIcon />,  color: COLOR.red },
         { href: '/bpi-reinaldi', label: 'Design Studio',    icon: <DesignIcon />, color: COLOR.purple },
+        // One clickable item per login account — opens that account's board.
+        ...(access.isSuper
+          ? teamAccounts.map(a => ({
+              href: `/team/${encodeURIComponent(a.email)}`,
+              label: a.name,
+              icon: a.avatarUrl
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={a.avatarUrl} alt="" width={26} height={26} style={{ width: 26, height: 26, borderRadius: 7, objectFit: 'cover', display: 'block' }} />
+                : <BrandGlyph text={(a.name.trim()[0] || '?').toUpperCase()} />,
+              color: acctColor(a.email),
+            }))
+          : []),
       ],
     },
     {
@@ -554,7 +540,7 @@ export function Sidebar() {
           : []),
       ],
     },
-  ], [access.isSuper, smmProjects])
+  ], [access.isSuper, access.personalOnly, smmProjects, teamAccounts])
 
   // Search filter — case-insensitive match. Two paths:
   //  1) Section title (label / fullLabel / badge text — e.g. "bentala
@@ -587,8 +573,9 @@ export function Sidebar() {
             continue
           }
           if (href === '/chat') {
-            // Unified Chat tab — visible if the user can chat in ANY project.
-            if (smmProjects.some(p => canAccessChat(access.allowed, p.slug))) out.push(e)
+            // Unified Chat tab — visible if the user can chat in ANY project, or
+            // in the "Other" fallback bucket (its own chat grant).
+            if (smmProjects.some(p => canAccessChat(access.allowed, p.slug)) || canAccessChat(access.allowed, 'other')) out.push(e)
             continue
           }
           const chatRoom = chatRoomFromPath(href)
@@ -1111,7 +1098,11 @@ function NavLink({
     <Link
       href={item.href}
       prefetch={false}
-      className={cn('relative flex items-center cursor-pointer transition-colors duration-150')}
+      // Active/hover row fill lives in the `.nav-row` CSS class so it can adapt
+      // per theme: a translucent-white pill on the dark rail, a solid white
+      // pill on the light rail (where white-on-white would vanish, leaving only
+      // the icon coloured).
+      className={cn('nav-row relative flex items-center cursor-pointer transition-colors duration-150', active && 'nav-row-active')}
       style={{
         padding: isExpanded ? '9px 12px' : '9px 0',
         margin: 0,
@@ -1119,22 +1110,10 @@ function NavLink({
         fontSize: 14,
         justifyContent: isExpanded ? 'flex-start' : 'center',
         gap: isExpanded ? 12 : 0,
-        // Active uses the macOS-style translucent fill instead of the
-        // old left-border + accent-text combo, so the row reads as a
-        // selected pill.
-        background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
         textDecoration: 'none',
         color: 'var(--text)',
         overflow: 'hidden',
         boxSizing: 'border-box',
-      }}
-      onMouseEnter={e => {
-        if (active) return
-        ;(e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'
-      }}
-      onMouseLeave={e => {
-        if (active) return
-        ;(e.currentTarget as HTMLElement).style.background = 'transparent'
       }}
     >
       <IconBox color={color} active={active}>{item.icon}</IconBox>
@@ -1152,11 +1131,14 @@ function NavLink({
         {t(item.label)}
       </span>
       {isExpanded && (() => {
-        // Unified Chat tab shows the SUM of unread across every room; a normal
-        // per-room chat link shows just its own count.
+        // Unified Chat tab shows the SUM of unread across the PROJECT rooms only;
+        // per-task chat unread ("task.*") is surfaced on the task cards / My Task
+        // and its own thread, so it doesn't inflate this badge (which would then
+        // never clear from opening the group chats). A normal per-room chat link
+        // shows just its own count.
         const room = chatRoomFromPath(item.href)
         const chatN = item.href === '/chat'
-          ? Object.values(unread ?? {}).reduce((a, b) => a + (b || 0), 0)
+          ? Object.entries(unread ?? {}).reduce((a, [rm, n]) => a + (rm.startsWith('task.') ? 0 : (n || 0)), 0)
           : room ? (unread?.[room] ?? 0) : 0
         // Board (posts) unread takes precedence for the project/board links;
         // chat links keep their own count. The two href sets don't overlap.
