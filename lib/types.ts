@@ -356,6 +356,17 @@ export interface Task {
   project?: Project
 }
 
+/** Full snapshot of a deleted contact and everything under it, stored in an
+ *  activity entry so the delete can be undone (Pulihkan) exactly as it was. */
+export interface ContactDeleteSnapshot {
+  contact: Contact
+  deals: Deal[]
+  projects: CrmProject[]
+  tasks: CrmTask[]
+  invoices: CrmInvoice[]
+  invoiceItems: CrmInvoiceItem[]
+}
+
 export interface ActivityLog {
   id: string
   message: string
@@ -363,7 +374,12 @@ export interface ActivityLog {
   created_at: string
   scope?: string | null
   // Reference to a restorable entity for soft-deleted contacts (Pulihkan action).
-  meta?: { kind?: 'client' | 'lead'; id?: string } | null
+  meta?: {
+    kind?: 'client' | 'lead' | 'contact-crm'
+    id?: string
+    restored?: boolean
+    snapshot?: ContactDeleteSnapshot
+  } | null
 }
 
 export interface FileAttachment {

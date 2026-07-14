@@ -83,7 +83,7 @@ export function useData() {
 export function useLogActivity() {
   const supabase = getSupabase()
 
-  return async (message: string, scope?: string, meta?: { kind?: 'client' | 'lead'; id?: string }) => {
+  return async (message: string, scope?: string, meta?: ActivityLog['meta']) => {
     let name: string | undefined
     {
       // Attribute to whoever performed the action, so the team feed shows their
