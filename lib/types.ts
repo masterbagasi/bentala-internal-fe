@@ -200,6 +200,15 @@ export interface CrmTask {
 
 export type CrmInvoiceStatus = 'DRAFT' | 'TERKIRIM' | 'SEBAGIAN' | 'LUNAS' | 'JATUH_TEMPO'
 export type CrmInvoiceTermin = 'FULL' | 'DP_50' | 'NET_14' | 'NET_30' | 'CUSTOM'
+/** A payment-proof file recorded on an invoice (stored in payment_proofs jsonb). */
+export interface PaymentProof {
+  url: string
+  name: string
+  amount?: number
+  at: string
+  /** Display name (or email) of the account that uploaded this proof. */
+  by?: string
+}
 export interface CrmInvoice {
   id: string
   number?: string | null
@@ -214,6 +223,7 @@ export interface CrmInvoice {
   status: CrmInvoiceStatus
   paid_amount: number
   notes?: string | null
+  payment_proofs?: PaymentProof[] | null
   created_at: string
   updated_at: string
 }
@@ -284,6 +294,13 @@ export interface SocialLink {
   value: string
 }
 
+/** One bank account shown on the invoice PDF (multiple supported). */
+export interface BankAccount {
+  bank_name: string
+  bank_account: string
+  bank_holder: string
+}
+
 /** Company + payment details printed on the invoice PDF (single shared row). */
 export interface InvoiceSettings {
   id: string
@@ -291,9 +308,12 @@ export interface InvoiceSettings {
   address: string
   phone: string
   email: string
+  /** Legacy single bank (kept in sync with bank_accounts[0] for the old tab). */
   bank_name: string
   bank_account: string
   bank_holder: string
+  /** Multiple bank accounts — the primary source for the invoice PDF. */
+  bank_accounts?: BankAccount[] | null
   terms: string
   socials: string
   social_links: SocialLink[]

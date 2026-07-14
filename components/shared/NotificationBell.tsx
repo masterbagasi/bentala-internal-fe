@@ -83,6 +83,8 @@ export function NotificationBell() {
   const followUps = useStore(s => s.followUps)
   const clients = useStore(s => s.clients)
   const clientTasks = useStore(s => s.clientTasks)
+  const crmInvoices = useStore(s => s.crmInvoices)
+  const contacts = useStore(s => s.contacts)
 
   const [open, setOpen] = useState(false)
   const [lastSeen, setLastSeen] = useState<number>(0)
@@ -358,11 +360,26 @@ export function NotificationBell() {
       })
     })
 
+    // Overdue CRM invoices — unpaid & past due date. Deep-links to the invoice.
+    crmInvoices.forEach(i => {
+      if (i.status === 'LUNAS' || i.status === 'DRAFT') return
+      if (!i.due_date || i.due_date >= today) return
+      const c = contacts.find(x => x.id === i.contact_id)
+      out.push({
+        id: `invoice-overdue-${i.id}`,
+        at: i.due_date,
+        author: c?.company_name || c?.name || t('Invoice'),
+        text: t('punya invoice lewat jatuh tempo'),
+        postTitle: i.number ? `#${i.number}` : undefined,
+        href: `/crm/invoices/${i.id}`,
+      })
+    })
+
     return out
       .filter((n, i, arr) => arr.findIndex(x => x.id === n.id) === i)
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
       .slice(0, 30)
-  }, [myMentions, myPosts, posts, me.name, me.email, chatMentions, roomName, projectSlugs, t, followUps, clients, clientTasks])
+  }, [myMentions, myPosts, posts, me.name, me.email, chatMentions, roomName, projectSlugs, t, followUps, clients, clientTasks, crmInvoices, contacts])
 
   const unread = notifs.filter(n => new Date(n.at).getTime() > lastSeen).length
 
