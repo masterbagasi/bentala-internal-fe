@@ -31,8 +31,8 @@ const initial = (v?: string | null) => (v && v.trim() ? v.trim()[0]!.toUpperCase
 export function ClientProjectsBoard() {
   const t = useT()
   const router = useRouter()
-  const { crmProjects, crmInvoices, crmInvoiceItems, deals, contacts, upsertCrmProject } = useStore(useShallow(s => ({
-    crmProjects: s.crmProjects, crmInvoices: s.crmInvoices, crmInvoiceItems: s.crmInvoiceItems, deals: s.deals, contacts: s.contacts, upsertCrmProject: s.upsertCrmProject,
+  const { crmProjects, crmInvoices, crmInvoiceItems, deals, contacts, upsertCrmProject, removeCrmProject } = useStore(useShallow(s => ({
+    crmProjects: s.crmProjects, crmInvoices: s.crmInvoices, crmInvoiceItems: s.crmInvoiceItems, deals: s.deals, contacts: s.contacts, upsertCrmProject: s.upsertCrmProject, removeCrmProject: s.removeCrmProject,
   })))
   const brands = useSocmedProjects()
   const brandBySlug = useMemo(() => new Map(brands.map(b => [b.slug, b] as const)), [brands])
@@ -57,6 +57,23 @@ export function ClientProjectsBoard() {
   }, [infoCol])
   const [linkFor, setLinkFor] = useState<CrmProject | null>(null) // create-tracking confirm (On Progress)
   const [busy, setBusy] = useState(false)
+  const [delFor, setDelFor] = useState<CrmProject | null>(null) // delete-contract confirm
+  const [delBusy, setDelBusy] = useState(false)
+
+  // Delete a contract from the board. Its manual tasks go too; linked invoices
+  // are unlinked (project_id → null via FK), not deleted, so finances are kept.
+  async function deleteContract() {
+    if (!delFor) return
+    setDelBusy(true)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = getSupabase() as any
+    await s.from('crm_tasks').delete().eq('project_id', delFor.id)
+    const { error } = await s.from('crm_projects').delete().eq('id', delFor.id)
+    setDelBusy(false)
+    if (error) { alert(t('Gagal menghapus contract') + ': ' + error.message); return }
+    removeCrmProject(delFor.id)
+    setDelFor(null)
+  }
 
   // Contract value is derived like the detail page: sum the project's invoice
   // totals (what's billed), else the linked deal's pipeline value, else stored.
@@ -184,8 +201,18 @@ export function ClientProjectsBoard() {
                     onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; draggedRef.v = false; setDragId(p.id) }}
                     onDragEnd={() => { draggedRef.v = true; setDragId(null); setOverCol(null) }}
                     onClick={() => { if (!draggedRef.v && !isPicked) router.push(`/crm/projects/${p.id}`) }}
-                    style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12, padding: 12, cursor: 'grab', opacity: isPicked ? 0.5 : 1, userSelect: 'none' }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.name}</div>
+                    style={{ position: 'relative', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12, padding: 12, cursor: 'grab', opacity: isPicked ? 0.5 : 1, userSelect: 'none' }}>
+                    <button draggable={false}
+                      onClick={e => { e.stopPropagation(); setDelFor(p) }}
+                      title={t('Hapus contract')}
+                      style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, display: 'grid', placeItems: 'center', padding: 0, borderRadius: 6, background: 'var(--bg2)', border: '1px solid var(--border)', color: 'var(--text3)', cursor: 'pointer' }}
+                      onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = '#ff6b6b'; (e.currentTarget as HTMLElement).style.borderColor = 'color-mix(in srgb, #ff6b6b 45%, var(--border))' }}
+                      onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text3)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', paddingRight: 28 }}>{p.name}</div>
                     {client && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
                         <span style={{ width: 17, height: 17, flexShrink: 0, borderRadius: 5, background: 'var(--bg2)', border: '1px solid var(--border)', display: 'grid', placeItems: 'center', fontSize: 9.5, fontWeight: 700, color: 'var(--text2)' }}>{initial(client)}</span>
@@ -227,6 +254,22 @@ export function ClientProjectsBoard() {
         cancelLabel={t('Batal')}
         onConfirm={confirmCreate}
         onCancel={() => { if (!busy) setLinkFor(null) }}
+      />
+
+      {/* Confirm deleting a contract from the board */}
+      <ConfirmDialog
+        open={!!delFor}
+        danger
+        title={t('Hapus contract?')}
+        message={delFor
+          ? (crmInvoices.some(i => i.project_id === delFor.id)
+            ? t('Contract ini punya invoice terkait. Invoice tidak ikut terhapus, hanya dilepas. Lanjut hapus?')
+            : `“${delFor.name}” ${t('akan dihapus permanen. Lanjut?')}`)
+          : ''}
+        confirmLabel={delBusy ? t('Menghapus…') : t('Hapus')}
+        cancelLabel={t('Batal')}
+        onConfirm={deleteContract}
+        onCancel={() => { if (!delBusy) setDelFor(null) }}
       />
     </div>
   )
