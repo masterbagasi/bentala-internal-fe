@@ -16,15 +16,16 @@ import { CrmProjectFormModal } from './CrmProjectFormModal'
 import { InvoiceFormModal } from './InvoiceFormModal'
 import { PostPreviewModal } from '@/components/BPI/PostPreviewModal'
 import { PostModal } from '@/components/BPI/PostModal'
+import { ConfirmDialog } from '@/components/shared/Modal'
 import type { CrmTask, CrmProject } from '@/lib/types'
 
 export function CrmProjectDetail({ id }: { id: string }) {
   const t = useT()
   const router = useRouter()
-  const { crmProjects, crmTasks, contacts, deals, posts, crmInvoices, crmInvoiceItems, meName, upsertCrmTask, removeCrmTask, upsertCrmProject } = useStore(useShallow(s => ({
+  const { crmProjects, crmTasks, contacts, deals, posts, crmInvoices, crmInvoiceItems, meName, upsertCrmTask, removeCrmTask, upsertCrmProject, removeCrmProject } = useStore(useShallow(s => ({
     crmProjects: s.crmProjects, crmTasks: s.crmTasks, contacts: s.contacts, deals: s.deals, posts: s.posts,
     crmInvoices: s.crmInvoices, crmInvoiceItems: s.crmInvoiceItems, meName: s.meName,
-    upsertCrmTask: s.upsertCrmTask, removeCrmTask: s.removeCrmTask, upsertCrmProject: s.upsertCrmProject,
+    upsertCrmTask: s.upsertCrmTask, removeCrmTask: s.removeCrmTask, upsertCrmProject: s.upsertCrmProject, removeCrmProject: s.removeCrmProject,
   })))
   // Edit-task access mirrors the SMM board: the task's creator OR a super admin.
   const [isSuper, setIsSuper] = useState(false)
@@ -35,6 +36,8 @@ export function CrmProjectDetail({ id }: { id: string }) {
   const project = crmProjects.find(p => p.id === id)
   const [edit, setEdit] = useState(false)
   const [invoice, setInvoice] = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [delBusy, setDelBusy] = useState(false)
   const [previewId, setPreviewId] = useState<string | null>(null) // SMM task detail popup
   const [editPostId, setEditPostId] = useState<string | null>(null) // edit form from the preview
   const [taskName, setTaskName] = useState('')
@@ -72,6 +75,20 @@ export function CrmProjectDetail({ id }: { id: string }) {
     removeCrmTask(task.id)
     await sb().from('crm_tasks').delete().eq('id', task.id)
   }
+  // Delete this contract. Its manual tasks go too; linked invoices are unlinked
+  // (project_id → null via FK), not deleted, so financial records are kept.
+  async function deleteContract() {
+    if (!project) return
+    setDelBusy(true)
+    const s = sb()
+    await s.from('crm_tasks').delete().eq('project_id', project.id)
+    const { error } = await s.from('crm_projects').delete().eq('id', project.id)
+    setDelBusy(false)
+    if (error) { alert(t('Gagal menghapus contract') + ': ' + error.message); return }
+    removeCrmProject(project.id)
+    setConfirmDel(false)
+    router.push('/crm/projects')
+  }
   async function setStatus(status: string) {
     const p = project as CrmProject
     upsertCrmProject({ ...p, status } as CrmProject)
@@ -106,6 +123,7 @@ export function CrmProjectDetail({ id }: { id: string }) {
           {PROJECT_STATUSES.map(s => <option key={s} value={s}>{PROJECT_STATUS_LABEL[s]}</option>)}
         </select>
         <button onClick={() => setEdit(true)} style={btnGhost}>{t('Edit')}</button>
+        <button onClick={() => setConfirmDel(true)} style={{ ...btnGhost, color: '#ff6b6b', borderColor: 'color-mix(in srgb, #ff6b6b 45%, var(--border))' }}>{t('Hapus')}</button>
       </div>
 
       {/* Hero header — status-tinted left rail */}
@@ -232,6 +250,17 @@ export function CrmProjectDetail({ id }: { id: string }) {
       </div>
 
       {edit && <CrmProjectFormModal open project={project} onClose={() => setEdit(false)} />}
+      <ConfirmDialog
+        open={confirmDel}
+        danger
+        title={t('Hapus contract?')}
+        message={projInvoices.length > 0
+          ? t('Contract ini punya invoice terkait. Invoice tidak ikut terhapus, hanya dilepas dari contract ini. Lanjut hapus?')
+          : t('Contract ini akan dihapus permanen. Lanjut?')}
+        confirmLabel={delBusy ? t('Menghapus…') : t('Hapus')}
+        onConfirm={deleteContract}
+        onCancel={() => { if (!delBusy) setConfirmDel(false) }}
+      />
       {invoice && <InvoiceFormModal open prefillProject={project} onClose={() => setInvoice(false)} onSaved={inv => router.push(`/crm/invoices/${inv.id}`)} />}
       {previewId && (() => {
         // Same rule as the SMM board: only the task's creator (created_by is a
