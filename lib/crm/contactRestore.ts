@@ -44,19 +44,41 @@ export async function hardDeleteContact(snap: ContactDeleteSnapshot) {
   st.removeContact(snap.contact.id)
 }
 
-/** Re-insert a snapshot (parent → child, original ids preserved so every FK
- *  lines back up) and push it into the store. Restores contact + pipeline +
- *  contracts + invoices exactly as before the delete. */
+/** Re-insert a snapshot (original ids preserved so every FK lines back up) and
+ *  push it into the store. Restores contact + pipeline + contracts + invoices
+ *  exactly as before the delete.
+ *
+ *  Uses upsert throughout so a retry after a partial failure is safe. Handles the
+ *  deals ⇄ crm_projects cycle (deals.crm_project_id → crm_projects, and
+ *  crm_projects.deal_id → deals) by inserting deals WITHOUT their crm_project_id
+ *  first, then the projects, then re-linking the deals. */
 export async function restoreContactSnapshot(snap: ContactDeleteSnapshot) {
   const s = sb()
   const st = useStore.getState()
-  { const { error } = await s.from('contacts').insert(snap.contact); if (error) throw error }
+
+  { const { error } = await s.from('contacts').upsert(snap.contact); if (error) throw error }
+
+  if (snap.deals.length) {
+    // Break the cycle: crm_project_id points at a project not yet restored.
+    const dealsNoLink = snap.deals.map(d => ({ ...d, crm_project_id: null }))
+    const { error } = await s.from('deals').upsert(dealsNoLink); if (error) throw error
+  }
+  if (snap.projects.length) { const { error } = await s.from('crm_projects').upsert(snap.projects); if (error) throw error }
+  // Re-link deals to their crm_project now that the projects exist.
+  for (const d of snap.deals) {
+    if (d.crm_project_id) { const { error } = await s.from('deals').update({ crm_project_id: d.crm_project_id }).eq('id', d.id); if (error) throw error }
+  }
+  if (snap.tasks.length) { const { error } = await s.from('crm_tasks').upsert(snap.tasks); if (error) throw error }
+  if (snap.invoices.length) { const { error } = await s.from('crm_invoices').upsert(snap.invoices); if (error) throw error }
+  if (snap.invoiceItems.length) { const { error } = await s.from('crm_invoice_items').upsert(snap.invoiceItems); if (error) throw error }
+
+  // Store reflects the final (fully-linked) state.
   st.upsertContact(snap.contact)
-  if (snap.deals.length) { const { error } = await s.from('deals').insert(snap.deals); if (error) throw error; snap.deals.forEach(st.upsertDeal) }
-  if (snap.projects.length) { const { error } = await s.from('crm_projects').insert(snap.projects); if (error) throw error; snap.projects.forEach(st.upsertCrmProject) }
-  if (snap.tasks.length) { const { error } = await s.from('crm_tasks').insert(snap.tasks); if (error) throw error; snap.tasks.forEach(st.upsertCrmTask) }
-  if (snap.invoices.length) { const { error } = await s.from('crm_invoices').insert(snap.invoices); if (error) throw error; snap.invoices.forEach(st.upsertCrmInvoice) }
-  if (snap.invoiceItems.length) { const { error } = await s.from('crm_invoice_items').insert(snap.invoiceItems); if (error) throw error; snap.invoiceItems.forEach(st.upsertCrmInvoiceItem) }
+  snap.deals.forEach(st.upsertDeal)
+  snap.projects.forEach(st.upsertCrmProject)
+  snap.tasks.forEach(st.upsertCrmTask)
+  snap.invoices.forEach(st.upsertCrmInvoice)
+  snap.invoiceItems.forEach(st.upsertCrmInvoiceItem)
 }
 
 /** Flag an activity row as restored in the DB + store so its Pulihkan button
