@@ -117,7 +117,7 @@ export function CrmProjectDetail({ id }: { id: string }) {
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16, minHeight: '100%', boxSizing: 'border-box' }}>
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <Link href="/crm/projects" style={{ fontSize: 12.5, color: 'var(--text3)', textDecoration: 'none' }}>← {t('Contracts')}</Link>
+        <Link href="/crm/projects" style={{ fontSize: 12.5, color: 'var(--text3)', textDecoration: 'none' }}>← {t('Order List')}</Link>
         <span style={{ flex: 1 }} />
         <select value={project.status} onChange={e => setStatus(e.target.value)} style={{ ...inStyle, width: 'auto', height: 36, cursor: 'pointer' }}>
           {PROJECT_STATUSES.map(s => <option key={s} value={s}>{PROJECT_STATUS_LABEL[s]}</option>)}

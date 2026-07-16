@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/hooks/useStore'
 import { useShallow } from 'zustand/react/shallow'
@@ -28,7 +28,7 @@ const COL_STATUS: Record<Col, CrmProjectStatus> = { WAITING: 'BELUM_MULAI', TODO
 
 const initial = (v?: string | null) => (v && v.trim() ? v.trim()[0]!.toUpperCase() : '?')
 
-export function ClientProjectsBoard() {
+export function ClientProjectsBoard({ header }: { header?: ReactNode } = {}) {
   const t = useT()
   const router = useRouter()
   const { crmProjects, crmInvoices, crmInvoiceItems, deals, contacts, upsertCrmProject, removeCrmProject } = useStore(useShallow(s => ({
@@ -155,6 +155,7 @@ export function ClientProjectsBoard() {
 
   return (
     <div style={{ padding: 24 }}>
+      {header}
       <div style={{ display: 'flex', gap: 14, overflowX: 'auto', alignItems: 'flex-start', margin: '0 -24px', padding: '0 24px 8px', scrollPaddingLeft: 24 }}>
         {COLS.map(c => {
           const list = byCol[c.key]
@@ -186,7 +187,10 @@ export function ClientProjectsBoard() {
               </div>
 
               {list.length === 0 && (
-                <div style={{ fontSize: 11.5, color: 'var(--text3)', textAlign: 'center', padding: '18px 0', border: '1px dashed var(--border)', borderRadius: 10 }}>—</div>
+                <div style={{ display: 'grid', placeItems: 'center', gap: 6, textAlign: 'center', padding: '22px 10px', border: `1.5px dashed ${isOver ? c.color : 'var(--border)'}`, borderRadius: 10, color: 'var(--text3)', background: isOver ? `color-mix(in srgb, ${c.color} 8%, transparent)` : 'transparent', transition: 'background .12s, border-color .12s' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18" /></svg>
+                  <span style={{ fontSize: 11, fontWeight: 500 }}>{t('Kosong')}</span>
+                </div>
               )}
 
               {list.map(p => {

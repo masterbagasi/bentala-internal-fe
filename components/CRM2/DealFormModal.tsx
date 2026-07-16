@@ -11,7 +11,6 @@ import { useLogActivity } from '@/hooks/useData'
 import { PIPELINE_SCOPE } from './ContactsActivity'
 import { InvoiceFormModal } from './InvoiceFormModal'
 import type { Deal, CrmProject } from '@/lib/types'
-import { formatRupiah } from '@/lib/utils'
 import { dealSchema, zodErrors, DEAL_STAGES, STAGE_LABEL, SERVICE_OPTIONS, type DealInput } from '@/lib/crm/schema'
 import { Field, Row, Input, Select, Err, inStyle, taStyle, CRM_DATE_TRIGGER } from './ui'
 import { SingleDatePicker } from '@/components/Social/DateRangePicker'
@@ -220,8 +219,10 @@ export function DealFormModal({ open, deal, lockContactId, prefillStage, onClose
         </Field>
         <Row>
           <Field label={t('Nilai') + ' *'} error={errors.value}>
-            <Input value={valueStr} onChange={setValueStr} placeholder="0" />
-            {valueStr && <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 5 }}>{formatRupiah(Number(valueStr.replace(/[^0-9.]/g, '')) || 0)}</div>}
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', fontSize: 13.5, fontWeight: 600, pointerEvents: 'none' }}>Rp</span>
+              <input value={groupID(valueStr)} onChange={e => setValueStr(e.target.value.replace(/\D/g, ''))} inputMode="numeric" placeholder="0" style={{ ...inStyle, paddingLeft: 36 }} />
+            </div>
           </Field>
           <Field label="Stage" error={errors.stage}>
             <Select value={form.stage} onChange={v => set('stage', v as DealInput['stage'])}
@@ -245,3 +246,6 @@ export function DealFormModal({ open, deal, lockContactId, prefillStage, onClose
     </>
   )
 }
+
+/** "1000000" → "1.000.000" (Indonesian thousands). */
+const groupID = (digits: string) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.')

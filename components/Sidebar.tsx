@@ -474,7 +474,7 @@ export function Sidebar() {
         { href: '/crm/dashboard',     label: 'Dashboard',          icon: <DashboardIcon />, color: COLOR.blue },
         { href: '/contacts',          label: 'Contacts',           icon: <PeopleIcon />,    color: COLOR.teal },
         { href: '/pipeline',          label: 'Pipeline',           icon: <ListIcon />,      color: COLOR.purple },
-        { href: '/crm/projects',      label: 'Contracts',          icon: <FolderIcon />,    color: COLOR.orange },
+        { href: '/crm/projects',      label: 'Order List',         icon: <FolderIcon />,    color: COLOR.orange },
         { href: '/crm/invoices',      label: 'Invoices',           icon: <MoneyIcon />,     color: COLOR.green },
         { href: '/sales-report',      label: 'Reports',            icon: <ReportIcon />,    color: COLOR.indigo },
       ],

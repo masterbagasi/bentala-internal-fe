@@ -14,12 +14,16 @@ import type { CrmProject } from '@/lib/types'
 const initial = (v?: string | null) => (v && v.trim() ? v.trim()[0]!.toUpperCase() : '?')
 const fmtDay = (d: string) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
 
-export function CrmProjectsList() {
+/** View + Add-modal state are owned by the page (so the tabs live in PageHeader,
+ *  like the SMM "All Project" view). This component just renders the content. */
+export function CrmProjectsList({ view, addOpen, onAddOpenChange }: {
+  view: 'board' | 'list'
+  addOpen: boolean
+  onAddOpenChange: (open: boolean) => void
+}) {
   const t = useT()
   const router = useRouter()
   const { crmProjects, crmInvoices, crmInvoiceItems, deals, contacts } = useStore(useShallow(s => ({ crmProjects: s.crmProjects, crmInvoices: s.crmInvoices, crmInvoiceItems: s.crmInvoiceItems, deals: s.deals, contacts: s.contacts })))
-  const [add, setAdd] = useState(false)
-  const [view, setView] = useState<'list' | 'board'>('board')
   const contactOf = useMemo(() => new Map(contacts.map(c => [c.id, c] as const)), [contacts])
 
   // Contract value derived like the board/detail: invoice total, else deal value, else stored.
@@ -28,26 +32,6 @@ export function CrmProjectsList() {
       .reduce((sum, inv) => sum + invoiceTotals(crmInvoiceItems.filter(it => it.invoice_id === inv.id), inv.discount ?? 0, !!inv.tax_enabled).total, 0)
     if (invTot > 0) return invTot
     return deals.find(d => d.id === p.deal_id)?.value || p.contract_value || 0
-  }
-
-  const toggle = (
-    <div style={{ display: 'inline-flex', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: 3, gap: 3 }}>
-      {(['board', 'list'] as const).map(v => (
-        <button key={v} onClick={() => setView(v)}
-          style={{ padding: '5px 14px', fontSize: 12.5, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: view === v ? 'var(--bg2)' : 'transparent', color: view === v ? 'var(--text)' : 'var(--text3)' }}>
-          {v === 'board' ? t('Board') : t('List')}
-        </button>
-      ))}
-    </div>
-  )
-
-  if (view === 'board') {
-    return (
-      <div>
-        <div style={{ padding: '18px 24px 0' }}>{toggle}</div>
-        <ClientProjectsBoard />
-      </div>
-    )
   }
 
   // A project is "fixed" and belongs here only once it has an invoice with
@@ -69,45 +53,26 @@ export function CrmProjectsList() {
     return m
   }, [projects])
 
-  const totalValue = useMemo(() => projects.reduce((n, p) => n + valueOf(p), 0), [projects]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Add-project modal — rendered in both views (the Add button lives in the page header).
+  const addModal = addOpen && <CrmProjectFormModal open onClose={() => onAddOpenChange(false)} onSaved={p => router.push(`/crm/projects/${p.id}`)} />
+
+  // Board view — early return AFTER all hooks are called (Rules of Hooks).
+  if (view === 'board') return <><ClientProjectsBoard />{addModal}</>
+
   const activeStatuses = PROJECT_STATUSES.filter(s => (byStatus[s] ?? []).length > 0)
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ── Summary header ─────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap', marginBottom: 22 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text3)', marginBottom: 6 }}>{t('Ringkasan Proyek')}</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{projects.length}</span>
-            <span style={{ fontSize: 13.5, color: 'var(--text2)' }}>{t('proyek')}</span>
-            {totalValue > 0 && (
-              <span style={{ fontSize: 13.5, color: 'var(--text3)' }}>· {formatRupiah(totalValue)} {t('total nilai kontrak')}</span>
-            )}
-          </div>
-          {/* Status distribution bar — width per segment tracks project count. */}
-          {activeStatuses.length > 0 && (
-            <div style={{ display: 'flex', gap: 3, marginTop: 12, height: 6, width: 260, maxWidth: '100%' }}>
-              {activeStatuses.map(s => (
-                <div key={s} title={`${PROJECT_STATUS_LABEL[s]}: ${(byStatus[s] ?? []).length}`}
-                  style={{ flex: (byStatus[s] ?? []).length, background: PROJECT_STATUS_COLOR[s], borderRadius: 3, minWidth: 6 }} />
-              ))}
-            </div>
-          )}
-        </div>
-        <span style={{ flex: 1 }} />
-        {toggle}
-        <button onClick={() => setAdd(true)}
-          style={{ height: 40, padding: '0 18px', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> {t('Tambah Project')}
-        </button>
-      </div>
-
       {projects.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '64px 0', color: 'var(--text2)', border: '1px dashed var(--border)', borderRadius: 14 }}>
-          <div style={{ fontSize: 34, marginBottom: 10 }}>📁</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{t('Belum ada proyek berjalan')}</div>
-          {t('Proyek muncul di sini setelah deal-nya dibuatkan invoice dan pembayaran mulai masuk. Buat invoice dari Pipeline.')}
+        <div style={{ display: 'grid', placeItems: 'center', gap: 14, textAlign: 'center', padding: '56px 24px', border: '1.5px dashed var(--border)', borderRadius: 16, background: 'var(--bg2)' }}>
+          <div style={{ width: 52, height: 52, borderRadius: 14, display: 'grid', placeItems: 'center', background: 'var(--bg3)', color: 'var(--text3)' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>{t('Belum ada proyek berjalan')}</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', maxWidth: 440, lineHeight: 1.6 }}>{t('Proyek muncul di sini setelah deal-nya dibuatkan invoice dan pembayaran mulai masuk.')}</div>
+          </div>
+          <button onClick={() => router.push('/pipeline')} style={{ height: 38, padding: '0 16px', display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg3)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{t('Buka Pipeline')} →</button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
@@ -134,7 +99,7 @@ export function CrmProjectsList() {
         </div>
       )}
 
-      {add && <CrmProjectFormModal open onClose={() => setAdd(false)} onSaved={p => router.push(`/crm/projects/${p.id}`)} />}
+      {addModal}
     </div>
   )
 }
