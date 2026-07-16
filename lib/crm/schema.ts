@@ -28,7 +28,7 @@ export const contactSchema = z.object({
   category: z.enum(CONTACT_CATEGORIES),
   job_title: z.string().trim().default(''),
   email: z.string().trim().email('Email tidak valid').or(z.literal('')).default(''),
-  phone: z.string().trim().min(1, 'Telepon wajib diisi'),
+  phone: z.string().trim().default(''),
   instagram: z.string().trim().default(''),
   source: z.enum(CONTACT_SOURCES),
   owner_email: z.string().trim().default(''),

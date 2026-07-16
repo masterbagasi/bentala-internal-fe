@@ -155,7 +155,7 @@ export function ClientProjectsBoard() {
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', gap: 14, overflowX: 'auto', alignItems: 'flex-start', paddingBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 14, overflowX: 'auto', alignItems: 'flex-start', margin: '0 -24px', padding: '0 24px 8px', scrollPaddingLeft: 24 }}>
         {COLS.map(c => {
           const list = byCol[c.key]
           const sum = list.reduce((n, p) => n + valueOf(p), 0)
