@@ -243,8 +243,9 @@ export function DealsPipeline() {
         )}
       </div>
 
-      {/* Kanban */}
-      <div ref={boardRef} style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }}>
+      {/* Kanban — full-bleed scroll row: break out of the page padding, then pad
+          INSIDE the scroll container so the first/last column never gets clipped. */}
+      <div ref={boardRef} style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '0 24px 8px', alignItems: 'flex-start', scrollPaddingLeft: 24 }}>
         {DEAL_STAGES.map(stage => {
           const list = byStage[stage] ?? []
           const color = STAGE_COLOR[stage]
