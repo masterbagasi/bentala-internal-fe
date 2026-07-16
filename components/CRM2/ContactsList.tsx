@@ -247,7 +247,11 @@ export function ContactsList() {
       <div style={{ display: 'flex', gap: 16, alignItems: 'stretch', flex: 1, minHeight: 0 }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       <div ref={tableBoxRef} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'auto', flex: 1, minHeight: 0, width: '100%' }}>
-        <table style={{ width: '100%', minWidth: 1000, tableLayout: 'auto' }}>
+        {/* Fixed intrinsic width (no width:100%) so the columns stay the SAME size
+            whether the detail panel is open or closed — the box scrolls instead of
+            squeezing the columns. */}
+        <style>{`.ct-table th { white-space: nowrap; }`}</style>
+        <table className="ct-table" style={{ width: 1500, minWidth: 1500, tableLayout: 'auto' }}>
           <thead>
             <tr>
               {selectMode && (
